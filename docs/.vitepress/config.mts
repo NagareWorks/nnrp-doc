@@ -1,0 +1,411 @@
+import { defineConfig } from "vitepress";
+import { withMermaid } from "vitepress-plugin-mermaid";
+import { fileURLToPath } from "node:url";
+
+const dayjsEsmPath = fileURLToPath(
+  new URL("../../node_modules/.deno/dayjs@1.11.20/node_modules/dayjs/esm/index.js", import.meta.url)
+);
+const sanitizeUrlShimPath = fileURLToPath(new URL("./shims/sanitize-url.ts", import.meta.url));
+
+const customStyle = `
+:root {
+  --nnrp-surface: linear-gradient(135deg, rgba(10, 58, 66, 0.08), rgba(196, 96, 38, 0.12));
+  --nnrp-border: rgba(19, 68, 84, 0.18);
+  --nnrp-text-soft: #4b5563;
+}
+
+.VPLocalNav {
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.VPNavBarTranslations .items .VPMenuLink:first-of-type,
+.VPNavBarExtra .group.translations .VPMenuLink:first-of-type {
+  display: none;
+}
+
+.version-switch {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 28px;
+}
+
+.version-switch a {
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--nnrp-border);
+  border-radius: 16px;
+  background: var(--nnrp-surface);
+  text-decoration: none;
+  color: inherit;
+}
+
+.version-switch strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 20px 0 28px;
+}
+
+.doc-card {
+  padding: 16px;
+  border: 1px solid var(--nnrp-border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.06);
+}
+
+.doc-card h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.doc-card p {
+  margin: 0;
+  color: var(--nnrp-text-soft);
+}
+
+.protocol-diagram {
+  margin: 20px 0;
+  display: grid;
+  gap: 10px;
+}
+
+.protocol-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.protocol-block {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-height: 88px;
+  padding: 14px 12px;
+  border: 1px solid var(--nnrp-border);
+  border-radius: 18px;
+  line-height: 1.4;
+  cursor: default;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+.protocol-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.1);
+  filter: saturate(1.05);
+}
+
+.tone-a { background: #dff4f1; }
+.tone-b { background: #f5efe5; }
+.tone-c { background: #e7eef9; }
+.tone-d { background: #f8e5e1; }
+.tone-e { background: #ece8f7; }
+
+.field-offset {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--nnrp-text-soft);
+}
+
+.field-name {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.field-size {
+  font-size: 12px;
+  color: var(--nnrp-text-soft);
+}
+
+.field-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 2;
+  width: min(280px, 72vw);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 6px);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.protocol-block:hover .field-tip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.protocol-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0 28px;
+}
+
+.protocol-table th,
+.protocol-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--vp-c-divider);
+  text-align: left;
+  vertical-align: top;
+}
+
+.page-note {
+  margin: 14px 0 22px;
+  padding: 14px 16px;
+  border-left: 4px solid #0f766e;
+  border-radius: 0 14px 14px 0;
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--nnrp-text-soft);
+}
+
+.layout-note {
+  margin: 12px 0 22px;
+  color: var(--nnrp-text-soft);
+}
+
+@media (max-width: 640px) {
+  .protocol-row {
+    flex-wrap: wrap;
+  }
+
+  .protocol-block {
+    min-width: calc(50% - 5px);
+  }
+
+  .field-tip {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    transform: translateY(6px);
+  }
+
+  .protocol-block:hover .field-tip {
+    transform: translateY(0);
+  }
+}
+`;
+
+const zhSidebar = {
+  "/zh/": [
+  {
+    text: "文档总览",
+    items: [
+      { text: "总览", link: "/zh/" },
+      { text: "协议背景与介绍", link: "/zh/background" },
+      { text: "常见场景与边界", link: "/zh/use-cases" }
+    ]
+  },
+  {
+    text: "协议指南",
+    collapsed: false,
+    items: [
+      { text: "快速上手", link: "/zh/protocol/v1/quick-start" },
+      { text: "会话与操作模型", link: "/zh/protocol/v1/operation-model" },
+      { text: "传输策略与探测", link: "/zh/protocol/v1/transport-strategy" },
+      { text: "核心对象与流程", link: "/zh/core-concepts" },
+      { text: "公共头", link: "/zh/common-header" },
+      {
+        text: "类型化载荷描述符",
+        link: "/zh/typed-payload-descriptor"
+      },
+      {
+        text: "标准 Profiles",
+        collapsed: true,
+        items: [
+          { text: "Tensor Profile", link: "/zh/profiles/tensor" },
+          { text: "Tensor Descriptor 公共头", link: "/zh/profiles/tensor/descriptor-header" },
+          { text: "Tensor Schema 与 Body", link: "/zh/profiles/tensor/schema-body" },
+          { text: "Tensor Payload Frame", link: "/zh/profiles/tensor/payload-frame" },
+          { text: "Token Profile", link: "/zh/profiles/token" },
+          { text: "Token Descriptor 公共头", link: "/zh/profiles/token/descriptor-header" },
+          { text: "Token Schema 与 Body", link: "/zh/profiles/token/schema-body" },
+          { text: "Token Payload Frame", link: "/zh/profiles/token/payload-frame" }
+        ]
+      }
+    ]
+  },
+  {
+    text: "版本管理",
+    collapsed: true,
+    items: [
+      { text: "版本与兼容", link: "/zh/protocol/" },
+      { text: "NNRP/1（预览）", link: "/zh/protocol/v1/" }
+    ]
+  }
+  ,
+    {
+      text: "协议设计",
+      collapsed: true,
+      items: [
+        { text: "设计索引", link: "/zh/design/" },
+        { text: "v1-preview1", link: "/zh/design/v1-preview1" },
+        { text: "v1-preview2", link: "/zh/design/v1-preview2" },
+        { text: "v1-preview3", link: "/zh/design/v1-preview3" }
+      ]
+    }
+  ]
+};
+
+const enSidebar = {
+  "/en/": [
+  {
+    text: "Documentation",
+    items: [
+      { text: "Overview", link: "/en/" },
+      { text: "Background and Intro", link: "/en/background" },
+      { text: "Use Cases and Boundaries", link: "/en/use-cases" }
+    ]
+  },
+  {
+    text: "Guides",
+    collapsed: false,
+    items: [
+      { text: "Quick Start", link: "/en/protocol/v1/quick-start" },
+      { text: "Session and Operation Model", link: "/en/protocol/v1/operation-model" },
+      { text: "Transport Strategy and Probing", link: "/en/protocol/v1/transport-strategy" },
+      { text: "Core Objects and Flow", link: "/en/core-concepts" },
+      { text: "Common Header", link: "/en/common-header" },
+      {
+        text: "Typed Payload Descriptor",
+        link: "/en/typed-payload-descriptor"
+      },
+      {
+        text: "Standard Profiles",
+        collapsed: true,
+        items: [
+          { text: "Tensor Profile", link: "/en/profiles/tensor" },
+          { text: "Tensor Descriptor Common Header", link: "/en/profiles/tensor/descriptor-header" },
+          { text: "Tensor Schema and Body", link: "/en/profiles/tensor/schema-body" },
+          { text: "Tensor Payload Frame", link: "/en/profiles/tensor/payload-frame" },
+          { text: "Token Profile", link: "/en/profiles/token" },
+          { text: "Token Descriptor Common Header", link: "/en/profiles/token/descriptor-header" },
+          { text: "Token Schema and Body", link: "/en/profiles/token/schema-body" },
+          { text: "Token Payload Frame", link: "/en/profiles/token/payload-frame" }
+        ]
+      }
+    ]
+  },
+  {
+    text: "Version Management",
+    collapsed: true,
+    items: [
+      { text: "Versions and Compatibility", link: "/en/protocol/" },
+      { text: "NNRP/1 (Preview)", link: "/en/protocol/v1/" }
+    ]
+  }
+  ,
+    {
+      text: "Protocol Design",
+      collapsed: true,
+      items: [
+        { text: "Design Index", link: "/en/design/" },
+        { text: "v1-preview1", link: "/en/design/v1-preview1" },
+        { text: "v1-preview2", link: "/en/design/v1-preview2" },
+        { text: "v1-preview3", link: "/en/design/v1-preview3" }
+      ]
+    }
+  ]
+};
+
+export default withMermaid(defineConfig({
+  title: "NNRP",
+  description: "Neural Network Runtime Protocol documentation",
+  lang: "en-US",
+  base: "/nnrp-doc/",
+  head: [["style", {}, customStyle]],
+  cleanUrls: true,
+  lastUpdated: true,
+  locales: {
+    root: {
+      label: "Home",
+      lang: "en-US",
+      themeConfig: {
+        nav: [
+          { text: "简体中文", link: "/zh/" },
+          { text: "English", link: "/en/" }
+        ],
+        sidebar: {},
+        socialLinks: [
+          { icon: "github", link: "https://github.com/" }
+        ]
+      }
+    },
+    zh: {
+      label: "简体中文",
+      lang: "zh-CN",
+      link: "/zh/",
+      themeConfig: {
+        nav: [
+          { text: "文档", link: "/zh/" }
+        ],
+        sidebar: zhSidebar,
+        socialLinks: [
+          { icon: "github", link: "https://github.com/" }
+        ]
+      }
+    },
+    en: {
+      label: "English",
+      lang: "en-US",
+      link: "/en/",
+      themeConfig: {
+        nav: [
+          { text: "Docs", link: "/en/" }
+        ],
+        sidebar: enSidebar,
+        socialLinks: [
+          { icon: "github", link: "https://github.com/" }
+        ]
+      }
+    }
+  },
+  themeConfig: {
+    search: {
+      provider: "local",
+      options: {
+        detailedView: true,
+        miniSearch: {
+          searchOptions: {
+            fuzzy: 0.2,
+            prefix: true
+          }
+        }
+      }
+    },
+    logo: "/logo.svg",
+    footer: {
+      message: "NNRP Documentation",
+      copyright: "Copyright © NNRP"
+    }
+  },
+  vite: {
+    resolve: {
+      alias: [
+        {
+          find: /^dayjs$/,
+          replacement: dayjsEsmPath
+        },
+        {
+          find: /^@braintree\/sanitize-url$/,
+          replacement: sanitizeUrlShimPath
+        }
+      ]
+    }
+  },
+  mermaid: {}
+}));
