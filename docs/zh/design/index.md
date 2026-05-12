@@ -12,4 +12,4 @@
 
 1. `v1-preview1` 主要记录最小可运行协议骨架。
 2. `v1-preview2` 主要记录 typed payload、多传输绑定和 richer data plane 的冻结。
-3. `v1-preview3` 主要记录 profile-neutral 公共层、多 session 与 Rust canonical SDK 约束。
+3. `v1-preview3` 主要记录 profile-neutral 公共层与多 session 模型。

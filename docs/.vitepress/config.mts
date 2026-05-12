@@ -227,14 +227,26 @@ const zhSidebar = {
         text: "标准 Profiles",
         collapsed: true,
         items: [
-          { text: "Tensor Profile", link: "/zh/profiles/tensor" },
-          { text: "Tensor Descriptor 公共头", link: "/zh/profiles/tensor/descriptor-header" },
-          { text: "Tensor Schema 与 Body", link: "/zh/profiles/tensor/schema-body" },
-          { text: "Tensor Payload Frame", link: "/zh/profiles/tensor/payload-frame" },
-          { text: "Token Profile", link: "/zh/profiles/token" },
-          { text: "Token Descriptor 公共头", link: "/zh/profiles/token/descriptor-header" },
-          { text: "Token Schema 与 Body", link: "/zh/profiles/token/schema-body" },
-          { text: "Token Payload Frame", link: "/zh/profiles/token/payload-frame" }
+          {
+            text: "Tensor Profile",
+            collapsed: true,
+            items: [
+              { text: "概览", link: "/zh/profiles/tensor" },
+              { text: "Tensor Descriptor 公共头", link: "/zh/profiles/tensor/descriptor-header" },
+              { text: "Tensor Schema 与 Body", link: "/zh/profiles/tensor/schema-body" },
+              { text: "Tensor Payload Frame", link: "/zh/profiles/tensor/payload-frame" }
+            ]
+          },
+          {
+            text: "Token Profile",
+            collapsed: true,
+            items: [
+              { text: "概览", link: "/zh/profiles/token" },
+              { text: "Token Descriptor 公共头", link: "/zh/profiles/token/descriptor-header" },
+              { text: "Token Schema 与 Body", link: "/zh/profiles/token/schema-body" },
+              { text: "Token Payload Frame", link: "/zh/profiles/token/payload-frame" }
+            ]
+          }
         ]
       }
     ]
@@ -288,14 +300,26 @@ const enSidebar = {
         text: "Standard Profiles",
         collapsed: true,
         items: [
-          { text: "Tensor Profile", link: "/en/profiles/tensor" },
-          { text: "Tensor Descriptor Common Header", link: "/en/profiles/tensor/descriptor-header" },
-          { text: "Tensor Schema and Body", link: "/en/profiles/tensor/schema-body" },
-          { text: "Tensor Payload Frame", link: "/en/profiles/tensor/payload-frame" },
-          { text: "Token Profile", link: "/en/profiles/token" },
-          { text: "Token Descriptor Common Header", link: "/en/profiles/token/descriptor-header" },
-          { text: "Token Schema and Body", link: "/en/profiles/token/schema-body" },
-          { text: "Token Payload Frame", link: "/en/profiles/token/payload-frame" }
+          {
+            text: "Tensor Profile",
+            collapsed: true,
+            items: [
+              { text: "Overview", link: "/en/profiles/tensor" },
+              { text: "Tensor Descriptor Common Header", link: "/en/profiles/tensor/descriptor-header" },
+              { text: "Tensor Schema and Body", link: "/en/profiles/tensor/schema-body" },
+              { text: "Tensor Payload Frame", link: "/en/profiles/tensor/payload-frame" }
+            ]
+          },
+          {
+            text: "Token Profile",
+            collapsed: true,
+            items: [
+              { text: "Overview", link: "/en/profiles/token" },
+              { text: "Token Descriptor Common Header", link: "/en/profiles/token/descriptor-header" },
+              { text: "Token Schema and Body", link: "/en/profiles/token/schema-body" },
+              { text: "Token Payload Frame", link: "/en/profiles/token/payload-frame" }
+            ]
+          }
         ]
       }
     ]
@@ -327,7 +351,10 @@ export default withMermaid(defineConfig({
   description: "Neural Network Runtime Protocol documentation",
   lang: "en-US",
   base: "/nnrp-doc/",
-  head: [["style", {}, customStyle]],
+  head: [
+    ["link", { rel: "icon", type: "image/svg+xml", href: "/nnrp-doc/logo.svg" }],
+    ["style", {}, customStyle]
+  ],
   cleanUrls: true,
   lastUpdated: true,
   locales: {
@@ -341,7 +368,7 @@ export default withMermaid(defineConfig({
         ],
         sidebar: {},
         socialLinks: [
-          { icon: "github", link: "https://github.com/" }
+          { icon: "github", link: "https://github.com/NagareWorks" }
         ]
       }
     },
@@ -355,7 +382,7 @@ export default withMermaid(defineConfig({
         ],
         sidebar: zhSidebar,
         socialLinks: [
-          { icon: "github", link: "https://github.com/" }
+          { icon: "github", link: "https://github.com/NagareWorks" }
         ]
       }
     },
@@ -369,7 +396,7 @@ export default withMermaid(defineConfig({
         ],
         sidebar: enSidebar,
         socialLinks: [
-          { icon: "github", link: "https://github.com/" }
+          { icon: "github", link: "https://github.com/NagareWorks" }
         ]
       }
     }

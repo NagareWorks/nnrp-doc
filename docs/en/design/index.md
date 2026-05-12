@@ -10,4 +10,4 @@ Index notes:
 
 1. `v1-preview1` captures the minimal runnable protocol skeleton.
 2. `v1-preview2` captures the richer data plane, typed payloads, and multi-transport binding freeze.
-3. `v1-preview3` captures the profile-neutral public layer, multi-session model, and Rust canonical SDK constraints.
+3. `v1-preview3` captures the profile-neutral public layer and the multi-session model.
