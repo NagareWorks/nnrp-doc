@@ -23,6 +23,53 @@ const customStyle = `
   display: none;
 }
 
+/* Hide root "Home" locale in mobile nav */
+.VPNavScreenTranslations .item:first-of-type {
+  display: none;
+}
+
+/* Bilingual root homepage */
+.bilingual-index {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 48px 24px;
+  box-sizing: border-box;
+}
+
+.bilingual-col {
+  padding: 28px 32px;
+  border: 1px solid var(--nnrp-border);
+  border-radius: 20px;
+  background: var(--nnrp-surface);
+}
+
+.bilingual-col h2 {
+  margin-top: 0;
+  margin-bottom: 14px;
+  font-size: 20px;
+}
+
+.bilingual-col ul {
+  margin: 12px 0 20px;
+  padding-left: 20px;
+}
+
+.bilingual-col li {
+  margin: 6px 0;
+  color: var(--nnrp-text-soft);
+}
+
+@media (max-width: 768px) {
+  .bilingual-index {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 32px 16px;
+  }
+}
+
 .version-switch {
   display: grid;
   gap: 12px;
@@ -368,10 +415,6 @@ export default withMermaid(defineConfig({
       label: "Home",
       lang: "en-US",
       themeConfig: {
-        nav: [
-          { text: "简体中文", link: "/zh/" },
-          { text: "English", link: "/en/" }
-        ],
         sidebar: {},
         socialLinks: [
           { icon: "github", link: "https://github.com/NagareWorks" }
