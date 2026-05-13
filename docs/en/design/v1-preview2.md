@@ -279,10 +279,119 @@ preview2 adds the following message types:
 
 | Value | Name | Direction | Description |
 | --- | --- | --- | --- |
-| `0x17` | `FLOW_UPDATE` | Bidirectional | Dynamically adjust in-flight credit, backpressure windows, and suggested sending rate |
+| `0x17` | `FLOW_UPDATE` | Bidirectional | Dynamically adjust scoped credit, backpressure windows, and pause/resume state |
 | `0x18` | `RESULT_HINT` | S -> C | Return the server's current budget policy, congestion state, and suggested degradation mode |
 
 preview2 does not add new hot-path large-payload message types. `FRAME_SUBMIT` and `RESULT_PUSH` remain the only major data-plane messages. New payload kinds enter these two message types through typed payload frames rather than continuing to multiply top-level `msg_type` values.
+
+### 6.1.1 `FLOW_UPDATE` Fixed Metadata
+
+In the first round, `FLOW_UPDATE` is fixed to 32 bytes of metadata so the control path can explicitly express credit, backpressure, and pause/resume state. The field order is frozen as follows:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `scope_kind` | `u8` | Update scope |
+| `update_reason` | `u8` | Reason for the update |
+| `backpressure_level` | `u8` | Current backpressure level |
+| `reserved0` | `u8` | Reserved; sender clears to `0` |
+| `connection_credit` | `u16` | Connection-level concurrent credit |
+| `session_credit` | `u16` | Session-level concurrent credit |
+| `operation_credit` | `u16` | Operation-level concurrent credit |
+| `reserved1` | `u16` | Reserved; sender clears to `0` |
+| `operation_id` | `u64` | Points to the target operation when `scope_kind=operation`; otherwise `0` |
+| `retry_after_ms` | `u32` | Suggested wait window; `0` if absent |
+| `credit_epoch` | `u32` | Monotonically increasing credit-update sequence within the same scope |
+| `flow_flags` | `u32` | Flow-control behavior bitmap |
+
+The first-round `scope_kind:u8` values are frozen as:
+
+| Value | Name | Meaning |
+| --- | --- | --- |
+| `0` | `connection` | Updates the total credit or backpressure state of the whole connection |
+| `1` | `session` | Updates the credit or backpressure state of one session |
+| `2` | `operation` | Updates the credit or backpressure state of a finer-grained in-flight work unit |
+
+The first-round `update_reason:u8` values are frozen as:
+
+| Value | Name | Meaning |
+| --- | --- | --- |
+| `0` | `grant` | Newly grants credit or loosens limits |
+| `1` | `reduce` | Tightens the credit window |
+| `2` | `pause` | Pauses further submission of new work |
+| `3` | `resume` | Resumes from a paused state |
+| `4` | `congestion` | Enters rate-limiting or backpressure due to congestion |
+
+The first-round `backpressure_level:u8` values are frozen as:
+
+| Value | Name | Meaning |
+| --- | --- | --- |
+| `0` | `none` | No backpressure |
+| `1` | `soft` | The sender is advised to slow down voluntarily |
+| `2` | `hard` | The sender should stop submitting new in-flight work |
+
+The first-round `flow_flags:u32` bitmap freezes the following bits:
+
+| bit | Mask | Meaning |
+| --- | --- | --- |
+| 0 | `0x00000001` | `credit_valid`: the credit field for the current scope is valid |
+| 1 | `0x00000002` | `retry_after_valid`: `retry_after_ms` is valid |
+| 2 | `0x00000004` | `background_only`: only background or lower-priority work may continue |
+| 3 | `0x00000008` | `drain_in_flight_only`: only existing in-flight work may drain; no new submissions are accepted |
+| 4-31 | Reserved | Sender clears to `0`; receiver must reject unknown set bits |
+
+First-round constraints:
+
+1. When `scope_kind=connection`, header `session_id` must be `0`; the sender reads only `connection_credit`, and `session_credit / operation_credit / operation_id` must all be `0`.
+2. When `scope_kind=session`, header `session_id` must be the target session; the sender reads only `session_credit`, and `connection_credit / operation_credit / operation_id` must all be `0`.
+3. When `scope_kind=operation`, header `session_id` must be the target session and `operation_id` must be non-zero; the sender reads only `operation_credit`.
+4. If `retry_after_ms != 0`, then `flow_flags.retry_after_valid` must be set.
+5. `credit_epoch` must increase monotonically within the same scope; the receiver must not accept an older update.
+
+### 6.1.2 `RESULT_HINT` Fixed Metadata
+
+In the first round, `RESULT_HINT` is fixed to 16 bytes of metadata with the following frozen field order:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `applied_budget_policy` | `u32` | Budget policy the server currently recommends |
+| `congestion_state` | `u32` | Current congestion state |
+| `reason` | `u32` | Primary reason for the hint |
+| `retry_after_ms` | `u32` | Suggested wait window; `0` if absent |
+
+The first-round `applied_budget_policy:u32` values are frozen as:
+
+| Value | Name |
+| --- | --- |
+| `0` | `none` |
+| `1` | `full` |
+| `2` | `partial` |
+| `3` | `stale_reuse` |
+| `4` | `drop` |
+
+The first-round `congestion_state:u32` values are frozen as:
+
+| Value | Name |
+| --- | --- |
+| `0` | `none` |
+| `1` | `steady` |
+| `2` | `elevated` |
+| `3` | `saturated` |
+
+The first-round `reason:u32` values are frozen as:
+
+| Value | Name |
+| --- | --- |
+| `0` | `none` |
+| `1` | `queue_full` |
+| `2` | `server_busy` |
+| `3` | `budget_exceeded` |
+| `4` | `superseded` |
+
+First-round constraints:
+
+1. `RESULT_HINT` carries no body, so `body_len` must be `0`.
+2. `frame_id` may point to the frame primarily associated with this hint; if the hint applies to the whole session, `frame_id` may be `0`.
+3. `retry_after_ms == 0` means the hint does not require an explicit wait window.
 
 ### 6.2 `FRAME_SUBMIT` v2 Metadata
 

@@ -279,10 +279,119 @@ preview2 新增以下消息类型：
 
 | 值 | 名称 | 方向 | 说明 |
 | --- | --- | --- | --- |
-| `0x17` | `FLOW_UPDATE` | 双向 | 动态调整 in-flight credit、背压窗口与建议发送速率 |
+| `0x17` | `FLOW_UPDATE` | 双向 | 动态调整作用域内 credit、背压窗口与暂停/恢复状态 |
 | `0x18` | `RESULT_HINT` | S -> C | 返回服务端当前预算策略、拥塞状态与建议降级模式 |
 
 preview2 不新增新的热路径大载荷消息类型，`FRAME_SUBMIT` 与 `RESULT_PUSH` 仍是唯一的数据面主体消息；新增的 payload 种类通过 typed payload frame 进入这两类消息，而不是继续增殖顶层 msg_type。
+
+### 6.1.1 `FLOW_UPDATE` fixed metadata
+
+`FLOW_UPDATE` 首轮固定为 32 字节 fixed metadata，用于在控制侧显式表达 credit、背压与暂停/恢复状态。字段顺序冻结如下：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `scope_kind` | `u8` | 更新作用域 |
+| `update_reason` | `u8` | 更新原因 |
+| `backpressure_level` | `u8` | 当前背压等级 |
+| `reserved0` | `u8` | 保留，发送端清零 |
+| `connection_credit` | `u16` | connection 级可并发 credit |
+| `session_credit` | `u16` | session 级可并发 credit |
+| `operation_credit` | `u16` | operation 级可并发 credit |
+| `reserved1` | `u16` | 保留，发送端清零 |
+| `operation_id` | `u64` | 当 `scope_kind=operation` 时指向目标 operation；否则为 `0` |
+| `retry_after_ms` | `u32` | 建议等待窗口；无则为 `0` |
+| `credit_epoch` | `u32` | 同一作用域上的单调递增 credit 更新代号 |
+| `flow_flags` | `u32` | flow-control 行为位图 |
+
+`scope_kind:u8` 首轮冻结为：
+
+| 值 | 名称 | 语义 |
+| --- | --- | --- |
+| `0` | `connection` | 更新整条连接的总 credit 或总背压状态 |
+| `1` | `session` | 更新某个 session 的 credit 或背压状态 |
+| `2` | `operation` | 更新某个更细粒度在途工作单元的 credit 或背压状态 |
+
+`update_reason:u8` 首轮冻结为：
+
+| 值 | 名称 | 语义 |
+| --- | --- | --- |
+| `0` | `grant` | 新授予 credit 或放宽限制 |
+| `1` | `reduce` | 收紧 credit 窗口 |
+| `2` | `pause` | 暂停继续发送新的提交 |
+| `3` | `resume` | 从暂停状态恢复 |
+| `4` | `congestion` | 因拥塞进入限流或背压状态 |
+
+`backpressure_level:u8` 首轮冻结为：
+
+| 值 | 名称 | 语义 |
+| --- | --- | --- |
+| `0` | `none` | 无背压 |
+| `1` | `soft` | 建议发送方主动降速 |
+| `2` | `hard` | 发送方应停止提交新的 in-flight 工作 |
+
+`flow_flags:u32` 首轮冻结以下位定义：
+
+| bit | 掩码 | 含义 |
+| --- | --- | --- |
+| 0 | `0x00000001` | `credit_valid`：对应 scope 的 credit 字段有效 |
+| 1 | `0x00000002` | `retry_after_valid`：`retry_after_ms` 有效 |
+| 2 | `0x00000004` | `background_only`：只允许后台或低优先级工作继续推进 |
+| 3 | `0x00000008` | `drain_in_flight_only`：仅允许现有 in-flight 工作排空，不再接受新提交 |
+| 4-31 | 保留 | 发送端清零，接收端收到未知置位必须拒绝 |
+
+首轮约束：
+
+1. `scope_kind=connection` 时，header `session_id` 必须为 `0`；发送方只读取 `connection_credit`，`session_credit / operation_credit / operation_id` 必须为 `0`。
+2. `scope_kind=session` 时，header `session_id` 必须为目标 session；发送方只读取 `session_credit`，`connection_credit / operation_credit / operation_id` 必须为 `0`。
+3. `scope_kind=operation` 时，header `session_id` 必须为目标 session，`operation_id` 必须非零；发送方只读取 `operation_credit`。
+4. 若 `retry_after_ms != 0`，则 `flow_flags.retry_after_valid` 必须置位。
+5. `credit_epoch` 必须在同一作用域上单调递增；接收方不得接受更旧的 update。
+
+### 6.1.2 `RESULT_HINT` fixed metadata
+
+`RESULT_HINT` 首轮固定为 16 字节 fixed metadata，字段顺序冻结如下：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `applied_budget_policy` | `u32` | 服务端当前建议采用的预算策略 |
+| `congestion_state` | `u32` | 当前拥塞状态 |
+| `reason` | `u32` | 给出该提示的主要原因 |
+| `retry_after_ms` | `u32` | 建议等待窗口；无则为 `0` |
+
+`applied_budget_policy:u32` 首轮冻结为：
+
+| 值 | 名称 |
+| --- | --- |
+| `0` | `none` |
+| `1` | `full` |
+| `2` | `partial` |
+| `3` | `stale_reuse` |
+| `4` | `drop` |
+
+`congestion_state:u32` 首轮冻结为：
+
+| 值 | 名称 |
+| --- | --- |
+| `0` | `none` |
+| `1` | `steady` |
+| `2` | `elevated` |
+| `3` | `saturated` |
+
+`reason:u32` 首轮冻结为：
+
+| 值 | 名称 |
+| --- | --- |
+| `0` | `none` |
+| `1` | `queue_full` |
+| `2` | `server_busy` |
+| `3` | `budget_exceeded` |
+| `4` | `superseded` |
+
+首轮约束：
+
+1. `RESULT_HINT` 不携带 body，`body_len` 必须为 `0`。
+2. `frame_id` 可指向当前提示主要关联的帧；若提示作用于整个会话，则 `frame_id` 可为 `0`。
+3. 若 `retry_after_ms == 0`，表示本次提示不要求显式等待窗口。
 
 ### 6.2 `FRAME_SUBMIT` v2 metadata
 
