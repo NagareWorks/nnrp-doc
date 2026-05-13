@@ -466,7 +466,7 @@ export default withMermaid(defineConfig({
     logo: "/logo.svg",
     footer: {
       message: "NNRP Documentation",
-      copyright: "Copyright © NNRP"
+      copyright: "Copyright © NagareWorks · NNRP"
     }
   },
   vite: {
