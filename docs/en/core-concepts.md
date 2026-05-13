@@ -1,12 +1,3 @@
----
-prev:
-  text: Transport Strategy and Probing
-  link: /en/protocol/v1/transport-strategy/
-next:
-  text: Common Header
-  link: /en/common-header/
----
-
 # Core Objects and Flow
 
 This page focuses on the system model: which core objects exist, how they cooperate, and how the minimal interaction path fits together.
@@ -46,19 +37,11 @@ sequenceDiagram
 
 ### Host
 
-The host is the integrating side. It is responsible for:
-
-1. Establishing the connection and sending work.
-2. Tracking local context, cache state, and sending windows.
-3. Consuming streamed results and control updates.
+The host is the integrating side—a game engine, application, or agent framework. It establishes the connection, submits work, tracks local cache and session state, and consumes the result stream and control messages from the runtime.
 
 ### Runtime service
 
-The runtime side is responsible for:
-
-1. Accepting submissions.
-2. Returning incremental results, terminal results, hints, and control updates.
-3. Adjusting flow control and backpressure based on resource pressure.
+The runtime is the execution side. It accepts submitted work, returns incremental and terminal results, and adjusts flow control (via `FLOW_UPDATE`) based on available compute resources.
 
 ## Core objects
 
@@ -84,4 +67,4 @@ They keep payload interpretation out of the public layer and make it explicit.
 2. Create a session and declare default context.
 3. Submit one or more operations.
 4. Receive results, hints, and `FLOW_UPDATE` in parallel.
-5. React to credit, backpressure, and terminal states.
+5. React to backpressure signals and terminal states—slow down, resume, or cancel as needed.

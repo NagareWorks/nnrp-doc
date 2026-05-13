@@ -1,12 +1,3 @@
----
-prev:
-  text: Session and Operation Model
-  link: /en/protocol/v1/operation-model/
-next:
-  text: Core Objects and Flow
-  link: /en/core-concepts/
----
-
 # NNRP/1 Transport Strategy and Probing
 
 This is not a private SDK optimization. It is a protocol capability boundary that needs to be explained explicitly.

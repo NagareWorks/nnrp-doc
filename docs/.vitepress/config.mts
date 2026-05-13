@@ -218,6 +218,9 @@ const zhSidebar = {
       { text: "会话与操作模型", link: "/zh/protocol/v1/operation-model" },
       { text: "传输策略与探测", link: "/zh/protocol/v1/transport-strategy" },
       { text: "核心对象与流程", link: "/zh/core-concepts" },
+      { text: "缓存能力与租约", link: "/zh/protocol/v1/cache-and-lease" },
+      { text: "Schema / Profile Registry", link: "/zh/protocol/v1/schema-registry" },
+      { text: "流控与优先级", link: "/zh/protocol/v1/flow-control-and-priority" },
       { text: "公共头", link: "/zh/common-header" },
       {
         text: "类型化载荷描述符",
@@ -291,6 +294,9 @@ const enSidebar = {
       { text: "Session and Operation Model", link: "/en/protocol/v1/operation-model" },
       { text: "Transport Strategy and Probing", link: "/en/protocol/v1/transport-strategy" },
       { text: "Core Objects and Flow", link: "/en/core-concepts" },
+      { text: "Cache Capabilities and Leases", link: "/en/protocol/v1/cache-and-lease" },
+      { text: "Schema / Profile Registry", link: "/en/protocol/v1/schema-registry" },
+      { text: "Flow Control and Priority", link: "/en/protocol/v1/flow-control-and-priority" },
       { text: "Common Header", link: "/en/common-header" },
       {
         text: "Typed Payload Descriptor",

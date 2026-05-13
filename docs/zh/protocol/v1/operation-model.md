@@ -9,15 +9,11 @@ next:
 
 # NNRP/1 会话与操作模型
 
-当前公开版本把 connection、session、operation 三层拆开，避免不同绑定或宿主实现继续把它们揉成一团。
+当前公开版本把 connection、session、operation 三层拆开，每一层只做自己该做的事。
 
 ## 连接
 
-连接是 transport 级容器，负责：
-
-1. 承载公共头、control-plane 与 data-plane 的 pack/unpack。
-2. 容纳多个 session，而不是只服务单个活跃会话。
-3. 作为 connection-scope `FLOW_UPDATE` 的生效边界。
+连接是传输层的容器，负责消息的打包、解包与字节流收发，并同时容纳多个 session。连接级 `FLOW_UPDATE` 的效果作用在这条连接的所有会话上。
 
 ## Session
 
@@ -27,7 +23,7 @@ session 是默认上下文容器，负责：
 2. 让多个 operation 共享同一套默认解释上下文。
 3. 成为 session-scope credit 和状态控制的基本单元。
 
-`SESSION_OPEN` 当前冻结为 48B 固定元数据，`SESSION_OPEN_ACK` 为 56B；它们的职责是建立默认上下文，而不是塞进首个 operation 的正文。
+`SESSION_OPEN` 目前是 48 字节的固定格式，`SESSION_OPEN_ACK` 是 56 字节；它们专门用来建立默认上下文，不是 operation 正文的一部分。
 
 ## Operation
 

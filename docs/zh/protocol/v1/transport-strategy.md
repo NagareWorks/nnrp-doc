@@ -1,12 +1,3 @@
----
-prev:
-  text: 会话与操作模型
-  link: /zh/protocol/v1/operation-model/
-next:
-  text: 核心对象与流程
-  link: /zh/core-concepts/
----
-
 # NNRP/1 传输策略与探测
 
 这不是某个 SDK 的优化技巧，而是协议本身必须讲清楚的能力边界。

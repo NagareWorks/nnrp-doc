@@ -19,13 +19,13 @@ next:
 
 最容易踩错的点有三类：
 
-1. 把 NNRP 当成同步 request-response。规范宿主形态仍然是 `submit pump + result pump + control path`。
-2. 把 session 当成 operation 本身。当前版本里 session 是默认上下文容器，operation 是独立生命周期对象。
-3. 试图跳过 schema/profile 绑定，直接按某个语言 runtime 的私有字段解释 payload。
+1. **把 NNRP 当成同步接口**：正确的接入方式是三条通路并行——一个循环持续发送任务，一个循环持续读取结果，一条通路处理 `FLOW_UPDATE` 等控制消息。
+2. **把 session 和 operation 混用**：session 是持续的上下文容器（类似"会话"），operation 是其中的单次任务。session 建立一次，operation 可以反复提交。
+3. **跳过 profile/schema 直接解读 payload**：payload 的字段含义由 profile 和 schema 定义，不同实现的字段布局不一定相同，直接硬猜偏移是不可靠的。
 
-建议的最小宿主职责：
+最小宿主实现至少要做到：
 
-1. 维护一个连接级发送器和一个独立结果读取循环。
-2. 为每个 session 记录默认 `profile_id / schema_id / schema_version`。
-3. 能够识别 `partial / terminal / drop / stale_reuse / degraded` 等对使用者可见的结果语义。
-4. 遇到 `FLOW_UPDATE` 时按 scope 更新本地发送窗口，而不是只看连接级总开关。
+1. 独立维护一个发送循环和一个结果读取循环，两者不相互阻塞。
+2. 为每个 session 记录 `profile_id / schema_id / schema_version`，以备 schema mismatch 时快速定位。
+3. 正确区分结果类型：`partial`（中间帧，可以展示）、`terminal`（最终帧）、`drop`（被丢弃）、`degraded`（降级输出）。
+4. 收到 `FLOW_UPDATE` 时，按其 scope（连接级或会话级）更新发送速率，而不是只盯着连接总开关。

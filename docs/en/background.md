@@ -2,7 +2,7 @@
 
 NNRP stands for `Neural Network Runtime Protocol`.
 
-It is not meant to be a temporary private interface for one SDK or one model format. It is an application-layer protocol surface for real-time AI runtime cooperation: how a host submits work, how a runtime returns results, and how both sides express flow control, status, caching, and payload interpretation in a stable way.
+It is an application-layer protocol for real-time AI runtime cooperation. The core problem it solves: how a host (game engine, application, agent framework, etc.) submits work to an AI runtime, receives results, and manages flow control, caching, and payload interpretation—without every product having to invent its own private interface.
 
 ## Why NNRP exists
 
@@ -18,23 +18,21 @@ As the design evolved, the protocol clearly grew beyond neural rendering alone. 
 
 ## What NNRP is trying to solve
 
-At a global level, NNRP addresses five recurring problems:
+In short:
 
-1. Giving hosts a unified way to submit real-time work instead of binding them to runtime-private RPC shapes.
-2. Letting results stay incremental instead of collapsing everything into synchronous request-response.
-3. Keeping payload interpretation out of the public layer by using profiles and schemas.
-4. Making credit, backpressure, and flow control explicit instead of hiding them in SDK-private retry logic.
-5. Keeping Python, C#, Rust, and future language bindings aligned to one protocol baseline.
+1. **Unified submission interface** — hosts are not tied to any one runtime's private RPC. They use a consistent protocol regardless of the implementation underneath.
+2. **Streaming results** — results are not limited to one-request-one-response. The protocol naturally expresses incremental output, partial results, drops, rollbacks, and completion.
+3. **Extensible payload interpretation** — what a payload means is described by profiles and schemas, not hard-coded into the public header for each business case.
+4. **Explicit flow control** — rate limits and backpressure are not hidden inside SDK retry logic; the protocol itself expresses slow down, pause, and resume.
+5. **Cross-language consistency** — Python, C#, Rust, and other bindings share one protocol baseline rather than each building their own "close enough" implementation.
 
 ## What it is not
 
-NNRP is not:
+- Not a specialized protocol with hard-coded fields only for neural rendering.
+- Not an interface designed only for offline batch jobs or one-shot synchronous inference.
+- Not a transport protocol—it does not replace HTTP, WebSocket, or WebRTC.
 
-1. A specialized protocol with hard-coded fields only for neural rendering.
-2. An interface layer that only fits offline batch processing or one-shot synchronous inference.
-3. A transport protocol that replaces HTTP, WebSocket, or WebRTC themselves.
-
-More precisely, NNRP is a transport-agnostic application-layer protocol surface. It focuses on message shape, semantic boundaries, state machines, and interpretation rules; it can be bound to different reliable byte-stream carriers.
+More precisely, NNRP is **transport-agnostic**: it defines message shapes, semantic boundaries, and state machines, and can run over QUIC, TCP+TLS, or other reliable byte-stream transports.
 
 <div class="page-note">
 	For users, the most important mental model is that NNRP is a shared protocol skeleton for real-time AI runtime cooperation. The version pages build on top of that skeleton to describe the current public field boundaries, flow constraints, and frozen scope.

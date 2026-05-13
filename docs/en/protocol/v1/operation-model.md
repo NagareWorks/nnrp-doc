@@ -9,15 +9,11 @@ next:
 
 # NNRP/1 Session and Operation Model
 
-The current public version explicitly separates connection, session, and operation so bindings and host implementations stop collapsing them into one fuzzy concept.
+The current public version explicitly separates connection, session, and operation so each layer has a clear responsibility.
 
 ## Connection
 
-The connection is the transport-level container. It is responsible for:
-
-1. Packing and unpacking the common header, control-plane messages, and data-plane messages.
-2. Hosting multiple sessions instead of assuming a single active session.
-3. Acting as the scope boundary for connection-level `FLOW_UPDATE`.
+The connection is the transport-level container. It handles message framing (packing, unpacking, byte-stream I/O) and hosts multiple sessions simultaneously. Connection-level `FLOW_UPDATE` applies to all sessions on that connection.
 
 ## Session
 

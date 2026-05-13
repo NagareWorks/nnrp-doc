@@ -1,15 +1,6 @@
----
-prev:
-  text: 传输策略与探测
-  link: /zh/protocol/v1/transport-strategy/
-next:
-  text: 公共头
-  link: /zh/common-header/
----
-
 # 核心对象与流程
 
-这一页讲的不是版本冻结表，而是系统里有哪些核心对象、它们怎样协作，以及一条最小交互链路如何走通。
+这一页讲的是协议里有哪些核心对象、它们各自负责什么，以及一条最小交互链路从头到尾是怎么跑起来的。
 
 ## 架构图
 
@@ -46,53 +37,29 @@ sequenceDiagram
 
 ### Host
 
-Host 是使用协议的一侧，也可以理解成宿主或客户端侧集成方。它负责：
-
-1. 建立连接并发送任务。
-2. 维护本地上下文、缓存命中和发送窗口。
-3. 消费 runtime 返回的结果流与控制消息。
+Host（宿主）是使用协议的一侧，也就是游戏引擎、应用或代理框架等集成方。它负责建立连接、发送任务、维护本地缓存状态，以及消费 runtime 返回的结果流和控制消息。
 
 ### Runtime Service
 
-Runtime service 是执行模型任务、数据处理或增强逻辑的一侧。它负责：
-
-1. 接收提交。
-2. 返回增量结果、终态结果、提示和控制更新。
-3. 根据资源状况调整流控、背压和 credit。
+Runtime service 是实际执行任务的一侧，负责接收提交、返回增量或终态结果，并根据当前资源状况通过 `FLOW_UPDATE` 调整流控和信用额度。
 
 ## 核心对象
 
 ### Connection
 
-连接是 transport 级承载。它关注：
-
-1. 字节流上的消息收发。
-2. 多个 session 的容纳。
-3. 连接级流控与背压边界。
+连接是传输层的容器，负责在字节流上收发消息，并同时容纳多个 session。连接级的 `FLOW_UPDATE` 作用于这条连接上的所有会话。
 
 ### Session
 
-session 是默认上下文容器。它关注：
-
-1. 默认 profile / schema / 预算窗口。
-2. 可复用的会话级缓存和策略。
-3. 一组 operation 的共享上下文。
+session 是默认上下文容器，记录了当前会话的 profile、schema、预算窗口、优先级类和缓存策略，让其中的每个 operation 都不必重复声明这些参数。
 
 ### Operation
 
-operation 是单次工作单元。它关注：
-
-1. 某次提交对应的 payload 与语义解释。
-2. 自己的生命周期、结果流与终止状态。
-3. 可能独立收到的 operation 级流控更新。
+operation 是单次工作单元，对应一次具体的提交任务。它有自己的生命周期——从提交、接收结果流，到最终完成、取消或被丢弃。operation 也可以独立收到自己作用域的 `FLOW_UPDATE`。
 
 ### Profile 与 Schema
 
-它们负责把“payload 究竟表示什么”从公共层剥离出去：
-
-1. profile 决定高层语义类别。
-2. schema 决定更细的解释方式、版本和依赖关系。
-3. 公共头不再替某个单一业务场景硬编码这些细节。
+profile 和 schema 负责描述 payload 的含义，而不是把业务字段焊进公共协议头。profile 声明高层语义类别（比如 tensor、token），schema 进一步描述具体字段格式和版本。
 
 ## 最小交互流程
 
@@ -100,7 +67,7 @@ operation 是单次工作单元。它关注：
 2. 建立 session，声明默认上下文。
 3. 提交一个或多个 operation。
 4. 并行接收结果流、提示和 `FLOW_UPDATE`。
-5. 根据 backpressure、credit 和结果状态，决定继续提交、降速、恢复或取消。
+5. 根据背压信号和结果状态，决定继续提交、降速、恢复或取消。
 
 <div class="doc-grid">
   <div class="doc-card">
