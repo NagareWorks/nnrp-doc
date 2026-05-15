@@ -101,15 +101,15 @@ preview3 explicitly opposes the following practices:
 
 ## 6. Compatibility Boundary with preview2
 
-### 6.1 Version and Stage
+### 6.1 Code-Level Version Identity
 
-preview3 is fixed as:
+preview3, as a development-stage document inside the NNRP/1 line, freezes the emitted code-level identity as `NNRP/1.0`:
 
 1. `version_major = 1`
-2. `version_stage = 3`
-3. ALPN `nnrp/1-preview3`
+2. `wire_format = 0`
+3. ALPN `nnrp/1`
 
-preview3 does not silently interoperate with preview2. If both sides only commonly support preview2, they must fall back to `nnrp/1-preview2`. Although the connection and session model of preview3 reuses some concepts of preview2, the new semantics of multiple sessions, multiple priorities, and schema registry added by preview3 must not be disguised as preview2-private extensions.
+This does not mean the design-stage name stops being preview3. It means preview3 must not introduce a new preview-only code-level stage byte or preview-only ALPN. Although the connection and session model of preview3 reuses some concepts of preview2, the new semantics of multiple sessions, multiple priorities, and schema registry added by preview3 must be negotiated through explicit protocol concepts and capability windows rather than being encoded as a preview-only version number.
 
 ### 6.2 Common Header and Length Model
 

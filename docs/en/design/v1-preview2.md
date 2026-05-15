@@ -2,7 +2,7 @@
 
 ## 1. Positioning
 
-`NNRP` in this document has the formal full name `Neural Network Runtime Protocol`. `NNRP/1-preview2` is the second preview-stage wire contract on top of `NNRP/1-preview1`. Its goal is not to overturn preview1, but to fill in the protocol semantics that truly determine end-to-end latency later on while keeping the existing long-connection model, fixed header, and lower-level binary hot-path principles unchanged, and to elevate the positioning of the protocol from a "neural-rendering-specific link" to a "lightweight real-time AI domain-level application-layer protocol oriented toward neural-network runtime scenarios."
+`NNRP` in this document has the formal full name `Neural Network Runtime Protocol`. `NNRP/1-preview2` is the second preview-stage design document on top of `NNRP/1-preview1`. Its goal is not to treat preview2 as a separate major-version track, but to fill in the protocol semantics that truly determine end-to-end latency while keeping the existing long-connection model, fixed header, and lower-level binary hot-path principles unchanged, and to elevate the positioning of the protocol from a "neural-rendering-specific link" to a "lightweight real-time AI domain-level application-layer protocol oriented toward neural-network runtime scenarios."
 
 preview2 is no longer concerned only with "whether a connection can be established," but with the following four matters:
 
@@ -13,7 +13,7 @@ preview2 is no longer concerned only with "whether a connection can be establish
 
 Here, too, "lightweight real time" does not mean `NNRP` is intended to become a general real-time media protocol. What it primarily solves are runtime problems in neural-network scenarios, such as semantic objects, inference budgets, result degradation, object reference, and transport switching, rather than the problems of browser media stacks or video-distribution stacks themselves.
 
-What this document freezes is the design direction, first-order message semantics, and compatibility boundary of `NNRP/1-preview2`, which is not equivalent to the final formal version `NNRP/1`.
+What this document freezes is the design direction, first-order message semantics, and implementation boundary of `NNRP/1-preview2` as a development-stage document inside the NNRP/1 line. The code-level on-wire identity frozen by this document is `NNRP/1.0`.
 
 ## 1.1 Overview Diagram
 
@@ -66,25 +66,25 @@ preview2 keeps the following principles unchanged:
 5. Tensor remains the first standard payload profile, but preview2 no longer constrains the data plane to be "tensor only."
 6. The normative session shape of preview2 is "an asynchronous submit pump + result pump + control side-channel on a single-session long connection," not "each `FRAME_SUBMIT` implicitly forms a synchronous request-response transaction."
 7. `FRAME_SUBMIT` is responsible for expressing submission, budget, dependency, and payload semantics, and must not be interpreted at the protocol-semantics level as "submit this frame and wait for the matching result before continuing to send later frames."
-8. If the host or SDK still offers convenience APIs such as `submit_and_wait`, they may be regarded only as smoke / demo / compatibility helpers and must not inversely define the standard invocation model of preview2.
+8. If the host or SDK still offers convenience APIs such as `submit_and_wait`, they may be regarded only as smoke / demo helpers and must not inversely define the standard invocation model of preview2.
 
 ## 4. Compatibility Boundary with preview1
 
-### 4.1 Version and Stage
+### 4.1 Code-Level Version Identity
 
-preview2 is fixed as:
+preview2 freezes the emitted code-level wire identity as `NNRP/1.0`:
 
 1. `version_major = 1`
-2. `version_stage = 2`
-3. ALPN `nnrp/1-preview2`
+2. `wire_format = 0`
+3. ALPN `nnrp/1`
 
-preview2 does not silently interoperate with preview1. If both sides only commonly support preview1, they must fall back to `nnrp/1-preview1`; if either side supports only preview2, the handshake should explicitly fail rather than performing fuzzy compatibility handling on the hot path.
+This does not mean the design-stage name stops being preview2. It means preview2, as a development-stage document inside NNRP/1, freezes the emitted wire identity to `NNRP/1.0`, where `wire_format = 0`, rather than keeping a preview-only code value such as `2` or a preview-only ALPN.
 
 ### 4.2 Common Header
 
 preview2 continues to use the 40-byte common header and does not change the basic header shape:
 
-1. It continues to retain `magic / version_major / version_stage / msg_type / header_len / flags / meta_len / body_len / session_id / frame_id / view_id / route_id / trace_id`.
+1. It continues to retain `magic / version_major / wire_format / msg_type / header_len / flags / meta_len / body_len / session_id / frame_id / view_id / route_id / trace_id`.
 2. `header_len` remains fixed at `40`.
 3. The main evolution points of preview2 lie in message types, metadata field tables, body-block organization rules, and flag-semantic extensions rather than replacing the common header.
 
@@ -575,7 +575,7 @@ After the preview2 design lands, repository responsibilities are as follows:
 2. `nnrp-py` is responsible for Python-side wire codec, transport helpers, replay/export, and cross-language golden vectors.
 3. `nnrp-cs` is responsible for a Unity-compatible C# codec, native-bridge glue, and subsequent hot-path workerization and reference-style submission flow.
 
-The protocol semantics of preview2 should first form a shared understanding across the three repositories, and only then advance toward the formal version `NNRP/1`.
+The protocol semantics of preview2 should first form a shared understanding across the three repositories.
 
 If the existing submit/result/control semantics of preview2 are merely being landed into a truly asynchronous continuous-stream invocation model in SDK façade, helpers, and host integration, then that work belongs within the scope of preview2. It should not be postponed to preview3 simply because existing helpers still preserve a per-frame `submit_and_wait` style.
 
@@ -589,8 +589,8 @@ At the endpoint-semantic level, preview2 retains only one secure URI scheme: `nn
 
 preview2 freezes two transport bindings in the first round:
 
-1. **QUIC binding**: ALPN `nnrp/1-preview2`.
-2. **TCP binding**: a TLS single long connection, ALPN `nnrp/1-preview2-tcp`.
+1. **QUIC binding**: ALPN `nnrp/1`.
+2. **TCP binding**: a TLS single long connection, ALPN `nnrp/1-tcp`.
 
 The two bindings are fully equivalent at the protocol layer. The client should choose the path with better throughput and responsiveness through the Transport Probing Phase, rather than presetting QUIC as the preferred option. This differs from preview1's "fixed QUIC" and is also a core difference from WebRTC: **we probe RTT, jitter, throughput, and throttling before the handshake, and choose the transport layer based on measured performance rather than hard-coded configuration**. The handshake (`CLIENT_HELLO / SERVER_HELLO_ACK`) may occur over whichever transport path is selected by probing.
 

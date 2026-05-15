@@ -2,7 +2,7 @@
 
 ## 1. Positioning
 
-`NNRP (Neural Network Runtime Protocol)` is the formal protocol abbreviation used in this document. What this document defines is `NNRP/1-preview1`, not the final formal version `NNRP/1`.
+`NNRP (Neural Network Runtime Protocol)` is the formal protocol abbreviation used in this document. This document defines `NNRP/1-preview1` as the first preview-stage design document inside the NNRP/1 line. The code-level on-wire identity frozen here is `NNRP/1.0`.
 
 `NNRP/1-preview1` is positioned as the first preview-stage wire contract that is implementable, packet-capturable, and replayable. Its goal is to provide a low-latency, securely deployable, domain-level application-layer protocol for lightweight real-time AI runtime long-connection scenarios, with tensor payloads as the primary focus in the first round.
 
@@ -78,11 +78,11 @@ If an implementation needs debugging, packet recording, or offline packaging, au
 
 ### 5.1 Secure Deployment Baseline
 
-The normative transport of `NNRP/1-preview1` is fixed as:
+preview1 freezes the emitted code-level transport baseline as:
 
 1. `QUIC v1`
 2. `TLS 1.3`
-3. ALPN `nnrp/1-preview1`
+3. ALPN `nnrp/1`
 4. Recommended secure URI scheme `nnrps://`
 
 preview1 does not define a bare UDP plaintext mode.
@@ -186,7 +186,7 @@ The fixed metadata of `SERVER_HELLO_ACK` is fixed at 80 bytes in the first round
 | Field | Type | Description |
 | --- | --- | --- |
 | `selected_version_major` | `u8` | Major version selected by the server |
-| `selected_version_stage` | `u8` | Stage selected by the server |
+| `selected_wire_format` | `u8` | Wire format selected by the server |
 | `auth_status` | `u8` | Authentication-result enum |
 | `reserved0` | `u8` | Reserved |
 | `session_id` | `u32` | Effective session id |
@@ -363,7 +363,7 @@ All `NNRP/1-preview1` messages use a unified 40-byte common header, little-endia
 | --- | --- | --- | --- |
 | 0 | 4 | `magic` | ASCII `NNRP` |
 | 4 | 1 | `version_major` | Currently fixed to `1` |
-| 5 | 1 | `version_stage` | Currently fixed to `1`, meaning `preview1` |
+| 5 | 1 | `wire_format` | Currently fixed to `0`, meaning the emitted code-level identity is `NNRP/1.0` |
 | 6 | 1 | `msg_type` | Message type |
 | 7 | 1 | `header_len` | Currently fixed to `40` |
 | 8 | 4 | `flags` | Common flags |
@@ -790,12 +790,12 @@ The following content should not be cached by default:
 
 ## 18. Version Evolution and Reservation for the Formal Version
 
-1. The ALPN of preview1 is fixed as `nnrp/1-preview1`.
-2. If the formal version is released stably, it may converge to `nnrp/1`.
+1. The emitted code-level ALPN frozen by preview1 is `nnrp/1`.
+2. preview1 is a design-stage name inside the NNRP/1 line, not a separate code-level protocol number.
 3. `route_id`, reserved `flags`, and several message-type ranges in the common header are reserved for later multi-tenancy, scheduling class, quota, and routing extensions.
-4. Wire changes incompatible with preview1 must not silently overwrite preview1; they must be exposed through a new preview sequence number or a new major version.
+4. Wire changes incompatible with preview1 must not silently overwrite preview1; they must be exposed through a new design-stage document boundary or a new major version.
 5. For compatibility enhancements, optional capabilities, or new error codes, priority should be given to extension through capability bits, the control-plane `control_extension_block`, reserved flag bits, and new optional message types, rather than rewriting existing fixed-size headers.
-6. If future hot-path cache references, concurrent multi-session semantics, or multi-tenant semantics are introduced, they should be explicitly exposed through a new preview stage rather than retroactively modifying the existing semantics of preview1.
+6. If future hot-path cache references, concurrent multi-session semantics, or multi-tenant semantics are introduced, they should be explicitly exposed through a new design stage rather than retroactively modifying the existing semantics of preview1.
 
 ## 19. First-Round Conclusion
 

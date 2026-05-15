@@ -2,7 +2,7 @@
 
 ## 1. 定位
 
-`NNRP` 在本文中的正式全称是 `Neural Network Runtime Protocol`，即“神经网络运行时协议”。`NNRP/1-preview2` 是在 `NNRP/1-preview1` 之上的第二个预览期 wire contract，目标不是推翻 preview1，而是在保持现有长连接、固定头、低层二进制热路径原则不变的前提下，把后续真正决定端到端时延的协议语义补齐，并把协议定位从“神经渲染专用链路”提升为“面向神经网络运行时场景的轻量实时 AI 领域级应用层协议”。
+`NNRP` 在本文中的正式全称是 `Neural Network Runtime Protocol`，即“神经网络运行时协议”。`NNRP/1-preview2` 是在 `NNRP/1-preview1` 之后的第二份预览阶段设计文档。它不是另一条独立的大版本线，而是在 NNRP/1 这条线内部，用来补齐真正决定端到端时延的协议语义，同时保持现有长连接、固定头、低层二进制热路径原则不变，并把协议定位从“神经渲染专用链路”提升为“面向神经网络运行时场景的轻量实时 AI 领域级应用层协议”。
 
 preview2 关注的问题不再只是“能不能连通”，而是以下四件事：
 
@@ -13,7 +13,7 @@ preview2 关注的问题不再只是“能不能连通”，而是以下四件�
 
 这里的“轻量实时”同样不意味着 `NNRP` 要成为通用实时媒体协议。它主要解决的是神经网络场景里“语义对象、推理预算、结果降级、对象引用、传输切换”这些运行时问题，而不是浏览器媒体栈或视频分发栈本身的问题。
 
-本文冻结的是 `NNRP/1-preview2` 的设计方向、一阶消息语义与兼容边界，不等价于最终正式版 `NNRP/1`。
+本文冻结的是 `NNRP/1-preview2` 作为开发阶段设计文档时的设计方向、一阶消息语义与实现边界；但本文冻结的代码发包身份是 `NNRP/1.0`。
 
 ## 1.1 总览图
 
@@ -66,25 +66,25 @@ preview2 保持以下原则不变：
 5. tensor 仍是首个标准 payload profile，但 preview2 不再把数据面限定为“仅张量”。
 6. preview2 的规范会话形态是“单 session 长连接上的异步 submit pump + result pump + control side-channel”，而不是“每次 `FRAME_SUBMIT` 都隐含一次同步 request-response 事务”。
 7. `FRAME_SUBMIT` 负责表达提交、预算、依赖与 payload 语义，不应在协议语义上被解释为“提交这一帧并等待匹配结果后才允许继续发送后续帧”。
-8. 若 host 或 SDK 仍提供 `submit_and_wait` 一类便捷 API，它只能被视为 smoke / demo / compatibility helper，不得反向定义 preview2 的标准调用模型。
+8. 若 host 或 SDK 仍提供 `submit_and_wait` 一类便捷 API，它只能被视为 smoke / demo helper，不得反向定义 preview2 的标准调用模型。
 
 ## 4. 与 preview1 的兼容边界
 
-### 4.1 版本与阶段
+### 4.1 代码层版本身份
 
-preview2 固定为：
+preview2 在代码层冻结的发包身份是 `NNRP/1.0`：
 
 1. `version_major = 1`
-2. `version_stage = 2`
-3. ALPN `nnrp/1-preview2`
+2. `wire_format = 0`
+3. ALPN `nnrp/1`
 
-preview2 与 preview1 不做静默互通。若双方只共同支持 preview1，则必须回退到 `nnrp/1-preview1`；若任一端只支持 preview2，握手应明确失败，而不是在热路径做模糊兼容。
+这不意味着设计阶段名不再叫 preview2，而是指 preview2 这份开发阶段文档要求代码发出的 wire identity 直接固定为 `NNRP/1.0`，其中 `wire_format = 0`，而不是继续保留 `2` 这种 preview 期内部值，或保留 preview 专用 ALPN。
 
 ### 4.2 公共头
 
 preview2 继续沿用 40 字节公共头，不改变 header 基本形状：
 
-1. 继续保留 `magic / version_major / version_stage / msg_type / header_len / flags / meta_len / body_len / session_id / frame_id / view_id / route_id / trace_id`。
+1. 继续保留 `magic / version_major / wire_format / msg_type / header_len / flags / meta_len / body_len / session_id / frame_id / view_id / route_id / trace_id`。
 2. `header_len` 继续固定为 `40`。
 3. preview2 的主要演进点放在消息类型、metadata 字段表、body block 组织规则和 flags 语义扩展，而不是更换公共头。
 
@@ -575,7 +575,7 @@ preview2 设计落地后，各仓库分工如下：
 2. `nnrp-py` 负责 Python 侧 wire codec、transport helper、replay/export 与跨语言 golden vectors。
 3. `nnrp-cs` 负责 Unity-compatible C# codec、native bridge glue、后续高频 worker 化与引用式提交流程。
 
-preview2 的协议语义应先在三个仓库中形成同一口径，再推进正式版 `NNRP/1`。
+preview2 的协议语义应先在三个仓库中形成同一口径。
 
 如果只是把 preview2 已有的 submit/result/control 语义在 SDK façade、helper、host integration 中落成真正的异步持续流调用模型，则这项工作属于 preview2 范围；不应因为现有 helper 仍保留逐帧 `submit_and_wait` 便把该语义推迟到 preview3。
 
@@ -589,8 +589,8 @@ preview2 在 endpoint 语义上只保留一个安全 URI scheme：`nnrps://`。s
 
 preview2 首轮冻结两种传输绑定：
 
-1. **QUIC binding**：ALPN `nnrp/1-preview2`。
-2. **TCP binding**：TLS 单连接长连接，ALPN `nnrp/1-preview2-tcp`。
+1. **QUIC binding**：ALPN `nnrp/1`。
+2. **TCP binding**：TLS 单连接长连接，ALPN `nnrp/1-tcp`。
 
 两种 binding 在协议层完全等价，客户端应通过 Transport Probing Phase 选择吞吐量与响应时间更优的路径，而不是预设 QUIC 为首选。这与 preview1 的"固定 QUIC"形成对比，也是相比 WebRTC 的核心差异：**我们在握手前进行 RTT、抖动、吞吐量、限流检测，基于实测性能而非配置硬编码来选择传输层**。握手（`CLIENT_HELLO / SERVER_HELLO_ACK`）可以在探测选定的任一传输路径上进行。
 

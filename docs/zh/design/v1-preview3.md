@@ -101,15 +101,15 @@ preview3 明确反对以下做法：
 
 ## 6. 与 preview2 的兼容边界
 
-### 6.1 版本与阶段
+### 6.1 代码层版本身份
 
-preview3 固定为：
+preview3 作为 NNRP/1 这条线内的一份开发阶段文档，在代码层冻结的发包身份是 `NNRP/1.0`：
 
 1. `version_major = 1`
-2. `version_stage = 3`
-3. ALPN `nnrp/1-preview3`
+2. `wire_format = 0`
+3. ALPN `nnrp/1`
 
-preview3 与 preview2 不做静默互通。若双方仅共同支持 preview2，则必须回退到 `nnrp/1-preview2`。preview3 的连接与会话模型虽然复用 preview2 的部分概念，但不能把 preview3 新增的多 session、多优先级和 schema registry 语义伪装成 preview2 私有扩展。
+这不意味着设计阶段名不再叫 preview3，而是指 preview3 不应再引入新的 preview 专用 code-level stage byte 或 preview 专用 ALPN。preview3 的多 session、多优先级和 schema registry 等新增语义，必须通过显式协议概念和能力窗口协商表达，而不是编码成新的 preview 期版本号。
 
 ### 6.2 公共头与长度模型
 

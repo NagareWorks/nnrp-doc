@@ -2,7 +2,7 @@
 
 ## 1. 定位
 
-`NNRP (Neural Network Runtime Protocol)` 是本文采用的正式协议简称。本文定义的是 `NNRP/1-preview1`，不是最终正式版 `NNRP/1`。
+`NNRP (Neural Network Runtime Protocol)` 是本文采用的正式协议简称。本文定义的是 `NNRP/1-preview1`，即 NNRP/1 这条线内的第一份预览阶段设计文档；但本文冻结的代码层发包身份是 `NNRP/1.0`。
 
 `NNRP/1-preview1` 的定位是首个可实现、可抓包、可回放的预览期 wire contract，目标是为轻量实时 AI 运行时长连接场景提供一套低时延、可安全部署、首轮以 tensor 载荷为主的领域级应用层协议。
 
@@ -78,11 +78,11 @@ flowchart LR
 
 ### 5.1 安全部署基线
 
-`NNRP/1-preview1` 的规范传输固定为：
+preview1 在代码层冻结的传输基线为：
 
 1. `QUIC v1`
 2. `TLS 1.3`
-3. ALPN `nnrp/1-preview1`
+3. ALPN `nnrp/1`
 4. 推荐安全 URI 方案 `nnrps://`
 
 preview1 不定义裸 UDP 明文模式。
@@ -186,7 +186,7 @@ preview1 的最小握手流程冻结为：
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `selected_version_major` | `u8` | 服务端选定的主版本 |
-| `selected_version_stage` | `u8` | 服务端选定的 stage |
+| `selected_wire_format` | `u8` | 服务端选定的 wire format |
 | `auth_status` | `u8` | 鉴权结果枚举 |
 | `reserved0` | `u8` | 保留 |
 | `session_id` | `u32` | 生效的 session id |
@@ -363,7 +363,7 @@ preview1 允许通过 `SESSION_PATCH` 修改以下低频字段：
 | --- | --- | --- | --- |
 | 0 | 4 | `magic` | ASCII `NNRP` |
 | 4 | 1 | `version_major` | 当前固定为 `1` |
-| 5 | 1 | `version_stage` | 当前固定为 `1`，表示 `preview1` |
+| 5 | 1 | `wire_format` | 当前固定为 `0`，表示代码层发包身份是 `NNRP/1.0` |
 | 6 | 1 | `msg_type` | 消息类型 |
 | 7 | 1 | `header_len` | 当前固定为 `40` |
 | 8 | 4 | `flags` | 通用标志位 |
@@ -790,12 +790,12 @@ preview1 冻结的是“会话级低频对象缓存”：
 
 ## 18. 版本演进与正式版预留
 
-1. preview1 的 ALPN 固定为 `nnrp/1-preview1`。
-2. 正式版若稳定发布，可收敛为 `nnrp/1`。
+1. preview1 在代码层冻结的 ALPN 是 `nnrp/1`。
+2. preview1 是 NNRP/1 这条线内的设计阶段名，不是单独的代码层协议号。
 3. 公共头中的 `route_id`、保留 `flags`、若干消息类型号段，为后续多租户、调度等级、配额与路由扩展预留。
-4. 与 preview1 不兼容的 wire 变化，不得静默覆盖，必须通过新的 preview 序号或新的 major version 暴露。
+4. 与 preview1 不兼容的 wire 变化，不得静默覆盖，必须通过新的设计阶段文档边界或新的 major version 暴露。
 5. 兼容性增强、可选能力或新增错误码，优先通过 capability bit、控制面 `control_extension_block`、保留标志位和新增可选消息类型扩展，而不是改写既有定长头。
-6. 若未来引入热路径 cache reference、并发多 session 或多租户语义，应优先使用新的 preview stage 明确暴露，而不是回溯修改 preview1 的既有语义。
+6. 若未来引入热路径 cache reference、并发多 session 或多租户语义，应优先使用新的设计阶段明确暴露，而不是回溯修改 preview1 的既有语义。
 
 ## 19. 首轮结论
 
