@@ -28,11 +28,11 @@ deno task build
 deno task preview
 ```
 
-`deno task dev` 会先重建 `docs/.vitepress/cache`，并确保 `docs/.vitepress/dist` 存在，避免在切换自定义主题结构后留下陈旧缓存，同时避免 Deno watcher 因目标目录不存在而崩溃。
+`deno task dev` rebuilds `docs/.vitepress/cache` first and makes sure `docs/.vitepress/dist` exists. This avoids stale cache artifacts after theme structure changes and prevents the Deno watcher from failing when the target directory is missing.
 
-`deno task build` 不再自动删除 `.vitepress` 下的任何目录，避免在另一个终端开着 `deno task dev` 时触发 Deno/VitePress 的文件监视器崩溃。
+`deno task build` does not delete any `.vitepress` directories automatically. This avoids crashing the Deno/VitePress file watcher when `deno task dev` is running in another terminal.
 
-如果你明确需要手动清理缓存，请单独运行：
+If you explicitly need to clear the cache, run:
 
 ```powershell
 deno task clean-cache
@@ -41,3 +41,8 @@ deno task clean-cache
 ## GitHub Pages
 
 The site is configured with base path `/nnrp-doc/`, assuming the repository name stays `nnrp-doc`.
+
+## License
+
+This repository is released under the Apache License 2.0. See `LICENSE` for details.
+

@@ -244,6 +244,67 @@ Constraints in the first round:
 2. `session_flags_ack` may only confirm or downgrade what the client requested, and may not privately introduce new capabilities that were not requested.
 3. If this error-code family needs to be extended later, it must continue to expand according to a high-bit family-reservation strategy and must not reorder already frozen values.
 
+### 7.1C Freezing of `SESSION_CLOSE` / `SESSION_CLOSE_ACK` and the minimum routing fields
+
+In the first round, preview3 freezes session close as a standard control-message pair rather than reusing the implicit habit of connection `CLOSE`.
+
+`SESSION_CLOSE` fixed metadata is frozen to 24 bytes in the first round:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `close_reason` | `u16` | Close reason; values are frozen below |
+| `in_flight_policy` | `u8` | How existing in-flight operations are handled |
+| `reserved0` | `u8` | Reserved; sender clears to `0` |
+| `drain_timeout_ms` | `u32` | Timeout window for draining existing operations; `0` means apply immediately |
+| `last_operation_id` | `u64` | The last operation watermark acknowledged by the sender; `0` if absent |
+| `session_error_code` | `u32` | Stable error code when the session is being closed because of an error; otherwise `0` |
+| `session_close_tag` | `u32` | Local observability correlation tag for the close |
+
+`SESSION_CLOSE_ACK` fixed metadata is frozen to 16 bytes in the first round:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `close_status` | `u8` | Close-ack status; values are frozen below |
+| `reserved0` | `u8` | Reserved; sender clears to `0` |
+| `reserved1` | `u16` | Reserved; sender clears to `0` |
+| `last_operation_id` | `u64` | Operation watermark confirmed by the server |
+| `session_error_code` | `u32` | Stable error code if closing itself encountered an error; otherwise `0` |
+
+`close_reason:u16` is frozen in the first round as:
+
+| Value | Name | Semantics |
+| --- | --- | --- |
+| `0` | `normal` | Normal close |
+| `1` | `client_shutdown` | Client-initiated shutdown |
+| `2` | `server_shutdown` | Server-initiated shutdown |
+| `3` | `idle_timeout` | Closed because of idle timeout |
+| `4` | `protocol_error` | Closed because of a stable protocol error |
+| `5` | `auth_revoked` | Closed because authentication was revoked or expired |
+
+`in_flight_policy:u8` is frozen in the first round as:
+
+| Value | Name | Semantics |
+| --- | --- | --- |
+| `0` | `drain` | Allow existing in-flight operations to drain within `drain_timeout_ms` |
+| `1` | `abort` | Abort existing in-flight operations immediately |
+
+`close_status:u8` is frozen in the first round as:
+
+| Value | Name | Semantics |
+| --- | --- | --- |
+| `0` | `acknowledged` | The close request has been accepted and is being executed |
+| `1` | `draining` | Existing operations are still being drained |
+| `2` | `closed` | The session is fully closed |
+| `3` | `rejected` | The close request was rejected |
+
+Additional first-round constraints:
+
+1. Connection-scope control messages must use `header.session_id = 0`.
+2. Session-scope control, data, and result messages must use `header.session_id = target session`.
+3. Operation-scope messages must carry both `header.session_id` and an `operation_id` in their fixed metadata.
+4. `SESSION_CLOSE` closes only one session and does not imply closing the whole connection.
+5. If `SESSION_CLOSE_ACK.close_status = draining`, the sender must continue processing subsequent terminal events against the known operation watermark until `closed` or a later close acknowledgment is received.
+
 ### 7.2 Priorities and Stream Classes
 
 preview3 introduces explicit priority and stream-class semantics for scheduling multiple sessions on the same connection and multiple operations within the same session.
@@ -311,6 +372,33 @@ The preview3 cache model contains at least the following capabilities:
 
 preview3 does not require the public layer to directly freeze private model KV-cache page encodings; such objects should still exist as profile-local or runtime-private object kinds. The public layer is responsible for freezing the lease contract, version semantics, dependency semantics, and error behavior.
 
+### 8.1 Freezing of lease, version, and cache-error vocabulary
+
+In the first round, preview3 further freezes the following cache-level public semantics:
+
+1. `object_id` is the logical object identity; it remains stable when content changes but the logical identity does not.
+2. `object_version` is the content-revision number under the same `object_id`; it must increase monotonically on semantic changes.
+3. `lease_id:u64` is the stable identity of one granted lease; renewal preserves the same `lease_id`, while a new grant creates a new `lease_id`.
+4. `lease_owner_scope:u8` is frozen as `connection=0 / session=1 / operation=2`.
+5. Host-visible policy hints such as `prefetch / touch / renew / evict_hint / reuse_preference` are explicit hints and must not be interpreted as mandatory overrides of version, dependency, or schema validation.
+
+`cache_error_code:u32` is frozen in the first round as:
+
+| Value | Name | Meaning |
+| --- | --- | --- |
+| `0x00030000` | `none` | No cache error |
+| `0x00030001` | `cache_miss` | The referenced object does not exist |
+| `0x00030002` | `lease_expired` | The referenced lease has expired |
+| `0x00030003` | `version_mismatch` | The requested `object_version` does not match the current available version |
+| `0x00030004` | `dependency_invalid` | A dependent object or schema has become invalid |
+| `0x00030005` | `schema_mismatch` | The object is incompatible with the required schema/profile interpretation |
+
+First-round constraints:
+
+1. `cache_miss / lease_expired / version_mismatch / dependency_invalid / schema_mismatch` must stay as stable cross-language error vocabulary and must not be rewritten into binding-private string errors.
+2. If result reuse depends on a specific `object_id + object_version` or schema version, that dependency must enter the observable dependency graph; invalidation must return either a stable error code or an explicit invalidation event.
+3. Runtime-private object kinds may still exist, but they may not bypass the public `object_id / object_version / lease_id / cache_error_code` semantics above.
+
 ## 9. preview3 Schema / Profile Registry
 
 preview3 no longer treats "continuing to add payload-kind enums" as the primary extension path, but introduces a standard schema/profile registry.
@@ -353,6 +441,27 @@ Constraints in the first round:
 2. Any profile-private interpretation fields must enter the schema body and must not continue to bloat the common header.
 3. `schema_hash` is used for cross-language consistency checks and cache deduplication; it does not directly replace the logical identity of `schema_id + schema_version`.
 4. `default_stream_semantics` provides only default semantics; a payload descriptor may still override it on a per-frame or per-operation basis.
+
+`schema_flags:u16` freezes the following bit definitions in the first round:
+
+| bit | Mask | Meaning |
+| --- | --- | --- |
+| 0 | `0x0001` | `cacheable`: this schema may enter the cache / lease lifecycle |
+| 1 | `0x0002` | `critical`: unknown or incompatible handling must reject |
+| 2 | `0x0004` | `default_bindable`: this schema may be used as a session default schema |
+| 3 | `0x0008` | `hash_stable`: the same `schema_id + schema_version` must bind to the same `schema_hash` |
+| 4-15 | Reserved | The sender clears them to `0`; the receiver must reject unknown set bits |
+
+`stream_semantics:u16` / `default_stream_semantics:u16` are frozen in the first round as:
+
+| Value | Name | Semantics |
+| --- | --- | --- |
+| `0` | `default` | Inherit the default profile/schema interpretation |
+| `1` | `snapshot` | The current payload is a full snapshot |
+| `2` | `append` | The current payload appends to an existing sequence or stream |
+| `3` | `replace` | The current payload replaces an existing logical segment |
+| `4` | `event` | The current payload carries discrete event semantics |
+| `5` | `tool_update` | The current payload carries tool-call or tool-result incremental semantics |
 
 ### 9.1 Freezing of the first-round standard profiles
 
@@ -423,6 +532,33 @@ Constraints in the first round:
 
 This allows preview3 to support more data types without needing to freeze an ever-expanding public bitmap table each time.
 
+### 9.4 Freezing of schema-registry flow and error behavior
+
+In the first round, preview3 freezes the minimum schema-registry flow as:
+
+1. `install`: install a new schema when `schema_id + schema_version + schema_hash` is not yet present.
+2. `update`: install a higher `schema_version` under the same `schema_id`; policy may decide whether old versions remain available, but it must not mutate the `schema_hash` of an already installed version.
+3. `invalidate`: explicitly invalidate a schema by `schema_id + schema_version` or through dependency invalidation.
+4. `version_conflict`: if the same `schema_id + schema_version` arrives with a different `schema_hash`, the receiver must reject it and return a stable error.
+
+`schema_error_code:u32` is frozen in the first round as:
+
+| Value | Name | Meaning |
+| --- | --- | --- |
+| `0x00040000` | `none` | No schema error |
+| `0x00040001` | `schema_unknown` | The requested `schema_id` does not exist |
+| `0x00040002` | `schema_version_unknown` | The requested `schema_version` does not exist |
+| `0x00040003` | `schema_hash_conflict` | The same `schema_id + schema_version` was presented with a different `schema_hash` |
+| `0x00040004` | `schema_incompatible` | The schema is incompatible with the current profile, stage, or critical constraints |
+| `0x00040005` | `schema_dependency_missing` | A schema dependency is missing or unavailable |
+| `0x00040006` | `schema_update_rejected` | A schema update or invalidation request was rejected by policy |
+
+First-round constraints:
+
+1. When `schema_flags.critical` is set and the receiver cannot recognize the schema, version, or dependency, it must return a stable `schema_error_code` and must not silently skip the schema.
+2. The binding between a typed payload descriptor and `schema_id / schema_version / profile_id` is strict; language bindings must not rewrite it into a "looks compatible enough" heuristic.
+3. The standard `install / update / invalidate / version_conflict` flow is implemented by the Rust canonical registry; language bindings expose only host-friendly control surfaces and do not reinterpret conflict outcomes privately.
+
 ## 10. preview3 Agent / Workflow Runtime Semantics
 
 preview2 can already carry `structured_event` and `tool_delta`; what preview3 adds is their lifecycle semantics at runtime.
@@ -458,7 +594,7 @@ At minimum, it should add:
 3. Recovery, resume token, and `resume_from_operation` semantics under multi-session scenarios.
 4. Unified result / event / control observability fields so multi-language hosts can stably record queue, compute, transport, backpressure, cache-hit, and lease events.
 
-preview3 does not need to freeze the full detail of disconnection recovery in the first round, but it must upgrade the question of "whether the recovery object is a frame, operation, or session" from an implicit preview2 convention into an explicit protocol concept.
+In the first round, preview3 explicitly freezes the recovery object as the session; a frame is not a recovery object, and an operation is only a watermark and observability boundary within session recovery.
 
 ### 11.1 Freezing the three-scope `FLOW_UPDATE` and its metadata
 
@@ -524,6 +660,16 @@ Constraints in the first round:
 5. `hard` backpressure is not an error. It indicates that the new submission window has been temporarily tightened; the sender should wait for a later `grant / resume` or a `FLOW_UPDATE` with a higher epoch.
 6. This fixed metadata solves only unified routing and control of credit/backpressure and does not carry profile-private queueing metrics. More fine-grained observability data should still be extended through schema/profile or dedicated observability paths.
 
+### 11.2 Freezing of the recovery object and `resume_from_operation`
+
+In the first round, preview3 freezes the following recovery semantics:
+
+1. `resume_token` is always bound to a session rather than a connection or frame.
+2. `resume_from_operation_id` is an optional watermark within session recovery and declares "resume terminal results and events after this operation".
+3. On successful recovery, `SESSION_OPEN_ACK.session_status` must return `resumed`, and the server must continue delivering unfinished or unacknowledged operation lifecycle events on the resumed session.
+4. If the `resume_token` is invalid, expired, unauthorized, or incompatible with the requested profile/schema/session capabilities, the server must return `session_error_code = resume_rejected`.
+5. Recovery must not treat historical frames as independent recovery objects; any frame-level or packet-level compensation remains subordinate to session recovery semantics.
+
 ## 12. Rust FFI and Binding Contract
 
 preview3 requires the Rust canonical SDK to provide at least a stable FFI contract reusable across languages.
@@ -542,6 +688,36 @@ The binding contract of preview3 explicitly requires:
 2. The C# side should prioritize exposing Unity / .NET-friendly session orchestration, callbacks, and memory-safe wrappers, but must not rewrite the wire codec.
 3. When a new language SDK enters the ecosystem, it should by default start from the Rust canonical FFI rather than copying a pure-language implementation from Python or C#.
 
+### 12.1 Freezing of handle lifetime, drive modes, and error families
+
+In the first round, preview3 freezes the following FFI-level public contract:
+
+1. All handles are treated as opaque handles at the ABI boundary, and `0` is the invalid handle.
+2. `connection_handle` owns `session_handle`; `session_handle` owns `operation_handle`; after a parent handle is released, its child handles must no longer be used by language bindings.
+3. `schema_handle` may be cached independently, but its buffer/body views still follow buffer-view lifetime rules.
+4. `buffer_view_handle` is only guaranteed valid until explicit release or until the agreed callback returns; if a binding needs to retain data beyond that window, it must perform an explicit copy.
+5. The Rust canonical SDK must provide both callback-driven and polling-driven modes; bindings may expose one or both, but must not rewrite event-order semantics.
+
+`ffi_error_family:u32` freezes the following high-bit families in the first round:
+
+| Family Prefix | Name | Meaning |
+| --- | --- | --- |
+| `0x00010000` | `protocol` | Protocol-layer errors |
+| `0x00020000` | `state_machine` | Connection/session/operation state-machine errors |
+| `0x00030000` | `cache` | Cache / lease errors |
+| `0x00040000` | `schema` | Schema / profile-registry errors |
+| `0x00050000` | `binding_contract` | FFI / handle / buffer / callback-contract errors |
+
+The `binding_contract` subcodes are frozen in the first round as:
+
+| Value | Name | Meaning |
+| --- | --- | --- |
+| `0x00050001` | `invalid_handle` | An invalid or already released handle was passed |
+| `0x00050002` | `ownership_violation` | Handle or buffer ownership rules were violated |
+| `0x00050003` | `thread_affinity_violation` | An object was used on a disallowed thread or event loop |
+| `0x00050004` | `buffer_released` | A buffer view was accessed after release |
+| `0x00050005` | `callback_reentrancy_forbidden` | Reentrant entry occurred during a non-reentrant callback |
+
 ## 13. Implementation Order
 
 preview3 is recommended to proceed in the following phases:
@@ -551,11 +727,11 @@ preview3 is recommended to proceed in the following phases:
 3. Phase C: converge Python and C# bindings onto the Rust core, retaining only host-facing control plane and language-friendly wrappers.
 4. Phase D: expand new payload families, workflow events, and ecosystem language bindings on top of the schema/profile registry.
 
-The first priority of preview3 is not "continue piling on more payload kinds," but rather "freeze the canonical SDK, the connection/session model, and the advanced cache/registry boundary first." Only after these three things are stable will subsequent ecosystem bindings in JS, Java, Go, and beyond avoid reproducing the semantic-drift problems of the preview1/preview2 stage.
+The first priority of preview3 is not "continue piling on more payload kinds," but rather "freeze the canonical SDK, the connection/session model, and the advanced cache/registry boundary first." This document now provides that first-round frozen baseline, and subsequent ecosystem bindings in JS, Java, Go, and beyond should implement against it directly rather than repeating the preview1/preview2 drift path.
 
-## 14. Items That Must Be Frozen First in the First Round of preview3
+## 14. Summary of the First-Round Frozen Baseline of preview3
 
-To avoid once again following the drift path of "two SDKs implement independently first, then come back later to freeze semantics," the following items must be frozen before the first-round implementation of preview3. Before they are frozen, Python/C# must not begin implementing the preview3 hot path.
+To avoid once again following the drift path of "two SDKs implement independently first, then come back later to freeze semantics," this document now freezes the following items as the first-round baseline. Rust, Python, C#, and future bindings should implement directly against them.
 
 ### 14.1 Canonical SDK ownership
 
@@ -565,7 +741,7 @@ To avoid once again following the drift path of "two SDKs implement independentl
 
 ### 14.2 FFI contract
 
-The following FFI boundaries must be frozen first:
+The following FFI boundaries are now frozen:
 
 1. Handle families: `connection / session / operation / schema / buffer_view`.
 2. Handle lifecycle: creation, borrowing, release, and recoverability after errors.
@@ -575,7 +751,7 @@ The following FFI boundaries must be frozen first:
 
 ### 14.3 Connection/session lifecycle
 
-The following connection and session semantics must be frozen first:
+The following connection and session semantics are now frozen:
 
 1. The layered boundary between connection-level handshake and session-level open flow.
 2. `SESSION_OPEN / SESSION_OPEN_ACK` are introduced as standard messages, and in the first round their fixed metadata are frozen at 48B / 56B respectively.
@@ -585,7 +761,7 @@ The following connection and session semantics must be frozen first:
 
 ### 14.4 Scheduling semantics
 
-The following scheduling semantics must be frozen first:
+The following scheduling semantics are now frozen:
 
 1. The standard enum values of `session_priority_class`: `interactive=0 / balanced=1 / background=2`.
 2. The standard enum values of `operation_state`: `accepted=0 / running=1 / partial=2 / waiting_tool=3 / superseded=4 / cancelled=5 / failed=6 / completed=7`.
@@ -594,7 +770,7 @@ The following scheduling semantics must be frozen first:
 
 ### 14.5 Advanced cache contract
 
-The following cache semantics must be frozen first:
+The following cache semantics are now frozen:
 
 1. The division of responsibilities between `object_id` and `object_version`.
 2. Lease identity, expiration, renewal, and eviction-hint semantics.
@@ -603,7 +779,7 @@ The following cache semantics must be frozen first:
 
 ### 14.6 Schema/profile registry
 
-The following schema/profile registry items must be frozen first:
+The following schema/profile registry items are now frozen:
 
 1. The first-round standard profile set; at minimum it must clarify that `tensor profile` and `token profile` stand in parallel, and the public layer must no longer treat tensor as the default privileged profile.
 2. The minimum standard semantic boundary of `token profile`, especially the public vocabulary of token chunks, position ranges, completion status, and stop-reason.
@@ -615,7 +791,7 @@ The following schema/profile registry items must be frozen first:
 
 ### 14.7 Payload family vs lifecycle boundary
 
-The following items must be frozen first:
+The following items are now frozen:
 
 1. `structured_event` and `tool_delta` belong to payload families by default, rather than standalone profiles.
 2. Only when they affect cross-language interoperable operation-lifecycle state, routing, or cancellation semantics do the corresponding minimum fields enter the public lifecycle model.
@@ -625,4 +801,4 @@ The following items must be frozen first:
 
 1. preview3 canonical golden vectors may only be generated by Rust.
 2. Python/C# may only import Rust fixtures for binding validation, and must not maintain "peer canonical vectors" in parallel.
-3. The enum values, message values, metadata lengths, and error codes of preview3 must be frozen first in Rust conformance before entering language-binding tests.
+3. The enum values, message values, metadata lengths, and error codes of preview3 now form the first-round Rust conformance baseline, and downstream language-binding tests must consume that baseline directly.

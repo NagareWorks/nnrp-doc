@@ -244,6 +244,67 @@ preview3 首轮冻结以下 `session_error_code:u32` 族：
 2. `session_flags_ack` 只能确认或降级客户端请求，不能私设未请求的新能力。
 3. 后续若要扩展该错误码族，必须按高位 family 预留策略继续扩展，不得重排已冻结值。
 
+### 7.1C `SESSION_CLOSE` / `SESSION_CLOSE_ACK` 与最小路由字段冻结
+
+preview3 首轮将 session close 冻结为标准控制消息对，而不再复用 connection `CLOSE` 的隐含习惯。
+
+`SESSION_CLOSE` fixed metadata 首轮固定为 24 字节：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `close_reason` | `u16` | 关闭原因，取值见下文冻结枚举 |
+| `in_flight_policy` | `u8` | 对现有 in-flight operation 的处理策略 |
+| `reserved0` | `u8` | 保留，发送端清零 |
+| `drain_timeout_ms` | `u32` | 允许排空现有 operation 的超时窗口；`0` 表示立即应用策略 |
+| `last_operation_id` | `u64` | 发送端最后确认的 operation 水位；无则为 `0` |
+| `session_error_code` | `u32` | 若因错误关闭 session，则返回稳定错误码；否则为 `0` |
+| `session_close_tag` | `u32` | 本地可观测关闭关联标识 |
+
+`SESSION_CLOSE_ACK` fixed metadata 首轮固定为 16 字节：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `close_status` | `u8` | 关闭确认状态，取值见下文冻结枚举 |
+| `reserved0` | `u8` | 保留，发送端清零 |
+| `reserved1` | `u16` | 保留，发送端清零 |
+| `last_operation_id` | `u64` | 服务端确认后的 operation 水位 |
+| `session_error_code` | `u32` | 若关闭过程中出现稳定错误，则返回错误码；否则为 `0` |
+
+`close_reason:u16` 首轮冻结为：
+
+| 值 | 名称 | 语义 |
+| --- | --- | --- |
+| `0` | `normal` | 正常关闭 |
+| `1` | `client_shutdown` | 客户端主动关闭 |
+| `2` | `server_shutdown` | 服务端主动关闭 |
+| `3` | `idle_timeout` | 因空闲超时关闭 |
+| `4` | `protocol_error` | 因稳定协议错误关闭 |
+| `5` | `auth_revoked` | 因鉴权撤销或凭证失效关闭 |
+
+`in_flight_policy:u8` 首轮冻结为：
+
+| 值 | 名称 | 语义 |
+| --- | --- | --- |
+| `0` | `drain` | 允许现有 in-flight operation 在 `drain_timeout_ms` 内排空 |
+| `1` | `abort` | 立即终止现有 in-flight operation |
+
+`close_status:u8` 首轮冻结为：
+
+| 值 | 名称 | 语义 |
+| --- | --- | --- |
+| `0` | `acknowledged` | 关闭请求已接受并开始执行 |
+| `1` | `draining` | 当前仍在排空已有 operation |
+| `2` | `closed` | session 已完成关闭 |
+| `3` | `rejected` | 关闭请求被拒绝 |
+
+首轮额外约束：
+
+1. connection-scope 控制消息必须使用 `header.session_id = 0`。
+2. session-scope 控制、数据、结果消息必须使用 `header.session_id = 目标 session`。
+3. operation-scope 消息必须同时携带 `header.session_id` 与其固定 metadata 中的 `operation_id`。
+4. `SESSION_CLOSE` 只关闭单个 session，不隐含关闭整条连接。
+5. 若 `SESSION_CLOSE_ACK.close_status = draining`，发送方必须继续按已知 operation 水位处理后续终结事件，直到收到 `closed` 或更高水位的关闭确认。
+
 ### 7.2 优先级与流等级
 
 preview3 引入显式优先级与流等级语义，用于同连接多会话和同会话多 operation 的调度。
@@ -311,6 +372,33 @@ preview3 缓存模型至少包含以下能力：
 
 preview3 不要求公共层直接冻结模型私有 KV-cache page 编码；这类对象仍应作为 profile-local 或 runtime-private object kind 存在。公共层负责冻结 lease contract、版本口径、依赖语义和错误行为。
 
+### 8.1 lease / version / 错误口径冻结
+
+preview3 首轮进一步冻结以下缓存公共口径：
+
+1. `object_id` 表示逻辑对象身份；在对象内容更新但逻辑身份不变时保持不变。
+2. `object_version` 表示同一 `object_id` 下的内容修订号；语义变化时必须单调递增。
+3. `lease_id:u64` 表示一次成功租约授予的稳定身份；续租保持同一 `lease_id`，重新授予产生新的 `lease_id`。
+4. `lease_owner_scope:u8` 首轮冻结为 `connection=0 / session=1 / operation=2`。
+5. host-visible policy 中的 `prefetch / touch / renew / evict_hint / reuse_preference` 都是显式提示，不得被解释为绕过版本、依赖或 schema 校验的强制命令。
+
+`cache_error_code:u32` 首轮冻结为：
+
+| 值 | 名称 | 含义 |
+| --- | --- | --- |
+| `0x00030000` | `none` | 无缓存错误 |
+| `0x00030001` | `cache_miss` | 请求引用的对象不存在 |
+| `0x00030002` | `lease_expired` | 请求引用的租约已过期 |
+| `0x00030003` | `version_mismatch` | 请求引用的 `object_version` 与当前可用版本不一致 |
+| `0x00030004` | `dependency_invalid` | 依赖对象或依赖 schema 已失效 |
+| `0x00030005` | `schema_mismatch` | 对象与所需 schema/profile 解释不兼容 |
+
+首轮约束：
+
+1. `cache_miss / lease_expired / version_mismatch / dependency_invalid / schema_mismatch` 必须在跨语言路径上保持稳定错误口径，不得被语言绑定改写成私有字符串错误。
+2. 结果复用若依赖某个 `object_id + object_version` 或 schema 版本，则该依赖必须进入可观测关系图；依赖失效时必须返回稳定错误码或显式失效事件。
+3. runtime-private object kind 可以继续存在，但不得绕过上述 `object_id / object_version / lease_id / cache_error_code` 公共语义。
+
 ## 9. preview3 Schema / Profile Registry
 
 preview3 不再把“继续增加 payload kind 枚举”当作主要扩展方式，而是引入标准 schema/profile registry。
@@ -353,6 +441,27 @@ preview3 首轮将 schema descriptor 通用头固定为 32 字节，用于在不
 2. 任何 profile 私有解释字段都必须进入 schema body，不得继续膨胀通用头。
 3. `schema_hash` 用于跨语言一致性校验与缓存去重，不直接替代 `schema_id + schema_version` 的逻辑身份。
 4. `default_stream_semantics` 只提供默认语义；具体 payload descriptor 仍可在单帧或单 operation 上覆盖。
+
+`schema_flags:u16` 首轮冻结以下位定义：
+
+| bit | 掩码 | 含义 |
+| --- | --- | --- |
+| 0 | `0x0001` | `cacheable`：该 schema 可进入 cache / lease 生命周期 |
+| 1 | `0x0002` | `critical`：未知或不兼容时必须拒绝 |
+| 2 | `0x0004` | `default_bindable`：允许作为 session 默认 schema |
+| 3 | `0x0008` | `hash_stable`：相同 `schema_id + schema_version` 必须与相同 `schema_hash` 绑定 |
+| 4-15 | 保留 | 发送端清零，接收端收到未知置位必须拒绝 |
+
+`stream_semantics:u16` / `default_stream_semantics:u16` 首轮冻结为：
+
+| 值 | 名称 | 语义 |
+| --- | --- | --- |
+| `0` | `default` | 继承 profile/schema 默认解释 |
+| `1` | `snapshot` | 当前 payload 为完整快照 |
+| `2` | `append` | 当前 payload 追加到既有序列或流 |
+| `3` | `replace` | 当前 payload 覆盖既有逻辑片段 |
+| `4` | `event` | 当前 payload 表示离散事件语义 |
+| `5` | `tool_update` | 当前 payload 表示工具调用或工具结果增量 |
 
 ### 9.1 首轮标准 profile 冻结
 
@@ -423,6 +532,33 @@ preview3 首轮将 typed payload descriptor 的公共布局固定为 24 字节�
 
 这使 preview3 可以支持更多数据类型，但不需要每次都重新冻结一张不断膨胀的公共位图表。
 
+### 9.4 schema registry 流程与错误行为冻结
+
+preview3 首轮将 schema registry 的最小流程冻结为：
+
+1. `install`：当 `schema_id + schema_version + schema_hash` 尚未存在时安装新 schema。
+2. `update`：同一 `schema_id` 引入更高 `schema_version` 的新 schema；旧版本是否保留由 policy 决定，但不得改变已安装版本的 `schema_hash`。
+3. `invalidate`：按 `schema_id + schema_version` 或依赖关系显式失效 schema。
+4. `version_conflict`：若收到相同 `schema_id + schema_version` 但不同 `schema_hash`，必须拒绝并返回稳定错误。
+
+`schema_error_code:u32` 首轮冻结为：
+
+| 值 | 名称 | 含义 |
+| --- | --- | --- |
+| `0x00040000` | `none` | 无 schema 错误 |
+| `0x00040001` | `schema_unknown` | 请求的 `schema_id` 不存在 |
+| `0x00040002` | `schema_version_unknown` | 请求的 `schema_version` 不存在 |
+| `0x00040003` | `schema_hash_conflict` | 相同 `schema_id + schema_version` 对应不同 `schema_hash` |
+| `0x00040004` | `schema_incompatible` | schema 与当前 profile、stage 或关键约束不兼容 |
+| `0x00040005` | `schema_dependency_missing` | schema 依赖项不存在或不可用 |
+| `0x00040006` | `schema_update_rejected` | schema 更新或失效请求被策略拒绝 |
+
+首轮约束：
+
+1. 当 `schema_flags.critical` 置位且接收方无法识别 schema、版本或依赖时，必须返回稳定 `schema_error_code`，不得静默跳过。
+2. typed payload descriptor 与 `schema_id / schema_version / profile_id` 的绑定是强约束；不得在语言绑定侧改写为“看起来兼容就继续解析”。
+3. `install / update / invalidate / version_conflict` 的标准流程由 Rust canonical registry 实现，语言绑定只暴露宿主友好的控制面，不自行解释冲突结果。
+
 ## 10. preview3 Agent / Workflow 运行时语义
 
 preview2 已经能携带 `structured_event` 和 `tool_delta`；preview3 要补的是它们在运行时中的生命周期语义。
@@ -458,7 +594,7 @@ preview3 需要把 preview2 的 flow control 与 migration 再向前推进一层
 3. 多 session 场景下的恢复、resume token 与 `resume_from_operation` 语义。
 4. 统一的 result / event / control 观测字段，使多语言宿主可稳定记录 queue、compute、transport、backpressure、cache 命中与 lease 事件。
 
-preview3 不需要在第一轮就冻结完整断线恢复细节，但必须把“恢复对象到底是 frame、operation 还是 session”从 preview2 的隐含约定升级为显式协议概念。
+preview3 首轮将恢复对象明确冻结为 session；frame 不是恢复对象，operation 只是 session 恢复内的水位与可观测边界。
 
 ### 11.1 `FLOW_UPDATE` 三层 scope 与 metadata 冻结
 
@@ -524,6 +660,16 @@ preview3 首轮将 `FLOW_UPDATE` 固定为 32 字节 fixed metadata，用于统�
 5. `hard` 背压不是错误，它表示新的提交窗口被临时收紧；发送方应等待后续 `grant / resume` 或更高 epoch 的 `FLOW_UPDATE`。
 6. 该 fixed metadata 只解决统一 credit/backpressure 路由和控制，不承载 profile 私有排队指标；更细粒度可观测数据仍应通过 schema/profile 或专用 observability 路径扩展。
 
+### 11.2 恢复对象与 `resume_from_operation` 语义冻结
+
+preview3 首轮冻结以下恢复语义：
+
+1. `resume_token` 始终绑定到 session，而不是 connection 或 frame。
+2. `resume_from_operation_id` 是 session 恢复内的可选水位，用于声明“从哪个 operation 之后重新同步终结结果与事件”。
+3. 成功恢复时，`SESSION_OPEN_ACK.session_status` 必须返回 `resumed`，且服务端必须以恢复后的 session 继续投递未完成或未确认的 operation 生命周期事件。
+4. 若 `resume_token` 无效、过期、越权或与请求的 profile/schema/session 能力不兼容，服务端必须返回 `session_error_code = resume_rejected`。
+5. 恢复不得把历史 frame 视为独立恢复对象；任何 frame 级或单包级补偿都必须从属于 session 恢复语义。
+
 ## 12. Rust FFI 与绑定契约
 
 preview3 要求 Rust canonical SDK 至少提供稳定、可多语言复用的 FFI 契约。
@@ -542,6 +688,36 @@ preview3 的 binding contract 明确要求：
 2. C# 侧优先暴露 Unity / .NET 友好的 session orchestration、回调和内存安全封装，但不重写 wire codec。
 3. 新语言 SDK 进入生态时，默认从 Rust canonical FFI 起步，而不是复制 Python 或 C# 的纯语言实现。
 
+### 12.1 handle 生命周期、驱动模式与错误族冻结
+
+preview3 首轮冻结以下 FFI 公共契约：
+
+1. 所有 handle 在 ABI 边界上都视为 opaque handle；`0` 为无效 handle。
+2. `connection_handle` 拥有 `session_handle`；`session_handle` 拥有 `operation_handle`；父 handle 释放后，其子 handle 不得继续被语言绑定使用。
+3. `schema_handle` 可独立缓存，但其 buffer / body 视图仍受 buffer-view 生命周期规则约束。
+4. `buffer_view_handle` 只保证在显式 release 前或约定回调返回前有效；语言绑定若要跨越该窗口持有数据，必须执行显式复制。
+5. Rust canonical SDK 必须同时提供 callback-driven 与 polling-driven 驱动模式；语言绑定可以选择其一或同时暴露两者，但不得改写事件顺序语义。
+
+`ffi_error_family:u32` 首轮冻结以下高位 family：
+
+| family 前缀 | 名称 | 含义 |
+| --- | --- | --- |
+| `0x00010000` | `protocol` | 协议层错误 |
+| `0x00020000` | `state_machine` | 连接、session、operation 状态机错误 |
+| `0x00030000` | `cache` | cache / lease 错误 |
+| `0x00040000` | `schema` | schema / profile registry 错误 |
+| `0x00050000` | `binding_contract` | FFI / handle / buffer / 回调契约错误 |
+
+`binding_contract` 子码首轮冻结为：
+
+| 值 | 名称 | 含义 |
+| --- | --- | --- |
+| `0x00050001` | `invalid_handle` | 传入了无效或已释放的 handle |
+| `0x00050002` | `ownership_violation` | 违反了 handle 或 buffer 的所有权规则 |
+| `0x00050003` | `thread_affinity_violation` | 在不允许的线程或事件循环上使用对象 |
+| `0x00050004` | `buffer_released` | 在 buffer-view 释放后继续访问其内容 |
+| `0x00050005` | `callback_reentrancy_forbidden` | 在禁止重入的 callback 期间发生重入调用 |
+
 ## 13. 落地顺序
 
 preview3 推荐按以下阶段推进：
@@ -551,11 +727,11 @@ preview3 推荐按以下阶段推进：
 3. Phase C: 让 Python、C# 绑定收敛到 Rust 核心，只保留 host-facing 控制面与语言友好封装。
 4. Phase D: 在 schema/profile registry 基础上扩充新的 payload family、workflow 事件和生态语言绑定。
 
-preview3 的第一优先级不是“继续堆更多 payload kind”，而是“先把 canonical SDK、连接/会话模型和高级缓存/registry 边界冻结下来”。只有这三件事落稳，后续 JS、Java、Go 等生态绑定才不会再复制 preview1/preview2 阶段的语义漂移问题。
+preview3 的第一优先级不是“继续堆更多 payload kind”，而是“先把 canonical SDK、连接/会话模型和高级缓存/registry 边界冻结下来”。本文档已完成首轮冻结基线，后续 JS、Java、Go 等生态绑定应直接据此实现，而不是再次回到“先各自实现、再回头对齐语义”的路径。
 
-## 14. preview3 首轮必须先冻结的条目
+## 14. preview3 首轮冻结结果摘要
 
-为避免再次出现“两个 SDK 先各自实现、再回头冻结语义”的偏移路径，preview3 首轮实现前必须先冻结以下条目；未冻结前，Python/C# 不应开始 preview3 热路径实现。
+为避免再次出现“两个 SDK 先各自实现、再回头冻结语义”的偏移路径，本文档已完成以下条目的首轮冻结；Rust、Python、C# 与后续语言绑定应直接据此落代码实现。
 
 ### 14.1 Canonical SDK ownership
 
@@ -565,7 +741,7 @@ preview3 的第一优先级不是“继续堆更多 payload kind”，而是“�
 
 ### 14.2 FFI contract
 
-以下 FFI 边界必须先冻结：
+以下 FFI 边界已经冻结：
 
 1. handle 家族：`connection / session / operation / schema / buffer_view`。
 2. handle 生命周期：创建、借用、释放、错误后可恢复性。
@@ -575,7 +751,7 @@ preview3 的第一优先级不是“继续堆更多 payload kind”，而是“�
 
 ### 14.3 Connection/session lifecycle
 
-以下连接与会话语义必须先冻结：
+以下连接与会话语义已经冻结：
 
 1. connection 级握手与 session 级打开流程的分层边界。
 2. `SESSION_OPEN / SESSION_OPEN_ACK` 作为标准消息引入，且首轮 fixed metadata 分别冻结为 48B / 56B。
@@ -585,7 +761,7 @@ preview3 的第一优先级不是“继续堆更多 payload kind”，而是“�
 
 ### 14.4 Scheduling semantics
 
-以下调度语义必须先冻结：
+以下调度语义已经冻结：
 
 1. `session_priority_class` 的标准枚举值：`interactive=0 / balanced=1 / background=2`。
 2. `operation_state` 的标准枚举值：`accepted=0 / running=1 / partial=2 / waiting_tool=3 / superseded=4 / cancelled=5 / failed=6 / completed=7`。
@@ -594,7 +770,7 @@ preview3 的第一优先级不是“继续堆更多 payload kind”，而是“�
 
 ### 14.5 Advanced cache contract
 
-以下缓存语义必须先冻结：
+以下缓存语义已经冻结：
 
 1. `object_id` 与 `object_version` 的分工。
 2. lease identity、过期、续租与驱逐提示语义。
@@ -603,7 +779,7 @@ preview3 的第一优先级不是“继续堆更多 payload kind”，而是“�
 
 ### 14.6 Schema/profile registry
 
-以下 schema/profile registry 条目必须先冻结：
+以下 schema/profile registry 条目已经冻结：
 
 1. 首轮标准 profile 集合；至少明确 `tensor profile` 与 `token profile` 并列成立，公共层不得再把 tensor 视为默认特权 profile。
 2. `token profile` 的最小标准语义边界，尤其是 token chunk、位置范围、完成状态和 stop-reason 的公共口径。
@@ -615,7 +791,7 @@ preview3 的第一优先级不是“继续堆更多 payload kind”，而是“�
 
 ### 14.7 Payload family vs lifecycle boundary
 
-以下条目必须先冻结：
+以下条目已经冻结：
 
 1. `structured_event` 与 `tool_delta` 默认属于 payload family，而不是独立 profile。
 2. 只有影响跨语言互通的 operation lifecycle 状态、路由或取消语义时，对应最小字段才进入公共 lifecycle 模型。
@@ -625,4 +801,4 @@ preview3 的第一优先级不是“继续堆更多 payload kind”，而是“�
 
 1. preview3 canonical golden vectors 只能由 Rust 生成。
 2. Python/C# 只能导入 Rust fixtures 做绑定验证，不得并行维护“同级 canonical 向量”。
-3. preview3 的枚举值、消息值、metadata 长度和错误码必须在 Rust conformance 中先冻结，再进入语言绑定测试。
+3. preview3 的枚举值、消息值、metadata 长度和错误码已经作为 Rust conformance 的首轮基线，下游语言绑定测试必须直接消费这组基线。
