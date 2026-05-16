@@ -2,6 +2,16 @@
 
 Documentation site for NNRP, built with VitePress and driven by Deno tasks.
 
+## Contributors
+
+<a href="https://github.com/NagareWorks/nnrp-doc/graphs/contributors" title="Open the contributors graph for individual GitHub profiles and IDs.">
+	<img src="https://contrib.rocks/image?repo=NagareWorks/nnrp-doc" alt="Contributors" />
+</a>
+
+The avatar wall above updates automatically from the repository contributor list once this repository is published at the matching GitHub location.
+
+GitHub README rendering does not support per-avatar dynamic tooltips for an auto-generated contributor wall, so use the linked contributors graph if you want individual profile pages and account IDs.
+
 ## Goals
 
 1. Publish NNRP documentation as a GitHub Pages site.

@@ -1,15 +1,43 @@
 # C# Quick Start
 
-This page is reserved for the public quick-start entry of the C# SDK.
+Use the C# SDK in different ways depending on the host type.
 
-## Current state
+## Choose the installation path
 
-1. The documentation slot exists, but public examples and NuGet onboarding are intentionally deferred.
-2. Before the SDK is opened publicly, this page should only preserve the stable entry point and its final location.
+### Regular .NET client application
 
-## Content to land later
+If you are building a regular .NET client application, install the client package from NuGet:
 
-1. Package installation path and target framework requirements.
-2. Minimal client construction example.
-3. Shortest path for session open, submit, receive, and close.
-4. Common exceptions and minimal troubleshooting notes.
+```powershell
+dotnet add package Nnrp.Client
+```
+
+Use this path for managed client-side integrations that want the C# session helpers and client-facing API surface.
+
+### Regular .NET server application
+
+If you are building a regular .NET server application, install the server package from NuGet:
+
+```powershell
+dotnet add package Nnrp.Server
+```
+
+Use this path for server-side session helpers and protocol-facing server integration.
+
+### Unity project
+
+If you are integrating from Unity, do not install the SDK through NuGet.
+
+Instead:
+
+1. Open the latest GitHub Release for `NagareWorks/nnrp-cs`.
+2. Find the release asset named `com.nnrp.client-<version>.zip`.
+3. Download that zip and import or unpack it as the Unity-style package bundle for that version.
+
+This Unity package bundle is produced by CI and is the distribution path for the Unity-facing package layout.
+
+## Notes
+
+1. `Nnrp.Client` and `Nnrp.Server` are the primary entry packages for regular .NET applications.
+2. Lower-level packages such as `Nnrp.Core`, `Nnrp.Transport.Tcp`, and `Nnrp.NativeBridge` are still available when you need more control over transport or wire-level integration.
+3. The Unity package currently ships as a GitHub Release asset rather than a public UPM registry package.
