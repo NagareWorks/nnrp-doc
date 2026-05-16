@@ -86,6 +86,18 @@ public interface INnrpClientSession : IAsyncDisposable
 }
 ```
 
+**Method Parameter Reference**
+
+| Method | Parameters | Returns | Description |
+|---|---|---|---|
+| `SubmitAsync` | `request`: [`NnrpSubmitRequest`](#nnrpsubmitrequest) (requires `FrameId`); `ct` | `NnrpSubmitResult` | Submit a frame and block until the result arrives; throws `NnrpResultDroppedException` if dropped |
+| `SubmitFireAndForgetAsync` | `request`: [`NnrpSubmitRequest`](#nnrpsubmitrequest); `ct` | `Task` | Non-blocking submit; use `ReceiveResultAsync` to poll for the result separately |
+| `ReceiveResultAsync` | `frameId`: the ID passed in the prior `SubmitFireAndForgetAsync` | `NnrpSubmitResult` | Await the result for a specific frame; must be paired with `SubmitFireAndForgetAsync` |
+| `PatchSessionAsync` | `patch`: `SessionPatchMessage` with `Fields` ([`SessionPatchField`](/en/sdk/csharp/api/enums#session-patch) bitmask) and new values | `SessionPatchAckMessage` | Dynamically adjust `TargetCadence`, `QualityTier`, active lane mask, preferred codec, etc. **Only fields whose bit is set in `Fields` are applied** |
+| `CloseAsync` | — | `Task` | Send `CLOSE` and gracefully terminate the connection; automatically called by `DisposeAsync()` |
+
+> **`NnrpSubmitRequest` key fields**: `FrameId` (required, monotonically increasing), `TileIds` (changed tile IDs), `Sections` ([`NnrpTensorSection`](#nnrptensorsection) array), `InputProfile` ([`InputProfile`](/en/sdk/csharp/api/enums#frame-classification)), `SubmitMode` (`Inline` = carry data inline / `Reference` = reference a cached object), `BudgetPolicy` ([`BudgetPolicy`](/en/sdk/csharp/api/enums#data-plane-enums) bitmask controlling whether degraded/partial results are acceptable), `InferenceBudgetMs` (inference time budget in ms; 0 = unlimited).
+
 ---
 
 ## Data Types

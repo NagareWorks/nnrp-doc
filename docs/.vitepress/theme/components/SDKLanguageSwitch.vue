@@ -122,12 +122,10 @@ function buildLanguageTarget(currentPath: string, language: string): string | nu
     return null;
   }
 
-  if (!resolveLanguageFromPath(currentPath)) {
-    // On any shared SDK page (no language slug in URL), always go to the language overview.
-    return `${localeBase.value}/sdk/${language}/`;
-  }
-
-  return currentPath.replace(/\/sdk\/(python|csharp|rust)\//, `/sdk/${language}/`);
+  // Always navigate to the language overview when switching languages.
+  // Attempting to preserve the current sub-path can 404 when the equivalent
+  // page does not exist in the target language.
+  return `${localeBase.value}/sdk/${language}/`;
 }
 
 function redirectToScopedSdkPath(currentPath: string): void {

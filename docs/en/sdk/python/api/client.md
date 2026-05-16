@@ -65,6 +65,18 @@ async def patch_session(self, patch_fields: SessionPatchField, *, ...) -> Sessio
 async def close(self) -> None: ...
 ```
 
+**Method Parameter Reference**
+
+| Method | Parameters | Returns | Description |
+|---|---|---|---|
+| `submit` | `request`: [`SubmitRequest`](#submitrequest); `timeout`: seconds (`None` = no timeout) | `Result` | Submit a frame and block until the result arrives; raises `asyncio.TimeoutError` on timeout |
+| `submit_nowait` | `request`: [`SubmitRequest`](#submitrequest) | `None` | Non-blocking submit; results must be retrieved via `receive_result` |
+| `receive_result` | `timeout`: seconds (`None` = no timeout) | `Result` | Await and return the next server-pushed result; pair with `ResultRouter` when submitting multiple in-flight frames |
+| `patch_session` | `patch_fields`: [`SessionPatchField`](/en/sdk/python/api/enums#session-patch) bitmask (specifies which fields to update); `target_cadence`: target FPS (0 = unchanged); `quality_tier`: 0–255; `active_lane_mask`: active lane bitmask; `preferred_codec`; `preferred_compression` | `SessionPatchAckMetadata` | Dynamically adjust session parameters at runtime. **Only fields whose bit is set in `patch_fields` are applied** |
+| `close` | — | `None` | Send `CLOSE` and shut down the underlying connection; call in a `finally` block |
+
+> **`SubmitRequest` key fields**: `frame_id` (required, monotonically increasing or unique), `tile_ids` (changed tile ID tuple), `sections` ([`TensorSectionData`](/en/sdk/python/api/packet#tensorsectiondata) tuple), `input_profile` ([`InputProfile`](/en/sdk/python/api/enums#inputprofileintenum)), `submit_mode` (`INLINE` / `REFERENCE`), `budget_policy` ([`BudgetPolicy`](/en/sdk/python/api/enums#budgetpolicy-intflag) bitmask), `inference_budget_ms` (0 = unlimited).
+
 ### `ClientControlBootstrapSession`
 
 Bootstrap session for completing `CLIENT_HELLO` / `SERVER_HELLO_ACK` exchange.

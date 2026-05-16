@@ -99,6 +99,21 @@ public interface INnrpServerSession : IAsyncDisposable
 }
 ```
 
+**方法参数说明**
+
+| 方法 | 参数 | 返回值 | 说明 |
+|---|---|---|---|
+| `ReceiveSubmitAsync` | `cancellationToken` | `NnrpFrameSubmit` | 等待并接收下一个 `FRAME_SUBMIT`；连接断开时抛出 `NnrpConnectionClosedException` |
+| `SendResultAsync` | `result`: [`NnrpResult`](#nnrpresult)（必填 `FrameId`、`ResultClass`） | `int`（发送字节数） | 向客户端推送帧处理结果；`Sections` 和 `TypedPayloads` 至少提供其中一种 |
+| `SendDropAsync` | `frameId`: 要丢弃的帧 ID；`resultClass`: 丢弃原因（默认 `Complete`） | `Task` | 通知客户端该帧不会返回结果；**必须调用**，否则客户端 `SubmitAsync` 永久阻塞 |
+| `SendFlowUpdateAsync` | `update`: `FlowUpdateMessage`，含 `Flags`（[`FlowUpdateFlags`](/zh/sdk/csharp/api/enums#流控枚举)）、`Credit`（信用窗口）、`RetryAfterMs` | `Task` | 发送背压信号；`Credit=0` 表示暂停；客户端收到后应暂停提交新帧 |
+| `SendResultHintAsync` | `hint`: `ResultHintMessage`，含 `CongestionState`（[`ResultHintCongestionState`](/zh/sdk/csharp/api/enums#结果提示)）等字段 | `Task` | 提示客户端当前拥塞状态，帮助客户端自适应调整帧率和质量 |
+| `SendPatchAckAsync` | `ack`: `SessionPatchAckMessage`，含 `Status`（[`SessionPatchAckStatus`](/zh/sdk/csharp/api/enums#会话补丁枚举)）及应用的字段值 | `Task` | 应答客户端的 `SESSION_PATCH` 请求 |
+| `SendErrorAsync` | `failure`: `NnrpProtocolFailure`，含 `ErrorCode`（[`ErrorCode`](/zh/sdk/csharp/api/enums#错误枚举)）和描述信息 | `Task` | 向客户端发送协议错误并关闭连接 |
+| `CloseAsync` | — | `Task` | 发送 `CLOSE` 并优雅关闭连接 |
+
+> **`NnrpResult` 字段**：`FrameId`（必填）、`ResultClass`（[`ResultClass`](/zh/sdk/csharp/api/enums#结果枚举)，必填）、`Sections`（输出 Tensor 分区）、`InferenceMs`（推理耗时）、`AppliedBudgetPolicy`（实际使用的降质策略，`Partial`/`Degraded` 时必填）。
+
 ---
 
 ## `NnrpServerSession`

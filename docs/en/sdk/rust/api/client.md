@@ -99,19 +99,18 @@ pub struct NnrpResult {
 
 ```rust
 // Expected Preview3 usage
-use nnrp_client::{NnrpClient, NnrpClientConfig};
-use nnrp_core::{InputProfile, BudgetPolicy, ResultClass};
+use nnrp_core::{NnrpClient, NnrpClientConfig, NnrpSubmitRequest};
+use nnrp_core::{InputProfile, BudgetPolicy, ResultClass, TransportPolicy};
 
-let config = NnrpClientConfig::builder()
-    .host("render.example.com")
-    .port(4433)
-    .transport_policy(TransportPolicy::PreferQuic)
-    .build()?;
+let config = NnrpClientConfig {
+    transport_policy: TransportPolicy::PreferQuic,
+    ..Default::default()
+};
 
-let client = NnrpClient::connect(config).await?;
-let mut session = client.open_session().await?;
+// TCP connect (for QUIC use NnrpClient::connect_quic with a TLS config)
+let mut session = NnrpClient::connect_tcp("render.example.com:4433", config).await?;
 
-for frame_id in 0u64.. {
+for frame_id in 0u32.. {
     let result = session.submit(NnrpSubmitRequest {
         frame_id,
         input_profile: InputProfile::ChangedTilesLuma,
@@ -123,6 +122,7 @@ for frame_id in 0u64.. {
         display(&result.sections);
     }
 }
+session.close().await?;
 ```
 
 ---

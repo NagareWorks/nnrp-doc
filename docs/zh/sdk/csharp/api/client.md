@@ -114,6 +114,21 @@ public interface INnrpClientSession : IAsyncDisposable
 }
 ```
 
+**方法参数说明**
+
+| 方法 | 参数 | 返回值 | 说明 |
+|---|---|---|---|
+| `SubmitAsync` | `request`: [`NnrpSubmitRequest`](#nnrpsubmitrequest)（必填 `FrameId`）；`cancellationToken` | `NnrpSubmitResult` | 提交帧并阻塞等待结果；结果丢弃时抛出 `NnrpResultDroppedException` |
+| `SubmitAndForgetAsync` | `request`: [`NnrpSubmitRequest`](#nnrpsubmitrequest) | `NnrpInFlightFrame` | 立即返回句柄，通过 `.ResultTask` 异步等待结果，可并行提交多帧 |
+| `AwaitResultAsync` | `frameId`: 之前用 `SubmitAndForgetAsync` 提交的帧 ID | `NnrpSubmitResult` | 单独等待指定帧的结果，需与 `SubmitAndForgetAsync` 配合使用 |
+| `CancelFrameAsync` | `frameId`: 要取消的帧 ID | `Task` | 向服务端发送 `FRAME_CANCEL`；若帧已处理完毕则为 no-op |
+| `PatchSessionAsync` | `patch`: `SessionPatchMessage`，包含 `Fields`（[`SessionPatchField`](/zh/sdk/csharp/api/enums#会话补丁枚举) 位标志）及各字段新值 | `SessionPatchAckMessage` | 动态调整帧率 (`TargetCadence`)、质量档位 (`QualityTier`)、活跃通道等会话参数 |
+| `PutCacheAsync` | `put`: `CachePutMessage`，包含 `Key`（[`NnrpCacheKey`](/zh/sdk/csharp/api/protocol#nnrpcachekey)）、`Data`（字节数据）、`Flags`（[`CachePutFlags`](/zh/sdk/csharp/api/enums#缓存枚举)） | `CacheAckMessage` | 上传缓存对象到服务端；成功后可在 `SubmitMode.Reference` 中以 `Key` 引用，避免重复传输 |
+| `InvalidateCacheAsync` | `invalidate`: `CacheInvalidateMessage`，含 `Key` 或 `Scope` | `Task` | 通知服务端使指定缓存失效；可按 key 或按 [`CacheInvalidateScope`](/zh/sdk/csharp/api/enums#缓存枚举) 批量失效 |
+| `CloseAsync` | — | `Task` | 发送 `CLOSE` 并优雅关闭连接；`DisposeAsync()` 会自动调用此方法 |
+
+> **`NnrpSubmitRequest` 字段**：`FrameId`（必填）、`TileIds`（变化瓦片 ID）、`Sections`（Tensor 分区数据，见 [`NnrpTensorSection`](#nnrptensorsection)）、`InputProfile`（输入数据格式，见 [`InputProfile`](/zh/sdk/csharp/api/enums#帧与输入)）、`SubmitMode`（`Inline` 传输数据 / `Reference` 引用缓存）、`BudgetPolicy`（降质策略位标志，见 [`BudgetPolicy`](/zh/sdk/csharp/api/enums#结果枚举)）、`InferenceBudgetMs`（推理预算毫秒数）。
+
 ---
 
 ## 数据类型

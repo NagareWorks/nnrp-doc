@@ -1,9 +1,27 @@
-# Rust SDK
+# Rust SDK Overview
 
-The Rust SDK view should expose the same control-plane semantics without pulling protocol design into the crate API pages.
+`nnrp-core` is the Rust implementation of the NNRP protocol. `nnrp-ffi` exposes a C ABI and WASM exports for cross-language and web use.
 
-## Entry pages
+## Current Status (Preview3)
 
-1. [Rust Quick Start](/en/sdk/rust/quick-start)
-2. [Rust Frozen API](/en/sdk/rust/api)
-3. [Rust Deployment](/en/sdk/rust/deploy)
+| Module | Status |
+|---|---|
+| Protocol version and base error types (`ProtocolVersion`, `NnrpError`) | ✅ Available (0.1.0) |
+| FFI C ABI (`current_protocol_version`) | ✅ Available (0.1.0) |
+| Full wire types (`NnrpHeader`, message types, etc.) | 🔶 Preview3 planned (0.3) |
+| Client API (`NnrpClient`, `NnrpClientSession`) | 🔶 Preview3 planned (0.3) |
+| Server API (`NnrpServer`, `NnrpServerSession`) | 🔶 Preview3 planned (0.3) |
+| Full FFI client / server C ABI | 🔶 Preview3 planned |
+| WASM exports (`NnrpWasmClient`, `NnrpWasmSession`) | 🔶 Preview3 planned |
+
+## Toolchain Requirements
+
+- Rust ≥ 1.75 (stable)
+- tokio 1.x (async runtime)
+- WASM target: `wasm32-unknown-unknown` + wasm-pack
+
+## Contents
+
+- [Quick Start](./quick-start)
+- **API Reference**: [Core Types](./api/core) · [FFI / Native](./api/ffi) · [Client](./api/client) · [Server](./api/server) · [WASM Exports](./api/wasm)
+- [Deployment](./deploy)

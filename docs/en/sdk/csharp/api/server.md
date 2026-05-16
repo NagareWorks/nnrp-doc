@@ -51,6 +51,18 @@ public interface INnrpServerSession : IAsyncDisposable
 }
 ```
 
+**Method Parameter Reference**
+
+| Method | Parameters | Returns | Description |
+|---|---|---|---|
+| `ReceiveSubmitAsync` | `ct` | `NnrpFrameSubmit` | Block until the next `FRAME_SUBMIT` arrives; throws `NnrpConnectionClosedException` on disconnect |
+| `SendResultAsync` | `result`: [`NnrpResult`](#nnrpresult) (requires `FrameId`, `ResultClass`); `ct` | `Task` | Push inference result back to the client; populate either `Sections` or `TypedPayloads` |
+| `SendResultDropAsync` | `frameId`: frame to drop; `ct` | `Task` | Notify the client this frame won't return a result. **Must be called** when dropping a frame or `SubmitAsync` on the client side will block forever |
+| `SendFlowUpdateAsync` | `update`: `FlowUpdateMessage` with `Flags` ([`FlowUpdateFlags`](/en/sdk/csharp/api/enums#flow-control-enums)), `Credit` (allowed in-flight count), `RetryAfterMs` | `Task` | Send backpressure signal; `Credit=0` pauses the client |
+| `CloseAsync` | — | `Task` | Send `CLOSE` and gracefully terminate the connection |
+
+> **`NnrpResult` key fields**: `FrameId` (required), `ResultClass` ([`ResultClass`](/en/sdk/csharp/api/enums#data-plane-enums), required), `Sections` (output tensor sections), `InferenceMs` (inference latency), `AppliedBudgetPolicy` (actual policy used — required when `Partial` or `Degraded`).
+
 ---
 
 ## `NnrpServerSession`

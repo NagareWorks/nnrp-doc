@@ -1,9 +1,25 @@
-# C# SDK
+# C# SDK Overview
 
-The C# SDK view should define the same control-plane contract in C#-style API shape.
+`Nnrp.Core` is the C# implementation of the NNRP protocol, targeting `netstandard2.1`, covering the full client and server control plane.
 
-## Entry pages
+## Current Status (Preview3)
 
-1. [C# Quick Start](/en/sdk/csharp/quick-start)
-2. [C# Frozen API](/en/sdk/csharp/api)
-3. [C# Deployment](/en/sdk/csharp/deploy)
+| Module | Status |
+|---|---|
+| Core protocol types (enums, header, messages) | ✅ Available |
+| Client API (`NnrpClient`, `INnrpClientSession`) | ✅ Available |
+| Server API (`NnrpServer`, `INnrpServerSession`) | ✅ Available |
+| TCP transport (`NnrpTcpMessageTransport`) | ✅ Available |
+| QUIC transport | 🔶 Preview3 planned |
+| Cache operations (`PutCacheAsync`, `InvalidateCacheAsync`) | 🔶 Preview3 planned |
+| Multi-view (`MaxViews > 1`) | 🔶 Preview3 planned |
+
+## Runtime Requirements
+
+- .NET ≥ 6 / .NET Standard 2.1
+
+## Contents
+
+- [Quick Start](./quick-start)
+- **API Reference**: [Enums](./api/enums) · [Protocol Types](./api/protocol) · [Message Types](./api/messages) · [Client](./api/client) · [Server](./api/server) · [Transport](./api/transport)
+- [Deployment](./deploy)

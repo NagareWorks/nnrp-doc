@@ -133,19 +133,18 @@ pub struct NnrpResult {
 
 ```rust
 // Preview3 预期用法
-use nnrp_client::{NnrpClient, NnrpClientConfig, NnrpSubmitRequest};
-use nnrp_core::{InputProfile, BudgetPolicy};
+use nnrp_core::{NnrpClient, NnrpClientConfig, NnrpSubmitRequest};
+use nnrp_core::{InputProfile, BudgetPolicy, ResultClass, TransportPolicy};
 
-let config = NnrpClientConfig::builder()
-    .host("render.example.com")
-    .port(4433)
-    .transport_policy(TransportPolicy::PreferQuic)
-    .build()?;
+let config = NnrpClientConfig {
+    transport_policy: TransportPolicy::PreferQuic,
+    ..Default::default()
+};
 
-let client = NnrpClient::connect(config).await?;
-let mut session = client.open_session().await?;
+// TCP 接入（QUIC 接入使用 NnrpClient::connect_quic，需额外传入 TLS 配置）
+let mut session = NnrpClient::connect_tcp("render.example.com:4433", config).await?;
 
-for frame_id in 0u64.. {
+for frame_id in 0u32.. {
     let req = NnrpSubmitRequest {
         frame_id,
         input_profile: InputProfile::ChangedTilesLuma,
@@ -158,6 +157,7 @@ for frame_id in 0u64.. {
         display(&result.sections);
     }
 }
+session.close().await?;
 ```
 
 ---

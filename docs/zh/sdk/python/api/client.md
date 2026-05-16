@@ -114,6 +114,18 @@ async def close(self) -> None:
     """发送 CLOSE 消息并关闭连接。"""
 ```
 
+**方法参数说明**
+
+| 方法 | 参数 | 返回值 | 说明 |
+|---|---|---|---|
+| `submit` | `request`: [`SubmitRequest`](#submitrequest)；`timeout`: 等待超时秒数（`None` = 永不超时） | `Result` | 提交帧并阻塞等待结果；超时则抛出 `asyncio.TimeoutError` |
+| `submit_nowait` | `request`: [`SubmitRequest`](#submitrequest) | `None` | 提交帧立即返回，结果须通过 `receive_result` 轮询获取 |
+| `receive_result` | `timeout`: 超时秒数（`None` = 永不超时） | `Result` | 等待并返回下一个服务端推送的结果；多帧并发时须配合 `ResultRouter` 按 `frame_id` 分发 |
+| `patch_session` | `patch_fields`: [`SessionPatchField`](/zh/sdk/python/api/enums#会话补丁枚举) 位标志（指定要修改哪些字段）；`target_cadence`（目标帧率，0=不变）；`quality_tier`（质量档位 0–255）；`active_lane_mask`（激活通道掩码）；`preferred_codec`；`preferred_compression` | `SessionPatchAckMetadata` | 动态调整会话参数；**只有在 `patch_fields` 中设置了对应标志位的字段才会生效** |
+| `close` | — | `None` | 发送 `CLOSE` 消息并关闭底层连接；建议在 `finally` 块中调用 |
+
+> **`SubmitRequest` 关键字段**：`frame_id`（帧 ID，必须单调递增或唯一）、`tile_ids`（本次变化的瓦片 ID 元组）、`sections`（[`TensorSectionData`](/zh/sdk/python/api/packet#tensorsectiondata) 元组）、`input_profile`（[`InputProfile`](/zh/sdk/python/api/enums#inputprofile-intenum)）、`submit_mode`（`INLINE` 传输 / `REFERENCE` 引用缓存）、`budget_policy`（[`BudgetPolicy`](/zh/sdk/python/api/enums#budgetpolicy-intflag) 位标志组合，控制是否允许降质返回）、`inference_budget_ms`（推理预算毫秒数，0 = 无限制）。
+
 ### `ClientControlBootstrapSession`
 
 握手引导会话，用于在 `ClientSession` 创建前完成 `CLIENT_HELLO` / `SERVER_HELLO_ACK` 交换。
