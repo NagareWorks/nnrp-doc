@@ -282,21 +282,56 @@ const zhSdkOverviewItems = [
 const zhSdkPythonItems = [
   { text: "Python SDK 概览", link: "/zh/sdk/python/" },
   { text: "快速使用", link: "/zh/sdk/python/quick-start" },
-  { text: "冻结 API", link: "/zh/sdk/python/api" },
+  {
+    text: "冻结 API",
+    link: "/zh/sdk/python/api",
+    collapsed: false,
+    items: [
+      { text: "枚举与常量", link: "/zh/sdk/python/api/enums" },
+      { text: "包头与数据包", link: "/zh/sdk/python/api/packet" },
+      { text: "消息类型", link: "/zh/sdk/python/api/messages" },
+      { text: "客户端", link: "/zh/sdk/python/api/client" },
+      { text: "服务端", link: "/zh/sdk/python/api/server" },
+      { text: "传输适配器", link: "/zh/sdk/python/api/transport" },
+    ]
+  },
   { text: "部署与接入", link: "/zh/sdk/python/deploy" }
 ];
 
 const zhSdkCsharpItems = [
   { text: "C# SDK 概览", link: "/zh/sdk/csharp/" },
   { text: "快速使用", link: "/zh/sdk/csharp/quick-start" },
-  { text: "冻结 API", link: "/zh/sdk/csharp/api" },
+  {
+    text: "冻结 API",
+    link: "/zh/sdk/csharp/api",
+    collapsed: false,
+    items: [
+      { text: "枚举", link: "/zh/sdk/csharp/api/enums" },
+      { text: "协议类型", link: "/zh/sdk/csharp/api/protocol" },
+      { text: "消息类型", link: "/zh/sdk/csharp/api/messages" },
+      { text: "客户端", link: "/zh/sdk/csharp/api/client" },
+      { text: "服务端", link: "/zh/sdk/csharp/api/server" },
+      { text: "传输层", link: "/zh/sdk/csharp/api/transport" },
+    ]
+  },
   { text: "部署与接入", link: "/zh/sdk/csharp/deploy" }
 ];
 
 const zhSdkRustItems = [
   { text: "Rust SDK 概览", link: "/zh/sdk/rust/" },
   { text: "快速使用", link: "/zh/sdk/rust/quick-start" },
-  { text: "冻结 API", link: "/zh/sdk/rust/api" },
+  {
+    text: "冻结 API",
+    link: "/zh/sdk/rust/api",
+    collapsed: false,
+    items: [
+      { text: "核心类型", link: "/zh/sdk/rust/api/core" },
+      { text: "FFI / 原生接口", link: "/zh/sdk/rust/api/ffi" },
+      { text: "客户端（Preview3）", link: "/zh/sdk/rust/api/client" },
+      { text: "服务端（Preview3）", link: "/zh/sdk/rust/api/server" },
+      { text: "WASM 导出（Preview3）", link: "/zh/sdk/rust/api/wasm" },
+    ]
+  },
   { text: "部署与接入", link: "/zh/sdk/rust/deploy" }
 ];
 
@@ -307,21 +342,56 @@ const enSdkOverviewItems = [
 const enSdkPythonItems = [
   { text: "Python SDK Overview", link: "/en/sdk/python/" },
   { text: "Quick Start", link: "/en/sdk/python/quick-start" },
-  { text: "Frozen API", link: "/en/sdk/python/api" },
+  {
+    text: "Frozen API",
+    link: "/en/sdk/python/api",
+    collapsed: false,
+    items: [
+      { text: "Enums & Constants", link: "/en/sdk/python/api/enums" },
+      { text: "Header & Packet", link: "/en/sdk/python/api/packet" },
+      { text: "Message Types", link: "/en/sdk/python/api/messages" },
+      { text: "Client", link: "/en/sdk/python/api/client" },
+      { text: "Server", link: "/en/sdk/python/api/server" },
+      { text: "Transport Adapters", link: "/en/sdk/python/api/transport" },
+    ]
+  },
   { text: "Deployment", link: "/en/sdk/python/deploy" }
 ];
 
 const enSdkCsharpItems = [
   { text: "C# SDK Overview", link: "/en/sdk/csharp/" },
   { text: "Quick Start", link: "/en/sdk/csharp/quick-start" },
-  { text: "Frozen API", link: "/en/sdk/csharp/api" },
+  {
+    text: "Frozen API",
+    link: "/en/sdk/csharp/api",
+    collapsed: false,
+    items: [
+      { text: "Enums", link: "/en/sdk/csharp/api/enums" },
+      { text: "Protocol Types", link: "/en/sdk/csharp/api/protocol" },
+      { text: "Message Types", link: "/en/sdk/csharp/api/messages" },
+      { text: "Client", link: "/en/sdk/csharp/api/client" },
+      { text: "Server", link: "/en/sdk/csharp/api/server" },
+      { text: "Transport", link: "/en/sdk/csharp/api/transport" },
+    ]
+  },
   { text: "Deployment", link: "/en/sdk/csharp/deploy" }
 ];
 
 const enSdkRustItems = [
   { text: "Rust SDK Overview", link: "/en/sdk/rust/" },
   { text: "Quick Start", link: "/en/sdk/rust/quick-start" },
-  { text: "Frozen API", link: "/en/sdk/rust/api" },
+  {
+    text: "Frozen API",
+    link: "/en/sdk/rust/api",
+    collapsed: false,
+    items: [
+      { text: "Core Types", link: "/en/sdk/rust/api/core" },
+      { text: "FFI / Native", link: "/en/sdk/rust/api/ffi" },
+      { text: "Client (Preview3)", link: "/en/sdk/rust/api/client" },
+      { text: "Server (Preview3)", link: "/en/sdk/rust/api/server" },
+      { text: "WASM Exports (Preview3)", link: "/en/sdk/rust/api/wasm" },
+    ]
+  },
   { text: "Deployment", link: "/en/sdk/rust/deploy" }
 ];
 

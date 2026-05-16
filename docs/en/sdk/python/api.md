@@ -1,13 +1,32 @@
-# Python Frozen API
+# Python — Frozen API
 
-The Python SDK should freeze one explicit control-plane surface for Preview3 integration.
+The Python SDK (`nnrp-py`) public API is organized into the following groups.
 
-## Core surface
+| Group | Description | Status |
+|---|---|---|
+| [Enums & Constants](./api/enums) | `MessageType`, `HeaderFlags`, `ErrorCode` and all enum definitions | ✅ Frozen |
+| [Header & Packet](./api/packet) | `NnrpHeader`, `NnrpPacket`, `TensorSectionData` and serialization utilities | ✅ Frozen |
+| [Message Types](./api/messages) | Metadata classes and builder functions for each message type | ✅ Frozen |
+| [Client](./api/client) | `ClientProfile`, `ClientSession`, transport setup and migration | ✅ Frozen |
+| [Server](./api/server) | `ServerProfile`, `ServerSession`, frame receive and result push | ✅ Frozen |
+| [Transport Adapters](./api/transport) | TCP / QUIC connection factories and configuration | ✅ Frozen |
 
-1. A client construction path that resolves endpoint, transport policy, and credentials.
-2. Session lifecycle methods covering open, patch, close, and migrate.
-3. Operation submission and receive-loop entry points.
-4. Cache and schema lifecycle methods.
+## Package Info
+
+| Property | Value |
+|---|---|
+| Package | `nnrp` |
+| Version | `0.1.0` |
+| Min Python | `3.11` |
+| Runtime dep | `aioquic >= 1.2.0` |
+
+```python
+pip install nnrp
+```
+
+## Wire Format
+
+Only `WireFormat.CURRENT = 0` (NNRP/1) is supported. Every packet header's `wire_format` field must match this value; otherwise the parser raises `ValueError`.
 5. A stable error hierarchy and cancellation surface.
 
 ## Python-specific expectations

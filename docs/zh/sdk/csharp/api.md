@@ -1,13 +1,28 @@
-# C# 冻结 API
+# C# — 冻结 API
 
-C# SDK 应冻结一组面向应用的控制面接口。
+C# SDK（`Nnrp.Core`）的公开 API 分为以下几组。
 
-## 核心能力面
+| 分组 | 说明 | 状态 |
+|---|---|---|
+| [枚举](./api/enums) | 所有 `enum` 定义（`Nnrp.Core` 命名空间） | ✅ 已冻结 |
+| [协议类型](./api/protocol) | 包头、帧、状态机等低层协议类型 | ✅ 已冻结 |
+| [消息类型](./api/messages) | 各消息类与扩展类型 | ✅ 已冻结 |
+| [客户端](./api/client) | `NnrpClient`、`ClientProfile`、提交与结果 | ✅ 已冻结 |
+| [服务端](./api/server) | `INnrpServerSession`、`ServerProfile`、帧接收与结果 | ✅ 已冻结 |
+| [传输层](./api/transport) | `INnrpMessageTransport`、TCP 实现 | ✅ 已冻结 |
 
-1. 客户端构造与能力协商入口。
-2. 会话打开、补丁、关闭和迁移方法。
-3. 操作提交、接收和取消入口。
-4. 缓存与 Schema 生命周期方法。
+## 包信息
+
+| 属性 | 值 |
+|---|---|
+| 包名 | `Nnrp.Core` |
+| 版本 | `1.0.0` |
+| 目标框架 | `netstandard2.1` |
+| 无外部依赖 | — |
+
+```xml
+<PackageReference Include="Nnrp.Core" Version="1.0.0" />
+```
 5. 稳定的异常分类与取消行为。
 
 ## C# 侧约束
