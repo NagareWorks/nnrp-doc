@@ -2,6 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useData, useRoute, useRouter, withBase } from "vitepress";
 
+const props = defineProps<{
+  placement?: "header" | "screen-menu";
+}>();
+
 type LocaleMessage = {
   label: string;
   buttonPrefix: string;
@@ -69,6 +73,7 @@ const path = computed(() => {
   return raw;
 });
 const isSdkPath = computed(() => path.value.includes("/sdk/"));
+const placementClass = computed(() => `sdk-language-switch--${props.placement ?? "header"}`);
 const messages = computed(() => localeMessages[localeIndex.value] ?? localeMessages.root);
 const currentLanguageLabel = computed(() => {
   return sdkLanguages.find((language) => language.value === selectedLanguage.value)?.label ?? sdkLanguages[0].label;
@@ -212,7 +217,7 @@ watch(
 </script>
 
 <template>
-  <div v-if="isSdkPath" ref="rootElement" class="sdk-language-switch">
+  <div v-if="isSdkPath" ref="rootElement" class="sdk-language-switch" :class="placementClass">
     <label class="sdk-language-switch__label" for="sdk-language-select">{{ messages.label }}</label>
     <div class="sdk-language-switch__control">
       <button

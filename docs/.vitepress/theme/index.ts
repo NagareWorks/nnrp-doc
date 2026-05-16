@@ -8,8 +8,8 @@ export default {
   extends: DefaultTheme,
   Layout: () => {
     return h(DefaultTheme.Layout, null, {
-      "nav-bar-content-after": () => h(SDKLanguageSwitch),
-      "nav-screen-content-after": () => h(SDKLanguageSwitch)
+      "nav-bar-content-after": () => h(SDKLanguageSwitch, { placement: "header" }),
+      "nav-screen-content-after": () => h(SDKLanguageSwitch, { placement: "screen-menu" })
     });
   }
 } satisfies Theme;
