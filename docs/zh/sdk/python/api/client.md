@@ -375,3 +375,113 @@ def build_client_hello_packet(
 ) -> NnrpPacket:
     """构造 CLIENT_HELLO 数据包（低层 API）。"""
 ```
+
+---
+
+## 典型使用场景
+
+### 场景一：连接、提交帧、接收结果
+
+这是最常见的用法：建立会话后在一个循环里持续提交帧并等待结果。
+
+```python
+import asyncio
+from nnrp.client import ClientProfile, ClientDialPolicy, dial_client, SubmitRequest
+from nnrp import (
+    TransportPolicy, LossTolerance, InputProfile,
+    SubmitMode, BudgetPolicy, ResultClass,
+)
+from nnrp.adapters.quic import create_quic_client_configuration
+
+async def render_loop(host: str, port: int):
+    config = create_quic_client_configuration(cafile="ca.pem")
+    profile = ClientProfile(
+        transport_policy=TransportPolicy.PREFER_QUIC,
+        loss_tolerance=LossTolerance.LOW_LATENCY,
+    )
+    async with await dial_client(host, port, profile=profile, config=config) as session:
+        frame_id = 0
+        while True:
+            tiles, tensor = capture_changed_tiles()
+            request = SubmitRequest(
+                frame_id=frame_id,
+                tile_ids=tiles,
+                sections=(tensor,),
+                input_profile=InputProfile.CHANGED_TILES_LUMA,
+                submit_mode=SubmitMode.INLINE,
+                budget_policy=BudgetPolicy.ALLOW_PARTIAL,
+                inference_budget_ms=8,
+            )
+            await session.submit_frame(request)
+            result = await session.receive_result(frame_id=frame_id, timeout=0.05)
+            if result.metadata.result_class == ResultClass.COMPLETE:
+                display(result.sections)
+            frame_id += 1
+```
+
+### 场景二：响应背压信号
+
+服务端会通过 `RESULT_HINT` 和 `FLOW_UPDATE` 通知客户端降速；客户端需要主动监听并调整提交节奏。
+
+```python
+from nnrp import ResultHintCongestionState, FlowUpdateReason
+
+async def run_with_backpressure(session):
+    paused = False
+
+    async def monitor_hints():
+        nonlocal paused
+        async for hint in session.result_hints():
+            if hint.congestion_state == ResultHintCongestionState.SATURATED:
+                paused = True
+            elif hint.congestion_state == ResultHintCongestionState.NONE:
+                paused = False
+
+    asyncio.create_task(monitor_hints())
+
+    frame_id = 0
+    while True:
+        if paused:
+            await asyncio.sleep(0.016)  # 等一帧周期后再检查
+            continue
+        await session.submit_frame(make_request(frame_id))
+        frame_id += 1
+```
+
+### 场景三：会话迁移（多路径切换）
+
+QUIC 支持在网络路径变化时无损迁移会话，SDK 通过 `MigrationTriggerMonitor` 自动探测并触发。
+
+```python
+from nnrp.client import MigrationTriggerPolicy
+
+policy = MigrationTriggerPolicy(
+    min_rtt_improvement_ms=10.0,
+    probe_interval_s=5.0,
+    max_consecutive_failures=3,
+)
+monitor = session.create_migration_monitor(policy)
+asyncio.create_task(monitor.run())
+
+# 收到 SESSION_MIGRATE 时 SDK 自动处理，业务代码无需干预
+# 迁移结果可通过 session.migration_events() 观察
+async for outcome in session.migration_events():
+    if outcome == MigrationOutcome.FAILED:
+        log.warning("Migration failed, session may degrade")
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **`dial_client` 返回的 `ClientSession` 必须关闭**：直接 `await dial_client(...)` 而不用 `async with` 时，若进程异常退出，连接不会被优雅关闭，服务端会等到超时才回收资源。推荐始终用 `async with` 或在 `finally` 里调用 `await session.close()`。
+
+2. **不要在多个协程里并发 `submit_frame`**：`ClientSession` 的发送路径不是线程安全的，多协程并发写会产生包交错。若需并发提交，请使用 `ResultRouter` 分发结果，但提交本身应序列化。
+
+3. **`receive_result(frame_id, timeout=...)` 超时后帧 ID 仍占用路由槽**：超时后需显式调用 `session.discard_frame(frame_id)` 释放，否则 `ResultRouter` 内存会持续增长。
+
+4. **`ClientProfile` 里的 `inference_budget_ms` 是默认值**，每次 `SubmitRequest` 可以覆盖；但 `SubmitRequest.deadline_ms` 是绝对截止时间戳（毫秒级 Unix 时间），不是相对偏移，两者容易混淆。
+
+5. **`TransportPolicy.FORCE_QUIC` 在 TCP-only 防火墙下握手直接失败**，生产环境建议用 `PREFER_QUIC`，在握手失败时 SDK 会自动回退到 TCP。
+:::

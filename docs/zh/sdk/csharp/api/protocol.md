@@ -168,3 +168,55 @@ public sealed class NnrpCacheStore
     public long BytesUsed { get; }
 }
 ```
+
+---
+
+## 典型使用场景
+
+### 缓存预热与复用
+
+```csharp
+// 上传静态背景层到服务端缓存
+var key = new NnrpCacheKey { KindId = CacheObjectKind.BackgroundTile, ObjectId = bgHash };
+await session.PutCacheAsync(key, bgTensorData, CachePutFlags.Persistent);
+
+// 后续帧直接引用缓存，减少带宽
+var req = new NnrpSubmitRequest
+{
+    FrameId      = frameId,
+    InputProfile = InputProfile.ChangedTilesLuma,
+    SubmitMode   = SubmitMode.Reference,   // 引用缓存，不重复传输
+    BudgetPolicy = BudgetPolicy.AllowPartial,
+    CacheRefs    = new[] { key },
+    Sections     = new[] { deltaSection }, // 只传变化量
+};
+```
+
+### 低层包头构造与验证
+
+```csharp
+// 手动构造包头（调试/适配场景）
+var header = new NnrpPacketHeader
+{
+    MessageType = MessageType.FrameSubmit,
+    SessionId   = sessionId,
+    PayloadSize = payload.Length,
+    Flags       = HeaderFlags.None,
+};
+buffer.Write(header.Serialize());
+buffer.Write(payload);
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **`NnrpCacheStore` 是本地客户端缓存，不等于服务端缓存。** 向服务端引用缓存对象前，必须先调用 `PutCacheAsync()` 将数据上传到服务端；仅更新本地 `CacheStore` 不会同步服务端。
+
+2. **`SubmitMode.Reference` 依赖服务端缓存命中。** 若服务端因重启或淘汰策略清空了缓存，引用提交会返回 `ErrorCode.CacheMiss`，客户端须降级为 `SubmitMode.Inline`。
+
+3. **`NnrpPacketHeader.PayloadSize` 单位是字节。** 不要传入 Section 数量或 Tile 数量。
+
+4. **`NnrpCacheStore(maxEntries, maxBytes)` 两个限制取其先。** 默认 256 条 / 8 MiB；对大 Tensor 场景适当增大 `maxBytes`。
+:::

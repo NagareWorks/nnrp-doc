@@ -370,3 +370,86 @@ Tensor 在推理管道中的角色（由服务端 Profile 定义）。
 | `None` | `0x00` | 默认 |
 | `Pinned` | `0x01` | 固定 |
 | `Reusable` | `0x02` | 跨帧可复用 |
+
+---
+
+## 使用场景指南
+
+### 连接与传输选择
+
+```csharp
+var profile = new NnrpClientProfile
+{
+    TransportPolicy = TransportPolicy.PreferQuic,
+    LossTolerance   = LossTolerance.LowLatency,
+};
+```
+
+::: warning 坑点
+- `ForceQuic` 在 TCP-only 防火墙下直接握手失败，生产环境请用 `PreferQuic`。
+- `LossTolerance.FireAndForget` 不保证顺序，不要用于帧提交主路径。
+:::
+
+### 提交帧与预算策略
+
+```csharp
+var req = new NnrpSubmitRequest
+{
+    FrameId         = frameId,
+    TileIds         = changedTiles,
+    Sections        = new[] { tensorSection },
+    InputProfile    = InputProfile.ChangedTilesLuma,
+    SubmitMode      = SubmitMode.Inline,
+    BudgetPolicy    = BudgetPolicy.AllowPartial | BudgetPolicy.AllowStaleReuse,
+    InferenceBudgetMs = 8,
+};
+var result = await session.SubmitAsync(req);
+```
+
+::: warning 坑点
+- `BudgetPolicy` 是位掩码，多值用 `|` 组合，不是逗号分隔。
+- `SubmitMode.Reference` 要求提前调用 `session.PutCacheAsync()`，否则服务端返回 `ErrorCode.CacheMiss`。
+:::
+
+### 结果处理
+
+```csharp
+switch (result.ResultClass)
+{
+    case ResultClass.Complete:  ApplyFull(result);   break;
+    case ResultClass.Partial:   ApplyPartial(result); break;
+    case ResultClass.StaleReuse: break; // 复用上帧
+    case ResultClass.Degraded:
+        Log.Warn("Degraded with policy: {0}", result.AppliedBudgetPolicy);
+        break;
+}
+if (result.ResultFlags.HasFlag(ResultFlags.Fallback))
+    metrics.IncrementDegradedFallback();
+```
+
+### 错误处理
+
+```csharp
+try
+{
+    await session.SubmitAsync(req);
+}
+catch (NnrpProtocolException ex)
+{
+    if (ex.ErrorScope == ErrorScope.Connection)
+    {
+        // 连接级错误，致命，必须重建连接
+        await session.DisposeAsync();
+        session = await client.ConnectAsync(host, port);
+    }
+    else if (ex.ErrorCode == ErrorCode.FrameExpired)
+    {
+        // 帧级错误，跳过继续
+    }
+}
+```
+
+::: warning 坑点
+- `ErrorScope.Connection` 错误不可在同一 Session 上重试。
+- 捕获到 `NnrpProtocolException` 后忘记检查 `ErrorScope`，仍向旧 session 发送数据，会导致后续请求全部失败。
+:::

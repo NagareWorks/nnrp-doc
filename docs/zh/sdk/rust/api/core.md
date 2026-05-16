@@ -93,3 +93,47 @@ pub struct ResultPushMetadata { /* 结果推送元数据 */ }
 ## 与 Python/C# 的互操作说明
 
 `ProtocolVersion::CURRENT` 与 Python `WireFormat.CURRENT=0` / C# `WireFormat.Current=0` 完全对应。所有 SDK 在握手阶段均使用相同的线路格式常量，保证跨语言互通。
+
+---
+
+## 典型使用场景（Preview3 规划）
+
+### 构造合规的帧元数据
+
+```rust
+// Preview3 中预期用法
+use nnrp_core::{FrameSubmitMetadata, InputProfile, BudgetPolicy, SubmitMode};
+
+let meta = FrameSubmitMetadata {
+    frame_id: 42,
+    input_profile: InputProfile::ChangedTilesLuma,
+    submit_mode: SubmitMode::Inline,
+    budget_policy: BudgetPolicy::ALLOW_PARTIAL,
+    inference_budget_ms: 8,
+    tile_ids: vec![3, 7, 12],
+    ..Default::default()
+};
+```
+
+### 版本协商
+
+```rust
+if peer_version > ProtocolVersion::CURRENT {
+    // 降级到当前支持版本
+    negotiate_version(ProtocolVersion::CURRENT)
+} else {
+    negotiate_version(peer_version)
+}
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **这些类型目前为规划形态，Preview3 正式发布前 API 可能变化。** 生产代码请等待稳定版本。
+
+2. **`BudgetPolicy` 是位标志。** 组合使用 `|` 运算符：`BudgetPolicy::ALLOW_PARTIAL | BudgetPolicy::ALLOW_STALE_REUSE`。
+
+3. **跨语言互通的核心约束：** 不要在 Rust 侧修改 `ProtocolVersion::CURRENT` 的数值后，在不升级 Python/C# 侧的情况下部署，否则握手阶段会立即失败。
+:::

@@ -194,3 +194,72 @@ def unpack_typed_payload_frames(body: bytes) -> ...: ...
 def unpack_body(packet: NnrpPacket) -> ...: ...
 def validate_frame_submit_body(packet: NnrpPacket, metadata: FrameSubmitMetadata) -> None: ...
 ```
+
+---
+
+## Typical Use Cases
+
+### Case 1: Building and sending a FRAME_SUBMIT (low-level)
+
+```python
+from nnrp.core import build_frame_submit_packet, FrameSubmitMetadata, TensorSectionData
+from nnrp import SubmitMode, BudgetPolicy, InputProfile, TileIndexMode
+
+metadata = FrameSubmitMetadata(
+    frame_id=100,
+    input_profile=InputProfile.CHANGED_TILES_LUMA,
+    submit_mode=SubmitMode.INLINE,
+    budget_policy=BudgetPolicy.ALLOW_PARTIAL,
+    inference_budget_ms=8,
+    tile_ids=(3, 7, 12),
+    tile_index_mode=TileIndexMode.RAW_U16,
+)
+section = TensorSectionData(
+    role_id=0, dtype_id=0,
+    tile_payloads=(tile_3, tile_7, tile_12),
+)
+packet = build_frame_submit_packet(session_id=42, metadata=metadata, sections=(section,))
+await transport.send(packet.pack())
+```
+
+### Case 2: Parsing control extensions from a CLIENT_HELLO
+
+```python
+from nnrp.core import unpack_control_extension_block, ClientHelloTransportPolicyExtension
+from nnrp.enums import CLIENT_HELLO_TRANSPORT_POLICY_EXTENSION
+
+extensions = unpack_control_extension_block(packet.metadata)
+for entry in extensions:
+    if entry.ext_type == CLIENT_HELLO_TRANSPORT_POLICY_EXTENSION:
+        ext = ClientHelloTransportPolicyExtension.unpack(entry.payload)
+        print("Requested transport policy:", ext.transport_policy)
+```
+
+### Case 3: Parsing a RESULT_PUSH and reassembling tiles
+
+```python
+from nnrp.core import unpack_body
+from nnrp.core.enums import MessageType
+
+packet = await connection.receive_packet()
+assert packet.header.msg_type is MessageType.RESULT_PUSH
+body = unpack_body(packet)
+if body.tensor_body:
+    for section_idx, section in enumerate(body.tensor_body.sections):
+        for tile_idx, tile_bytes in enumerate(section.tile_payloads):
+            reconstruct_tile(section_idx, tile_idx, tile_bytes)
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **`metadata` vs `body`**: `NnrpPacket.metadata` contains small structured fields (frame ID, budget, policy). `NnrpPacket.body` contains large binary payloads (Tensor data). Do not call `unpack_tensor_body(packet.metadata, ...)` — pass `packet.body`.
+
+2. **`tile_ids` ordering must match `tile_payloads` ordering**: `tile_ids[i]` corresponds to `tile_payloads[i]`. Mixed ordering causes the server to assemble tiles at the wrong positions, producing visual corruption.
+
+3. **`validate_frame_submit_body` checks structural integrity only**, not numerical validity of tensor data. Passing validation does not guarantee the inference engine can process it.
+
+4. **`build_result_push_mixed_packet` vs `build_result_push_typed_payload_packet`**: the former includes both Tensor and non-Tensor payloads; the latter is for non-Tensor only (e.g., token streams). Mixing them up causes empty sections on the receiver.
+:::

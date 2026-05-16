@@ -123,3 +123,49 @@ void         nnrp_server_destroy(NnrpServer* server);
 ```
 
 这套 ABI 将同时作为 C#/Python 原生绑定和 WASM 导出的基础层。
+
+---
+
+## 典型使用场景（Preview3 规划）
+
+### 从 C 语言调用（嵌入式/游戏引擎插件）
+
+```c
+/* Preview3 预期 C ABI */
+NnrpClientConfig cfg = { .host = "127.0.0.1", .port = 4433 };
+NnrpClient* client = nnrp_client_create(&cfg);
+NnrpSession* session = nnrp_session_open(client);
+
+NnrpFrameSubmit submit = {
+    .frame_id = 1,
+    .input_profile = NNRP_INPUT_CHANGED_TILES_LUMA,
+    .section_count = 1,
+    .sections = &tile_section,
+};
+NnrpResult result;
+nnrp_session_submit(session, &submit, &result);
+
+nnrp_session_close(session);
+nnrp_client_destroy(client);
+```
+
+### 内存所有权原则
+
+```c
+// 所有返回指针均由 Rust 通过 Box<T> 分配，必须调用对应 free 函数
+NnrpResult* result = nnrp_session_recv_result(session);
+// ... 使用 result ...
+nnrp_free_result(result);  // 必须调用，否则泄漏
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **每个 `nnrp_*_create` 必须有对应的 `nnrp_*_destroy`。** Rust 端使用 `Box::from_raw`，没有 GC；忘记调用 `destroy` 会泄漏内存。
+
+2. **不要在多线程中共享同一个 `NnrpSession*`。** C ABI 目前没有内部锁，并发访问是 UB。
+
+3. **传入空指针会导致 panic 并终止进程。** C ABI 目前不进行 null 检查；调用方须保证指针有效。
+:::

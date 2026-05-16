@@ -224,3 +224,77 @@ def build_client_hello_packet(
     extra_extensions: tuple[ControlExtensionEntry, ...] = (),
 ) -> NnrpPacket: ...
 ```
+
+---
+
+## Typical Use Cases
+
+### Case 1: Connect, Submit, Receive
+
+```python
+import asyncio
+from nnrp.client import ClientProfile, dial_client, SubmitRequest
+from nnrp import TransportPolicy, InputProfile, SubmitMode, BudgetPolicy, ResultClass
+from nnrp.adapters.quic import create_quic_client_configuration
+
+async def render_loop(host: str, port: int):
+    config = create_quic_client_configuration(cafile="ca.pem")
+    profile = ClientProfile(transport_policy=TransportPolicy.PREFER_QUIC)
+    async with await dial_client(host, port, profile=profile, config=config) as session:
+        frame_id = 0
+        while True:
+            tiles, tensor = capture_changed_tiles()
+            request = SubmitRequest(
+                frame_id=frame_id,
+                tile_ids=tiles,
+                sections=(tensor,),
+                input_profile=InputProfile.CHANGED_TILES_LUMA,
+                submit_mode=SubmitMode.INLINE,
+                budget_policy=BudgetPolicy.ALLOW_PARTIAL,
+                inference_budget_ms=8,
+            )
+            await session.submit_frame(request)
+            result = await session.receive_result(frame_id=frame_id, timeout=0.05)
+            if result.metadata.result_class == ResultClass.COMPLETE:
+                display(result.sections)
+            frame_id += 1
+```
+
+### Case 2: Responding to Backpressure
+
+```python
+from nnrp import ResultHintCongestionState
+
+async def run_with_backpressure(session):
+    paused = False
+
+    async def monitor_hints():
+        nonlocal paused
+        async for hint in session.result_hints():
+            paused = (hint.congestion_state == ResultHintCongestionState.SATURATED)
+
+    asyncio.create_task(monitor_hints())
+    frame_id = 0
+    while True:
+        if paused:
+            await asyncio.sleep(0.016)
+            continue
+        await session.submit_frame(make_request(frame_id))
+        frame_id += 1
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **Always close `ClientSession`** — use `async with` or `finally: await session.close()`. An unclosed session leaves the server-side resource alive until timeout.
+
+2. **Do not `submit_frame` concurrently from multiple coroutines.** The send path is not concurrent-safe. Use a single sender coroutine and `ResultRouter` for fan-out of results.
+
+3. **After `receive_result` times out, the frame ID slot is still held.** Call `session.discard_frame(frame_id)` to release it, or `ResultRouter` memory will grow unbounded.
+
+4. **`SubmitRequest.deadline_ms` is an absolute Unix timestamp in milliseconds**, not a relative offset from now. Confusing it with `inference_budget_ms` (relative, in ms) is a common mistake.
+
+5. **`TransportPolicy.FORCE_QUIC` hard-fails in TCP-only networks.** Use `PREFER_QUIC` in production so the SDK can fall back to TCP.
+:::

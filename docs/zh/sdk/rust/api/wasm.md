@@ -115,3 +115,56 @@ console.log(`Inference: ${result.inferenceMs}ms, class: ${result.resultClass}`);
 | 单线程 | WASM 默认单线程，异步推理需要 Web Workers |
 | 包体大小 | Tensor 数据传输需注意 ArrayBuffer 拷贝开销 |
 | TLS | 浏览器强制 HTTPS，开发环境需配置自签证书 |
+
+---
+
+## 典型使用场景（Preview3 规划）
+
+### 在浏览器中接入 NNRP
+
+```html
+<script type="module">
+import init, { NnrpWasmClient } from '/pkg/nnrp_wasm.js';
+await init();
+
+// Preview3 预期 API
+const client = await NnrpWasmClient.connect('wss://render.example.com/nnrp');
+const session = await client.openSession();
+
+const result = await session.submit({
+    frameId: 1,
+    inputProfile: 'ChangedTilesLuma',
+    tiles: [3, 7, 12],
+    tensorData: capturedBuffer,
+});
+console.log('推理完成:', result.inferenceMs, 'ms');
+await session.close();
+</script>
+```
+
+### 利用 Web Worker 避免阻塞主线程
+
+```js
+// worker.js
+import init, { NnrpWasmClient } from '/pkg/nnrp_wasm.js';
+await init();
+const client = await NnrpWasmClient.connect(ENDPOINT);
+self.onmessage = async ({ data }) => {
+    const result = await client.openSession().then(s => s.submit(data));
+    self.postMessage(result);
+};
+```
+
+---
+
+## 常见坱点
+
+::: warning
+1. **WASM 不支持原生 TCP/UDP。** 必须利用 WebSocket 或 WebTransport；不要尝试直连原始套接字。
+
+2. **`ArrayBuffer` 跨 Worker 传递后会转移所有权。** 如果主线程还需读取数据，要先 `slice()` 拷贝。
+
+3. **`wasm-pack build --target web` 输出的 `.js` 和 `.wasm` 必须同时部署，且不要跨域加载。**
+
+4. **当前 WASM 包为 Preview3 占位。** API 形态尚未决定，不要在生产环境中依赖当前接口。
+:::

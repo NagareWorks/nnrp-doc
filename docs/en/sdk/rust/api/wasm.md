@@ -108,3 +108,56 @@ console.log(`Result class: ${result.resultClass}, inference=${result.inferenceMs
 - [ ] `wasm-pack` CI build & npm publish pipeline
 - [ ] TypeScript type declaration generation (`.d.ts`)
 - [ ] Example React / Vue integration demo
+
+---
+
+## Typical Use Cases (Preview3 Plan)
+
+### Connecting from the browser
+
+```html
+<script type="module">
+import init, { NnrpWasmClient } from '/pkg/nnrp_wasm.js';
+await init();
+
+// Expected Preview3 API
+const client = await NnrpWasmClient.connect('wss://render.example.com/nnrp');
+const session = await client.openSession();
+
+const result = await session.submit({
+    frameId: 1,
+    inputProfile: 'ChangedTilesLuma',
+    tiles: [3, 7, 12],
+    tensorData: capturedBuffer,
+});
+console.log('Inference complete:', result.inferenceMs, 'ms');
+await session.close();
+</script>
+```
+
+### Offloading to a Web Worker
+
+```js
+// worker.js
+import init, { NnrpWasmClient } from '/pkg/nnrp_wasm.js';
+await init();
+const client = await NnrpWasmClient.connect(ENDPOINT);
+self.onmessage = async ({ data }) => {
+    const result = await client.openSession().then(s => s.submit(data));
+    self.postMessage(result);
+};
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **WASM cannot use raw TCP/UDP.** Use WebSocket or WebTransport only — do not attempt raw socket access.
+
+2. **Transferring an `ArrayBuffer` to a Worker transfers ownership.** `slice()` first if the main thread still needs the data.
+
+3. **The `.js` and `.wasm` files from `wasm-pack build --target web` must be deployed together** and served from the same origin.
+
+4. **The current WASM package is a Preview3 placeholder.** The API shape is not yet finalized; do not depend on the current interface in production.
+:::

@@ -335,3 +335,93 @@ def unpack_body(packet: NnrpPacket) -> ...:
 def validate_frame_submit_body(packet: NnrpPacket, metadata: FrameSubmitMetadata) -> None:
     """验证 FRAME_SUBMIT 包体完整性，不合法则抛出 ValueError。"""
 ```
+
+---
+
+## 典型使用场景
+
+### 场景一：构造并发送帧提交包（低层方式）
+
+通常应使用 `ClientSession.submit_frame()`，但在自定义传输适配器或压测工具中，可直接使用构造函数。
+
+```python
+from nnrp.core import (
+    build_frame_submit_packet,
+    FrameSubmitMetadata,
+    TensorSectionData,
+)
+from nnrp import SubmitMode, BudgetPolicy, InputProfile, TileIndexMode
+
+metadata = FrameSubmitMetadata(
+    frame_id=100,
+    input_profile=InputProfile.CHANGED_TILES_LUMA,
+    submit_mode=SubmitMode.INLINE,
+    budget_policy=BudgetPolicy.ALLOW_PARTIAL,
+    inference_budget_ms=8,
+    tile_ids=(3, 7, 12),
+    tile_index_mode=TileIndexMode.RAW_U16,
+)
+section = TensorSectionData(
+    role_id=0,
+    dtype_id=0,  # FP16
+    tile_payloads=(tile_bytes_3, tile_bytes_7, tile_bytes_12),
+)
+packet = build_frame_submit_packet(
+    session_id=42,
+    metadata=metadata,
+    sections=(section,),
+)
+raw = packet.pack()
+await transport.send(raw)
+```
+
+### 场景二：解析握手扩展
+
+自定义握手扩展通过 `ControlExtensionEntry` 携带，需按扩展类型 ID 分发解析。
+
+```python
+from nnrp.core import (
+    unpack_control_extension_block,
+    ClientHelloTransportPolicyExtension,
+)
+from nnrp.enums import CLIENT_HELLO_TRANSPORT_POLICY_EXTENSION
+
+extensions = unpack_control_extension_block(packet.metadata)
+for entry in extensions:
+    if entry.ext_type == CLIENT_HELLO_TRANSPORT_POLICY_EXTENSION:
+        policy_ext = ClientHelloTransportPolicyExtension.unpack(entry.payload)
+        print("Requested transport policy:", policy_ext.transport_policy)
+```
+
+### 场景三：结果包解析与 Tensor 重组
+
+```python
+from nnrp.core import unpack_body, unpack_tensor_body
+from nnrp.core.enums import MessageType
+
+packet = await connection.receive_packet()
+assert packet.header.msg_type is MessageType.RESULT_PUSH
+
+body = unpack_body(packet)
+# body.metadata: ResultPushMetadata
+# body.tensor_body: TensorBodyView | None
+
+if body.tensor_body:
+    for section_idx, section in enumerate(body.tensor_body.sections):
+        for tile_idx, tile_bytes in enumerate(section.tile_payloads):
+            reconstruct_tile(section_idx, tile_idx, tile_bytes)
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **元数据（`metadata`）vs 包体（`body`）**：`NnrpPacket.metadata` 是小型结构化字段（帧 ID、预算、策略等），`NnrpPacket.body` 是大块二进制载荷（Tensor 数据）。两者物理上分开存储；若误用 `unpack_tensor_body(packet.metadata, ...)` 而非 `packet.body`，会得到解析错误或截断数据。
+
+2. **`FrameSubmitMetadata.tile_ids` 与 `TensorSectionData.tile_payloads` 的顺序必须一致**：`tile_ids[i]` 对应 `tile_payloads[i]`，乱序会导致服务端用错误的位置索引拼合结果瓦片，渲染出现乱序伪影。
+
+3. **`validate_frame_submit_body` 只做结构性校验**，不验证张量数值合法性；调用它不代表数据一定能被推理引擎正确处理。
+
+4. **`build_result_push_mixed_packet` 和 `build_result_push_typed_payload_packet` 适用不同场景**：前者同时包含 Tensor 和非 Tensor 载荷，后者只含非 Tensor 载荷（如 Token 流）；混用会导致接收端解包出现空分区。
+:::

@@ -1,4 +1,6 @@
-# Python — 枚举与常量
+# 枚举与常量
+
+> **如何使用本页**：第一部分（导入 + 各类型参考表）适合查询某个具体枚举成员的值和含义；第二部分「[使用场景指南](#使用场景指南)」按实际开发任务分组，包含代码示例和常见坑点，不确定用哪个枚举时从这里入手。
 
 枚举分散在 `nnrp.core.enums` 和 `nnrp.core.messages` 子模块，通过顶层 `nnrp` 命名空间统一再导出。
 
@@ -443,3 +445,261 @@ SERVER_HELLO_ACK_LOSS_TOLERANCE_EXTENSION   = 0x0104
 CLIENT_HELLO_PAYLOAD_CAPABILITIES_EXTENSION = 0x0105
 SERVER_HELLO_ACK_PAYLOAD_CAPABILITIES_EXTENSION = 0x0106
 ```
+
+---
+
+## 使用场景指南
+
+### 场景一：建立连接与协商传输
+
+**相关枚举**：`TransportId`、`TransportPolicy`、`LossTolerance`、`WireFormat`
+
+握手时客户端在 `CLIENT_HELLO` 里声明传输偏好，服务端在 `SERVER_HELLO_ACK` 里确认。
+
+```python
+from nnrp import TransportId, TransportPolicy, LossTolerance
+from nnrp.client import ClientProfile, ClientDialPolicy, dial_client
+
+# 希望优先 QUIC，容忍少量丢包，降级到 TCP 也可以
+profile = ClientProfile(
+    transport_policy=TransportPolicy.PREFER_QUIC,
+    loss_tolerance=LossTolerance.LOW_LATENCY,
+)
+dial_policy = ClientDialPolicy(
+    preferred_transport=TransportId.QUIC,
+    fallback_transport=TransportId.TCP,
+)
+session = await dial_client("render.example.com", 4433,
+                             profile=profile, dial_policy=dial_policy,
+                             config=quic_cfg)
+```
+
+::: warning 常见坑点
+- **`FORCE_QUIC` 在 TCP-only 防火墙下直接握手失败**，生产环境建议用 `PREFER_QUIC` 而非 `FORCE_QUIC`。
+- **`LossTolerance.FIRE_AND_FORGET` 不保证顺序**，适合遥测/统计场景，切勿用于帧提交主路径。
+- `WireFormat.CURRENT` 是目前唯一合法值，不要硬编码数字 `0`，以便未来升级时编译器能帮你找到所有调用点。
+:::
+
+---
+
+### 场景二：提交帧数据
+
+**相关枚举**：`InputProfile`、`SubmitMode`、`BudgetPolicy`、`PayloadKind`、`TileIndexMode`
+
+```python
+from nnrp import InputProfile, SubmitMode, BudgetPolicy, PayloadKind, TileIndexMode
+from nnrp.client import SubmitRequest, TensorSectionData
+
+# 只发送变化瓦片（增量帧），引用缓存中的重用对象
+request = SubmitRequest(
+    frame_id=42,
+    tile_ids=(3, 7, 12),                          # 只有这三个瓦片有变化
+    sections=(TensorSectionData(...),),
+    input_profile=InputProfile.CHANGED_TILES_LUMA,
+    submit_mode=SubmitMode.MIXED,                 # 部分内联，部分引用缓存
+    budget_policy=BudgetPolicy.ALLOW_PARTIAL | BudgetPolicy.ALLOW_STALE_REUSE,
+    inference_budget_ms=8,
+    tile_index_mode=TileIndexMode.RAW_U16,
+)
+await session.submit_frame(request)
+```
+
+::: warning 常见坑点
+- **`BudgetPolicy` 是位掩码（`IntFlag`）**，多个策略用 `|` 组合，不是用逗号分隔的列表。`BudgetPolicy.NONE` 是严格模式，服务端任何降质行为都会返回 `ResultClass.DEGRADED` 并触发错误。
+- **`SubmitMode.REFERENCE` 要求提前调用 `session.put_cache()`**，否则服务端会返回 `ErrorCode.CACHE_MISS`。
+- `tile_ids` 为空元组时，`TileIndexMode` 的值无效，服务端会忽略瓦片索引字段。
+:::
+
+---
+
+### 场景三：处理帧结果
+
+**相关枚举**：`ResultClass`、`ResultFlags`
+
+```python
+from nnrp import ResultClass, ResultFlags
+
+result = await session.receive_result(frame_id=42, timeout=0.05)
+
+match result.metadata.result_class:
+    case ResultClass.COMPLETE:
+        apply_full_result(result)
+    case ResultClass.PARTIAL:
+        # 只有部分瓦片完成，result_flags 中会有 PARTIAL 位
+        apply_partial_result(result)
+    case ResultClass.STALE_REUSE:
+        # 服务端重用了上一帧缓存——视频渲染时可直接复用上帧
+        pass
+    case ResultClass.DEGRADED:
+        # 质量降级，检查 applied_budget_policy 了解实际使用的策略
+        log_degraded(result.metadata.applied_budget_policy)
+
+# 检查附加标志
+if result.metadata.result_flags & ResultFlags.FALLBACK:
+    metrics.increment("degraded_fallback")
+```
+
+::: warning 常见坑点
+- **不要只检查 `COMPLETE` 然后对其他情况报错**；`STALE_REUSE` 和 `DEGRADED` 在高负载下是正常现象，应在业务层决定是否接受。
+- `ResultFlags.STALE` 与 `ResultClass.STALE_REUSE` 含义重叠但粒度不同：前者是位标志（可与其他标志共存），后者是主类别，业务逻辑优先判断 `result_class`。
+:::
+
+---
+
+### 场景四：错误处理
+
+**相关枚举**：`ErrorCode`、`ErrorScope`
+
+```python
+from nnrp import ErrorCode
+from nnrp.core.enums import ErrorScope
+from nnrp.errors import NnrpProtocolError
+
+try:
+    await session.submit_frame(request)
+except NnrpProtocolError as e:
+    match e.error_code:
+        case ErrorCode.FRAME_EXPIRED:
+            # 帧已过期，跳过本帧，继续下一帧
+            pass
+        case ErrorCode.SERVER_BUSY:
+            # 服务端繁忙，等待后重试（见 ResultHint 背压信号）
+            await asyncio.sleep(0.05)
+        case ErrorCode.AUTH_FAILED:
+            # 认证失败，不可重试，重建连接
+            raise
+
+    if e.error_scope == ErrorScope.CONNECTION:
+        # 连接级错误是致命的，必须重新建立连接
+        await session.close()
+        session = await dial_client(...)
+    elif e.error_scope == ErrorScope.FRAME:
+        # 帧级错误可恢复，只需跳过当前帧
+        pass
+```
+
+::: warning 常见坑点
+- **`ErrorScope.CONNECTION` 错误不可在同一 Session 上重试**，必须重新握手。不少开发者在连接级错误后仍向旧 session 发送数据，导致死锁。
+- `ErrorCode.LIMIT_EXCEEDED` 可能是每秒补丁频率受限（见 `SessionPatchRejectReason.RATE_LIMITED`），不一定是硬件资源耗尽。
+:::
+
+---
+
+### 场景五：缓存操作
+
+**相关枚举**：`CacheObjectKind`、`CachePutFlags`、`CacheAckStatus`、`CacheInvalidateScope`
+
+```python
+from nnrp import CacheObjectKind, CachePutFlags, CacheAckStatus, CacheInvalidateScope
+
+# 存储一个可复用的 Tensor 分区表，并固定不被 LRU 驱逐
+ack = await session.put_cache(
+    kind=CacheObjectKind.TENSOR_SECTION_TABLE,
+    key=b"tst-v1",
+    data=serialized_tensor_section_table,
+    flags=CachePutFlags.PINNED | CachePutFlags.REUSABLE,
+)
+
+match ack.status:
+    case CacheAckStatus.ACCEPTED:
+        pass  # 正常存储
+    case CacheAckStatus.REPLACED:
+        log.warning("key %s already existed, replaced", ack.key)
+    case CacheAckStatus.REJECTED:
+        # 容量不足或策略拒绝，降级为 INLINE 提交
+        use_inline_submit = True
+
+# 会话结束前或模型切换时清除特定类型的缓存
+await session.invalidate_cache(
+    scope=CacheInvalidateScope.OBJECT_KIND,
+    kind=CacheObjectKind.TENSOR_SECTION_TABLE,
+)
+```
+
+::: warning 常见坑点
+- **`CachePutFlags.PINNED` 不受 LRU 驱逐，但仍受服务端总缓存配额限制**，大量 PINNED 对象可能导致后续 CACHE_PUT 全部被 REJECTED。
+- `CacheObjectKind.TILE_INDEX_BLOCK` 有别名 `TILE_INDEX_TEMPLATE`，两者值相同；代码里统一用一个，避免混用产生混乱。
+- 用 `CacheInvalidateScope.WHOLE_SESSION` 会清空整个会话的所有缓存对象，慎用，通常只在会话重置时才需要这个粒度。
+:::
+
+---
+
+### 场景六：流控与背压
+
+**相关枚举**：`FlowUpdateScopeKind`、`FlowUpdateReason`、`FlowUpdateBackpressureLevel`、`FlowUpdateFlags`、`ResultHintBudgetPolicy`、`ResultHintCongestionState`、`ResultHintReason`
+
+```python
+from nnrp import (
+    FlowUpdateReason, FlowUpdateBackpressureLevel,
+    ResultHintCongestionState, ResultHintBudgetPolicy,
+)
+
+# 服务端推送 RESULT_HINT，客户端据此调整发送速率
+async def handle_result_hints(session):
+    async for hint in session.result_hints():
+        if hint.congestion_state == ResultHintCongestionState.SATURATED:
+            # 严重饱和：立即停止提交，等待明确的 FLOW_UPDATE RESUME
+            await session.pause_submit()
+        elif hint.congestion_state == ResultHintCongestionState.ELEVATED:
+            # 轻度拥塞：降低提交频率
+            frame_interval_ms = frame_interval_ms * 1.5
+
+        if hint.budget_policy == ResultHintBudgetPolicy.DROP:
+            # 服务端建议客户端直接丢弃下一帧提交
+            skip_next_frame = True
+
+# 服务端推送 FLOW_UPDATE 时的处理
+async def handle_flow_update(update):
+    match update.reason:
+        case FlowUpdateReason.PAUSE:
+            await session.pause_submit()
+        case FlowUpdateReason.RESUME:
+            await session.resume_submit()
+        case FlowUpdateReason.CONGESTION:
+            if update.backpressure == FlowUpdateBackpressureLevel.HARD:
+                # 硬背压：必须立即停止
+                await session.pause_submit()
+```
+
+::: warning 常见坑点
+- **`ResultHint` 是建议，不是命令**，但忽略 `SATURATED` 状态持续提交会导致服务端队列溢出，最终触发 `RESULT_DROP`（服务端直接丢帧）。
+- `FlowUpdateFlags.CREDIT_VALID` 标志未置位时，`credit` 字段值无意义，不要直接用于速率计算。
+- `FlowUpdateFlags.RETRY_AFTER_VALID` 置位时，`retry_after_ms` 才有效；不检查此标志直接用 `retry_after_ms` 可能读到默认零值，导致客户端立即重试（等于无退避）。
+:::
+
+---
+
+### 场景七：会话动态调整
+
+**相关枚举**：`SessionPatchField`、`SessionPatchAckStatus`、`SessionPatchRejectReason`
+
+```python
+from nnrp import SessionPatchField, SessionPatchAckStatus, SessionPatchRejectReason
+
+# 在会话进行中动态调整目标帧率和质量档位
+ack = await session.patch(
+    fields=SessionPatchField.TARGET_CADENCE | SessionPatchField.QUALITY_TIER,
+    target_cadence=30,   # 从 60fps 降为 30fps（省电模式）
+    quality_tier=1,
+)
+
+match ack.status:
+    case SessionPatchAckStatus.ACCEPTED:
+        pass
+    case SessionPatchAckStatus.PARTIALLY_APPLIED:
+        # 部分字段被接受，检查哪些字段被拒绝
+        for rejected_field, reason in ack.rejected_fields.items():
+            if reason == SessionPatchRejectReason.RATE_LIMITED:
+                # 补丁频率受限，稍后重试
+                await asyncio.sleep(1.0)
+            elif reason == SessionPatchRejectReason.INVALID_RANGE:
+                log.error("Invalid value for field %s", rejected_field)
+    case SessionPatchAckStatus.REJECTED:
+        log.warning("Patch fully rejected: %s", ack.reject_reason)
+```
+
+::: warning 常见坑点
+- **`SessionPatchField` 是位掩码（`IntFlag`）**，同时请求多个字段时必须用 `|` 组合，不要多次发送单字段补丁（每次都计入频率限制）。
+- 服务端对 `SESSION_PATCH` 有频率限制（默认每秒若干次），高频补丁（如每帧都 patch）会触发 `RATE_LIMITED`，应在客户端合批。
+- `SessionPatchAckStatus.PARTIALLY_APPLIED` 时，**已被接受的字段不会回滚**，需要在客户端自行记录哪些字段当前生效，以便下次补丁时构造正确的 diff。
+:::

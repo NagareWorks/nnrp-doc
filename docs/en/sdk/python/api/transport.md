@@ -195,3 +195,81 @@ async def serve_tcp(
 | Enterprise intranet, TCP-only firewall | TCP |
 | Development / testing | TCP (no certificate required) |
 | Multi-path migration | QUIC (primary) + TCP (fallback) |
+
+---
+
+## Typical Use Cases
+
+### Case 1: QUIC Client Quick Start
+
+```python
+import ssl
+from nnrp.adapters.quic import create_quic_client_configuration, connect_quic
+from nnrp.client import ClientProfile, dial_client
+from nnrp import TransportPolicy
+
+# Production: verify server certificate
+quic_cfg = create_quic_client_configuration(
+    cafile="/etc/nnrp/ca-bundle.pem",
+    idle_timeout=30.0,
+)
+
+# Development only: skip verification
+dev_cfg = create_quic_client_configuration(verify_mode=ssl.CERT_NONE)
+
+session = await dial_client("render.example.com", 4433,
+                             profile=ClientProfile(
+                                 transport_policy=TransportPolicy.PREFER_QUIC),
+                             config=quic_cfg)
+```
+
+### Case 2: TCP Fallback Transport
+
+```python
+from nnrp.adapters.tcp import NnrpTcpClientConfiguration, connect_tcp
+from nnrp import WireFormat
+
+tcp_cfg = NnrpTcpClientConfiguration(
+    wire_format=WireFormat.CURRENT,
+    connect_timeout=5.0,
+    idle_timeout=60.0,
+)
+connection = await connect_tcp("render.example.com", 4434, tcp_cfg)
+```
+
+### Case 3: Dual-Protocol Server (QUIC + TCP)
+
+```python
+import asyncio
+from nnrp.adapters.quic import create_quic_server_configuration, serve_quic
+from nnrp.adapters.tcp import NnrpTcpServerConfiguration, serve_tcp
+from nnrp.server import ServerProfile, accept_server_session
+
+async def accept_loop(listener):
+    while True:
+        session = await accept_server_session(listener, ServerProfile())
+        asyncio.create_task(handle_session(session))
+
+async def main():
+    async with (
+        serve_quic("0.0.0.0", 4433, create_quic_server_configuration("c.pem", "k.pem")) as ql,
+        serve_tcp("0.0.0.0", 4434, NnrpTcpServerConfiguration()) as tl,
+    ):
+        await asyncio.gather(accept_loop(ql), accept_loop(tl))
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **QUIC requires the correct ALPN protocol name.** Default is `nnrp/1` (via `NNRP_CURRENT_ALPN`). Mismatched ALPN between client and server causes a TLS-layer rejection, reported as `SSL handshake failed`. Always use `alpn_for_wire_format(WireFormat.CURRENT)` instead of hardcoding the string.
+
+2. **`verify_mode=ssl.CERT_NONE` is for local development only.** CI/staging should use a self-signed CA (`cafile` parameter), not disabled verification.
+
+3. **TCP transport does not support Datagram message types** (e.g., `TRANSPORT_PROBE`). These raise `NnrpTcpUnsupportedOperationError`; callers must catch and degrade gracefully.
+
+4. **`serve_quic` / `serve_tcp` do not close established sessions on exit.** Cancel and await all `handle_session` tasks before leaving the context manager for a graceful shutdown.
+
+5. **`idle_timeout` is configured independently on client and server.** If the server timeout is shorter than the client's, the server closes first, and the client receives a `ConnectionResetError` instead of a clean NNRP close frame. Keep timeouts consistent.
+:::

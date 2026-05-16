@@ -158,3 +158,62 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 ```
+
+---
+
+## 典型使用场景（Preview3 规划）
+
+### 完整服务端循环
+
+```rust
+// Preview3 预期用法
+use nnrp_server::{NnrpServer, NnrpServerConfig};
+use nnrp_core::{ResultClass, NnrpServerResult};
+
+let config = NnrpServerConfig::builder()
+    .bind("0.0.0.0:4433")
+    .transport(TransportPolicy::PreferQuic)
+    .max_concurrent_frames(8)
+    .build()?;
+
+let server = NnrpServer::bind(config).await?;
+while let Ok(mut session) = server.accept().await {
+    tokio::spawn(async move {
+        while let Ok(submit) = session.receive_submit().await {
+            let sections = run_inference(&submit.sections).await;
+            session.send_result(NnrpServerResult {
+                frame_id: submit.frame_id,
+                sections,
+                result_class: ResultClass::Complete,
+                ..Default::default()
+            }).await?;
+        }
+        Ok::<_, Box<dyn std::error::Error>>(())
+    });
+}
+```
+
+### 背压信号
+
+```rust
+if queue_len > MAX_QUEUE {
+    session.send_result_drop(submit.frame_id).await?;
+    session.send_flow_update(NnrpFlowUpdate {
+        flags: FlowUpdateFlags::CREDIT_VALID,
+        credit: 0, // 暂停接收
+        ..Default::default()
+    }).await?;
+}
+```
+
+---
+
+## 常见坱点
+
+::: warning
+1. **超时帧必须发送 `send_result_drop`。** 默默跳过会让客户端 `submit()` 永久卡住。
+
+2. **尚未实现内置认证。** Preview3 认证需在应用层完成，不要期待中间件自动验证。
+
+3. **`tokio::spawn` 内不要阔塞。** 同步推理务必须包装在 `tokio::task::spawn_blocking` 或单独线程池。
+:::

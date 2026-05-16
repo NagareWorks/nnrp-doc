@@ -141,3 +141,45 @@ public class MyCustomTransport : INnrpMessageTransport
     }
 }
 ```
+
+---
+
+## Typical Use Cases
+
+### QUIC Client
+
+```csharp
+var quicConfig = new NnrpQuicClientConfiguration
+{
+    CertificateAuthority = X509Certificate2.CreateFromPemFile("ca.pem"),
+    IdleTimeout          = TimeSpan.FromSeconds(30),
+};
+var transport = new NnrpQuicTransport(quicConfig);
+await using var client = await NnrpClient.ConnectAsync(host, port, profile,
+                                                         transport: transport);
+```
+
+### TCP Fallback
+
+```csharp
+var tcpConfig = new NnrpTcpClientConfiguration
+{
+    ConnectTimeout = TimeSpan.FromSeconds(5),
+    IdleTimeout    = TimeSpan.FromSeconds(60),
+};
+var transport = new NnrpTcpTransport(tcpConfig);
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **QUIC requires the correct ALPN.** Use `NnrpQuicClientConfiguration.DefaultAlpn`; do not hardcode the string.
+
+2. **`SkipCertificateValidation = true` is for local dev only.** CI/staging must use a CA certificate.
+
+3. **TCP does not support Datagram operations** (e.g., transport probes). These throw `NnrpUnsupportedOperationException`.
+
+4. **`await using var transport`** — `NnrpQuicTransport` / `NnrpTcpTransport` implement `IAsyncDisposable`. Forgetting to dispose leaks the underlying socket.
+:::

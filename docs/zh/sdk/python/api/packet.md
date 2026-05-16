@@ -174,3 +174,73 @@ restored = NnrpPacket.unpack(raw)
 assert restored.header.msg_type is MessageType.PING
 assert restored.header.session_id == 42
 ```
+
+---
+
+## 典型使用场景
+
+### 何时需要直接操作数据包
+
+绝大多数业务代码**不需要直接操作 `NnrpPacket` 或 `NnrpHeader`**，`ClientSession` / `ServerSession` 已封装所有常用操作。以下情况才需要用到低层包 API：
+
+- 实现自定义传输适配器（桥接非 QUIC/TCP 协议）
+- 编写协议一致性测试 / 压测工具
+- 调试：将收到的原始数据包序列化后保存或重放
+- 扩展 `ControlExtensionEntry` 携带自定义握手字段
+
+### 构造自定义 PING 并测量延迟
+
+```python
+import time
+from nnrp.core import NnrpPacket
+from nnrp.core.enums import MessageType
+
+async def measure_rtt(connection) -> float:
+    """发送 PING，等待 PONG，返回往返延迟（秒）。"""
+    seq = int(time.monotonic() * 1000) & 0xFFFF
+    ping = NnrpPacket.build(
+        MessageType.PING,
+        session_id=connection.session_id,
+        frame_id=seq,
+    )
+    t0 = time.monotonic()
+    await connection.send_packet(ping)
+    pong = await connection.receive_packet(timeout=2.0)
+    assert pong.header.msg_type is MessageType.PONG
+    return time.monotonic() - t0
+```
+
+### 解析收到的原始数据包
+
+```python
+from nnrp.core import NnrpPacket
+from nnrp.core.enums import MessageType
+from nnrp.core.messages import unpack_body
+
+raw_bytes = await raw_transport.recv()
+packet = NnrpPacket.unpack(raw_bytes)
+
+match packet.header.msg_type:
+    case MessageType.FRAME_SUBMIT:
+        body = unpack_body(packet)   # 返回 FrameSubmitBody
+        process_submit(body)
+    case MessageType.RESULT_PUSH:
+        body = unpack_body(packet)   # 返回 ResultPushBody
+        process_result(body)
+    case _:
+        log.warning("Unexpected message type: %s", packet.header.msg_type)
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **包头长度字段是固定的**：`NnrpHeader` 序列化长度由协议版本决定，不可在包头末尾追加自定义字节；扩展字段应放在 `metadata` 段（通过 `ControlExtensionEntry` 机制）。
+
+2. **Magic bytes 校验**：`NnrpPacket.unpack()` 会验证前 4 字节魔数，若从网络流截取时偏移错误（如少读了一个长度前缀），解析会立即抛出 `ValueError: bad magic`。TCP 传输需先读 4 字节长度前缀，再读对应字节数的完整包。
+
+3. **`pack()` 返回的 `bytes` 是不可变的**：不要在发送前尝试 `raw[x] = y` 原地修改；若需修改某字段，重新调用 `NnrpPacket.build()` 构造新包。
+
+4. **`session_id` 和 `frame_id` 均为无符号整数**，值域 `[0, 2^32)` 和 `[0, 2^32)`；传入负数时 Python 不会报错但序列化会截断，导致接收端解析出错。
+:::

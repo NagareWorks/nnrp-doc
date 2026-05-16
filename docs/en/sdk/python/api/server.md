@@ -168,3 +168,96 @@ async def main():
 
 asyncio.run(main())
 ```
+
+---
+
+## Typical Use Cases
+
+### Case 1: Concurrent Session Handling
+
+```python
+import asyncio
+from nnrp.server import ServerProfile, accept_server_session
+from nnrp import ResultClass
+from nnrp.adapters.quic import create_quic_server_configuration, serve_quic
+
+async def handle_session(session):
+    try:
+        while True:
+            received = await session.receive_submit(timeout=30.0)
+            sections = await asyncio.get_event_loop().run_in_executor(
+                inference_pool, run_inference, received.request
+            )
+            await session.send_result(
+                frame_id=received.metadata.frame_id,
+                sections=sections,
+                result_class=ResultClass.COMPLETE,
+            )
+    except asyncio.TimeoutError:
+        await session.close()
+
+async def main():
+    quic_cfg = create_quic_server_configuration("cert.pem", "key.pem")
+    profile = ServerProfile(max_concurrent_frames=8)
+    async with serve_quic("0.0.0.0", 4433, config=quic_cfg) as listener:
+        while True:
+            session = await accept_server_session(listener, profile,
+                                                   auth_validator=validate_token)
+            asyncio.create_task(handle_session(session))
+```
+
+### Case 2: Authentication
+
+```python
+import hmac, hashlib
+
+SECRET_KEY = b"shared-secret"
+
+def validate_token(auth_block: bytes) -> bool:
+    if len(auth_block) < 32:
+        return False
+    token, payload = auth_block[:32], auth_block[32:]
+    expected = hmac.new(SECRET_KEY, payload, hashlib.sha256).digest()
+    return hmac.compare_digest(token, expected)
+```
+
+### Case 3: Backpressure Control
+
+```python
+from nnrp import ResultClass, ResultHintCongestionState
+
+async def handle_session_with_backpressure(session):
+    queue_depth = 0
+    while True:
+        received = await session.receive_submit()
+        queue_depth += 1
+        if queue_depth > MAX_QUEUE:
+            await session.send_result_drop(frame_id=received.metadata.frame_id)
+            await session.send_result_hint(
+                congestion_state=ResultHintCongestionState.SATURATED)
+            queue_depth -= 1
+            continue
+        sections = await run_inference_async(received.request)
+        queue_depth -= 1
+        await session.send_result(
+            frame_id=received.metadata.frame_id,
+            sections=sections,
+            result_class=ResultClass.COMPLETE,
+        )
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **Never call blocking inference inside `receive_submit`'s coroutine directly.** Wrap synchronous inference in `run_in_executor` to avoid blocking the event loop, which causes PING/PONG timeouts and client-side disconnects.
+
+2. **Timed-out frames must be answered with `send_result_drop`.** Silently skipping them leaves the client's `receive_result` blocked forever.
+
+3. **`ServerProfile.max_concurrent_frames` is a soft limit**; you must implement your own concurrency control (e.g., `asyncio.Semaphore`) at the application level.
+
+4. **`auth_validator` is called synchronously during handshake.** Do not perform I/O inside it; pre-cache tokens in memory or bridge with `run_in_executor`.
+
+5. **`ClientHelloContext.auth_block` is raw bytes — the framework does no parsing.** If `auth_validator` is omitted, all connections are accepted.
+:::

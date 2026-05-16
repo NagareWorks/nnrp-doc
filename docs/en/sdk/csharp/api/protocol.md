@@ -161,3 +161,54 @@ public int InvalidateAll();
 public int Count { get; }
 public long BytesUsed { get; }
 ```
+
+---
+
+## Typical Use Cases
+
+### Cache Pre-warming and Reuse
+
+```csharp
+// Upload a static background tile to the server cache
+var key = new NnrpCacheKey { KindId = CacheObjectKind.BackgroundTile, ObjectId = bgHash };
+await session.PutCacheAsync(key, bgTensorData, CachePutFlags.Persistent);
+
+// Subsequent frames reference the cache to reduce bandwidth
+var req = new NnrpSubmitRequest
+{
+    FrameId      = frameId,
+    InputProfile = InputProfile.ChangedTilesLuma,
+    SubmitMode   = SubmitMode.Reference,   // reference server cache, skip re-transmission
+    BudgetPolicy = BudgetPolicy.AllowPartial,
+    CacheRefs    = new[] { key },
+    Sections     = new[] { deltaSection }, // only transmit the delta
+};
+```
+
+### Low-Level Header Construction (debugging / adapters)
+
+```csharp
+var header = new NnrpPacketHeader
+{
+    MessageType = MessageType.FrameSubmit,
+    SessionId   = sessionId,
+    PayloadSize = payload.Length,
+    Flags       = HeaderFlags.None,
+};
+buffer.Write(header.Serialize());
+buffer.Write(payload);
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **`NnrpCacheStore` is client-local, not server-side cache.** You must call `PutCacheAsync()` first to push data to the server before using `SubmitMode.Reference`.
+
+2. **`SubmitMode.Reference` requires a server cache hit.** If the server evicts the entry, the submit returns `ErrorCode.CacheMiss` — fall back to `SubmitMode.Inline`.
+
+3. **`NnrpPacketHeader.PayloadSize` is in bytes**, not section count or tile count.
+
+4. **`NnrpCacheStore` evicts on whichever limit is hit first** — `maxEntries` or `maxBytes`. Increase `maxBytes` for large tensors.
+:::

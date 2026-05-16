@@ -144,3 +144,66 @@ restored = NnrpPacket.unpack(raw)
 assert restored.header.msg_type is MessageType.PING
 assert restored.header.session_id == 42
 ```
+
+---
+
+## Typical Use Cases
+
+### When to use the low-level packet API
+
+Most application code **does not need `NnrpPacket` or `NnrpHeader` directly** — `ClientSession` / `ServerSession` covers all common operations. Use the low-level API when:
+
+- Implementing a custom transport adapter
+- Writing protocol conformance tests or fuzz tooling
+- Debugging: capturing and replaying raw packet bytes
+- Adding custom `ControlExtensionEntry` fields to the handshake
+
+### Measuring RTT with a raw PING
+
+```python
+import time
+from nnrp.core import NnrpPacket
+from nnrp.core.enums import MessageType
+
+async def measure_rtt(connection) -> float:
+    seq = int(time.monotonic() * 1000) & 0xFFFF
+    ping = NnrpPacket.build(MessageType.PING, session_id=connection.session_id,
+                             frame_id=seq)
+    t0 = time.monotonic()
+    await connection.send_packet(ping)
+    pong = await connection.receive_packet(timeout=2.0)
+    assert pong.header.msg_type is MessageType.PONG
+    return time.monotonic() - t0
+```
+
+### Parsing an incoming raw packet
+
+```python
+from nnrp.core import NnrpPacket
+from nnrp.core.messages import unpack_body
+from nnrp.core.enums import MessageType
+
+raw_bytes = await raw_transport.recv()
+packet = NnrpPacket.unpack(raw_bytes)
+match packet.header.msg_type:
+    case MessageType.FRAME_SUBMIT:
+        body = unpack_body(packet)
+        process_submit(body)
+    case MessageType.RESULT_PUSH:
+        body = unpack_body(packet)
+        process_result(body)
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **Header length is fixed by the protocol version.** Do not append custom bytes to the header; put extension fields in `metadata` via `ControlExtensionEntry`.
+
+2. **Magic bytes are validated by `unpack()`.** An off-by-one read offset from a TCP length-prefix framing bug will cause `ValueError: bad magic`.
+
+3. **`pack()` returns immutable `bytes`.** Do not attempt in-place mutation; reconstruct via `NnrpPacket.build()` instead.
+
+4. **`session_id` and `frame_id` are unsigned integers.** Passing a negative value does not raise an error in Python, but the serialized result is silently truncated, causing parse errors on the receiver.
+:::

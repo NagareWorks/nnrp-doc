@@ -230,3 +230,67 @@ var result = await session.SubmitAsync(new NnrpSubmitRequest
 
 Console.WriteLine($"Result: {result.ResultClass}, InferenceMs: {result.InferenceMs}");
 ```
+
+---
+
+## 典型使用场景
+
+### 完整连接与渲染循环
+
+```csharp
+var transport = new NnrpQuicTransport(quicConfig);
+var profile   = new NnrpClientProfile
+{
+    TransportPolicy   = TransportPolicy.PreferQuic,
+    LossTolerance     = LossTolerance.LowLatency,
+    InferenceBudgetMs = 8,
+};
+
+var client = new NnrpClient(transport, profile);
+await using var session = await client.ConnectAsync("render.example.com", 4433);
+
+for (int frameId = 0; ; frameId++)
+{
+    var (tiles, tensor) = CaptureChangedTiles();
+    var result = await session.SubmitAsync(new NnrpSubmitRequest
+    {
+        FrameId           = frameId,
+        TileIds           = tiles,
+        Sections          = new[] { tensor },
+        InputProfile      = InputProfile.ChangedTilesLuma,
+        BudgetPolicy      = BudgetPolicy.AllowPartial,
+        InferenceBudgetMs = 8,
+    });
+    if (result.ResultClass == ResultClass.Complete)
+        Display(result.Sections);
+}
+```
+
+### 响应背压信号
+
+```csharp
+session.OnResultHint += hint =>
+{
+    if (hint.CongestionState == ResultHintCongestionState.Saturated)
+        _paused = true;
+    else if (hint.CongestionState == ResultHintCongestionState.None)
+        _paused = false;
+};
+
+// 发送循环中
+if (_paused) { await Task.Delay(16); continue; }
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **`await using var session`**：`NnrpClientSession` 实现 `IAsyncDisposable`，必须确保 `DisposeAsync` 被调用；直接 `await client.ConnectAsync(...)` 而不用 `await using` 会在连接异常时泄漏底层 QUIC/TCP 资源。
+
+2. **不要跨线程并发调用 `SubmitAsync`**：发送路径非线程安全，多线程并发写会导致包交错。若需并发，应使用 `Channel<T>` 将请求序列化后发送。
+
+3. **`SubmitAsync` 超时后帧 ID 槽仍然占用**：调用 `session.DiscardFrame(frameId)` 释放，否则内部路由表持续增长。
+
+4. **`InferenceBudgetMs` 是默认预算**，每次 `NnrpSubmitRequest` 可单独覆盖；`DeadlineMs` 是绝对截止时间戳（毫秒级 Unix 时间），两者语义不同，混用会导致服务端判定超时。
+:::

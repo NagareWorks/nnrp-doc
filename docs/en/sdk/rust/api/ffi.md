@@ -127,3 +127,49 @@ The C ABI surface will be expanded significantly in Preview3:
 | `nnrp_free_*` | Companion deallocation functions |
 
 All returned pointer types will use Rust's `Box<T>` ownership with explicit `free` functions to avoid memory leaks across the FFI boundary.
+
+---
+
+## Typical Use Cases (Preview3 Plan)
+
+### Calling from C (game engine plug-in)
+
+```c
+/* Expected Preview3 C ABI */
+NnrpClientConfig cfg = { .host = "127.0.0.1", .port = 4433 };
+NnrpClient* client = nnrp_client_create(&cfg);
+NnrpSession* session = nnrp_session_open(client);
+
+NnrpFrameSubmit submit = {
+    .frame_id = 1,
+    .input_profile = NNRP_INPUT_CHANGED_TILES_LUMA,
+    .section_count = 1,
+    .sections = &tile_section,
+};
+NnrpResult result;
+nnrp_session_submit(session, &submit, &result);
+
+nnrp_session_close(session);
+nnrp_client_destroy(client);
+```
+
+### Memory ownership rule
+
+```c
+// Every nnrp_*_create must be paired with nnrp_*_destroy
+NnrpResult* result = nnrp_session_recv_result(session);
+// ... use result ...
+nnrp_free_result(result);  // REQUIRED — Rust allocated this via Box<T>
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **Every `nnrp_*_create` must have a corresponding `nnrp_*_destroy`.** No GC; forgetting to call `destroy` leaks Rust heap memory into the host process.
+
+2. **Do not share one `NnrpSession*` across threads.** The C ABI has no internal locking; concurrent access is undefined behavior.
+
+3. **Passing a null pointer causes a Rust panic and terminates the process.** The C ABI does not validate nulls — callers must ensure valid pointers.
+:::

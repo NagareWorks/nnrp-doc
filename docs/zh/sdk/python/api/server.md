@@ -186,3 +186,130 @@ async def main():
 
 asyncio.run(main())
 ```
+
+---
+
+## 典型使用场景
+
+### 场景一：并发处理多客户端会话
+
+每个 `accept_server_session` 返回一个独立的 `ServerSession`，推荐用 `asyncio.create_task` 并发处理。
+
+```python
+import asyncio
+from nnrp.server import ServerProfile, accept_server_session
+from nnrp import ResultClass, BudgetPolicy
+from nnrp.adapters.quic import create_quic_server_configuration, serve_quic
+
+async def handle_session(session):
+    """单个会话的处理循环。"""
+    try:
+        while True:
+            received = await session.receive_submit(timeout=30.0)
+            # 在推理线程池里执行推理（不要直接 await 阻塞事件循环）
+            sections = await asyncio.get_event_loop().run_in_executor(
+                inference_pool,
+                run_inference,
+                received.request,
+            )
+            await session.send_result(
+                frame_id=received.metadata.frame_id,
+                sections=sections,
+                result_class=ResultClass.COMPLETE,
+            )
+    except asyncio.TimeoutError:
+        # 客户端长时间无提交，主动关闭
+        await session.close()
+    except Exception as e:
+        log.exception("Session error: %s", e)
+        await session.close()
+
+async def main():
+    quic_cfg = create_quic_server_configuration("cert.pem", "key.pem")
+    profile = ServerProfile(max_concurrent_frames=8)
+    async with serve_quic("0.0.0.0", 4433, config=quic_cfg) as listener:
+        while True:
+            session = await accept_server_session(listener, profile,
+                                                   auth_validator=validate_token)
+            asyncio.create_task(handle_session(session))
+```
+
+### 场景二：认证验证
+
+`accept_server_session` 的 `auth_validator` 接收客户端 `CLIENT_HELLO` 里的 `auth_block` 字节串，返回 `True` 则放行，`False` 则自动发送 `ERROR(AUTH_FAILED)` 并关闭连接。
+
+```python
+import hmac, hashlib
+
+SECRET_KEY = b"shared-secret"
+
+def validate_token(auth_block: bytes) -> bool:
+    """验证 HMAC-SHA256 令牌。"""
+    if len(auth_block) < 32:
+        return False
+    token, payload = auth_block[:32], auth_block[32:]
+    expected = hmac.new(SECRET_KEY, payload, hashlib.sha256).digest()
+    return hmac.compare_digest(token, expected)
+
+session = await accept_server_session(
+    listener, profile,
+    auth_validator=validate_token,
+)
+```
+
+### 场景三：结果降级与背压控制
+
+服务端负载过高时应主动发送 `RESULT_DROP` 或降质结果，而不是让队列无限增长。
+
+```python
+from nnrp import ResultClass, BudgetPolicy, ResultFlags, ResultHintCongestionState
+
+async def handle_session_with_backpressure(session):
+    queue_depth = 0
+    while True:
+        received = await session.receive_submit()
+        queue_depth += 1
+
+        # 队列过深时直接通知客户端丢弃本帧
+        if queue_depth > MAX_QUEUE:
+            await session.send_result_drop(
+                frame_id=received.metadata.frame_id,
+                reason="queue_overflow",
+            )
+            queue_depth -= 1
+            # 同时发送背压信号
+            await session.send_result_hint(
+                congestion_state=ResultHintCongestionState.SATURATED,
+            )
+            continue
+
+        sections = await run_inference_async(received.request)
+        queue_depth -= 1
+
+        # 如果推理时间超出预算，标记为降质
+        result_class = (ResultClass.DEGRADED
+                        if inference_ms > received.metadata.inference_budget_ms
+                        else ResultClass.COMPLETE)
+        await session.send_result(
+            frame_id=received.metadata.frame_id,
+            sections=sections,
+            result_class=result_class,
+            applied_budget_policy=BudgetPolicy.ALLOW_DEGRADED,
+        )
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **`receive_submit()` 不可在同步代码里直接调用**（如 `loop.run_until_complete` 嵌套）。推理若用同步库，必须用 `run_in_executor` 包装，否则事件循环阻塞会导致 PING/PONG 超时、连接被客户端断开。
+
+2. **超时的帧必须发送 `send_result_drop`，否则客户端会一直等待**。不少服务端实现在 `receive_submit` 超时后直接 `continue`，但客户端的 `receive_result(frame_id=...)` 会永久阻塞。
+
+3. **`ServerProfile.max_concurrent_frames` 是软限制**，框架不会自动排队超出的帧；实际并发控制（如信号量）需要应用层自己实现。
+
+4. **`auth_validator` 在握手阶段同步调用**，不要在里面执行 I/O（如数据库查询）；应事先将令牌缓存在内存中，或改用异步版本并用 `asyncio.run_coroutine_threadsafe` 桥接。
+
+5. **`ClientHelloContext.auth_block` 是原始字节串，框架不做任何解析**。未传 `auth_validator` 时默认放行所有连接，生产环境必须提供验证逻辑。
+:::

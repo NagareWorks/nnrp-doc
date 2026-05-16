@@ -90,3 +90,49 @@ pub struct NnrpResult {
 - [ ] `NnrpClientSession::patch_session`
 - [ ] FFI bindings exposed via `nnrp-ffi`
 - [ ] Conformance tests in `nnrp-conformance`
+
+---
+
+## Typical Use Cases (Preview3 Plan)
+
+### Full connect-and-render loop
+
+```rust
+// Expected Preview3 usage
+use nnrp_client::{NnrpClient, NnrpClientConfig};
+use nnrp_core::{InputProfile, BudgetPolicy, ResultClass};
+
+let config = NnrpClientConfig::builder()
+    .host("render.example.com")
+    .port(4433)
+    .transport_policy(TransportPolicy::PreferQuic)
+    .build()?;
+
+let client = NnrpClient::connect(config).await?;
+let mut session = client.open_session().await?;
+
+for frame_id in 0u64.. {
+    let result = session.submit(NnrpSubmitRequest {
+        frame_id,
+        input_profile: InputProfile::ChangedTilesLuma,
+        budget_policy: BudgetPolicy::ALLOW_PARTIAL,
+        sections: capture_delta(),
+        ..Default::default()
+    }).await?;
+    if result.result_class == ResultClass::Complete {
+        display(&result.sections);
+    }
+}
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **`NnrpClientSession` does not yet have a `Drop` auto-close.** In Preview3 call `session.close().await` explicitly, or the server detects an abnormal disconnect.
+
+2. **Do not retry timed-out frames with the same `frame_id`.** Use a fresh ID to avoid duplicate-frame server errors.
+
+3. **Concurrent `submit()` calls are unspecified.** Until Preview3 is stable, either submit sequentially or wrap with `Mutex`.
+:::

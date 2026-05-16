@@ -266,3 +266,96 @@ async def serve_tcp(
 | 企业内网、TCP Only 防火墙 | TCP |
 | 开发 / 测试环境 | TCP（无需证书，配置简单） |
 | 多路径迁移 | QUIC（首选）+ TCP（备用） |
+
+---
+
+## 典型使用场景
+
+### 场景一：QUIC 客户端快速接入
+
+```python
+import ssl
+from nnrp.adapters.quic import create_quic_client_configuration, connect_quic
+from nnrp.client import ClientProfile, ClientDialPolicy, dial_client
+from nnrp import TransportPolicy
+
+# 生产环境：验证服务端证书
+quic_cfg = create_quic_client_configuration(
+    cafile="/etc/nnrp/ca-bundle.pem",   # CA 证书
+    idle_timeout=30.0,
+)
+
+# 开发环境：跳过证书验证（仅限本地）
+dev_cfg = create_quic_client_configuration(
+    verify_mode=ssl.CERT_NONE,
+)
+
+session = await dial_client(
+    "render.example.com", 4433,
+    profile=ClientProfile(transport_policy=TransportPolicy.PREFER_QUIC),
+    config=quic_cfg,
+)
+```
+
+### 场景二：TCP 备用传输
+
+适合部署在不支持 UDP 的网络（如某些企业代理）。TCP 传输与 QUIC 在 API 上完全对称。
+
+```python
+from nnrp.adapters.tcp import (
+    NnrpTcpClientConfiguration, connect_tcp,
+)
+from nnrp import WireFormat
+
+tcp_cfg = NnrpTcpClientConfiguration(
+    wire_format=WireFormat.CURRENT,
+    connect_timeout=5.0,
+    idle_timeout=60.0,
+)
+connection = await connect_tcp("render.example.com", 4434, tcp_cfg)
+# 直接用底层 connection，或通过 dial_client 自动选择传输
+```
+
+### 场景三：服务端同时监听 QUIC 和 TCP
+
+```python
+import asyncio
+from nnrp.adapters.quic import create_quic_server_configuration, serve_quic
+from nnrp.adapters.tcp import NnrpTcpServerConfiguration, serve_tcp
+from nnrp.server import ServerProfile, accept_server_session
+
+quic_cfg = create_quic_server_configuration("cert.pem", "key.pem")
+tcp_cfg = NnrpTcpServerConfiguration()
+profile = ServerProfile()
+
+async def accept_loop(listener):
+    while True:
+        session = await accept_server_session(listener, profile)
+        asyncio.create_task(handle_session(session))
+
+async def main():
+    async with (
+        serve_quic("0.0.0.0", 4433, quic_cfg) as quic_listener,
+        serve_tcp("0.0.0.0", 4434, tcp_cfg) as tcp_listener,
+    ):
+        await asyncio.gather(
+            accept_loop(quic_listener),
+            accept_loop(tcp_listener),
+        )
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **QUIC 需要正确的 ALPN 协议名**：默认为 `nnrp/1`（通过 `NNRP_CURRENT_ALPN` 常量获取）。若服务端和客户端使用的 ALPN 不一致，握手会被 TLS 层拒绝，报错为 `SSL handshake failed` 而非 NNRP 协议错误。不要手动拼写 ALPN 字符串，始终用 `alpn_for_wire_format(WireFormat.CURRENT)`。
+
+2. **`verify_mode=ssl.CERT_NONE` 只用于本地开发**：它跳过所有证书验证，中间人攻击无法被检测。CI/staging 环境应使用自签名 CA 证书（`cafile` 参数），而非禁用验证。
+
+3. **TCP 传输不支持 Datagram 消息类型**（如 `TRANSPORT_PROBE`）；若客户端发起探测，会抛出 `NnrpTcpUnsupportedOperationError`，调用方需捕获并降级处理。
+
+4. **`serve_quic` / `serve_tcp` 是异步上下文管理器，退出时会关闭监听器但不会关闭已建立的 Session**；若需优雅关闭所有会话，应在 `__aexit__` 前先 cancel 所有 `handle_session` 任务并 await 其完成。
+
+5. **`idle_timeout` 参数在 QUIC 和 TCP 侧独立计时**：若客户端 QUIC 端设为 30 秒，服务端设为 10 秒，服务端会先超时关闭连接，客户端收到的是 `ConnectionResetError` 而非 NNRP 协议关闭帧。两端超时应保持一致，或服务端略大于客户端。
+:::

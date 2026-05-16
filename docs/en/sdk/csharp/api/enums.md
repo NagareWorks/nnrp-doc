@@ -311,3 +311,77 @@ using Nnrp.Core;
 | `RetryAfterValid` | `0x02` | `RetryAfterMs` is valid |
 | `BackgroundOnly` | `0x04` | Applies only to background ops |
 | `DrainInFlightOnly` | `0x08` | Takes effect after in-flight ops drain |
+
+---
+
+## Use-Case Guide
+
+### Connecting and Negotiating Transport
+
+```csharp
+var profile = new NnrpClientProfile
+{
+    TransportPolicy = TransportPolicy.PreferQuic,
+    LossTolerance   = LossTolerance.LowLatency,
+};
+```
+
+::: warning Pitfalls
+- `ForceQuic` hard-fails in TCP-only firewalls. Use `PreferQuic` in production.
+- `LossTolerance.FireAndForget` does not guarantee ordering; do not use it on the main frame path.
+:::
+
+### Submitting Frames with Budget Policy
+
+```csharp
+var req = new NnrpSubmitRequest
+{
+    FrameId           = frameId,
+    TileIds           = changedTiles,
+    Sections          = new[] { tensorSection },
+    InputProfile      = InputProfile.ChangedTilesLuma,
+    SubmitMode        = SubmitMode.Inline,
+    BudgetPolicy      = BudgetPolicy.AllowPartial | BudgetPolicy.AllowStaleReuse,
+    InferenceBudgetMs = 8,
+};
+```
+
+::: warning Pitfalls
+- `BudgetPolicy` is a bitmask. Combine values with `|`.
+- `SubmitMode.Reference` requires a prior `PutCacheAsync()` call.
+:::
+
+### Result Handling
+
+```csharp
+switch (result.ResultClass)
+{
+    case ResultClass.Complete:   ApplyFull(result);   break;
+    case ResultClass.Partial:    ApplyPartial(result); break;
+    case ResultClass.StaleReuse: break;
+    case ResultClass.Degraded:
+        Log.Warn("Degraded: {0}", result.AppliedBudgetPolicy);
+        break;
+}
+```
+
+### Error Handling
+
+```csharp
+catch (NnrpProtocolException ex)
+{
+    if (ex.ErrorScope == ErrorScope.Connection)
+    {
+        await session.DisposeAsync();
+        session = await client.OpenSessionAsync();
+    }
+    else if (ex.ErrorCode == ErrorCode.FrameExpired)
+    {
+        // Frame-level; skip and continue
+    }
+}
+```
+
+::: warning Pitfalls
+- `ErrorScope.Connection` errors are fatal. Do not retry on the same session.
+:::

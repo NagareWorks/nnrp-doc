@@ -169,3 +169,61 @@ public sealed class MyCustomTransport : INnrpMessageTransport
     public async ValueTask DisposeAsync() { /* ... */ }
 }
 ```
+
+---
+
+## 典型使用场景
+
+### QUIC 客户端接入
+
+```csharp
+var quicConfig = new NnrpQuicClientConfiguration
+{
+    CertificateAuthority = X509Certificate2.CreateFromPemFile("ca.pem"),
+    IdleTimeout          = TimeSpan.FromSeconds(30),
+};
+var transport = new NnrpQuicTransport(quicConfig);
+var client = new NnrpClient(transport, profile);
+await using var session = await client.ConnectAsync("render.example.com", 4433);
+```
+
+### TCP 备用传输
+
+```csharp
+var tcpConfig = new NnrpTcpClientConfiguration
+{
+    ConnectTimeout = TimeSpan.FromSeconds(5),
+    IdleTimeout    = TimeSpan.FromSeconds(60),
+};
+var transport = new NnrpTcpTransport(tcpConfig);
+```
+
+### 自定义传输适配器（实现 `INnrpTransport`）
+
+```csharp
+public class MyWebSocketTransport : INnrpTransport
+{
+    public async Task SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct)
+        => await _ws.SendAsync(frame, WebSocketMessageType.Binary, true, ct);
+
+    public async Task<ReadOnlyMemory<byte>> ReceiveAsync(CancellationToken ct)
+    {
+        var result = await _ws.ReceiveAsync(_buffer, ct);
+        return _buffer.AsMemory(0, result.Count);
+    }
+}
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **QUIC 需要正确的 ALPN**：默认为 `nnrp/1`。不要硬编码字符串，使用 `NnrpQuicClientConfiguration.DefaultAlpn`。
+
+2. **`NnrpQuicClientConfiguration.SkipCertificateValidation = true` 只用于本地开发**；生产和 CI 环境必须配置 CA 证书。
+
+3. **TCP 不支持 Datagram 操作**（如路径探测）；调用这些方法会抛出 `NnrpUnsupportedOperationException`。
+
+4. **`await using var transport`**：`NnrpQuicTransport` / `NnrpTcpTransport` 实现 `IAsyncDisposable`，忘记 dispose 会泄漏底层套接字。
+:::

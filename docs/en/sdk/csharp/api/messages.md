@@ -258,3 +258,50 @@ public readonly struct ControlExtensionEntry
 ```
 
 Built-in extension types: `ClientHelloTransportPolicyExtension`, `ServerHelloAckTransportPolicyExtension`, `ClientHelloLossToleranceExtension`, `ServerHelloAckLossToleranceExtension`, `ClientHelloPayloadCapabilitiesExtension`, `ServerHelloAckPayloadCapabilitiesExtension`.
+
+---
+
+## Typical Use Cases
+
+### Building a FRAME_SUBMIT packet (low-level)
+
+```csharp
+var metadata = new FrameSubmitMetadata
+{
+    FrameId           = 42,
+    InputProfile      = InputProfile.ChangedTilesLuma,
+    SubmitMode        = SubmitMode.Inline,
+    BudgetPolicy      = BudgetPolicy.AllowPartial,
+    InferenceBudgetMs = 8,
+    TileIds           = new ushort[] { 3, 7, 12 },
+};
+var packet = NnrpMessageBuilder.BuildFrameSubmit(
+    sessionId: 42, metadata: metadata, sections: new[] { tensorSection });
+await transport.SendAsync(packet.Pack());
+```
+
+### Parsing control extensions
+
+```csharp
+var entries = ControlExtensionParser.Unpack(packet.Metadata);
+foreach (var entry in entries)
+{
+    if (entry.TypeId == NnrpExtensionTypeIds.ClientHelloTransportPolicy)
+    {
+        var ext = ClientHelloTransportPolicyExtension.Unpack(entry.Payload.Span);
+        Console.WriteLine("Requested policy: " + ext.Policy);
+    }
+}
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **`Metadata` vs `Body`**: `NnrpPacket.Metadata` contains small structured fields; `NnrpPacket.Body` contains large binary payloads. Do not call Tensor unpack on `Metadata`.
+
+2. **`TileIds` and `TilePayloads` must be index-aligned.** Mismatched order causes tile reconstruction errors.
+
+3. **`ReadOnlyMemory<byte>` slices from a pooled packet share lifetime with the packet.** If the packet is returned to the pool before you finish reading the slice, you will read garbage data.
+:::

@@ -131,3 +131,62 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - [ ] `NnrpServerSession::send_flow_update`
 - [ ] FFI bindings for server exposed via `nnrp-ffi`
 - [ ] Server conformance tests in `nnrp-conformance`
+
+---
+
+## Typical Use Cases (Preview3 Plan)
+
+### Full server accept loop
+
+```rust
+// Expected Preview3 usage
+use nnrp_server::{NnrpServer, NnrpServerConfig};
+use nnrp_core::{ResultClass, NnrpServerResult};
+
+let config = NnrpServerConfig::builder()
+    .bind("0.0.0.0:4433")
+    .transport(TransportPolicy::PreferQuic)
+    .max_concurrent_frames(8)
+    .build()?;
+
+let server = NnrpServer::bind(config).await?;
+while let Ok(mut session) = server.accept().await {
+    tokio::spawn(async move {
+        while let Ok(submit) = session.receive_submit().await {
+            let sections = run_inference(&submit.sections).await;
+            session.send_result(NnrpServerResult {
+                frame_id: submit.frame_id,
+                sections,
+                result_class: ResultClass::Complete,
+                ..Default::default()
+            }).await?;
+        }
+        Ok::<_, Box<dyn std::error::Error>>(())
+    });
+}
+```
+
+### Backpressure signaling
+
+```rust
+if queue_len > MAX_QUEUE {
+    session.send_result_drop(submit.frame_id).await?;
+    session.send_flow_update(NnrpFlowUpdate {
+        flags: FlowUpdateFlags::CREDIT_VALID,
+        credit: 0, // pause client sends
+        ..Default::default()
+    }).await?;
+}
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **Timed-out frames must receive `send_result_drop`.** Silently skipping them leaves the client's `submit().await` hanging forever.
+
+2. **Authentication is not built-in.** Implement it in the application layer before Preview3 ships a middleware API.
+
+3. **Do not block inside `tokio::spawn`.** Wrap synchronous inference in `tokio::task::spawn_blocking`; blocking the async runtime causes PING timeouts.
+:::

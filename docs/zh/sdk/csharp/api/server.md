@@ -234,3 +234,66 @@ while (true)
     });
 }
 ```
+
+---
+
+## 典型使用场景
+
+### 认证验证
+
+```csharp
+var server = new NnrpServer(transport, new NnrpServerProfile
+{
+    MaxConcurrentFrames = 8,
+    AuthValidator = authBlock =>
+    {
+        if (authBlock.Length < 32) return false;
+        var token   = authBlock[..32];
+        var payload = authBlock[32..];
+        var expected = Hmac.ComputeSha256(SECRET_KEY, payload);
+        return CryptographicOperations.FixedTimeEquals(token, expected);
+    }
+});
+```
+
+### 背压与降质
+
+```csharp
+async Task HandleSessionAsync(INnrpServerSession session)
+{
+    while (true)
+    {
+        var submit = await session.ReceiveSubmitAsync();
+        if (_queueDepth > MaxQueue)
+        {
+            await session.SendResultDropAsync(submit.FrameId);
+            await session.SendResultHintAsync(new NnrpResultHint
+            {
+                CongestionState = ResultHintCongestionState.Saturated,
+            });
+            continue;
+        }
+        var sections = await RunInferenceAsync(submit.Sections);
+        await session.SendResultAsync(new NnrpResult
+        {
+            FrameId     = submit.FrameId,
+            Sections    = sections,
+            ResultClass = ResultClass.Complete,
+        });
+    }
+}
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **不可在 `ReceiveSubmitAsync` 的 `await` 内部同步阻塞**：推理必须用 `Task.Run` 或 `await` 异步方法，否则 I/O 线程被占用，PING/PONG 超时，客户端断开。
+
+2. **超时的帧必须发送 `SendResultDropAsync`**；直接 `continue` 会使客户端 `SubmitAsync` 永久挂起。
+
+3. **`AuthValidator` 是同步委托**，不支持 `async`；若认证需要 I/O（如数据库），用 `AsyncAuthValidator`（见重载版本）或在同步委托里 `.GetAwaiter().GetResult()`（注意死锁风险）。
+
+4. **`NnrpServerProfile.MaxConcurrentFrames` 是软限制**，超出部分不会自动排队；实际并发控制需在业务层用 `SemaphoreSlim` 实现。
+:::

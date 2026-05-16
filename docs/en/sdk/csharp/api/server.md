@@ -169,3 +169,65 @@ while (true)
     });
 }
 ```
+
+---
+
+## Typical Use Cases
+
+### Authentication
+
+```csharp
+var serverProfile = new NnrpServerProfile
+{
+    MaxConcurrentFrames = 8,
+    AuthValidator = authBlock =>
+    {
+        if (authBlock.Length < 32) return false;
+        var expected = Hmac.Sha256(SECRET_KEY, authBlock[32..]);
+        return CryptographicOperations.FixedTimeEquals(
+            authBlock[..32], expected);
+    },
+};
+```
+
+### Backpressure and Degradation
+
+```csharp
+async Task HandleAsync(INnrpServerSession session)
+{
+    while (true)
+    {
+        var submit = await session.ReceiveSubmitAsync();
+        if (_queue > MaxQueue)
+        {
+            await session.SendResultDropAsync(submit.FrameId);
+            await session.SendResultHintAsync(new NnrpResultHint
+            {
+                CongestionState = ResultHintCongestionState.Saturated,
+            });
+            continue;
+        }
+        var sections = await RunInferenceAsync(submit.Sections);
+        await session.SendResultAsync(new NnrpResult
+        {
+            FrameId     = submit.FrameId,
+            Sections    = sections,
+            ResultClass = ResultClass.Complete,
+        });
+    }
+}
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **Never block inside `await ReceiveSubmitAsync()`.** Wrap synchronous inference in `Task.Run`; blocking the I/O thread causes PING/PONG timeouts.
+
+2. **Timed-out frames must get `SendResultDropAsync`.** Silently skipping them leaves the client's `SubmitAsync` hanging forever.
+
+3. **`AuthValidator` is a synchronous delegate.** For async auth (database lookup), either cache tokens in memory or use `AsyncAuthValidator` overload.
+
+4. **`MaxConcurrentFrames` is a soft limit.** Implement `SemaphoreSlim`-based concurrency control at the application layer.
+:::

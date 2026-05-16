@@ -353,3 +353,56 @@ public sealed class TransportPolicyExtension { public TransportPolicy Policy { g
 public sealed class LossToleranceExtension    { public LossTolerance Tolerance { get; } }
 public sealed class PayloadCapabilitiesExtension { public PayloadKind SupportedKinds { get; } }
 ```
+
+---
+
+## 典型使用场景
+
+### 构造帧提交消息（底层方式）
+
+```csharp
+using Nnrp.Core.Messages;
+
+var metadata = new FrameSubmitMetadata
+{
+    FrameId           = 42,
+    InputProfile      = InputProfile.ChangedTilesLuma,
+    SubmitMode        = SubmitMode.Inline,
+    BudgetPolicy      = BudgetPolicy.AllowPartial,
+    InferenceBudgetMs = 8,
+    TileIds           = new ushort[] { 3, 7, 12 },
+    TileIndexMode     = TileIndexMode.RawU16,
+};
+var packet = NnrpMessageBuilder.BuildFrameSubmit(
+    sessionId: 42,
+    metadata: metadata,
+    sections: new[] { tensorSection }
+);
+await transport.SendAsync(packet.Pack());
+```
+
+### 解析握手扩展
+
+```csharp
+var extensions = ControlExtensionParser.Unpack(packet.Metadata);
+foreach (var entry in extensions)
+{
+    if (entry.TypeId == NnrpExtensionTypeIds.ClientHelloTransportPolicy)
+    {
+        var ext = TransportPolicyExtension.Unpack(entry.Payload.Span);
+        Console.WriteLine("Client wants: " + ext.Policy);
+    }
+}
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **`Metadata` vs `Body`**：`NnrpPacket.Metadata` 是小型结构化字段（帧 ID、预算等），`NnrpPacket.Body` 是大型二进制载荷（Tensor 数据）。不要对 `Metadata` 调用 Tensor 解包函数。
+
+2. **`TileIds` 与 `TensorSection.TilePayloads` 顺序必须一一对应**；顺序错误导致服务端拼合瓦片位置错误，产生视觉乱码。
+
+3. **`ReadOnlyMemory<byte>` 生命周期**：从 `NnrpPacket.Metadata` / `Body` 取出的 `ReadOnlyMemory<byte>` 与 packet 共享内存；若 packet 被 pool 回收，已取出的 slice 会变成悬空引用，读取产生未定义行为。
+:::

@@ -1,4 +1,6 @@
-# Python — Enums & Constants
+# Enums & Constants
+
+> **How to use this page**: The first part (imports + per-type reference tables) is for looking up specific enum members and their values. The second part — [Use-Case Guide](#use-case-guide) — groups enums by development task with code examples and common pitfalls. Start there when you're not sure which enum to use.
 
 Enums are spread across `nnrp.core.enums` and `nnrp.core.messages` submodules, unified re-exported through the top-level `nnrp` namespace.
 
@@ -352,3 +354,194 @@ SERVER_HELLO_ACK_LOSS_TOLERANCE_EXTENSION   = 0x0104
 CLIENT_HELLO_PAYLOAD_CAPABILITIES_EXTENSION = 0x0105
 SERVER_HELLO_ACK_PAYLOAD_CAPABILITIES_EXTENSION = 0x0106
 ```
+
+---
+
+## Use-Case Guide
+
+### Scenario 1: Connecting and Negotiating Transport
+
+**Relevant enums**: `TransportId`, `TransportPolicy`, `LossTolerance`, `WireFormat`
+
+```python
+from nnrp import TransportId, TransportPolicy, LossTolerance
+from nnrp.client import ClientProfile, ClientDialPolicy, dial_client
+
+profile = ClientProfile(
+    transport_policy=TransportPolicy.PREFER_QUIC,
+    loss_tolerance=LossTolerance.LOW_LATENCY,
+)
+dial_policy = ClientDialPolicy(
+    preferred_transport=TransportId.QUIC,
+    fallback_transport=TransportId.TCP,
+)
+session = await dial_client("render.example.com", 4433,
+                             profile=profile, dial_policy=dial_policy,
+                             config=quic_cfg)
+```
+
+::: warning Pitfalls
+- **`FORCE_QUIC` fails immediately in TCP-only firewalls.** Use `PREFER_QUIC` in production.
+- **`LossTolerance.FIRE_AND_FORGET` does not guarantee ordering.** Only use it for telemetry/stats, never for the main frame submission path.
+- Always use `WireFormat.CURRENT` symbolically; do not hardcode `0`.
+:::
+
+---
+
+### Scenario 2: Submitting Frames
+
+**Relevant enums**: `InputProfile`, `SubmitMode`, `BudgetPolicy`, `PayloadKind`, `TileIndexMode`
+
+```python
+from nnrp import InputProfile, SubmitMode, BudgetPolicy, TileIndexMode
+from nnrp.client import SubmitRequest, TensorSectionData
+
+request = SubmitRequest(
+    frame_id=42,
+    tile_ids=(3, 7, 12),
+    sections=(TensorSectionData(...),),
+    input_profile=InputProfile.CHANGED_TILES_LUMA,
+    submit_mode=SubmitMode.MIXED,
+    budget_policy=BudgetPolicy.ALLOW_PARTIAL | BudgetPolicy.ALLOW_STALE_REUSE,
+    inference_budget_ms=8,
+    tile_index_mode=TileIndexMode.RAW_U16,
+)
+await session.submit_frame(request)
+```
+
+::: warning Pitfalls
+- **`BudgetPolicy` is a bitmask (`IntFlag`).** Combine multiple policies with `|`, not with commas. `BudgetPolicy.NONE` is strict mode.
+- **`SubmitMode.REFERENCE` requires a prior `session.put_cache()` call**; otherwise the server returns `ErrorCode.CACHE_MISS`.
+:::
+
+---
+
+### Scenario 3: Handling Results
+
+**Relevant enums**: `ResultClass`, `ResultFlags`
+
+```python
+from nnrp import ResultClass, ResultFlags
+
+result = await session.receive_result(frame_id=42, timeout=0.05)
+match result.metadata.result_class:
+    case ResultClass.COMPLETE:
+        apply_full_result(result)
+    case ResultClass.PARTIAL:
+        apply_partial_result(result)
+    case ResultClass.STALE_REUSE:
+        pass  # reuse previous frame
+    case ResultClass.DEGRADED:
+        log_degraded(result.metadata.applied_budget_policy)
+
+if result.metadata.result_flags & ResultFlags.FALLBACK:
+    metrics.increment("degraded_fallback")
+```
+
+::: warning Pitfalls
+- **Do not treat non-`COMPLETE` results as errors.** `STALE_REUSE` and `DEGRADED` are normal under load.
+- `ResultFlags.STALE` and `ResultClass.STALE_REUSE` overlap in meaning but differ in granularity; prefer checking `result_class` in business logic.
+:::
+
+---
+
+### Scenario 4: Error Handling
+
+**Relevant enums**: `ErrorCode`, `ErrorScope`
+
+```python
+from nnrp import ErrorCode
+from nnrp.core.enums import ErrorScope
+from nnrp.errors import NnrpProtocolError
+
+try:
+    await session.submit_frame(request)
+except NnrpProtocolError as e:
+    if e.error_scope == ErrorScope.CONNECTION:
+        # Fatal — must reconnect
+        await session.close()
+        session = await dial_client(...)
+    elif e.error_code == ErrorCode.FRAME_EXPIRED:
+        pass  # skip this frame
+    elif e.error_code == ErrorCode.SERVER_BUSY:
+        await asyncio.sleep(0.05)  # back off
+```
+
+::: warning Pitfalls
+- **`ErrorScope.CONNECTION` errors are fatal.** Do not retry on the same session.
+- `ErrorCode.LIMIT_EXCEEDED` may be a patch rate-limit (see `SessionPatchRejectReason.RATE_LIMITED`), not necessarily a hardware resource exhaustion.
+:::
+
+---
+
+### Scenario 5: Cache Operations
+
+**Relevant enums**: `CacheObjectKind`, `CachePutFlags`, `CacheAckStatus`, `CacheInvalidateScope`
+
+```python
+from nnrp import CacheObjectKind, CachePutFlags, CacheAckStatus
+
+ack = await session.put_cache(
+    kind=CacheObjectKind.TENSOR_SECTION_TABLE,
+    key=b"tst-v1",
+    data=payload,
+    flags=CachePutFlags.PINNED | CachePutFlags.REUSABLE,
+)
+match ack.status:
+    case CacheAckStatus.ACCEPTED: pass
+    case CacheAckStatus.REJECTED: use_inline_submit = True
+```
+
+::: warning Pitfalls
+- **`PINNED` objects are not subject to LRU eviction but still count against the total cache quota.** Too many pinned objects will cause subsequent `CACHE_PUT` requests to be `REJECTED`.
+- `CacheObjectKind.TILE_INDEX_BLOCK` and `TILE_INDEX_TEMPLATE` are aliases (same value). Pick one and use it consistently.
+:::
+
+---
+
+### Scenario 6: Flow Control and Backpressure
+
+**Relevant enums**: `FlowUpdateReason`, `FlowUpdateBackpressureLevel`, `FlowUpdateFlags`, `ResultHintCongestionState`, `ResultHintBudgetPolicy`
+
+```python
+from nnrp import ResultHintCongestionState, FlowUpdateBackpressureLevel
+
+async def monitor_hints(session):
+    async for hint in session.result_hints():
+        if hint.congestion_state == ResultHintCongestionState.SATURATED:
+            await session.pause_submit()
+        elif hint.congestion_state == ResultHintCongestionState.NONE:
+            await session.resume_submit()
+```
+
+::: warning Pitfalls
+- **`ResultHint` is advisory, not a command**, but ignoring `SATURATED` will cause the server queue to overflow, eventually triggering `RESULT_DROP` (server drops frames silently).
+- **`FlowUpdateFlags.CREDIT_VALID` must be set** before the `credit` field is meaningful.
+- **`FlowUpdateFlags.RETRY_AFTER_VALID` must be set** before `retry_after_ms` is meaningful; reading it unconditionally can give zero, causing no back-off.
+:::
+
+---
+
+### Scenario 7: Dynamic Session Adjustment
+
+**Relevant enums**: `SessionPatchField`, `SessionPatchAckStatus`, `SessionPatchRejectReason`
+
+```python
+from nnrp import SessionPatchField, SessionPatchAckStatus
+
+ack = await session.patch(
+    fields=SessionPatchField.TARGET_CADENCE | SessionPatchField.QUALITY_TIER,
+    target_cadence=30,
+    quality_tier=1,
+)
+match ack.status:
+    case SessionPatchAckStatus.ACCEPTED: pass
+    case SessionPatchAckStatus.PARTIALLY_APPLIED:
+        # Some fields accepted, some rejected — check ack.rejected_fields
+        pass
+```
+
+::: warning Pitfalls
+- **`SessionPatchField` is a bitmask.** Combine fields with `|`; do not send multiple single-field patches (each counts against the rate limit).
+- On `PARTIALLY_APPLIED`, **accepted fields are not rolled back**. Track the effective state on the client side.
+:::

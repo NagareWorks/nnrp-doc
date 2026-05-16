@@ -125,3 +125,49 @@ pub struct NnrpResult {
 ## 反馈
 
 如有 API 形态建议，请在 [GitHub Issues](https://github.com/SPYN/nnrp-rs) 提交，或在 Preview3 集成窗口期内联系维护者。
+---
+
+## 典型使用场景（Preview3 规划）
+
+### 完整连接与渲染循环
+
+```rust
+// Preview3 预期用法
+use nnrp_client::{NnrpClient, NnrpClientConfig, NnrpSubmitRequest};
+use nnrp_core::{InputProfile, BudgetPolicy};
+
+let config = NnrpClientConfig::builder()
+    .host("render.example.com")
+    .port(4433)
+    .transport_policy(TransportPolicy::PreferQuic)
+    .build()?;
+
+let client = NnrpClient::connect(config).await?;
+let mut session = client.open_session().await?;
+
+for frame_id in 0u64.. {
+    let req = NnrpSubmitRequest {
+        frame_id,
+        input_profile: InputProfile::ChangedTilesLuma,
+        budget_policy: BudgetPolicy::ALLOW_PARTIAL,
+        sections: capture_delta(),
+        ..Default::default()
+    };
+    let result = session.submit(req).await?;
+    if result.result_class == ResultClass::Complete {
+        display(&result.sections);
+    }
+}
+```
+
+---
+
+## 常见坑点
+
+::: warning
+1. **`NnrpClientSession` 尚未实现 `Drop` 优雅关闭。** Preview3 中需显式调用 `session.close().await`，否则服务端可能检测到异常断连。
+
+2. **`submit()` 不会重试超时帧。** 上层需要自行实现超时重试逻辑，且重试时应使用新的 `frame_id`。
+
+3. **并发 `submit()` 调用目前未指定安全性。** 在 Preview3 稳定前，请单线程顺序提交或用 `Mutex` 包装。
+:::

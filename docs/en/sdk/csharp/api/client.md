@@ -158,3 +158,57 @@ var request = new NnrpSubmitRequest
 var result = await session.SubmitAsync(request);
 Console.WriteLine($"Result: {result.ResultClass}, InferenceMs={result.InferenceMs}");
 ```
+
+---
+
+## Typical Use Cases
+
+### Full Render Loop
+
+```csharp
+var config = new NnrpQuicClientConfiguration { CaFile = "ca.pem" };
+var profile = new NnrpClientProfile { TransportPolicy = TransportPolicy.PreferQuic };
+await using var client = await NnrpClient.ConnectAsync("render.example.com", 4433, profile);
+await using var session = await client.OpenSessionAsync();
+
+for (int frameId = 0; ; frameId++)
+{
+    var (tiles, tensor) = CaptureChangedTiles();
+    var result = await session.SubmitAsync(new NnrpSubmitRequest
+    {
+        FrameId      = frameId,
+        TileIds      = tiles,
+        Sections     = new[] { tensor },
+        InputProfile = InputProfile.ChangedTilesLuma,
+        BudgetPolicy = BudgetPolicy.AllowPartial,
+    });
+    if (result.ResultClass == ResultClass.Complete)
+        Display(result.Sections);
+}
+```
+
+### Responding to Backpressure
+
+```csharp
+session.OnResultHint += hint =>
+{
+    if (hint.CongestionState == ResultHintCongestionState.Saturated)
+        _paused = true;
+    else if (hint.CongestionState == ResultHintCongestionState.None)
+        _paused = false;
+};
+```
+
+---
+
+## Common Pitfalls
+
+::: warning
+1. **Always `await using var session`** — `NnrpClientSession` is `IAsyncDisposable`. Not disposing leaks the underlying transport connection.
+
+2. **Do not call `SubmitAsync` concurrently from multiple threads.** The send path is not thread-safe. Use `Channel<T>` to serialize requests.
+
+3. **After `SubmitAsync` times out, the frame ID slot is still held.** Call `session.DiscardFrame(frameId)` to release it.
+
+4. **`DeadlineMs` is an absolute Unix timestamp in milliseconds**, not a relative offset. Confusing it with `InferenceBudgetMs` causes server-side timeout misdetection.
+:::
