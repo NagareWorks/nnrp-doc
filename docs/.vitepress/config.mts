@@ -293,8 +293,7 @@ const zhSdkPythonItems = [
       { text: "服务端", link: "/zh/sdk/python/api/server" },
       { text: "传输适配器", link: "/zh/sdk/python/api/transport" },
     ]
-  },
-  { text: "部署与接入", link: "/zh/sdk/python/deploy" }
+  }
 ];
 
 const zhSdkCsharpItems = [
@@ -311,8 +310,7 @@ const zhSdkCsharpItems = [
       { text: "服务端", link: "/zh/sdk/csharp/api/server" },
       { text: "传输层", link: "/zh/sdk/csharp/api/transport" },
     ]
-  },
-  { text: "部署与接入", link: "/zh/sdk/csharp/deploy" }
+  }
 ];
 
 const zhSdkRustItems = [
@@ -328,8 +326,7 @@ const zhSdkRustItems = [
       { text: "服务端（Preview3）", link: "/zh/sdk/rust/api/server" },
       { text: "WASM 导出（Preview3）", link: "/zh/sdk/rust/api/wasm" },
     ]
-  },
-  { text: "部署与接入", link: "/zh/sdk/rust/deploy" }
+  }
 ];
 
 const enSdkOverviewItems = [
@@ -350,8 +347,7 @@ const enSdkPythonItems = [
       { text: "Server", link: "/en/sdk/python/api/server" },
       { text: "Transport Adapters", link: "/en/sdk/python/api/transport" },
     ]
-  },
-  { text: "Deployment", link: "/en/sdk/python/deploy" }
+  }
 ];
 
 const enSdkCsharpItems = [
@@ -368,8 +364,7 @@ const enSdkCsharpItems = [
       { text: "Server", link: "/en/sdk/csharp/api/server" },
       { text: "Transport", link: "/en/sdk/csharp/api/transport" },
     ]
-  },
-  { text: "Deployment", link: "/en/sdk/csharp/deploy" }
+  }
 ];
 
 const enSdkRustItems = [
@@ -385,8 +380,7 @@ const enSdkRustItems = [
       { text: "Server (Preview3)", link: "/en/sdk/rust/api/server" },
       { text: "WASM Exports (Preview3)", link: "/en/sdk/rust/api/wasm" },
     ]
-  },
-  { text: "Deployment", link: "/en/sdk/rust/deploy" }
+  }
 ];
 
 const zhSidebar = {

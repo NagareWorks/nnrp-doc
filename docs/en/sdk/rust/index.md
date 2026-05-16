@@ -24,4 +24,3 @@
 
 - [Quick Start](./quick-start)
 - **API Reference**: [Core Types](./api/core) · [FFI / Native](./api/ffi) · [Client](./api/client) · [Server](./api/server) · [WASM Exports](./api/wasm)
-- [Deployment](./deploy)

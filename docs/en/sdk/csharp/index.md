@@ -22,4 +22,3 @@
 
 - [Quick Start](./quick-start)
 - **API Reference**: [Enums](./api/enums) · [Protocol Types](./api/protocol) · [Message Types](./api/messages) · [Client](./api/client) · [Server](./api/server) · [Transport](./api/transport)
-- [Deployment](./deploy)

@@ -24,4 +24,3 @@
 
 - [快速使用](./quick-start)
 - **API 参考**：[核心类型](./api/core) · [FFI / 原生接口](./api/ffi) · [客户端](./api/client) · [服务端](./api/server) · [WASM 导出](./api/wasm)
-- [部署与接入](./deploy)

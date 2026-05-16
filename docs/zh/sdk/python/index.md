@@ -24,4 +24,3 @@
 
 - [快速使用](./quick-start)
 - **API 参考**：[枚举](./api/enums) · [包头与数据包](./api/packet) · [消息类型](./api/messages) · [客户端](./api/client) · [服务端](./api/server) · [传输适配器](./api/transport)
-- [部署与接入](./deploy)
