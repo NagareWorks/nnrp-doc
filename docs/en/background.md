@@ -23,8 +23,8 @@ In short:
 1. **Unified submission interface** — hosts are not tied to any one runtime's private RPC. They use a consistent protocol regardless of the implementation underneath.
 2. **Streaming results** — results are not limited to one-request-one-response. The protocol naturally expresses incremental output, partial results, drops, rollbacks, and completion.
 3. **Extensible payload interpretation** — what a payload means is described by profiles and schemas, not hard-coded into the public header for each business case.
-4. **Explicit flow control** — rate limits and backpressure are not hidden inside SDK retry logic; the protocol itself expresses slow down, pause, and resume.
-5. **Cross-language consistency** — Python, C#, Rust, and other bindings share one protocol baseline rather than each building their own "close enough" implementation.
+4. **Explicit flow control** — rate limits and backpressure are not hidden inside local retry logic; the protocol itself expresses slow down, pause, and resume.
+5. **Consistent implementations** — all NNRP/1 implementations should follow one protocol baseline rather than each building a "close enough" interpretation.
 
 ## What it is not
 

@@ -57,6 +57,6 @@ More details on the transport strategy and probing page.
 	</a>
 	<a href="/nnrp-doc/en/protocol/v1/flow-control-and-priority/">
 		<strong>Flow Control and Priority</strong>
-		See why backpressure, credit, and scheduling preference cannot stay hidden inside private SDK logic.
+		See why backpressure, credit, and scheduling preference cannot stay hidden inside private local logic.
 	</a>
 </div>

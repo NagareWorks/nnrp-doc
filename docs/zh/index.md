@@ -4,7 +4,7 @@
 
 1. 先讲全局概念与使用边界。
 2. 再讲核心对象、常见流程和稳定报文骨架。
-3. 最后才进入具体版本入口和兼容窗口。
+3. 最后才进入具体版本入口和版本范围。
 
 <div class="doc-grid">
 	<div class="doc-card">
@@ -13,7 +13,7 @@
 	</div>
 	<div class="doc-card">
 		<h3>版本入口</h3>
-		<p>从“版本与兼容”和当前公开的 NNRP/1 入口查看版本边界与当前能力面。</p>
+		<p>从“版本入口”和当前公开的 NNRP/1 入口查看版本边界与当前能力面。</p>
 	</div>
 	<div class="doc-card">
 		<h3>协议设计</h3>
@@ -25,4 +25,4 @@
 
 1. 先看 [协议背景与介绍](/zh/background) 和 [常见场景与边界](/zh/use-cases)。
 2. 再看 [核心对象与流程](/zh/core-concepts)、[标准 Profile](/zh/profiles/) 和 [公共头](/zh/common-header/)。
-3. 最后进入 [版本与兼容](/zh/protocol/) 和 [NNRP/1（预览）](/zh/protocol/v1/)。
+3. 最后进入 [版本入口](/zh/protocol/) 和 [NNRP/1（预览）](/zh/protocol/v1/)。

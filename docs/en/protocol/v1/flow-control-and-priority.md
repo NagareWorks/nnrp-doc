@@ -1,6 +1,6 @@
 # NNRP/1 Flow Control and Priority
 
-`FLOW_UPDATE` is not an internal side channel that exists only because one SDK wanted to run faster. It is the protocol-level surface for backpressure, credit, and scheduling semantics.
+`FLOW_UPDATE` is not an internal side channel invented by one local implementation to run faster. It is the protocol-level surface for backpressure, credit, and scheduling semantics.
 
 ## Three-scope architecture
 

@@ -42,7 +42,7 @@ flowchart LR
   "message_type": "RESULT_PUSH",
   "common_header": {
     "version_major": 1,
-    "version_stage": "preview",
+    "wire_format": 0,
     "msg_type": "RESULT_PUSH",
     "header_len": 40,
     "meta_len": 32,

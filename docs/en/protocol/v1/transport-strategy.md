@@ -1,6 +1,6 @@
 # NNRP/1 Transport Strategy and Probing
 
-This is not a private SDK optimization. It is a protocol capability boundary that needs to be explained explicitly.
+This is not a private local optimization. It is a protocol capability boundary that needs to be explained explicitly.
 
 ## Why the transport layer cannot be hard-wired
 
@@ -76,9 +76,9 @@ From the host or client perspective, the typical path is:
 
 ## Why this must be a protocol feature
 
-This cannot stay inside one repository helper because it creates at least four protocol-level consistency requirements:
+This cannot stay inside local route-selection logic because it creates at least four protocol-level consistency requirements:
 
 1. Both client and server need to see the transport policy and final outcome instead of inferring it locally.
-2. Different language implementations should make similar decisions under similar network conditions, rather than exposing SDK-dependent behavior.
+2. All client implementations should make similar decisions under similar network conditions, rather than exposing implementation-dependent behavior.
 3. Observability, auditing, and failure analysis need standard semantics for “what was probed, what was selected, and why migration happened”.
 4. Transport is only the first strategy boundary. More internal components may also become policy-driven later, and this layering stays cleaner if transport is already placed correctly at the protocol layer.

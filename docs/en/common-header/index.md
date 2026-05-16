@@ -34,9 +34,9 @@ The current common header is `40B`. This page keeps the whole layout, the field 
     </div>
     <div class="protocol-block tone-b" style="flex: 1 1 0">
       <span class="field-offset">5</span>
-      <span class="field-name">version_stage</span>
+      <span class="field-name">wire_format</span>
       <span class="field-size">1B</span>
-      <span class="field-tip">Stage value such as stable or preview.</span>
+      <span class="field-tip">Wire-level format selector for the current header and payload encoding.</span>
     </div>
     <div class="protocol-block tone-c" style="flex: 1 1 0">
       <span class="field-offset">6</span>
@@ -110,8 +110,8 @@ The current common header is `40B`. This page keeps the whole layout, the field 
 | Field | Data Type | Offset | Size | Description | Value Range |
 | --- | --- | --- | --- | --- | --- |
 | magic | ASCII[4] | 0 | 4B | Protocol magic used for fast NNRP packet identification | Fixed to `NNRP` |
-| version_major | u8 | 4 | 1B | Major protocol version that defines the top compatibility boundary | `1-255`, current public line is `1` |
-| version_stage | enum(u8) | 5 | 1B | Version stage that separates preview, stable, and similar release states | Stage enums such as `preview` and `stable`; exact encoding follows the version spec |
+| version_major | u8 | 4 | 1B | Major protocol version that defines the top major-version boundary | `1-255`, current public line is `1` |
+| wire_format | enum(u8) | 5 | 1B | Wire-level format selector for the current common-header and metadata/body encoding | Current public value is `0`, meaning the current NNRP/1 wire format |
 | msg_type | enum(u8) | 6 | 1B | Top-level message type that selects the fixed metadata and body interpretation path | Examples include `CLIENT_HELLO`, `SESSION_OPEN`, `RESULT_PUSH`, and `FLOW_UPDATE` |
 | header_len | u8 | 7 | 1B | Common-header length used to confirm whether the header shape changed | Currently fixed to `40` |
 | flags | bitset(u32) | 8 | 4B | Shared flag bits for cross-message public state and reserved extensions | `0x00000000-0xffffffff` |
@@ -125,7 +125,7 @@ The current common header is `40B`. This page keeps the whole layout, the field 
 
 ## Reading Path
 
-1. Start with `magic / version_major / version_stage` to understand protocol identification and version boundaries.
+1. Start with `magic / version_major / wire_format` to understand protocol identification, the major-version boundary, and the current wire identity.
 2. Then read `msg_type / header_len / flags / meta_len / body_len` to understand how the header controls downstream parsing.
 3. Finish with `session_id / frame_id / view_id / route_id / trace_id` to understand context, scheduling, and observability anchors.
 
@@ -141,17 +141,17 @@ Receivers should validate `magic` first. If it does not match, the packet should
 
 | Field | Data Type | Offset | Size | Description | Value Range |
 | --- | --- | --- | --- | --- | --- |
-| version_major | u8 | 4 | 1B | Major protocol version that defines the top compatibility boundary | `1-255`, current public line is `1` |
+| version_major | u8 | 4 | 1B | Major protocol version that defines the top major-version boundary | `1-255`, current public line is `1` |
 
 `version_major` answers whether the peer can continue under the same public compatibility contract. It is not meant to be a business-level feature flag.
 
-## version_stage
+## wire_format
 
 | Field | Data Type | Offset | Size | Description | Value Range |
 | --- | --- | --- | --- | --- | --- |
-| version_stage | enum(u8) | 5 | 1B | Version stage that separates preview, stable, and similar release states | Stage enums such as `preview` and `stable`; exact encoding follows the version spec |
+| wire_format | enum(u8) | 5 | 1B | Wire-level format selector for the current common-header and metadata/body encoding | Current public value is `0`, meaning the current NNRP/1 wire format |
 
-This field expresses which freeze stage the current major version is in. It complements versioning and does not replace capability negotiation.
+This field expresses which wire-level encoding the current packet uses. It is not a preview/stable stage marker and does not replace capability negotiation. In the current public implementation, the value is fixed to `0`.
 
 ## msg_type
 

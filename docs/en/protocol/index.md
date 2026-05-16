@@ -1,4 +1,4 @@
-# Versions and Compatibility
+# Version Entry and Boundaries
 
 The user-facing documentation path explains global concepts first and versions second. Version pages should not redefine the whole protocol. They should answer three narrower questions:
 

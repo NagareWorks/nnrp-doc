@@ -9,7 +9,7 @@ preview2 is no longer concerned only with "whether a connection can be establish
 1. Allow the client and server to reuse low-frequency objects, avoiding full retransmission of stable content on every hot-path exchange.
 2. Allow the protocol to explicitly express typed payload / extension frame semantics so that tensor, token, audio/video chunks, structured events, and tool deltas can all flow through unified real-time session semantics.
 3. Allow the protocol to explicitly express runtime semantics required by low-latency scenarios, such as partial / stale / degrade / supersede.
-4. Prevent the SDK and host runtime from privately inventing their own rules for flow control, budgeting, degradation, object reference, and transport switching.
+4. Prevent endpoints and local integration layers from privately inventing their own rules for flow control, budgeting, degradation, object reference, and transport switching.
 
 Here, too, "lightweight real time" does not mean `NNRP` is intended to become a general real-time media protocol. What it primarily solves are runtime problems in neural-network scenarios, such as semantic objects, inference budgets, result degradation, object reference, and transport switching, rather than the problems of browser media stacks or video-distribution stacks themselves.
 
@@ -48,7 +48,7 @@ preview2 does not cover the following topics:
 
 1. Multi-tenancy and aggregated scheduling across multiple connections.
 2. Connection migration, resumable recovery, and formalization of resume tokens.
-3. GPU-side zero-copy, Unity rendering pipelines, or internal thread models of Python runtimes.
+3. GPU-side zero-copy, specific rendering pipelines, or internal runtime thread models.
 4. Final-formal-version multi-class QoS categorization and priority arbitration.
 5. Browser-media capabilities for traditional Web audio/video calls, such as ICE/NAT traversal, device capture, A/V sync, AEC/NS/AGC, and SFU/MCU.
 6. Continuous media-transport stacks for general video-stream distribution or cloud gaming over video streams, such as hardware codecs, jitter buffers, ABR, frame pacing, and display-chain optimization.
@@ -62,13 +62,13 @@ preview2 keeps the following principles unchanged:
 1. JSON and Protobuf remain forbidden on the hot path.
 2. The common header remains fixed-length, little-endian, explicitly sized, and directly locatable in binary layout.
 3. Low-frequency object negotiation continues over the reliable control stream; high-frequency typed payloads continue over submit/result streams.
-4. Any latency-beneficial semantics must first become protocol concepts and then land in the SDK and runtime, rather than existing only as private repository tricks.
+4. Any latency-beneficial semantics must first become protocol concepts and then land in concrete implementations, rather than existing only as local private tricks.
 5. Tensor remains the first standard payload profile, but preview2 no longer constrains the data plane to be "tensor only."
 6. The normative session shape of preview2 is "an asynchronous submit pump + result pump + control side-channel on a single-session long connection," not "each `FRAME_SUBMIT` implicitly forms a synchronous request-response transaction."
 7. `FRAME_SUBMIT` is responsible for expressing submission, budget, dependency, and payload semantics, and must not be interpreted at the protocol-semantics level as "submit this frame and wait for the matching result before continuing to send later frames."
-8. If the host or SDK still offers convenience APIs such as `submit_and_wait`, they may be regarded only as smoke / demo helpers and must not inversely define the standard invocation model of preview2.
+8. If the host side still offers convenience calls such as `submit_and_wait`, they may be regarded only as smoke / demo conveniences and must not inversely define the standard invocation model of preview2.
 
-## 4. Compatibility Boundary with preview1
+## 4. Current NNRP/1 Code-Level Identity and Retained Messages
 
 ### 4.1 Code-Level Version Identity
 
@@ -88,9 +88,9 @@ preview2 continues to use the 40-byte common header and does not change the basi
 2. `header_len` remains fixed at `40`.
 3. The main evolution points of preview2 lie in message types, metadata field tables, body-block organization rules, and flag-semantic extensions rather than replacing the common header.
 
-### 4.3 Reuse of Existing preview1 Messages
+### 4.3 Retained Existing Messages
 
-The following messages already present in preview1 continue to be retained:
+The following existing messages continue to be retained:
 
 1. `CLIENT_HELLO`
 2. `SERVER_HELLO_ACK`
@@ -134,7 +134,7 @@ preview2 imposes the following constraints:
 
 preview2 freezes the submission modes of `FRAME_SUBMIT` into three modes:
 
-1. `inline`: reuse the preview1-compatible path, inlining all object blocks and typed payload frames in full.
+1. `inline`: inline all object blocks and typed payload frames in full.
 2. `reference`: the main body sends only reference handles and a small amount of dynamic fields, without resending stable objects.
 3. `mixed`: some blocks are inlined, and some blocks use cache references.
 
@@ -192,7 +192,7 @@ preview2 additionally freezes the following session-level constraints:
 2. The server may complete results for different `frame_id` values out of order, as long as result metadata can explicitly declare `frame_id / dependency_frame_id / reused_frame_id / result_class`.
 3. The client must allow `RESULT_PUSH / RESULT_DROP / FLOW_UPDATE / RESULT_HINT` to be received independently on the same long connection, rather than coupling result reading tightly to the return path of a specific submit call.
 4. The purpose of `stale / superseded / degraded / drop` semantics is precisely to decouple result consumption from submission; old results may be explicitly invalidated, but this should not block updated frames from continuing to be submitted.
-5. Therefore, the default host / SDK implementation shape of preview2 should be a background result pump, explicit in-flight tracking, and deadline-based consumption, rather than per-frame synchronous waiting.
+5. Therefore, the default interaction shape of preview2 should be a background result pump, explicit in-flight tracking, and deadline-based consumption, rather than per-frame synchronous waiting.
 6. These constraints are runtime semantics that preview2 should land in the current stage and do not belong to version-level topics that must be postponed to preview3. Only when later wire-visible priority classes, recovery semantics, or more fine-grained multi-queue scheduling are needed should they enter later-version discussion.
 
 ### 5.6 Loss Tolerance Declaration
@@ -249,7 +249,7 @@ In the first round, preview2 reserves at least the following `payload_kind` valu
 6. `tool_delta`
 7. `opaque_bytes`
 
-To avoid the two SDKs numbering bitmaps independently, preview2 freezes `payload_kind_bitmap` as `u32`, with the following bit definitions:
+To avoid different implementations numbering bitmaps independently, preview2 freezes `payload_kind_bitmap` as `u32`, with the following bit definitions:
 
 | bit | Mask | `payload_kind` |
 | --- | --- | --- |
@@ -405,7 +405,7 @@ preview2 expands the `FRAME_SUBMIT` metadata from the fixed layout of preview1 i
 6. `payload_kind_bitmap`: declares which `payload_kind` values are included in the body of this frame.
 7. `payload_frame_count`: declares how many typed payload frames are carried by this frame.
 
-Before the full v2 metadata layout is frozen, preview2 first freezes the following field-encoding constraints, to avoid the two SDKs encoding local fields with different bit widths:
+Before the full v2 metadata layout is frozen, preview2 first freezes the following field-encoding constraints, to avoid different implementations encoding local fields with different bit widths:
 
 1. `submit_mode: u8`, with enum values fixed to `0=inline`, `1=reference`, `2=mixed`.
 2. `budget_policy: u8`, encoded as a bitmask: `0x01=allow_partial`, `0x02=allow_stale_reuse`, `0x04=allow_degraded`, `0x08=allow_drop`; all remaining bits are reserved and must be `0`.
@@ -447,11 +447,11 @@ preview2 does not change the roles of `CACHE_PUT / CACHE_ACK / CACHE_INVALIDATE`
 2. `CACHE_ACK` must indicate whether the object can immediately enter hot-path reference use.
 3. `CACHE_INVALIDATE` must support invalidation at four granularities: `namespace / object_kind / object_key / whole_session`.
 
-To avoid cache semantics drifting across SDKs, preview2 first freezes the following basic enums and bit widths:
+To avoid cache semantics drifting across implementations, preview2 first freezes the following basic enums and bit widths:
 
 1. `object_kind: u16`, with first-round standard values: `0x0001=camera_block`, `0x0002=tile_index_block`, `0x0003=tensor_section_table`, `0x0004=codec_table`, `0x0005=reusable_result_object`, `0x0006=payload_layout_template`, `0x0007=prompt_segment`, `0x0008=tool_schema`, `0x0009=structured_event_schema`.
 2. `invalidate_scope: u8`, fixed as: `0=whole_session`, `1=namespace`, `2=object_kind`, `3=object_key`.
-3. Unassigned `object_kind` and `invalidate_scope` values are all reserved. The sender must reject private placeholders. If extension is needed later, numbering should be appended by the protocol document rather than by repository-private convention.
+3. Unassigned `object_kind` and `invalidate_scope` values are all reserved. The sender must reject private placeholders. If extension is needed later, numbering should be appended by the protocol document rather than by local private convention.
 
 ## 7. Body-Block Organization Rules
 
@@ -465,7 +465,7 @@ In the first round, preview2 freezes the data-plane body into a unified model of
 6. extension frame descriptor table
 7. extension frame payload region
 
-Among them, in tensor-centric sessions, camera blocks, tile-index blocks, and tensor-section tables are only concrete instances of standard object kinds / payload profiles. Token, audio/video chunks, structured events, and tool deltas are expressed through `payload_kind` and profile-specific payload interpretation. In the first round, preview2 no longer retains a separate "typed payload reference block region"; reference-style transport of payload data itself is outside the scope frozen this time, and if it needs to be introduced later, a new explicit fixed layout must be added in the protocol document rather than being privately devised in the two SDKs.
+Among them, in tensor-centric sessions, camera blocks, tile-index blocks, and tensor-section tables are only concrete instances of standard object kinds / payload profiles. Token, audio/video chunks, structured events, and tool deltas are expressed through `payload_kind` and profile-specific payload interpretation. In the first round, preview2 no longer retains a separate "typed payload reference block region"; reference-style transport of payload data itself is outside the scope frozen this time, and if it needs to be introduced later, a new explicit fixed layout must be added in the protocol document rather than being privately devised in local implementations.
 
 ### 7.1 Fixed Layout of `BodyRegionPrelude`
 
@@ -482,7 +482,7 @@ Each preview2 data-plane body must begin with a 32-byte `BodyRegionPrelude`, wit
 
 The constraints are as follows:
 
-1. Each region must be concatenated strictly contiguously in the body, and their lengths are given respectively by the fields above; the SDK must not decide offsets by "guessing whether a certain kind of block exists."
+1. Each region must be concatenated strictly contiguously in the body, and their lengths are given respectively by the fields above; implementations must not decide offsets by "guessing whether a certain kind of block exists."
 2. In the first round of preview2, `body_flags` must be `0`; `reserved` must be `0`.
 3. If `payload_frame_count == 0`, then both `typed_payload_descriptor_bytes` and `typed_payload_frame_bytes` must be `0`.
 4. `typed_payload_descriptor_bytes` must equal `payload_frame_count * 16`.
@@ -554,30 +554,26 @@ What preview2 freezes in the first round is the fixed byte layout of the body pr
 2. Semantic extension of `TypedPayloadDescriptor.descriptor_flags`; in the first round of preview2 it must be `0`.
 3. Specific numbering of standard extension-frame kinds; before numbering is assigned, critical extensions must not be privately defined.
 
-Within this boundary, the two SDKs and runtimes can continue implementing inline typed payloads, low-frequency object references, fast-skipping of unknown non-critical extensions, and explicit body ordering. Payload-data reference designs beyond this boundary must not continue as repository-private work.
+Within this boundary, implementations can continue landing inline typed payloads, low-frequency object references, fast-skipping of unknown non-critical extensions, and explicit body ordering. Payload-data reference designs beyond this boundary must not continue as local private work.
 
 ## 8. Success Criteria of preview2
 
 The success criterion of preview2 is not "more fields," but the following results being established:
 
-1. The two SDKs can implement mixed submit / partial result without changing the common header.
+1. Endpoints can implement mixed submit / partial result without changing the common header.
 2. Stable low-frequency objects can be referenced on the hot path rather than retransmitted.
 3. `partial / stale / degraded / drop` can be explicitly distinguished by the protocol and reflected in client behavior.
-4. Runtime flow control is no longer completely dependent on repository-private implementation, but becomes wire-visible semantics.
+4. Runtime flow control is no longer completely dependent on local private implementation, but becomes wire-visible semantics.
 5. The same protocol can carry tensor, token, audio/video chunks, structured events, and tool deltas, without needing to reinvent a transport link for each AI workload.
-6. The normative invocation shape on both SDKs should support multiple in-flight frames and an independent result pump, rather than freezing `FRAME_SUBMIT -> RESULT_PUSH` into a per-frame synchronous API.
+6. The default protocol interaction shape should support multiple in-flight frames and an independent result pump, rather than freezing `FRAME_SUBMIT -> RESULT_PUSH` into a per-frame synchronous API.
 
-## 9. Implementation Boundary
+## 9. Protocol Boundary
 
-After the preview2 design lands, repository responsibilities are as follows:
+preview2 freezes protocol objects, message semantics, metadata field tables, body layout, transport probing, and result vocabulary.
 
-1. `neural-render-runtime` is responsible for protocol-design freezing, backend control-plane/data-plane interpretation, result strategy, and end-to-end validation.
-2. `nnrp-py` is responsible for Python-side wire codec, transport helpers, replay/export, and cross-language golden vectors.
-3. `nnrp-cs` is responsible for a Unity-compatible C# codec, native-bridge glue, and subsequent hot-path workerization and reference-style submission flow.
+Concrete implementations may provide asynchronous submit pumps, result pumps, replay tooling, and host integration within this boundary, but they must not change the frozen byte layout, state machines, or error vocabulary.
 
-The protocol semantics of preview2 should first form a shared understanding across the three repositories.
-
-If the existing submit/result/control semantics of preview2 are merely being landed into a truly asynchronous continuous-stream invocation model in SDK façade, helpers, and host integration, then that work belongs within the scope of preview2. It should not be postponed to preview3 simply because existing helpers still preserve a per-frame `submit_and_wait` style.
+If the existing submit/result/control semantics of preview2 are merely being landed into a truly asynchronous continuous-stream invocation model, that work still belongs within the scope of preview2. It should not be postponed to preview3 simply because existing convenience layers still preserve a per-frame `submit_and_wait` style.
 
 ## 10. Pluggable Transport-Layer Design and Transport Probing
 
@@ -596,7 +592,7 @@ The two bindings are fully equivalent at the protocol layer. The client should c
 
 If the client already knows that one path must be forced, it should directly choose that binding through local dial policy before sending the first packet, rather than relying on a new URI scheme. To make this intent visible at the protocol layer, preview2 requires the `CLIENT_HELLO` extension field to carry `transport_policy` (for example `auto / prefer_quic / prefer_tcp / force_quic / force_tcp`) and an optional `preferred_transport_id`; `SERVER_HELLO_ACK` returns `active_transport_id`, and when necessary echoes the accepted or downgraded policy. This preserves automatic route selection while still allowing explicit transport selection, without hard-coding transport enums into the endpoint scheme.
 
-To avoid each repository inventing extension numbers for `control_extension_block` handshake extensions independently, preview2 freezes the following extension types in `CLIENT_HELLO / SERVER_HELLO_ACK`:
+To avoid implementations inventing extension numbers for `control_extension_block` handshake extensions independently, preview2 freezes the following extension types in `CLIENT_HELLO / SERVER_HELLO_ACK`:
 
 | `ext_type` | Carrier Message | Name | Payload Description |
 | --- | --- | --- | --- |
@@ -679,7 +675,7 @@ The metadata of `TRANSPORT_PROBE_ACK` is frozen at 16 bytes:
 6. If neither binding has successful samples, return a connection-failure error
 ```
 
-What is frozen above is the default client route-selection policy of preview2 rather than a new wire field. `nnrp-py`, `nnrp-cs`, and later host-side helpers should maintain the same default ranking logic so that different SDKs do not make different transport decisions under the same network conditions.
+What is frozen above is the default client route-selection policy of preview2 rather than a new wire field. All client implementations should maintain the same default ranking logic so that they do not make different transport decisions under the same network conditions.
 
 #### Optionality and Backward Compatibility
 

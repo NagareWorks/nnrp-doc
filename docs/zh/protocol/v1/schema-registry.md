@@ -69,7 +69,7 @@ sequenceDiagram
 
 **预装大 schema**：超过几百字节的 schema 定义应该在 session 开始时通过 `CACHE_PUT` 预装，而不是每帧都随 descriptor 内联重发。预装一次，后续所有帧都走 `schema_ref` 引用，节省带宽并保证一致性。
 
-**版本号要稳定**：`schema_id + schema_version` 是逻辑身份，`schema_hash` 只用来做一致性校验。不要把 hash 当 id 用，否则同一 schema 在不同实现里可能算出不同 hash 导致误判 mismatch。
+**版本号要稳定**：`schema_id + schema_version` 是逻辑身份，`schema_hash` 只用来做一致性校验。不要把 hash 当 id 用，否则同一 schema 在不同接收端可能算出不同 hash 导致误判 mismatch。
 
 **协商结果要记下来**：`SESSION_OPEN_ACK` 里的 `active_schema_id` 和 `active_schema_version` 就是当前 session 的 schema 事实。宿主侧要把这个记录下来，出现 mismatch 时第一反应是对照这个记录，而不是盲目重试。
 

@@ -30,13 +30,13 @@ NNRP 的公共头是使用者理解协议的第一块稳定骨架。
       <span class="field-offset">4</span>
       <span class="field-name">version_major</span>
       <span class="field-size">1B</span>
-      <span class="field-tip">主版本号，用于表示大版本兼容边界。</span>
+      <span class="field-tip">主版本号，用于表示大版本边界。</span>
     </div>
     <div class="protocol-block tone-b" style="flex: 1 1 0">
       <span class="field-offset">5</span>
-      <span class="field-name">version_stage</span>
+      <span class="field-name">wire_format</span>
       <span class="field-size">1B</span>
-      <span class="field-tip">阶段号，用于区分 stable、preview 等阶段口径。</span>
+      <span class="field-tip">线级编码格式号，用于标识当前包采用哪套公共头与载荷编码。</span>
     </div>
     <div class="protocol-block tone-c" style="flex: 1 1 0">
       <span class="field-offset">6</span>
@@ -110,8 +110,8 @@ NNRP 的公共头是使用者理解协议的第一块稳定骨架。
 | 字段名 | 数据类型 | 偏移 | 大小 | 说明 | 取值范围 |
 | --- | --- | --- | --- | --- | --- |
 | magic | ASCII[4] | 0 | 4B | 协议魔数，用于快速识别 NNRP 包头 | 固定为 `NNRP` |
-| version_major | u8 | 4 | 1B | 主版本号，用于标识大版本兼容边界 | `1-255`，当前公开主线为 `1` |
-| version_stage | enum(u8) | 5 | 1B | 版本阶段，区分 preview、stable 等发布口径 | `preview`、`stable` 等阶段枚举，具体编码以版本规范为准 |
+| version_major | u8 | 4 | 1B | 主版本号，用于标识大版本边界 | `1-255`，当前公开主线为 `1` |
+| wire_format | enum(u8) | 5 | 1B | 线级编码格式号，用于标识当前包采用哪套公共头与 metadata/body 编码 | 当前公开值为 `0`，表示当前 NNRP/1 wire format |
 | msg_type | enum(u8) | 6 | 1B | 顶层消息类型，决定 fixed metadata 和 body 的解释入口 | 例如 `CLIENT_HELLO`、`SESSION_OPEN`、`RESULT_PUSH`、`FLOW_UPDATE` |
 | header_len | u8 | 7 | 1B | 公共头长度，帮助接收方确认头部骨架是否变化 | 当前固定为 `40` |
 | flags | bitset(u32) | 8 | 4B | 公共标志位，承载跨消息共享的状态和保留扩展位 | `0x00000000-0xffffffff` |
@@ -125,7 +125,7 @@ NNRP 的公共头是使用者理解协议的第一块稳定骨架。
 
 ## 阅读方式
 
-1. 先看 `magic / version_major / version_stage`，建立协议识别与版本边界。
+1. 先看 `magic / version_major / wire_format`，建立协议识别、主版本边界与当前线级编码身份。
 2. 再看 `msg_type / header_len / flags / meta_len / body_len`，理解公共头怎样决定后续解析路径。
 3. 最后看 `session_id / frame_id / view_id / route_id / trace_id`，理解上下文、调度和观测锚点。
 
@@ -141,17 +141,17 @@ NNRP 的公共头是使用者理解协议的第一块稳定骨架。
 
 | 字段名 | 数据类型 | 偏移 | 大小 | 说明 | 取值范围 |
 | --- | --- | --- | --- | --- | --- |
-| version_major | u8 | 4 | 1B | 主版本号，用于标识大版本兼容边界 | `1-255`，当前公开主线为 `1` |
+| version_major | u8 | 4 | 1B | 主版本号，用于标识大版本边界 | `1-255`，当前公开主线为 `1` |
 
 `version_major` 主要回答“能不能按这一套公共语义继续解析”。它不是给业务方随手拿来做 feature toggle 的字段。
 
-## version_stage
+## wire_format
 
 | 字段名 | 数据类型 | 偏移 | 大小 | 说明 | 取值范围 |
 | --- | --- | --- | --- | --- | --- |
-| version_stage | enum(u8) | 5 | 1B | 版本阶段，区分 preview、stable 等发布口径 | `preview`、`stable` 等阶段枚举，具体编码以版本规范为准 |
+| wire_format | enum(u8) | 5 | 1B | 线级编码格式号，用于标识当前包采用哪套公共头与 metadata/body 编码 | 当前公开值为 `0`，表示当前 NNRP/1 wire format |
 
-这个字段的作用是表达“同一主版本下当前处在哪个冻结阶段”。它服务于版本口径，而不是替代 capability 协商。
+这个字段表达的是“当前包采用哪套线级编码格式”。它不是 preview/stable 之类的发布阶段标记，也不替代 capability 协商；当前公开实现里该值固定为 `0`。
 
 ## msg_type
 

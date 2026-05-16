@@ -122,7 +122,7 @@ preview1 的最小握手流程冻结为：
 
 `CLIENT_HELLO` 必须覆盖以下低频元数据：
 
-1. 协议版本候选与兼容窗口。
+1. 协议版本候选与版本范围。
 2. 客户端支持的 tensor codec / compression 算法集合。
 3. 支持的输入 profile、payload kind、对象引用能力，以及对应的能力位图。
 4. 支持的数值格式与 tensor layout，例如 `FP16 / FP8 / INT8 / UINT8` 与 `NHWC / NCHW`。

@@ -6,7 +6,7 @@ The common header fields are:
 
 1. `magic`
 2. `version_major`
-3. `version_stage`
+3. `wire_format`
 4. `msg_type`
 5. `header_len`
 6. `flags`
@@ -22,7 +22,7 @@ The common header fields are:
   <div class="bit-row">
     <div class="bit-cell tone-a" style="flex: 1 1 0">magic</div>
     <div class="bit-cell tone-b" style="flex: 1 1 0">version_major</div>
-    <div class="bit-cell tone-b" style="flex: 1 1 0">version_stage</div>
+    <div class="bit-cell tone-b" style="flex: 1 1 0">wire_format</div>
     <div class="bit-cell tone-c" style="flex: 1 1 0">msg_type</div>
     <div class="bit-cell tone-c" style="flex: 1 1 0">header_len</div>
     <div class="bit-cell tone-d" style="flex: 1 1 0">flags</div>

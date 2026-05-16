@@ -2,20 +2,17 @@
 
 ## 1. Positioning
 
-`NNRP/1-preview3` is not a simple incremental patch over preview2. Its goal is to advance `NNRP` from a preview-stage wire contract implemented separately by two SDKs to a real-time AI runtime protocol driven by a single canonical SDK and stably extensible to a multi-language ecosystem.
+`NNRP/1-preview3` does not continue the `NNRP/1` line by piling on isolated capabilities. Its purpose is to freeze the protocol topics that are still missing from the next stage of `NNRP/1`: a multi-session connection container, a profile-neutral schema/profile registry, and unified runtime semantics for operation/workflow lifecycles.
 
-The problems preview3 needs to solve are no longer merely "support a few more payload kinds," but the following three higher-priority problems:
+preview3 focuses on three protocol problems:
 
-1. Unify the semantic source: avoid Python, C#, and future JS/Java/Go SDKs each maintaining their own wire codec, state machine, and cache semantics, causing cross-language behavior drift.
-2. Unify the session model: further generalize the asynchronous submit/result/control semantics already validated in preview2 to scenarios with multiple sessions, multiple priorities, and concurrent workflows.
-3. Unify the extension mechanism: upgrade typed payloads, cache objects, and host-side helpers from "extended per language" to being uniformly governed by a schema/profile registry and a Rust canonical implementation.
+1. Connection and session model: upgrade the single-active-session mental model into a unified container that can carry multiple sessions, multiple priorities, and multiple concurrent operations.
+2. Extension and data semantics: bring typed payloads, schema/profile interpretation, and cache/lease behavior into one stable public protocol boundary rather than continuing to patch them per implementation.
+3. Lifecycle and observability: freeze operation/workflow lifecycle, flow-control, recovery, and observability semantics so they remain consistent across implementations.
 
-Therefore, preview3 defines two boundaries at the same time:
+Therefore, this document defines only protocol-layer boundaries: message types, fixed metadata, body layout, error vocabulary, state-machine semantics, and the conformance baseline.
 
-1. Protocol-layer boundary: the connection model, session model, cache model, schema/profile extension model, and agent/workflow runtime semantics of `NNRP/1-preview3`.
-2. SDK-layer boundary: a Rust common library serves as the canonical implementation, responsible for the wire codec, state machines, cache lifecycle, flow control, and consistency validation. Python, C#, and future multi-language SDKs should prioritize building bindings and host-facing control-plane wrappers rather than rewriting the hot path themselves.
-
-The formal positioning of preview3 is therefore: a canonical protocol + canonical SDK baseline for a multi-language real-time AI runtime ecosystem, rather than continuing to let "protocol consensus rely on documents and implementation consensus rely on manual synchronization."
+The formal role of preview3 is therefore: the next protocol-freeze document for `NNRP/1`, not a place to prescribe any concrete implementation shape.
 
 ## 1.1 Overview Diagram
 
@@ -23,28 +20,27 @@ The formal positioning of preview3 is therefore: a canonical protocol + canonica
 flowchart LR
 	CONN[One Connection Container] --> S1[Session A]
 	CONN --> S2[Session B]
-	CONN --> S3[Session N]
+	CONN --> SN[Session N]
+	S1 --> OP1[Operation Lifecycle]
+	S2 --> OP2[Operation Lifecycle]
 	CONN --> REG[Schema / Profile Registry]
 	CONN --> CACHE[Cache + Lease Model]
 	CONN --> FLOW[FLOW_UPDATE + Priority]
-	RUST[Rust Canonical Core] --> CONN
-	PY[Python Binding] --> RUST
-	CS[C# Binding] --> RUST
-	FUTURE[JS / Java / Go Bindings] --> RUST
+	CONN --> OBS[Observability]
 ```
 
-This diagram compresses the three hardest things in preview3 into one view: the connection has become a multi-session container, the extension mechanism is controlled by the registry, and cross-language consistency is consolidated by the canonical core.
+This diagram compresses the core protocol objects of preview3 into one view: the connection is now a multi-session container, operations become explicit lifecycle objects, and extensibility is governed by the schema/profile registry.
 
 ## 2. Topics Explicitly Covered by preview3
 
 `NNRP/1-preview3` explicitly covers the following topics:
 
-1. Define the responsibility boundary of the Rust canonical SDK, and the standard interaction surface between multi-language bindings and the Rust core.
-2. Upgrade the connection model from preview2's primary mental model of a single active session into a unified connection container capable of carrying multiple active sessions, multiple priority streams, and multi-workflow operations.
-3. Upgrade preview2's object cache into an AI runtime cache with lease, versioning, dependency, and observability.
-4. Upgrade typed payloads from static enums to a negotiable type system driven by a schema/profile registry.
-5. Elevate tool deltas, structured events, and multi-step inference results into explicit operation / workflow runtime semantics, rather than treating them only as payload frames.
-6. Define cross-language conformance, golden vectors, error codes, and compatibility windows so that new-language bindings no longer maintain alignment by "copying test constants from another SDK."
+1. Upgrade the connection model from preview2's primary mental model of a single active session into a unified connection container capable of carrying multiple active sessions, multiple priority streams, and multi-workflow operations.
+2. Upgrade preview2's object cache into an AI runtime cache with lease, versioning, dependency, and observability.
+3. Upgrade typed payloads from static enums to a negotiable type system driven by a schema/profile registry.
+4. Elevate tool deltas, structured events, and multi-step inference results into explicit operation / workflow runtime semantics, rather than treating them only as payload frames.
+5. Freeze cross-implementation conformance, golden vectors, error codes, descriptor layouts, and state-machine vocabulary so all implementations consume the same protocol baseline.
+6. Define the public boundary of flow control, recovery, and observability fields so implementations do not invent a second runtime semantics in parallel.
 
 preview3 still keeps the core constraints of preview1/preview2:
 
@@ -58,8 +54,9 @@ preview3 explicitly does not cover the following content:
 
 1. Traditional media-stack problems such as browser media capture, playback, A/V sync, AEC, ABR, and SFU/MCU.
 2. Private GPU memory-page layout, KV-cache page encoding, or runtime internal thread models of a specific model or inference framework.
-3. UI / game-engine / notebook / web-framework wrapping conventions of Python, C#, JS, Java, and Go.
-4. Hard-coding all upper-layer AI business semantics into public protocol enums; preview3 defines only public runtime semantics and standard extension mechanisms.
+3. UI / game-engine / notebook / web-framework wrapping conventions of specific host environments.
+4. Concrete implementation-facing API shape, handle management, callback/polling drive modes, packaging, and release strategy.
+5. Hard-coding all upper-layer AI business semantics into public protocol enums; preview3 defines only public runtime semantics and standard extension mechanisms.
 
 The mistake preview3 must avoid is misunderstanding "making multi-language integration easier" as "the protocol layer must freeze all upper-layer business objects at once." What should actually be frozen are extension boundaries, object lifecycle, and cross-language consistency requirements, rather than the upper-layer object tree of a single product form.
 
@@ -67,39 +64,20 @@ The mistake preview3 must avoid is misunderstanding "making multi-language integ
 
 preview3 adopts the following design principles:
 
-1. Single semantic source: the Rust canonical SDK is the only implementation source for the wire codec, state machine, cache semantics, and conformance.
-2. Thin binding layers: Python, C#, and future multi-language SDKs should prioritize reusing the Rust core and expose only host-facing control plane, callbacks, buffer views, and a small number of language-friendly models, rather than rewriting the hot path independently.
-3. No text on the hot path: `FRAME_SUBMIT`, `RESULT_PUSH`, typed payload frames, cache objects, and schema descriptions all continue to follow fixed-layout binary paths, with no JSON/Protobuf hot-path fallback.
-4. Protocol concepts first: once multi-session, priority, cache lease, schema registry, operation lifecycle, and similar concepts affect cross-language interoperability, they must first become protocol concepts rather than being left to private extensions in a single SDK.
-5. Profile/schema layering: the public layer freezes connection, session, cache, budget, priority, and operation semantics; concrete payload structures are extended through the profile/schema registry rather than continuously bloating public enums.
-6. Gradual migration: preview3 must allow host runtimes to keep preview2-compatible paths and preview3 canonical-SDK paths side by side for a period of time, avoiding a one-shot hard cutover.
+1. Single protocol semantic source: cross-implementation public semantics must be frozen first in the protocol document and conformance baseline; no implementation may privately redefine them.
+2. No text on the hot path: `FRAME_SUBMIT`, `RESULT_PUSH`, typed payload frames, cache objects, and schema descriptions all continue to follow fixed-layout binary paths, with no JSON/Protobuf hot-path fallback.
+3. Protocol concepts first: once multi-session, priority, cache lease, schema registry, operation lifecycle, and similar concepts affect cross-language interoperability, they must first become protocol concepts rather than being left to private extensions in a single implementation.
+4. Profile/schema layering: the public layer freezes connection, session, cache, budget, priority, and operation semantics; concrete payload structures are extended through the profile/schema registry rather than continuously bloating public enums.
+5. Overwrite-in-place evolution within one major line: preview iterations inside the same major line directly overwrite the current `NNRP/1` semantics and do not preserve parallel preview-compatibility paths.
+6. Implementation neutrality: the protocol constrains messages, metadata, error vocabulary, state machines, and descriptor boundaries, not concrete implementation shape.
 
-## 5. Boundary of the Rust Canonical SDK
+## 5. Implementation Boundary
 
-preview3 defines the Rust common library as a standard deliverable, not merely as an internal implementation detail of some SDK.
+This document freezes only protocol objects, fixed layouts, state machines, error codes, and the conformance vocabulary.
 
-At minimum, the Rust core is responsible for the following capabilities:
+Concrete implementation-facing API shape, handle management, callback/polling drive modes, packaging, and release strategy are not frozen in this protocol document.
 
-1. Pack/unpack of the common header, fixed metadata, body regions, typed payload descriptors, and extension frames.
-2. Connection-level and session-level state machines, including handshake, session open/patch/close, flow control, result correlation, migration, and recovery semantics.
-3. Cache objects, schema objects, lease lifecycle, and dependency validation.
-4. Standard preview3 error codes, invalid-combination validation, and strict parsing.
-5. Golden-vector generation, conformance-fixture export, and cross-language replay/regression baselines.
-
-The language binding layer must obey at least the following boundaries:
-
-1. Do not reimplement preview3 hot-path codecs and state machines.
-2. Higher-level host-facing APIs may be provided at the language layer, but these APIs must not change the underlying protocol semantics.
-3. Prioritize exposing the control plane and session orchestration. On the data plane, transfer data from the Rust core through buffer views, descriptor handles, callbacks, or stream readers as much as possible rather than rematerializing an entire intermediate object system in the language layer.
-4. If the language layer provides convenience helpers for host experience, such as synchronous wrappers, Unity main-thread dispatch, or Python async iterators, these helpers may only be built on top of the Rust canonical session model and must not redefine the default protocol behavior of preview3.
-
-preview3 explicitly opposes the following practices:
-
-1. Python and C# each maintaining an independent preview3 packet builder / parser.
-2. Language bindings privately inventing new object kinds, payload kinds, error codes, or flow-control meanings.
-3. For local optimization in a single runtime, directly freezing model-private cache-page layouts into mandatory public protocol fields.
-
-## 6. Compatibility Boundary with preview2
+## 6. NNRP/1 Code-Level Identity and Inherited Constraints
 
 ### 6.1 Code-Level Version Identity
 
@@ -120,7 +98,7 @@ preview3 continues to retain the 40-byte common header and the self-describing l
 3. The extension capability of body regions and the binding relationship between typed payloads and schema.
 4. Connection and session state-machine semantics.
 
-### 6.3 Inheritance Principles for Topics Already Frozen in preview2
+### 6.3 Continued Principles from Earlier Frozen Work
 
 The following design principles of preview2 continue to hold in preview3:
 
@@ -138,14 +116,14 @@ preview3 explicitly treats a connection as a session container rather than a ded
 Minimum requirements:
 
 1. A single connection may carry multiple active sessions.
-2. `CLIENT_HELLO / SERVER_HELLO_ACK` are responsible for connection-level capability negotiation, authentication, Rust canonical feature window, and declaration of baseline cache and schema capabilities.
+2. `CLIENT_HELLO / SERVER_HELLO_ACK` are responsible for connection-level capability negotiation, authentication, feature window negotiation, and declaration of baseline cache and schema capabilities.
 3. Add `SESSION_OPEN / SESSION_OPEN_ACK` as an explicit session-creation flow for declaring profile, schema, budget window, priority class, and cache/lease requirements.
 4. `SESSION_PATCH / SESSION_PATCH_ACK` continue to be retained as the low-frequency session-update path.
 5. `CLOSE` can still be used for connection-level closure. preview3 additionally requires explicit session-close semantics so that the preview1/2 habit of "closing one session equals closing the whole connection" does not continue leaking into the multi-session model.
 
 ### 7.1A Freezing of `SESSION_OPEN` / `SESSION_OPEN_ACK` Fixed Metadata
 
-In the first round, preview3 freezes `SESSION_OPEN` and `SESSION_OPEN_ACK` as minimally implementable yet extensible session-open metadata, rather than letting each language binding privately assemble its own session-open body.
+In the first round, preview3 freezes `SESSION_OPEN` and `SESSION_OPEN_ACK` as minimally implementable yet extensible session-open metadata, rather than letting implementations privately assemble their own session-open body.
 
 The fixed metadata of `SESSION_OPEN` is fixed at 48 bytes in the first round:
 
@@ -316,7 +294,7 @@ At minimum, the protocol layer must be able to express:
 3. The dual-layer constraints of dynamic credit at the session level and the connection level.
 4. Explicit acknowledgments from the server for priority downgrade, rate limiting, or preemption.
 
-preview3 does not require any specific scheduling algorithm to be hard-coded as the only implementation, but it must freeze these semantic objects and error vocabularies so that different language bindings no longer diverge in their interpretation of "backpressure," "preemption," and "expiration."
+preview3 does not require any specific scheduling algorithm to be hard-coded as the only implementation, but it must freeze these semantic objects and error vocabularies so that different implementations no longer diverge in their interpretation of "backpressure," "preemption," and "expiration."
 
 ### 7.2A Freezing of standard scheduling enums
 
@@ -354,7 +332,7 @@ preview3 freezes the following standard enum values in the first round:
 
 Constraints in the first round:
 
-1. All language bindings must treat these numeric values as protocol enums rather than private local SDK status codes.
+1. All implementations must treat these numeric values as protocol enums rather than private local status codes.
 2. `partial` and `completed` may appear in sequence within the same operation lifecycle; `failed / cancelled / superseded / completed` are terminal states.
 3. `interactive` expresses only scheduling priority and credit preference, and does not guarantee absolute resource exclusivity.
 
@@ -395,7 +373,7 @@ In the first round, preview3 further freezes the following cache-level public se
 
 First-round constraints:
 
-1. `cache_miss / lease_expired / version_mismatch / dependency_invalid / schema_mismatch` must stay as stable cross-language error vocabulary and must not be rewritten into binding-private string errors.
+1. `cache_miss / lease_expired / version_mismatch / dependency_invalid / schema_mismatch` must stay as stable error vocabulary across implementations and must not be rewritten into local private string errors.
 2. If result reuse depends on a specific `object_id + object_version` or schema version, that dependency must enter the observable dependency graph; invalidation must return either a stable error code or an explicit invalidation event.
 3. Runtime-private object kinds may still exist, but they may not bypass the public `object_id / object_version / lease_id / cache_error_code` semantics above.
 
@@ -408,7 +386,7 @@ Design goals:
 1. The public layer does not presuppose a single default profile. The first-round standard profiles include at least `tensor` and `token`, and continue to allow payload families such as `structured_event`, `tool_delta`, and `opaque_bytes` to hang off the schema/profile registry.
 2. Concrete payload semantics are bound through `schema_id + schema_version + profile_id + stream_semantics` rather than adding a new public payload kind every time a new data type appears.
 3. Schema objects enter the cache / lease lifecycle and may be preinstalled, referenced, invalidated, and version-rolled back.
-4. Language bindings no longer interpret descriptor-private fields themselves, but uniformly go through the Rust canonical schema registry.
+4. Different implementations must not interpret descriptor-private fields independently; they must follow one unified schema-registry contract.
 
 preview3 therefore needs to standardize at least the following information:
 
@@ -419,7 +397,7 @@ preview3 therefore needs to standardize at least the following information:
 
 ### 9.3 Freezing of the common header of schema descriptors
 
-preview3 fixes the common header of schema descriptors to 32 bytes in the first round, so version, compatibility, and routing decisions can be completed without parsing the profile-private body.
+preview3 fixes the common header of schema descriptors to 32 bytes in the first round, so version, applicability, and routing decisions can be completed without parsing the profile-private body.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -427,8 +405,8 @@ preview3 fixes the common header of schema descriptors to 32 bytes in the first 
 | `schema_version` | `u32` | Schema version |
 | `profile_id` | `u16` | Profile to which this schema belongs |
 | `schema_flags` | `u16` | Schema behavior flags |
-| `compat_min_stage` | `u8` | Minimum compatible stage |
-| `compat_max_stage` | `u8` | Maximum compatible stage |
+| `min_version_major` | `u8` | Minimum applicable major version |
+| `max_version_major` | `u8` | Maximum applicable major version |
 | `reserved0` | `u16` | Reserved; sender clears to `0` |
 | `body_bytes` | `u32` | Length of the schema body |
 | `dependency_count` | `u16` | Number of dependent schema/object entries |
@@ -437,9 +415,9 @@ preview3 fixes the common header of schema descriptors to 32 bytes in the first 
 
 Constraints in the first round:
 
-1. The common header addresses only public questions such as "what this schema is, which profile it belongs to, which stage it is compatible with, how long the body is, and how many objects it depends on."
+1. The common header addresses only public questions such as "what this schema is, which profile it belongs to, which major version it applies to, how long the body is, and how many objects it depends on."
 2. Any profile-private interpretation fields must enter the schema body and must not continue to bloat the common header.
-3. `schema_hash` is used for cross-language consistency checks and cache deduplication; it does not directly replace the logical identity of `schema_id + schema_version`.
+3. `schema_hash` is used for consistency checks and cache deduplication; it does not directly replace the logical identity of `schema_id + schema_version`.
 4. `default_stream_semantics` provides only default semantics; a payload descriptor may still override it on a per-frame or per-operation basis.
 
 `schema_flags:u16` freezes the following bit definitions in the first round:
@@ -549,15 +527,15 @@ In the first round, preview3 freezes the minimum schema-registry flow as:
 | `0x00040001` | `schema_unknown` | The requested `schema_id` does not exist |
 | `0x00040002` | `schema_version_unknown` | The requested `schema_version` does not exist |
 | `0x00040003` | `schema_hash_conflict` | The same `schema_id + schema_version` was presented with a different `schema_hash` |
-| `0x00040004` | `schema_incompatible` | The schema is incompatible with the current profile, stage, or critical constraints |
+| `0x00040004` | `schema_incompatible` | The schema is incompatible with the current profile, major version, or critical constraints |
 | `0x00040005` | `schema_dependency_missing` | A schema dependency is missing or unavailable |
 | `0x00040006` | `schema_update_rejected` | A schema update or invalidation request was rejected by policy |
 
 First-round constraints:
 
 1. When `schema_flags.critical` is set and the receiver cannot recognize the schema, version, or dependency, it must return a stable `schema_error_code` and must not silently skip the schema.
-2. The binding between a typed payload descriptor and `schema_id / schema_version / profile_id` is strict; language bindings must not rewrite it into a "looks compatible enough" heuristic.
-3. The standard `install / update / invalidate / version_conflict` flow is implemented by the Rust canonical registry; language bindings expose only host-friendly control surfaces and do not reinterpret conflict outcomes privately.
+2. The binding between a typed payload descriptor and `schema_id / schema_version / profile_id` is strict; implementations must not rewrite it into a "looks close enough" heuristic.
+3. The standard `install / update / invalidate / version_conflict` flow must remain consistent across implementations; local integration layers must not privately reinterpret conflict outcomes.
 
 ## 10. preview3 Agent / Workflow Runtime Semantics
 
@@ -598,7 +576,7 @@ In the first round, preview3 explicitly freezes the recovery object as the sessi
 
 ### 11.1 Freezing the three-scope `FLOW_UPDATE` and its metadata
 
-In the first round, preview3 fixes `FLOW_UPDATE` to 32 bytes of fixed metadata for uniformly expressing connection-, session-, and operation-level credit and backpressure updates, rather than allowing different language bindings to define private credit packets independently.
+In the first round, preview3 fixes `FLOW_UPDATE` to 32 bytes of fixed metadata for uniformly expressing connection-, session-, and operation-level credit and backpressure updates, rather than allowing different implementations to define private credit packets independently.
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -670,135 +648,14 @@ In the first round, preview3 freezes the following recovery semantics:
 4. If the `resume_token` is invalid, expired, unauthorized, or incompatible with the requested profile/schema/session capabilities, the server must return `session_error_code = resume_rejected`.
 5. Recovery must not treat historical frames as independent recovery objects; any frame-level or packet-level compensation remains subordinate to session recovery semantics.
 
-## 12. Rust FFI and Binding Contract
+## 12. Protocol Freeze Summary
 
-preview3 requires the Rust canonical SDK to provide at least a stable FFI contract reusable across languages.
+This document currently freezes the following protocol topics:
 
-Minimum requirements:
+1. The `NNRP/1.0` code-level identity, the 40-byte common header, and the `meta_len + body_len` length model.
+2. The layered boundary among connection, session, and operation, including `SESSION_OPEN / SESSION_OPEN_ACK`, explicit session close, recovery objects, and routing semantics.
+3. Runtime semantics such as `FLOW_UPDATE`, priority, cancel scope, operation lifecycle, and recovery watermarks.
+4. Cache lease, schema/profile registry, the 32-byte schema descriptor, the 24-byte typed payload descriptor, and their standard error vocabulary.
+5. The boundary between `structured_event` / `tool_delta` payload families and the public lifecycle model, as well as the cross-implementation baseline of conformance, golden vectors, enum values, and error codes.
 
-1. A stable C ABI or another stable ABI boundary across languages.
-2. Explicit handle lifecycle: connection handles, session handles, operation handles, buffer handles, and schema handles.
-3. Dual callback and polling modes: allowing Unity/C#, Python async, Node.js event loops, JVM runtimes, and Go runtimes to choose the driving mode that suits them.
-4. Clear buffer view / slice lifecycle rules so the language layer does not copy the entire payload segment and then parse it again.
-5. All language bindings share the same set of golden vectors, error codes, and conformance suites.
-
-The binding contract of preview3 explicitly requires:
-
-1. The Python side should prioritize exposing async control/session APIs, buffer views, and result-subscription interfaces.
-2. The C# side should prioritize exposing Unity / .NET-friendly session orchestration, callbacks, and memory-safe wrappers, but must not rewrite the wire codec.
-3. When a new language SDK enters the ecosystem, it should by default start from the Rust canonical FFI rather than copying a pure-language implementation from Python or C#.
-
-### 12.1 Freezing of handle lifetime, drive modes, and error families
-
-In the first round, preview3 freezes the following FFI-level public contract:
-
-1. All handles are treated as opaque handles at the ABI boundary, and `0` is the invalid handle.
-2. `connection_handle` owns `session_handle`; `session_handle` owns `operation_handle`; after a parent handle is released, its child handles must no longer be used by language bindings.
-3. `schema_handle` may be cached independently, but its buffer/body views still follow buffer-view lifetime rules.
-4. `buffer_view_handle` is only guaranteed valid until explicit release or until the agreed callback returns; if a binding needs to retain data beyond that window, it must perform an explicit copy.
-5. The Rust canonical SDK must provide both callback-driven and polling-driven modes; bindings may expose one or both, but must not rewrite event-order semantics.
-
-`ffi_error_family:u32` freezes the following high-bit families in the first round:
-
-| Family Prefix | Name | Meaning |
-| --- | --- | --- |
-| `0x00010000` | `protocol` | Protocol-layer errors |
-| `0x00020000` | `state_machine` | Connection/session/operation state-machine errors |
-| `0x00030000` | `cache` | Cache / lease errors |
-| `0x00040000` | `schema` | Schema / profile-registry errors |
-| `0x00050000` | `binding_contract` | FFI / handle / buffer / callback-contract errors |
-
-The `binding_contract` subcodes are frozen in the first round as:
-
-| Value | Name | Meaning |
-| --- | --- | --- |
-| `0x00050001` | `invalid_handle` | An invalid or already released handle was passed |
-| `0x00050002` | `ownership_violation` | Handle or buffer ownership rules were violated |
-| `0x00050003` | `thread_affinity_violation` | An object was used on a disallowed thread or event loop |
-| `0x00050004` | `buffer_released` | A buffer view was accessed after release |
-| `0x00050005` | `callback_reentrancy_forbidden` | Reentrant entry occurred during a non-reentrant callback |
-
-## 13. Implementation Order
-
-preview3 is recommended to proceed in the following phases:
-
-1. Phase A: land the Rust canonical SDK first, and migrate the semantics already frozen in preview1/preview2 into Rust, implementing a cross-language shared wire codec, state machine, golden vectors, and conformance.
-2. Phase B: complete the foundational semantics of multi-session, priority, cache lease, and schema registry in the Rust core and protocol document.
-3. Phase C: converge Python and C# bindings onto the Rust core, retaining only host-facing control plane and language-friendly wrappers.
-4. Phase D: expand new payload families, workflow events, and ecosystem language bindings on top of the schema/profile registry.
-
-The first priority of preview3 is not "continue piling on more payload kinds," but rather "freeze the canonical SDK, the connection/session model, and the advanced cache/registry boundary first." This document now provides that first-round frozen baseline, and subsequent ecosystem bindings in JS, Java, Go, and beyond should implement against it directly rather than repeating the preview1/preview2 drift path.
-
-## 14. Summary of the First-Round Frozen Baseline of preview3
-
-To avoid once again following the drift path of "two SDKs implement independently first, then come back later to freeze semantics," this document now freezes the following items as the first-round baseline. Rust, Python, C#, and future bindings should implement directly against them.
-
-### 14.1 Canonical SDK ownership
-
-1. `nnrp-rs` is the only canonical implementation of the preview3 wire codec, state machine, cache/registry semantics, golden vectors, and conformance.
-2. Python/C# may implement only the binding layer, host APIs, wrapper models, and loading/scheduling logic, and must not each implement a second preview3 packet builder / parser / state machine.
-3. Any cross-language public semantic change in preview3 must land first in the Rust repository and the protocol document, and only then enter the Python/C# binding layer.
-
-### 14.2 FFI contract
-
-The following FFI boundaries are now frozen:
-
-1. Handle families: `connection / session / operation / schema / buffer_view`.
-2. Handle lifecycle: creation, borrowing, release, and recoverability after errors.
-3. Event-driving modes: callback-driven, polling-driven, or dual-mode coexistence.
-4. Buffer-view rules: when zero-copy views are allowed, when explicit copying is required, and when the host must complete release.
-5. Stable error-code families: protocol errors, state-machine errors, cache errors, schema errors, and binding-contract errors.
-
-### 14.3 Connection/session lifecycle
-
-The following connection and session semantics are now frozen:
-
-1. The layered boundary between connection-level handshake and session-level open flow.
-2. `SESSION_OPEN / SESSION_OPEN_ACK` are introduced as standard messages, and in the first round their fixed metadata are frozen at 48B / 56B respectively.
-3. Whether session close has an explicit control message or dedicated metadata semantics, rather than continuing the implicit habit of reusing connection `CLOSE`.
-4. The minimum routing fields required by control/data/result messages when multiple sessions share one connection.
-5. The bit definitions and numeric families of `session_flags / session_status / session_flags_ack / session_error_code`.
-
-### 14.4 Scheduling semantics
-
-The following scheduling semantics are now frozen:
-
-1. The standard enum values of `session_priority_class`: `interactive=0 / balanced=1 / background=2`.
-2. The standard enum values of `operation_state`: `accepted=0 / running=1 / partial=2 / waiting_tool=3 / superseded=4 / cancelled=5 / failed=6 / completed=7`.
-3. The standard enum values of `cancel_scope`: `operation=0 / subtree=1 / group=2 / session=3`.
-4. `FLOW_UPDATE` fixed metadata is fixed at 32B, and `scope_kind / update_reason / backpressure_level / flow_flags` as well as connection/session/operation three-layer credit semantics are frozen.
-
-### 14.5 Advanced cache contract
-
-The following cache semantics are now frozen:
-
-1. The division of responsibilities between `object_id` and `object_version`.
-2. Lease identity, expiration, renewal, and eviction-hint semantics.
-3. The minimum stable reason codes of dependency invalidation.
-4. The observable relationship among result reuse, schema reference, and object invalidation.
-
-### 14.6 Schema/profile registry
-
-The following schema/profile registry items are now frozen:
-
-1. The first-round standard profile set; at minimum it must clarify that `tensor profile` and `token profile` stand in parallel, and the public layer must no longer treat tensor as the default privileged profile.
-2. The minimum standard semantic boundary of `token profile`, especially the public vocabulary of token chunks, position ranges, completion status, and stop-reason.
-3. The common header of schema descriptors is fixed at 32B, and its minimum field set is frozen.
-4. Typed payload descriptors are fixed at 24B, and their minimum public field set and `descriptor_flags` bit definitions are frozen.
-5. The standard process for schema install / update / invalidate / version conflict.
-6. The binding rule between typed payload descriptors and `schema_id / schema_version / profile_id`.
-7. The standard error behavior for unknown schema, version conflicts, and critical schema incompatibility.
-
-### 14.7 Payload family vs lifecycle boundary
-
-The following items are now frozen:
-
-1. `structured_event` and `tool_delta` belong to payload families by default, rather than standalone profiles.
-2. Only when they affect cross-language interoperable operation-lifecycle state, routing, or cancellation semantics do the corresponding minimum fields enter the public lifecycle model.
-3. Tool bodies, rich event bodies, and other higher-level payloads are interpreted by default through the schema/profile registry and do not enter public fixed metadata.
-
-### 14.8 Conformance ownership
-
-1. preview3 canonical golden vectors may only be generated by Rust.
-2. Python/C# may only import Rust fixtures for binding validation, and must not maintain "peer canonical vectors" in parallel.
-3. The enum values, message values, metadata lengths, and error codes of preview3 now form the first-round Rust conformance baseline, and downstream language-binding tests must consume that baseline directly.
+Concrete implementation-facing API shape, packaging, and release strategy are outside the freeze scope of this document.

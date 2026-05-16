@@ -2,20 +2,17 @@
 
 ## 1. 定位
 
-`NNRP/1-preview3` 不是对 preview2 的简单增量补丁。它的目标是把 `NNRP` 从“两个 SDK 分别实现的预览期 wire contract”推进到“由单一 canonical SDK 驱动、可稳定扩展到多语言生态的实时 AI 运行时协议”。
+`NNRP/1-preview3` 不是在 `NNRP/1` 这条线内继续堆叠零散能力，而是用来冻结下一阶段真正缺失的协议主题：多 session 连接容器、profile-neutral 的 schema/profile registry，以及面向 operation/workflow 的统一运行时语义。
 
-preview3 要解决的问题不再只是“再多支持几种 payload”，而是以下三类更高优先级的问题：
+preview3 聚焦三类协议问题：
 
-1. 统一语义源头：避免 Python、C# 以及未来 JS/Java/Go SDK 各自维护一套 wire codec、状态机和缓存语义，导致跨语言行为偏移。
-2. 统一会话模型：把 preview2 已经验证过的异步 submit/result/control 语义进一步推广到多 session、多优先级、多工作流并发场景。
-3. 统一扩展方式：把 typed payload、cache object 和 host-side helper 从“按语言各自扩展”升级为“由 schema/profile registry 和 Rust canonical implementation 统一控制”。
+1. 连接与会话模型：把单活 session 心智模型升级为一条连接承载多个 session、多个优先级和多个并发 operation 的统一容器。
+2. 扩展与数据语义：把 typed payload、schema/profile、cache/lease 纳入同一套稳定的公共协议边界，而不是继续靠实现侧各自补充。
+3. 生命周期与观测：把 operation/workflow 生命周期、流控、恢复和可观测字段冻结为跨语言一致的协议语义。
 
-因此，preview3 同时定义两层边界：
+因此，本文只定义协议层边界：消息类型、fixed metadata、body layout、错误口径、状态机语义和 conformance 基线。
 
-1. 协议层边界：`NNRP/1-preview3` 的连接模型、会话模型、缓存模型、schema/profile 扩展模型，以及 agent/workflow 运行时语义。
-2. SDK 层边界：由一个 Rust 公共库作为 canonical implementation，负责 wire codec、状态机、缓存生命周期、流控和一致性验证；Python、C# 以及未来多语言 SDK 优先做绑定层和 host-facing 控制面封装，而不是各自重写热路径。
-
-preview3 的正式定位是：面向多语言实时 AI 运行时生态的 canonical protocol + canonical SDK 基线，而不是继续放任“协议共识靠文档、实现共识靠人工同步”。
+preview3 的正式定位是：`NNRP/1` 下一阶段的协议冻结文档，用来冻结下一阶段的公共协议语义，而不是规定某种具体实现形态。
 
 ## 1.1 总览图
 
@@ -23,28 +20,27 @@ preview3 的正式定位是：面向多语言实时 AI 运行时生态的 canoni
 flowchart LR
 	CONN[One Connection Container] --> S1[Session A]
 	CONN --> S2[Session B]
-	CONN --> S3[Session N]
+	CONN --> SN[Session N]
+	S1 --> OP1[Operation Lifecycle]
+	S2 --> OP2[Operation Lifecycle]
 	CONN --> REG[Schema / Profile Registry]
 	CONN --> CACHE[Cache + Lease Model]
 	CONN --> FLOW[FLOW_UPDATE + Priority]
-	RUST[Rust Canonical Core] --> CONN
-	PY[Python Binding] --> RUST
-	CS[C# Binding] --> RUST
-	FUTURE[JS / Java / Go Bindings] --> RUST
+	CONN --> OBS[Observability]
 ```
 
-这张图先把 preview3 最难嚼的三件事压缩到一个视图里：连接已经是多 session 容器、扩展方式由 registry 控制、跨语言一致性由 canonical core 收口。
+这张图先把 preview3 的核心协议对象压缩到一个视图里：连接已经是多 session 容器，operation 成为显式生命周期对象，扩展方式由 schema/profile registry 控制。
 
 ## 2. preview3 明确负责的主题
 
 `NNRP/1-preview3` 明确负责以下主题：
 
-1. 定义 Rust canonical SDK 的职责边界，以及多语言绑定与 Rust 核心之间的标准交互面。
-2. 将连接模型从 preview2 的单活 session 主心智模型升级为可承载多活 session、多优先级流和多工作流操作的统一连接容器。
-3. 将 preview2 的对象缓存升级为带 lease、版本、依赖和可观测性的 AI 运行时缓存。
-4. 将 typed payload 从静态枚举扩展为 schema/profile registry 驱动的可协商类型系统。
-5. 将 tool delta、structured event 和多步推理结果提升为显式的 operation / workflow 运行时语义，而不是只把它们看成若干 payload frame。
-6. 定义跨语言 conformance、golden vector、错误码和兼容窗口，确保新语言绑定不再通过“照抄另一个 SDK 的测试常量”维持对齐。
+1. 将连接模型从 preview2 的单活 session 主心智模型升级为可承载多活 session、多优先级流和多工作流操作的统一连接容器。
+2. 将 preview2 的对象缓存升级为带 lease、版本、依赖和可观测性的 AI 运行时缓存。
+3. 将 typed payload 从静态枚举扩展为 schema/profile registry 驱动的可协商类型系统。
+4. 将 tool delta、structured event 和多步推理结果提升为显式的 operation / workflow 运行时语义，而不是只把它们看成若干 payload frame。
+5. 冻结跨语言 conformance、golden vector、错误码、descriptor 布局和状态机口径，确保不同实现消费同一份协议基线。
+6. 明确流控、恢复和观测字段的公共边界，避免实现侧私设第二套运行时语义。
 
 preview3 依然保持 preview1/preview2 的核心约束：
 
@@ -58,48 +54,30 @@ preview3 明确不负责以下内容：
 
 1. 浏览器媒体采集、回放、A/V sync、AEC、ABR、SFU/MCU 等传统媒体协议栈问题。
 2. 某个具体模型或推理框架私有的 GPU 内存页布局、KV-cache page 编码或 runtime 内部线程模型。
-3. Python、C#、JS、Java、Go 各语言的 UI / game-engine / notebook / web-framework 封装习惯。
-4. 把所有高层 AI 业务语义都硬编码成公共协议枚举；preview3 只定义公共运行时语义和标准扩展机制。
+3. 具体宿主环境的 UI / game-engine / notebook / web-framework 封装习惯。
+4. 具体实现的 API 形状、句柄管理、回调/轮询驱动、打包与发布策略。
+5. 把所有高层 AI 业务语义都硬编码成公共协议枚举；preview3 只定义公共运行时语义和标准扩展机制。
 
-preview3 要避免的错误，是把“为了让多语言好接入”误解成“协议层必须一次性固化所有上层业务对象”。真正应冻结的是扩展边界、对象生命周期和跨语言一致性要求，而不是某个单一产品形态的高层对象树。
+preview3 要避免的错误，是把“为了让不同实现都好接入”误解成“协议层必须一次性固化所有上层业务对象”。真正应冻结的是扩展边界、对象生命周期和一致性要求，而不是某个单一产品形态的高层对象树。
 
 ## 4. 设计原则
 
 preview3 采用以下设计原则：
 
-1. 单一语义源头：Rust canonical SDK 是 wire codec、状态机、缓存语义和 conformance 的唯一实现源头。
-2. 绑定层薄封装：Python、C# 以及未来多语言 SDK 优先复用 Rust 核心，只暴露 host-facing 控制面、回调、buffer 视图和少量语言友好模型，不再各自重写热路径。
-3. 热路径零文本化：`FRAME_SUBMIT`、`RESULT_PUSH`、typed payload frame、缓存对象和 schema 描述仍坚持固定布局二进制路径，不引入 JSON/Protobuf 热路径回退。
-4. 协议概念先行：多 session、优先级、cache lease、schema registry、operation lifecycle 等一旦会影响跨语言互通，就必须先成为协议概念，而不是留给单个 SDK 私有扩展。
-5. profile 与 schema 分层：公共层冻结连接、会话、缓存、预算、优先级和 operation 语义；具体 payload 结构通过 profile/schema registry 扩展，而不是不断膨胀公共枚举。
-6. 可渐进迁移：preview3 必须允许 host runtime 在一段时间内同时保留 preview2 兼容路径和 preview3 canonical SDK 路径，避免一次性硬切换。
+1. 单一协议语义源头：跨语言公共语义必须先在协议文档与 conformance 基线上冻结，不允许各实现私设。
+2. 热路径零文本化：`FRAME_SUBMIT`、`RESULT_PUSH`、typed payload frame、缓存对象和 schema 描述仍坚持固定布局二进制路径，不引入 JSON/Protobuf 热路径回退。
+3. 协议概念先行：多 session、优先级、cache lease、schema registry、operation lifecycle 等一旦会影响跨语言互通，就必须先成为协议概念，而不是留给单个实现私有扩展。
+4. profile 与 schema 分层：公共层冻结连接、会话、缓存、预算、优先级和 operation 语义；具体 payload 结构通过 profile/schema registry 扩展，而不是不断膨胀公共枚举。
+5. 单一主版本线内覆盖式演进：同一主版本内的 preview 迭代直接覆盖当前 `NNRP/1` 语义，不保留并行双轨 preview 路径。
+6. 实现中立：协议只约束消息、metadata、错误口径、状态机和描述符边界，不规定具体实现形态。
 
-## 5. Rust Canonical SDK 边界
+## 5. 实现边界
 
-preview3 将 Rust 公共库定义为标准交付物，而不仅是某个 SDK 的内部实现细节。
+本文只冻结协议对象、固定布局、状态机、错误码和 conformance 口径。
 
-Rust 核心至少负责以下能力：
+具体实现的 API 形状、句柄管理、回调或轮询驱动、打包和发布策略，不在本文冻结。
 
-1. 公共头、fixed metadata、body region、typed payload descriptor、extension frame 的 pack/unpack。
-2. 连接级与会话级状态机，包括握手、session open/patch/close、flow control、result correlation、migration 和恢复语义。
-3. cache object、schema object、lease 生命周期和依赖验证。
-4. preview3 标准错误码、违规组合校验和严格解析。
-5. golden vector 生成、conformance fixture 导出，以及跨语言回放/回归基线。
-
-语言绑定层至少遵守以下边界：
-
-1. 不重复实现 preview3 热路径 codec 和状态机。
-2. 可在语言层提供更高层的 host-facing API，但这些 API 不得改变底层协议语义。
-3. 优先暴露 control-plane 与 session orchestration；数据面尽量通过 buffer view、descriptor handle、callback 或 stream reader 方式从 Rust 核心转交，而不是在语言层重新 materialize 一整套中间对象。
-4. 若语言层为了宿主体验提供便捷 helper，例如同步包装、Unity 主线程派发或 Python async iterator，这些 helper 只能建立在 Rust canonical session model 之上，不得重新定义 preview3 的默认协议行为。
-
-preview3 明确反对以下做法：
-
-1. Python 和 C# 各自维护独立的 preview3 packet builder / parser。
-2. 语言绑定私设新的 object kind、payload kind、error code 或 flow-control 含义。
-3. 为了单一运行时局部优化，把模型私有缓存页布局直接固化进公共协议必选字段。
-
-## 6. 与 preview2 的兼容边界
+## 6. NNRP/1 代码层身份与继承约束
 
 ### 6.1 代码层版本身份
 
@@ -120,7 +98,7 @@ preview3 继续保留 40 字节公共头与 `meta_len + body_len` 自描述长�
 3. body region 的扩展能力和 typed payload / schema 绑定关系；
 4. 连接与会话状态机语义。
 
-### 6.3 preview2 已冻结主题的继承原则
+### 6.3 已冻结主题的延续原则
 
 preview2 中以下设计原则在 preview3 继续成立：
 
@@ -138,14 +116,14 @@ preview3 将连接明确视为会话容器，而不是单活 session 的专用�
 最小要求：
 
 1. 一条连接允许承载多个活跃 session。
-2. `CLIENT_HELLO / SERVER_HELLO_ACK` 负责连接级能力协商、鉴权、Rust canonical feature window、基础缓存与 schema 能力声明。
+2. `CLIENT_HELLO / SERVER_HELLO_ACK` 负责连接级能力协商、鉴权、feature window、基础缓存与 schema 能力声明。
 3. 新增 `SESSION_OPEN / SESSION_OPEN_ACK` 作为显式会话创建流程，用于声明 profile、schema、预算窗口、优先级类和缓存/租约要求。
 4. `SESSION_PATCH / SESSION_PATCH_ACK` 继续保留为低频会话更新路径。
 5. `CLOSE` 继续可用于连接级关闭；preview3 额外要求显式会话关闭语义，避免“关闭一个 session 等于关闭整条连接”的 preview1/2 习惯继续泄漏到多 session 模型中。
 
 ### 7.1A `SESSION_OPEN` / `SESSION_OPEN_ACK` fixed metadata 冻结
 
-preview3 首轮将 `SESSION_OPEN` 与 `SESSION_OPEN_ACK` 固定为最小可实现、可扩展的会话打开元数据，而不是让各语言绑定私自拼装 session open body。
+preview3 首轮将 `SESSION_OPEN` 与 `SESSION_OPEN_ACK` 固定为最小可实现、可扩展的会话打开元数据，而不是让实现侧私自拼装 session open body。
 
 `SESSION_OPEN` fixed metadata 首轮固定为 48 字节：
 
@@ -316,7 +294,7 @@ preview3 引入显式优先级与流等级语义，用于同连接多会话和�
 3. 动态 credit 在会话级与连接级的双层约束。
 4. 服务端对优先级降级、限流或抢占的显式回执。
 
-preview3 不要求把具体调度算法写死成单一实现，但必须冻结这些语义对象和错误口径，避免不同语言绑定对“背压”“抢占”“过期”的解释继续分叉。
+preview3 不要求把具体调度算法写死成单一实现，但必须冻结这些语义对象和错误口径，避免不同实现对“背压”“抢占”“过期”的解释继续分叉。
 
 ### 7.2A 调度标准枚举冻结
 
@@ -354,7 +332,7 @@ preview3 首轮冻结以下标准枚举值：
 
 首轮约束：
 
-1. 所有语言绑定都必须把这些数值视为协议枚举，而不是本地 SDK 私有状态码。
+1. 所有实现都必须把这些数值视为协议枚举，而不是局部私有状态码。
 2. `partial` 与 `completed` 允许在同一 operation 生命周期中先后出现；`failed / cancelled / superseded / completed` 属于终结状态。
 3. `interactive` 只表达调度优先级与 credit 倾向，不保证绝对资源独占。
 
@@ -395,7 +373,7 @@ preview3 首轮进一步冻结以下缓存公共口径：
 
 首轮约束：
 
-1. `cache_miss / lease_expired / version_mismatch / dependency_invalid / schema_mismatch` 必须在跨语言路径上保持稳定错误口径，不得被语言绑定改写成私有字符串错误。
+1. `cache_miss / lease_expired / version_mismatch / dependency_invalid / schema_mismatch` 必须在所有实现路径上保持稳定错误口径，不得被局部实现改写成私有字符串错误。
 2. 结果复用若依赖某个 `object_id + object_version` 或 schema 版本，则该依赖必须进入可观测关系图；依赖失效时必须返回稳定错误码或显式失效事件。
 3. runtime-private object kind 可以继续存在，但不得绕过上述 `object_id / object_version / lease_id / cache_error_code` 公共语义。
 
@@ -408,7 +386,7 @@ preview3 不再把“继续增加 payload kind 枚举”当作主要扩展方式
 1. 公共层不预设单一默认 profile；首轮标准 profile 至少包含 `tensor` 与 `token`，并继续允许 `structured_event`、`tool_delta`、`opaque_bytes` 等 payload family 挂到 schema/profile registry 上。
 2. 具体 payload 语义通过 `schema_id + schema_version + profile_id + stream_semantics` 绑定，而不是每来一种新数据都新增一个公共 payload kind。
 3. schema object 进入 cache / lease 生命周期，可预装、引用、失效和版本回退。
-4. 语言绑定不再自己解释 descriptor 私有字段，而是统一走 Rust canonical schema registry。
+4. 不同实现不得各自解释 descriptor 私有字段，必须按统一 schema registry 规则处理。
 
 preview3 因此至少需要标准化以下信息：
 
@@ -419,7 +397,7 @@ preview3 因此至少需要标准化以下信息：
 
 ### 9.3 schema descriptor 通用头冻结
 
-preview3 首轮将 schema descriptor 通用头固定为 32 字节，用于在不解析 profile 私有 body 的前提下完成版本、兼容性与路由判断。
+preview3 首轮将 schema descriptor 通用头固定为 32 字节，用于在不解析 profile 私有 body 的前提下完成版本、适用范围与路由判断。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -427,8 +405,8 @@ preview3 首轮将 schema descriptor 通用头固定为 32 字节，用于在不
 | `schema_version` | `u32` | schema 版本 |
 | `profile_id` | `u16` | 该 schema 所属 profile |
 | `schema_flags` | `u16` | schema 行为标志 |
-| `compat_min_stage` | `u8` | 最低兼容 stage |
-| `compat_max_stage` | `u8` | 最高兼容 stage |
+| `min_version_major` | `u8` | 最低适用主版本 |
+| `max_version_major` | `u8` | 最高适用主版本 |
 | `reserved0` | `u16` | 保留，发送端清零 |
 | `body_bytes` | `u32` | schema body 长度 |
 | `dependency_count` | `u16` | 依赖 schema / object 条目数 |
@@ -437,9 +415,9 @@ preview3 首轮将 schema descriptor 通用头固定为 32 字节，用于在不
 
 首轮约束：
 
-1. 通用头只解决“这个 schema 是谁、属于哪个 profile、兼容哪个 stage、body 多长、依赖多少对象”这类公共问题。
+1. 通用头只解决“这个 schema 是谁、属于哪个 profile、适用于哪个主版本、body 多长、依赖多少对象”这类公共问题。
 2. 任何 profile 私有解释字段都必须进入 schema body，不得继续膨胀通用头。
-3. `schema_hash` 用于跨语言一致性校验与缓存去重，不直接替代 `schema_id + schema_version` 的逻辑身份。
+3. `schema_hash` 用于一致性校验与缓存去重，不直接替代 `schema_id + schema_version` 的逻辑身份。
 4. `default_stream_semantics` 只提供默认语义；具体 payload descriptor 仍可在单帧或单 operation 上覆盖。
 
 `schema_flags:u16` 首轮冻结以下位定义：
@@ -549,15 +527,15 @@ preview3 首轮将 schema registry 的最小流程冻结为：
 | `0x00040001` | `schema_unknown` | 请求的 `schema_id` 不存在 |
 | `0x00040002` | `schema_version_unknown` | 请求的 `schema_version` 不存在 |
 | `0x00040003` | `schema_hash_conflict` | 相同 `schema_id + schema_version` 对应不同 `schema_hash` |
-| `0x00040004` | `schema_incompatible` | schema 与当前 profile、stage 或关键约束不兼容 |
+| `0x00040004` | `schema_incompatible` | schema 与当前 profile、主版本或关键约束不兼容 |
 | `0x00040005` | `schema_dependency_missing` | schema 依赖项不存在或不可用 |
 | `0x00040006` | `schema_update_rejected` | schema 更新或失效请求被策略拒绝 |
 
 首轮约束：
 
 1. 当 `schema_flags.critical` 置位且接收方无法识别 schema、版本或依赖时，必须返回稳定 `schema_error_code`，不得静默跳过。
-2. typed payload descriptor 与 `schema_id / schema_version / profile_id` 的绑定是强约束；不得在语言绑定侧改写为“看起来兼容就继续解析”。
-3. `install / update / invalidate / version_conflict` 的标准流程由 Rust canonical registry 实现，语言绑定只暴露宿主友好的控制面，不自行解释冲突结果。
+2. typed payload descriptor 与 `schema_id / schema_version / profile_id` 的绑定是强约束；不得在实现侧改写为“看起来差不多就继续解析”。
+3. `install / update / invalidate / version_conflict` 的标准流程必须在所有实现中保持一致；宿主封装不得私自改写冲突结果。
 
 ## 10. preview3 Agent / Workflow 运行时语义
 
@@ -598,7 +576,7 @@ preview3 首轮将恢复对象明确冻结为 session；frame 不是恢复对象
 
 ### 11.1 `FLOW_UPDATE` 三层 scope 与 metadata 冻结
 
-preview3 首轮将 `FLOW_UPDATE` 固定为 32 字节 fixed metadata，用于统一表达 connection、session、operation 三层 credit 与 backpressure 更新，而不是让不同语言绑定各自定义私有 credit 包。
+preview3 首轮将 `FLOW_UPDATE` 固定为 32 字节 fixed metadata，用于统一表达 connection、session、operation 三层 credit 与 backpressure 更新，而不是让不同实现各自定义私有 credit 包。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
@@ -670,135 +648,14 @@ preview3 首轮冻结以下恢复语义：
 4. 若 `resume_token` 无效、过期、越权或与请求的 profile/schema/session 能力不兼容，服务端必须返回 `session_error_code = resume_rejected`。
 5. 恢复不得把历史 frame 视为独立恢复对象；任何 frame 级或单包级补偿都必须从属于 session 恢复语义。
 
-## 12. Rust FFI 与绑定契约
+## 12. 协议冻结摘要
 
-preview3 要求 Rust canonical SDK 至少提供稳定、可多语言复用的 FFI 契约。
+本文档当前冻结的是以下协议主题：
 
-最小要求：
+1. `NNRP/1.0` 代码层身份、40B 公共头和 `meta_len + body_len` 长度模型。
+2. 连接/会话/operation 的分层边界，以及 `SESSION_OPEN / SESSION_OPEN_ACK`、显式 session close、恢复对象与路由字段语义。
+3. `FLOW_UPDATE`、优先级、取消范围、operation 生命周期和恢复水位等运行时语义。
+4. cache lease、schema/profile registry、32B schema descriptor、24B typed payload descriptor 及其标准错误口径。
+5. `structured_event` / `tool_delta` 与公共 lifecycle 语义之间的边界，以及跨语言 conformance、golden vector、枚举值和错误码基线。
 
-1. 稳定 C ABI 或其他跨语言稳定 ABI 边界。
-2. 显式 handle 生命周期：connection handle、session handle、operation handle、buffer handle、schema handle。
-3. 回调与轮询双模式：允许 Unity/C#、Python async、Node.js event loop、JVM 和 Go runtime 选择适合的驱动方式。
-4. buffer view / slice 生命周期规则明确，避免语言层复制整段 payload 后再解析一次。
-5. 所有语言绑定共享同一组 golden vectors、错误码和 conformance 套件。
-
-preview3 的 binding contract 明确要求：
-
-1. Python 侧优先暴露 async control/session API、buffer view 和结果订阅接口。
-2. C# 侧优先暴露 Unity / .NET 友好的 session orchestration、回调和内存安全封装，但不重写 wire codec。
-3. 新语言 SDK 进入生态时，默认从 Rust canonical FFI 起步，而不是复制 Python 或 C# 的纯语言实现。
-
-### 12.1 handle 生命周期、驱动模式与错误族冻结
-
-preview3 首轮冻结以下 FFI 公共契约：
-
-1. 所有 handle 在 ABI 边界上都视为 opaque handle；`0` 为无效 handle。
-2. `connection_handle` 拥有 `session_handle`；`session_handle` 拥有 `operation_handle`；父 handle 释放后，其子 handle 不得继续被语言绑定使用。
-3. `schema_handle` 可独立缓存，但其 buffer / body 视图仍受 buffer-view 生命周期规则约束。
-4. `buffer_view_handle` 只保证在显式 release 前或约定回调返回前有效；语言绑定若要跨越该窗口持有数据，必须执行显式复制。
-5. Rust canonical SDK 必须同时提供 callback-driven 与 polling-driven 驱动模式；语言绑定可以选择其一或同时暴露两者，但不得改写事件顺序语义。
-
-`ffi_error_family:u32` 首轮冻结以下高位 family：
-
-| family 前缀 | 名称 | 含义 |
-| --- | --- | --- |
-| `0x00010000` | `protocol` | 协议层错误 |
-| `0x00020000` | `state_machine` | 连接、session、operation 状态机错误 |
-| `0x00030000` | `cache` | cache / lease 错误 |
-| `0x00040000` | `schema` | schema / profile registry 错误 |
-| `0x00050000` | `binding_contract` | FFI / handle / buffer / 回调契约错误 |
-
-`binding_contract` 子码首轮冻结为：
-
-| 值 | 名称 | 含义 |
-| --- | --- | --- |
-| `0x00050001` | `invalid_handle` | 传入了无效或已释放的 handle |
-| `0x00050002` | `ownership_violation` | 违反了 handle 或 buffer 的所有权规则 |
-| `0x00050003` | `thread_affinity_violation` | 在不允许的线程或事件循环上使用对象 |
-| `0x00050004` | `buffer_released` | 在 buffer-view 释放后继续访问其内容 |
-| `0x00050005` | `callback_reentrancy_forbidden` | 在禁止重入的 callback 期间发生重入调用 |
-
-## 13. 落地顺序
-
-preview3 推荐按以下阶段推进：
-
-1. Phase A: 先落 Rust canonical SDK，并把 preview1/preview2 已冻结语义迁入 Rust，实现跨语言共享的 wire codec、状态机、golden vectors 和 conformance。
-2. Phase B: 在 Rust 核心与协议文档上补齐多 session、优先级、cache lease 和 schema registry 的基础语义。
-3. Phase C: 让 Python、C# 绑定收敛到 Rust 核心，只保留 host-facing 控制面与语言友好封装。
-4. Phase D: 在 schema/profile registry 基础上扩充新的 payload family、workflow 事件和生态语言绑定。
-
-preview3 的第一优先级不是“继续堆更多 payload kind”，而是“先把 canonical SDK、连接/会话模型和高级缓存/registry 边界冻结下来”。本文档已完成首轮冻结基线，后续 JS、Java、Go 等生态绑定应直接据此实现，而不是再次回到“先各自实现、再回头对齐语义”的路径。
-
-## 14. preview3 首轮冻结结果摘要
-
-为避免再次出现“两个 SDK 先各自实现、再回头冻结语义”的偏移路径，本文档已完成以下条目的首轮冻结；Rust、Python、C# 与后续语言绑定应直接据此落代码实现。
-
-### 14.1 Canonical SDK ownership
-
-1. `nnrp-rs` 是 preview3 wire codec、状态机、缓存/registry 语义、golden vector 与 conformance 的唯一 canonical implementation。
-2. Python/C# 只能实现绑定层、宿主 API、包装模型和加载/调度逻辑，不得各自实现第二套 preview3 packet builder / parser / state machine。
-3. preview3 的任何跨语言公共语义变更，都必须先落在 Rust 仓与协议文档，再进入 Python/C# 绑定层。
-
-### 14.2 FFI contract
-
-以下 FFI 边界已经冻结：
-
-1. handle 家族：`connection / session / operation / schema / buffer_view`。
-2. handle 生命周期：创建、借用、释放、错误后可恢复性。
-3. 事件驱动模式：回调驱动、轮询驱动，或双模式并存。
-4. buffer view 规则：何时允许零拷贝视图，何时必须显式复制，何时宿主必须完成释放。
-5. 稳定错误码族：协议错误、状态机错误、缓存错误、schema 错误、绑定契约错误。
-
-### 14.3 Connection/session lifecycle
-
-以下连接与会话语义已经冻结：
-
-1. connection 级握手与 session 级打开流程的分层边界。
-2. `SESSION_OPEN / SESSION_OPEN_ACK` 作为标准消息引入，且首轮 fixed metadata 分别冻结为 48B / 56B。
-3. session close 是否有显式控制消息或专用 metadata 语义，而不是继续复用 connection `CLOSE` 的隐含习惯。
-4. 多 session 共用一条连接时，control/data/result 消息所需的最小路由字段。
-5. `session_flags / session_status / session_flags_ack / session_error_code` 的位定义与数值族。
-
-### 14.4 Scheduling semantics
-
-以下调度语义已经冻结：
-
-1. `session_priority_class` 的标准枚举值：`interactive=0 / balanced=1 / background=2`。
-2. `operation_state` 的标准枚举值：`accepted=0 / running=1 / partial=2 / waiting_tool=3 / superseded=4 / cancelled=5 / failed=6 / completed=7`。
-3. `cancel_scope` 的标准枚举值：`operation=0 / subtree=1 / group=2 / session=3`。
-4. `FLOW_UPDATE` fixed metadata 固定为 32B，并冻结 `scope_kind / update_reason / backpressure_level / flow_flags` 以及 connection/session/operation 三层 credit 语义。
-
-### 14.5 Advanced cache contract
-
-以下缓存语义已经冻结：
-
-1. `object_id` 与 `object_version` 的分工。
-2. lease identity、过期、续租与驱逐提示语义。
-3. dependency invalidation 的最小稳定原因码。
-4. 结果复用、schema 引用与对象失效之间的可观测关系。
-
-### 14.6 Schema/profile registry
-
-以下 schema/profile registry 条目已经冻结：
-
-1. 首轮标准 profile 集合；至少明确 `tensor profile` 与 `token profile` 并列成立，公共层不得再把 tensor 视为默认特权 profile。
-2. `token profile` 的最小标准语义边界，尤其是 token chunk、位置范围、完成状态和 stop-reason 的公共口径。
-3. schema descriptor 通用头固定为 32B，并冻结其最小字段集合。
-4. typed payload descriptor 固定为 24B，并冻结其最小公共字段集合与 `descriptor_flags` 位定义。
-5. schema install / update / invalidate / version conflict 的标准流程。
-6. typed payload descriptor 与 `schema_id / schema_version / profile_id` 的绑定规则。
-7. 未知 schema、版本冲突、关键 schema 不兼容时的标准错误行为。
-
-### 14.7 Payload family vs lifecycle boundary
-
-以下条目已经冻结：
-
-1. `structured_event` 与 `tool_delta` 默认属于 payload family，而不是独立 profile。
-2. 只有影响跨语言互通的 operation lifecycle 状态、路由或取消语义时，对应最小字段才进入公共 lifecycle 模型。
-3. 工具正文、富事件正文与其他高层负载默认通过 schema/profile registry 解释，不进入公共固定 metadata。
-
-### 14.8 Conformance ownership
-
-1. preview3 canonical golden vectors 只能由 Rust 生成。
-2. Python/C# 只能导入 Rust fixtures 做绑定验证，不得并行维护“同级 canonical 向量”。
-3. preview3 的枚举值、消息值、metadata 长度和错误码已经作为 Rust conformance 的首轮基线，下游语言绑定测试必须直接消费这组基线。
+具体实现的 API 形状、打包和发布策略，不属于本文冻结范围。

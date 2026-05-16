@@ -9,7 +9,7 @@ preview2 关注的问题不再只是“能不能连通”，而是以下四件�
 1. 让客户端与服务端可以复用低频对象，避免热路径每次都全量重发稳定内容。
 2. 让协议显式表达 typed payload / extension frame，使 tensor、token、音视频块、结构化事件和工具增量都能走统一的实时会话语义。
 3. 让协议显式表达 partial / stale / degrade / supersede 这些低时延场景必需的运行时语义。
-4. 让 SDK 与 host runtime 不必各自私下发明流控、预算、降级、对象引用和传输切换规则。
+4. 让收发两端与宿主接入层不必各自私下发明流控、预算、降级、对象引用和传输切换规则。
 
 这里的“轻量实时”同样不意味着 `NNRP` 要成为通用实时媒体协议。它主要解决的是神经网络场景里“语义对象、推理预算、结果降级、对象引用、传输切换”这些运行时问题，而不是浏览器媒体栈或视频分发栈本身的问题。
 
@@ -48,7 +48,7 @@ preview2 不负责以下主题：
 
 1. 多租户与多连接聚合调度。
 2. 连接迁移、断点恢复与 resume token 正式化。
-3. GPU 侧零拷贝、Unity 渲染管线或 Python runtime 内部线程模型。
+3. GPU 侧零拷贝、特定渲染管线或 runtime 内部线程模型。
 4. 最终正式版的多路 QoS 分类与优先级仲裁。
 5. 面向传统 Web 音视频通话的 ICE/NAT 穿透、设备采集、A/V sync、AEC/NS/AGC、SFU/MCU 等浏览器媒体能力。
 6. 面向泛视频流分发或视频流云游戏的连续媒体传输栈，例如硬件编解码、jitter buffer、ABR、frame pacing 与显示链路优化。
@@ -62,13 +62,13 @@ preview2 保持以下原则不变：
 1. 热路径继续禁止 JSON 与 Protobuf。
 2. 公共头继续保持固定长度、小端序、显式长度字段与可直接定位的二进制布局。
 3. 低频对象协商继续走可靠 control stream；高频 typed payload 继续走 submit/result stream。
-4. 任何对延迟有利的语义都必须先成为协议概念，再落在 SDK 与 runtime 中，而不是只做仓库私有技巧。
+4. 任何对延迟有利的语义都必须先成为协议概念，再落到具体实现中，而不是只做局部私有技巧。
 5. tensor 仍是首个标准 payload profile，但 preview2 不再把数据面限定为“仅张量”。
 6. preview2 的规范会话形态是“单 session 长连接上的异步 submit pump + result pump + control side-channel”，而不是“每次 `FRAME_SUBMIT` 都隐含一次同步 request-response 事务”。
 7. `FRAME_SUBMIT` 负责表达提交、预算、依赖与 payload 语义，不应在协议语义上被解释为“提交这一帧并等待匹配结果后才允许继续发送后续帧”。
-8. 若 host 或 SDK 仍提供 `submit_and_wait` 一类便捷 API，它只能被视为 smoke / demo helper，不得反向定义 preview2 的标准调用模型。
+8. 若宿主侧仍提供 `submit_and_wait` 一类便捷调用，它只能被视为 smoke / demo 级便捷封装，不得反向定义 preview2 的标准调用模型。
 
-## 4. 与 preview1 的兼容边界
+## 4. 当前 NNRP/1 代码层身份与既有消息延续
 
 ### 4.1 代码层版本身份
 
@@ -88,9 +88,9 @@ preview2 继续沿用 40 字节公共头，不改变 header 基本形状：
 2. `header_len` 继续固定为 `40`。
 3. preview2 的主要演进点放在消息类型、metadata 字段表、body block 组织规则和 flags 语义扩展，而不是更换公共头。
 
-### 4.3 preview1 既有消息复用
+### 4.3 既有消息延续
 
-preview1 中已有的以下消息继续保留：
+以下既有消息继续保留：
 
 1. `CLIENT_HELLO`
 2. `SERVER_HELLO_ACK`
@@ -134,7 +134,7 @@ preview2 约束如下：
 
 preview2 将 `FRAME_SUBMIT` 的提交模式冻结为三种：
 
-1. `inline`：沿用 preview1 兼容路径，全量内联对象块与 typed payload frame。
+1. `inline`：全量内联对象块与 typed payload frame。
 2. `reference`：主体仅发送引用句柄与少量动态字段，不重复发送稳定对象。
 3. `mixed`：部分 block 内联，部分 block 用 cache reference。
 
@@ -192,7 +192,7 @@ preview2 额外冻结以下会话级约束：
 2. 服务端可以乱序完成不同 `frame_id` 的结果，只要结果元数据能明确声明 `frame_id / dependency_frame_id / reused_frame_id / result_class`。
 3. 客户端必须允许在同一长连接上独立接收 `RESULT_PUSH / RESULT_DROP / FLOW_UPDATE / RESULT_HINT`，而不是把结果读取强耦合到某一次 submit 调用的返回路径上。
 4. `stale / superseded / degraded / drop` 语义的目标，正是让结果消费可以与提交解耦；旧结果可被显式废弃，但这不应阻塞更新帧继续提交。
-5. 因此，preview2 的默认 host / SDK 实现形态应是后台结果泵、显式 in-flight 跟踪和按 deadline 消费，而不是逐帧同步等待。
+5. 因此，preview2 的默认交互形态应是后台结果泵、显式 in-flight 跟踪和按 deadline 消费，而不是逐帧同步等待。
 6. 这些约束属于 preview2 现阶段要落地的运行时语义，不属于必须推迟到 preview3 的版本级主题；只有当后续需要新的 wire-visible 优先级类、恢复语义或更细粒度多队列调度时，才应进入更后续版本讨论。
 
 ### 5.6 丢包容忍声明
@@ -249,7 +249,7 @@ preview2 首轮至少保留以下 `payload_kind`：
 6. `tool_delta`
 7. `opaque_bytes`
 
-为避免两个 SDK 在位图定义上各自编号，preview2 冻结 `payload_kind_bitmap` 为 `u32`，位定义如下：
+为避免不同实现在位图定义上各自编号，preview2 冻结 `payload_kind_bitmap` 为 `u32`，位定义如下：
 
 | bit | 掩码 | `payload_kind` |
 | --- | --- | --- |
@@ -405,7 +405,7 @@ preview2 的 `FRAME_SUBMIT` metadata 从 preview1 的固定布局扩展为 v2 �
 6. `payload_kind_bitmap`：声明本帧 body 中包含哪些 `payload_kind`。
 7. `payload_frame_count`：声明本帧携带的 typed payload frame 数量。
 
-在完整 v2 metadata 布局冻结前，preview2 先冻结以下字段编码约束，避免两个 SDK 先把局部字段写成不同位宽：
+在完整 v2 metadata 布局冻结前，preview2 先冻结以下字段编码约束，避免不同实现先把局部字段写成不同位宽：
 
 1. `submit_mode: u8`，枚举值固定为 `0=inline`、`1=reference`、`2=mixed`。
 2. `budget_policy: u8`，按 bitmask 编码：`0x01=allow_partial`、`0x02=allow_stale_reuse`、`0x04=allow_degraded`、`0x08=allow_drop`；其余 bit 保留且必须为 `0`。
@@ -447,11 +447,11 @@ preview2 不改变 `CACHE_PUT / CACHE_ACK / CACHE_INVALIDATE` 的角色，但强
 2. `CACHE_ACK` 必须指明对象是否可立即进入热路径引用。
 3. `CACHE_INVALIDATE` 必须支持按 `namespace / object_kind / object_key / whole_session` 四种粒度失效。
 
-为避免 cache 语义在不同 SDK 中漂移，preview2 先冻结以下基础枚举与位宽：
+为避免 cache 语义在不同实现中漂移，preview2 先冻结以下基础枚举与位宽：
 
 1. `object_kind: u16`，首轮标准值为：`0x0001=camera_block`、`0x0002=tile_index_block`、`0x0003=tensor_section_table`、`0x0004=codec_table`、`0x0005=reusable_result_object`、`0x0006=payload_layout_template`、`0x0007=prompt_segment`、`0x0008=tool_schema`、`0x0009=structured_event_schema`。
 2. `invalidate_scope: u8`，固定为：`0=whole_session`、`1=namespace`、`2=object_kind`、`3=object_key`。
-3. 未分配的 `object_kind` 与 `invalidate_scope` 值均保留，发送端必须拒绝私有占位；若后续需要扩展，应由协议文档追加编号而不是仓库私有约定。
+3. 未分配的 `object_kind` 与 `invalidate_scope` 值均保留，发送端必须拒绝私有占位；若后续需要扩展，应由协议文档追加编号而不是局部私有约定。
 
 ## 7. body block 组织规则
 
@@ -465,7 +465,7 @@ preview2 首轮冻结的数据面 body 统一采用“固定 prelude + 固定顺
 6. extension frame descriptor table
 7. extension frame payload region
 
-其中 tensor-centric session 中的 camera block、tile index block、tensor section table 只是标准 object kind / payload profile 的具体实例；token、音视频块、结构化事件和工具增量通过 `payload_kind` 与 profile-specific payload 解释表达。preview2 首轮不再保留一个单独的“typed payload reference block region”；payload 数据本身的引用式传输不属于本次冻结范围，后续若需要引入，必须在协议文档中追加新的固定布局，而不是在两个 SDK 中私设。
+其中 tensor-centric session 中的 camera block、tile index block、tensor section table 只是标准 object kind / payload profile 的具体实例；token、音视频块、结构化事件和工具增量通过 `payload_kind` 与 profile-specific payload 解释表达。preview2 首轮不再保留一个单独的“typed payload reference block region”；payload 数据本身的引用式传输不属于本次冻结范围，后续若需要引入，必须在协议文档中追加新的固定布局，而不是在局部实现中私设。
 
 ### 7.1 `BodyRegionPrelude` 固定布局
 
@@ -482,7 +482,7 @@ preview2 首轮冻结的数据面 body 统一采用“固定 prelude + 固定顺
 
 约束如下：
 
-1. 各 region 在 body 中必须严格连续拼接，长度分别由上述字段给出；SDK 不得通过“猜测有没有某类 block”来决定偏移。
+1. 各 region 在 body 中必须严格连续拼接，长度分别由上述字段给出；实现不得通过“猜测有没有某类 block”来决定偏移。
 2. `body_flags` 在 preview2 首轮必须为 `0`；`reserved` 必须为 `0`。
 3. 若 `payload_frame_count == 0`，则 `typed_payload_descriptor_bytes` 与 `typed_payload_frame_bytes` 都必须为 `0`。
 4. `typed_payload_descriptor_bytes` 必须等于 `payload_frame_count * 16`。
@@ -554,30 +554,26 @@ preview2 首轮冻结的是上述 body prelude、low-frequency object block/refe
 2. `TypedPayloadDescriptor.descriptor_flags` 的语义扩展；preview2 首轮必须为 `0`。
 3. 标准 extension frame kind 的具体编号；在编号未分配前不得私设关键扩展。
 
-在该边界内，两个 SDK 与 runtime 可以继续实现 inline typed payload、low-frequency object reference、unknown non-critical extension fast-skip，以及显式 body ordering；超出该边界的 payload-data reference 设计不得再以仓库私有方式推进。
+在该边界内，实现侧可以继续落地 inline typed payload、low-frequency object reference、unknown non-critical extension fast-skip，以及显式 body ordering；超出该边界的 payload-data reference 设计不得再以局部私有方式推进。
 
 ## 8. preview2 成功标准
 
 preview2 的成功标准不是“字段更多”，而是以下结果成立：
 
-1. 两端 SDK 可以在不改公共头的前提下实现 mixed submit / partial result。
+1. 收发两端可以在不改公共头的前提下实现 mixed submit / partial result。
 2. 低频稳定对象在热路径上可以引用而不是重发。
 3. `partial / stale / degraded / drop` 能被协议显式区分并落到客户端行为中。
-4. 运行期 flow control 不再完全依赖仓库私有实现，而是成为 wire-visible 语义。
+4. 运行期 flow control 不再完全依赖局部私有实现，而是成为 wire-visible 语义。
 5. 同一套协议可以承载 tensor、token、音视频块、结构化事件和工具增量，而不需要为每类 AI workload 重新发明一条传输链路。
-6. 两端 SDK 的规范调用形态应能支持多帧 in-flight 与独立结果泵，而不是把 `FRAME_SUBMIT -> RESULT_PUSH` 固化成逐帧同步 API。
+6. 协议默认交互形态应能支持多帧 in-flight 与独立结果泵，而不是把 `FRAME_SUBMIT -> RESULT_PUSH` 固化成逐帧同步 API。
 
-## 9. 实现边界
+## 9. 协议边界
 
-preview2 设计落地后，各仓库分工如下：
+preview2 冻结的是协议对象、消息语义、metadata 字段表、body 布局、transport probing 与结果口径。
 
-1. `neural-render-runtime` 负责协议设计冻结、后端控制面/数据面解释、结果策略与端到端验证。
-2. `nnrp-py` 负责 Python 侧 wire codec、transport helper、replay/export 与跨语言 golden vectors。
-3. `nnrp-cs` 负责 Unity-compatible C# codec、native bridge glue、后续高频 worker 化与引用式提交流程。
+具体实现可以在这一边界内提供异步提交泵、结果泵、重放工具与宿主接入封装，但不得改变已冻结的字节布局、状态机和错误口径。
 
-preview2 的协议语义应先在三个仓库中形成同一口径。
-
-如果只是把 preview2 已有的 submit/result/control 语义在 SDK façade、helper、host integration 中落成真正的异步持续流调用模型，则这项工作属于 preview2 范围；不应因为现有 helper 仍保留逐帧 `submit_and_wait` 便把该语义推迟到 preview3。
+如果只是把 preview2 已有的 submit/result/control 语义落成真正的异步持续流调用模型，这项工作仍属于 preview2 范围；不应因为现有便捷封装仍保留逐帧 `submit_and_wait` 就把该语义推迟到 preview3。
 
 ## 10. 传输层可插拔设计与 Transport Probing
 
@@ -596,7 +592,7 @@ preview2 首轮冻结两种传输绑定：
 
 若客户端已经知道要强制某条路径，则应在首个包发送前通过本地 dial policy 直接选定该 binding，而不是依赖新的 URI scheme。为让这一意图在协议层可见，preview2 要求 `CLIENT_HELLO` 扩展字段携带 `transport_policy`（例如 `auto / prefer_quic / prefer_tcp / force_quic / force_tcp`）与可选的 `preferred_transport_id`；`SERVER_HELLO_ACK` 返回 `active_transport_id`，必要时回显被接受或降级后的策略。这样既保留自动选路，又允许显式指定 transport，而且不会把 transport 枚举硬编码到 endpoint scheme 里。
 
-为避免各仓库各自发明 `control_extension_block` 的握手扩展编号，preview2 在 `CLIENT_HELLO / SERVER_HELLO_ACK` 中冻结以下扩展类型：
+为避免实现侧各自发明 `control_extension_block` 的握手扩展编号，preview2 在 `CLIENT_HELLO / SERVER_HELLO_ACK` 中冻结以下扩展类型：
 
 | `ext_type` | 承载消息 | 名称 | payload 说明 |
 | --- | --- | --- | --- |
@@ -679,7 +675,7 @@ preview2 新增两个消息类型：
 6. 如果两路均无成功样本，返回连接失败错误
 ```
 
-以上规则冻结的是 preview2 默认客户端选路策略，而不是新的 wire 字段；`nnrp-py`、`nnrp-cs` 以及后续宿主侧 helper 应默认保持同一排序口径，避免不同 SDK 在同一网络条件下做出不同 transport 决策。
+以上规则冻结的是 preview2 默认客户端选路策略，而不是新的 wire 字段；所有客户端实现都应默认保持同一排序口径，避免在同一网络条件下做出不同 transport 决策。
 
 #### 可选性与向后兼容
 

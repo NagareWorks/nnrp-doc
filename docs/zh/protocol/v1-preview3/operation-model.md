@@ -1,6 +1,6 @@
 # NNRP/1-preview3 会话与操作模型
 
-preview3 把连接、session、operation 三层拆开，避免不同语言绑定继续把它们揉成一团。
+preview3 把连接、session、operation 三层拆开，避免不同实现继续把它们揉成一团。
 
 ## 连接
 

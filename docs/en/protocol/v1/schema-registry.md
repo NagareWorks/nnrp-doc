@@ -69,7 +69,7 @@ sequenceDiagram
 
 **Pre-install large schemas**: Schema definitions larger than a few hundred bytes should be pre-installed via `CACHE_PUT` at session start rather than inlined with every frame. Install once; all subsequent frames use `schema_ref`.
 
-**Keep version identifiers stable**: `schema_id + schema_version` is the logical identity. `schema_hash` is only a consistency check. Do not use hash as identity — different implementations may compute different hashes for the same schema, causing false mismatch errors.
+**Keep version identifiers stable**: `schema_id + schema_version` is the logical identity. `schema_hash` is only a consistency check. Do not use hash as identity — different receivers may compute different hashes for the same schema, causing false mismatch errors.
 
 **Record the negotiated result**: The `active_schema_id` and `active_schema_version` fields in `SESSION_OPEN_ACK` are the ground truth for the current session's schema. Record them on the host side. When a mismatch occurs, check against this record before retrying.
 

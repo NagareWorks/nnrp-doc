@@ -15,5 +15,5 @@ preview3 的公共层是 profile-neutral 的。首轮标准 profile 先冻结为
 
 用户侧实现需要牢记：
 
-1. 解释 payload 时，先看 `profile_id + schema_id + schema_version`，再看语言绑定私有对象。
+1. 解释 payload 时，先看 `profile_id + schema_id + schema_version`，再看实现私有对象。
 2. 如果同一连接里同时跑 tensor 与 token，会话层和流控层仍共享同一套公共机制。

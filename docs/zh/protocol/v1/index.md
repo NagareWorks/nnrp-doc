@@ -57,6 +57,6 @@ next:
 	</a>
 	<a href="/nnrp-doc/zh/protocol/v1/flow-control-and-priority/">
 		<strong>流控与优先级</strong>
-		看为什么背压、信用和 priority 不能继续藏在 SDK 私有实现里。
+		看为什么背压、信用和 priority 不能继续藏在局部私有逻辑里。
 	</a>
 </div>

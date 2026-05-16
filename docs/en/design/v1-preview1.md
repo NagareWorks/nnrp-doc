@@ -122,7 +122,7 @@ Among them:
 
 `CLIENT_HELLO` must cover the following low-frequency metadata:
 
-1. Protocol version candidates and compatibility window.
+1. Protocol version candidates and supported version range.
 2. The set of tensor codec / compression algorithms supported by the client.
 3. Supported input profiles, payload kinds, object-reference capabilities, and the corresponding capability bitmaps.
 4. Supported numeric formats and tensor layouts, such as `FP16 / FP8 / INT8 / UINT8` and `NHWC / NCHW`.

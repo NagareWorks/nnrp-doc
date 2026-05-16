@@ -13,7 +13,7 @@ The first thing readers should see here is the global story: what NNRP is, which
   </div>
   <div class="doc-card">
     <h3>Version entry</h3>
-    <p>Use Versions and Compatibility together with the current NNRP/1 entry to read the active public contract and its boundaries.</p>
+    <p>Use Version Entry and Boundaries together with the current NNRP/1 entry to read the active public contract and its boundaries.</p>
   </div>
   <div class="doc-card">
     <h3>Protocol design</h3>
@@ -25,4 +25,4 @@ Recommended reading order:
 
 1. [Background and Intro](/en/background) and [Use Cases and Boundaries](/en/use-cases).
 2. [Core Objects and Flow](/en/core-concepts), [Standard Profiles](/en/profiles/), and [Common Header](/en/common-header/).
-3. Then continue with [Versions and Compatibility](/en/protocol/) and [NNRP/1 (Preview)](/en/protocol/v1/).
+3. Then continue with [Version Entry and Boundaries](/en/protocol/) and [NNRP/1 (Preview)](/en/protocol/v1/).
