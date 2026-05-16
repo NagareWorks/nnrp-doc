@@ -19,6 +19,10 @@ The first thing readers should see here is the global story: what NNRP is, which
     <h3>Protocol design</h3>
     <p>When you need the frozen scope, design tradeoffs, and detailed preview plans, go straight to the protocol design pages.</p>
   </div>
+  <div class="doc-card">
+    <h3>SDK control plane</h3>
+    <p>Enter the dedicated SDK view when you need the frozen control-plane surface, language-specific entry points, and deployment guidance.</p>
+  </div>
 </div>
 
 Recommended reading order:
@@ -26,3 +30,5 @@ Recommended reading order:
 1. [Background and Intro](/en/background) and [Use Cases and Boundaries](/en/use-cases).
 2. [Core Objects and Flow](/en/core-concepts), [Standard Profiles](/en/profiles/), and [Common Header](/en/common-header/).
 3. Then continue with [Version Entry and Boundaries](/en/protocol/) and [NNRP/1 (Preview)](/en/protocol/v1/).
+
+If you are integrating through a language SDK, start from [SDK Overview](/en/sdk/).

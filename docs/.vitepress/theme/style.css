@@ -1,0 +1,188 @@
+.sdk-language-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 16px;
+  padding: 8px 0 8px 16px;
+  border-left: 1px solid var(--vp-c-divider);
+}
+
+.sdk-language-switch__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-2);
+  white-space: nowrap;
+}
+
+.sdk-language-switch__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 156px;
+  border: 1px solid rgba(19, 68, 84, 0.16);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(10, 58, 66, 0.05), rgba(196, 96, 38, 0.08)),
+    var(--vp-c-bg-soft);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.sdk-language-switch__control:hover {
+  border-color: rgba(19, 68, 84, 0.28);
+  transform: translateY(-1px);
+}
+
+.sdk-language-switch__control:focus-within,
+.sdk-language-switch__button.is-open {
+  border-color: rgba(15, 118, 110, 0.45);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14), 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.sdk-language-switch__button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 36px 9px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vp-c-text-1);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  outline: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sdk-language-switch__button-prefix {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-2);
+}
+
+.sdk-language-switch__button-value {
+  color: var(--vp-c-text-1);
+}
+
+.sdk-language-switch__icon {
+  position: absolute;
+  right: 14px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--vp-c-text-2);
+  border-bottom: 2px solid var(--vp-c-text-2);
+  transform: translateY(-1px) rotate(45deg);
+  pointer-events: none;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.sdk-language-switch__button.is-open .sdk-language-switch__icon {
+  transform: translateY(1px) rotate(225deg);
+  border-color: #0f766e;
+}
+
+.sdk-language-switch__menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+  padding: 10px;
+  border: 1px solid rgba(19, 68, 84, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+}
+
+.sdk-language-switch__option {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--vp-c-text-1);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.sdk-language-switch__option:hover {
+  transform: translateY(-1px);
+  border-color: rgba(15, 118, 110, 0.22);
+  background: linear-gradient(135deg, rgba(10, 58, 66, 0.06), rgba(196, 96, 38, 0.08));
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+}
+
+.sdk-language-switch__option.is-active {
+  border-color: rgba(15, 118, 110, 0.26);
+  background: linear-gradient(135deg, rgba(10, 58, 66, 0.08), rgba(196, 96, 38, 0.12));
+}
+
+.sdk-language-switch__option-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sdk-language-switch__option-subtitle {
+  grid-column: 1;
+  font-size: 12px;
+  color: var(--vp-c-text-2);
+}
+
+.sdk-language-switch__option-state {
+  align-self: start;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sdk-language-menu-enter-active,
+.sdk-language-menu-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sdk-language-menu-enter-from,
+.sdk-language-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.98);
+}
+
+@media (max-width: 959px) {
+  .sdk-language-switch {
+    width: 100%;
+    margin: 8px 0 0;
+    padding: 12px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--vp-c-divider);
+    justify-content: space-between;
+  }
+
+  .sdk-language-switch__control {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sdk-language-switch__menu {
+    left: 0;
+    right: 0;
+    min-width: 0;
+  }
+}

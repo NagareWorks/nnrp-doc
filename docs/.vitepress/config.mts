@@ -225,6 +225,34 @@ const customStyle = `
   color: var(--nnrp-text-soft);
 }
 
+.sdk-link-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 20px 0 28px;
+}
+
+.sdk-link-card {
+  display: block;
+  padding: 16px;
+  border: 1px solid var(--nnrp-border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.06);
+  text-decoration: none;
+  color: inherit;
+}
+
+.sdk-link-card strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.sdk-link-card p {
+  margin: 0;
+  color: var(--nnrp-text-soft);
+}
+
 @media (max-width: 640px) {
   .protocol-row {
     flex-wrap: wrap;
@@ -247,7 +275,81 @@ const customStyle = `
 }
 `;
 
+const zhSdkOverviewItems = [
+  { text: "SDK 总览", link: "/zh/sdk/" }
+];
+
+const zhSdkPythonItems = [
+  { text: "Python SDK 概览", link: "/zh/sdk/python/" },
+  { text: "快速使用", link: "/zh/sdk/python/quick-start" },
+  { text: "冻结 API", link: "/zh/sdk/python/api" },
+  { text: "部署与接入", link: "/zh/sdk/python/deploy" }
+];
+
+const zhSdkCsharpItems = [
+  { text: "C# SDK 概览", link: "/zh/sdk/csharp/" },
+  { text: "快速使用", link: "/zh/sdk/csharp/quick-start" },
+  { text: "冻结 API", link: "/zh/sdk/csharp/api" },
+  { text: "部署与接入", link: "/zh/sdk/csharp/deploy" }
+];
+
+const zhSdkRustItems = [
+  { text: "Rust SDK 概览", link: "/zh/sdk/rust/" },
+  { text: "快速使用", link: "/zh/sdk/rust/quick-start" },
+  { text: "冻结 API", link: "/zh/sdk/rust/api" },
+  { text: "部署与接入", link: "/zh/sdk/rust/deploy" }
+];
+
+const enSdkOverviewItems = [
+  { text: "SDK Overview", link: "/en/sdk/" }
+];
+
+const enSdkPythonItems = [
+  { text: "Python SDK Overview", link: "/en/sdk/python/" },
+  { text: "Quick Start", link: "/en/sdk/python/quick-start" },
+  { text: "Frozen API", link: "/en/sdk/python/api" },
+  { text: "Deployment", link: "/en/sdk/python/deploy" }
+];
+
+const enSdkCsharpItems = [
+  { text: "C# SDK Overview", link: "/en/sdk/csharp/" },
+  { text: "Quick Start", link: "/en/sdk/csharp/quick-start" },
+  { text: "Frozen API", link: "/en/sdk/csharp/api" },
+  { text: "Deployment", link: "/en/sdk/csharp/deploy" }
+];
+
+const enSdkRustItems = [
+  { text: "Rust SDK Overview", link: "/en/sdk/rust/" },
+  { text: "Quick Start", link: "/en/sdk/rust/quick-start" },
+  { text: "Frozen API", link: "/en/sdk/rust/api" },
+  { text: "Deployment", link: "/en/sdk/rust/deploy" }
+];
+
 const zhSidebar = {
+  "/zh/sdk/python/": [
+    {
+      text: "SDK",
+      items: zhSdkPythonItems
+    }
+  ],
+  "/zh/sdk/csharp/": [
+    {
+      text: "SDK",
+      items: zhSdkCsharpItems
+    }
+  ],
+  "/zh/sdk/rust/": [
+    {
+      text: "SDK",
+      items: zhSdkRustItems
+    }
+  ],
+  "/zh/sdk/": [
+    {
+      text: "SDK",
+      items: zhSdkOverviewItems
+    }
+  ],
   "/zh/": [
   {
     text: "文档总览",
@@ -324,6 +426,30 @@ const zhSidebar = {
 };
 
 const enSidebar = {
+  "/en/sdk/python/": [
+    {
+      text: "SDK",
+      items: enSdkPythonItems
+    }
+  ],
+  "/en/sdk/csharp/": [
+    {
+      text: "SDK",
+      items: enSdkCsharpItems
+    }
+  ],
+  "/en/sdk/rust/": [
+    {
+      text: "SDK",
+      items: enSdkRustItems
+    }
+  ],
+  "/en/sdk/": [
+    {
+      text: "SDK",
+      items: enSdkOverviewItems
+    }
+  ],
   "/en/": [
   {
     text: "Documentation",
@@ -427,7 +553,8 @@ export default withMermaid(defineConfig({
       link: "/zh/",
       themeConfig: {
         nav: [
-          { text: "文档", link: "/zh/" }
+          { text: "协议", link: "/zh/" },
+          { text: "SDK", link: "/zh/sdk/" }
         ],
         sidebar: zhSidebar,
         socialLinks: [
@@ -441,7 +568,8 @@ export default withMermaid(defineConfig({
       link: "/en/",
       themeConfig: {
         nav: [
-          { text: "Docs", link: "/en/" }
+          { text: "Protocol", link: "/en/" },
+          { text: "SDK", link: "/en/sdk/" }
         ],
         sidebar: enSidebar,
         socialLinks: [

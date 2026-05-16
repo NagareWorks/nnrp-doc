@@ -19,6 +19,10 @@
 		<h3>协议设计</h3>
 		<p>需要看各预览版的冻结范围、设计取舍和详细方案时，直接进入协议设计页。</p>
 	</div>
+	<div class="doc-card">
+		<h3>SDK 控制面</h3>
+		<p>当你需要冻结的控制面接口、多语言入口和部署接入说明时，进入独立的 SDK 视图。</p>
+	</div>
 </div>
 
 推荐阅读顺序：
@@ -26,3 +30,5 @@
 1. 先看 [协议背景与介绍](/zh/background) 和 [常见场景与边界](/zh/use-cases)。
 2. 再看 [核心对象与流程](/zh/core-concepts)、[标准 Profile](/zh/profiles/) 和 [公共头](/zh/common-header/)。
 3. 最后进入 [版本入口](/zh/protocol/) 和 [NNRP/1（预览）](/zh/protocol/v1/)。
+
+如果你是通过语言 SDK 接入，请从 [SDK 总览](/zh/sdk/) 开始。
