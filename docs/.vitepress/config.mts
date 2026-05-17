@@ -477,7 +477,8 @@ const zhSidebar = {
         { text: "设计索引", link: "/zh/design/" },
         { text: "v1-preview1", link: "/zh/design/v1-preview1" },
         { text: "v1-preview2", link: "/zh/design/v1-preview2" },
-        { text: "v1-preview3", link: "/zh/design/v1-preview3" }
+        { text: "v1-preview3", link: "/zh/design/v1-preview3" },
+        { text: "一致性测试套件设计", link: "/zh/design/conformance-suite" }
       ]
     }
   ]
@@ -577,7 +578,8 @@ const enSidebar = {
         { text: "Design Index", link: "/en/design/" },
         { text: "v1-preview1", link: "/en/design/v1-preview1" },
         { text: "v1-preview2", link: "/en/design/v1-preview2" },
-        { text: "v1-preview3", link: "/en/design/v1-preview3" }
+        { text: "v1-preview3", link: "/en/design/v1-preview3" },
+        { text: "Conformance Suite Design", link: "/en/design/conformance-suite" }
       ]
     }
   ]

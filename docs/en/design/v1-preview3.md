@@ -77,6 +77,8 @@ This document freezes only protocol objects, fixed layouts, state machines, erro
 
 Concrete implementation-facing API shape, handle management, callback/polling drive modes, packaging, and release strategy are not frozen in this protocol document.
 
+The cross-version design of the protocol conformance suite itself, including its layering, case-status model, and integration boundary for implementations, is specified separately in the `conformance-suite` design document. preview3 only declares here that it must consume one shared public conformance baseline rather than redefining the whole testing framework inline.
+
 ## 6. NNRP/1 Code-Level Identity and Inherited Constraints
 
 ### 6.1 Code-Level Version Identity
