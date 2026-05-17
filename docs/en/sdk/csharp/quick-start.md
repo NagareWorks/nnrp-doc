@@ -28,16 +28,37 @@ Use this path for server-side session helpers and protocol-facing server integra
 
 If you are integrating from Unity, do not install the SDK through NuGet.
 
-Instead:
+The recommended path is to install it through OpenUPM:
 
-1. Open the latest GitHub Release for `NagareWorks/nnrp-cs`.
-2. Find the release asset named `com.nnrp.client-<version>.zip`.
-3. Download that zip and import or unpack it as the Unity-style package bundle for that version.
+```bash
+openupm add com.nnrp.client
+```
 
-This Unity package bundle is produced by CI and is the distribution path for the Unity-facing package layout.
+Package page: <https://openupm.com/packages/com.nnrp.client/>
+
+If you do not want to use the OpenUPM CLI, you can update `Packages/manifest.json` directly:
+
+```json
+{
+	"scopedRegistries": [
+		{
+			"name": "package.openupm.com",
+			"url": "https://package.openupm.com",
+			"scopes": [
+				"com.nnrp.client"
+			]
+		}
+	],
+	"dependencies": {
+		"com.nnrp.client": "<version>"
+	}
+}
+```
+
+GitHub Release assets are still published by CI, but they are now a fallback distribution path rather than the recommended Unity installation flow.
 
 ## Notes
 
 1. `Nnrp.Client` and `Nnrp.Server` are the primary entry packages for regular .NET applications.
 2. Lower-level packages such as `Nnrp.Core`, `Nnrp.Transport.Tcp`, and `Nnrp.NativeBridge` are still available when you need more control over transport or wire-level integration.
-3. The Unity package currently ships as a GitHub Release asset rather than a public UPM registry package.
+3. The Unity package is now available on OpenUPM, and the preferred install path is OpenUPM CLI or a direct `Packages/manifest.json` update.

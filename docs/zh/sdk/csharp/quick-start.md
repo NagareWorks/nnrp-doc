@@ -28,16 +28,37 @@ dotnet add package Nnrp.Server
 
 如果你在 Unity 中接入，不要通过 NuGet 安装 SDK。
 
-正确方式是：
+推荐方式是通过 OpenUPM 安装：
 
-1. 打开 `NagareWorks/nnrp-cs` 的最新 GitHub Release。
-2. 找到名为 `com.nnrp.client-<version>.zip` 的 release asset。
-3. 下载这个 zip，并将其作为该版本的 Unity 风格包进行导入或解压使用。
+```bash
+openupm add com.nnrp.client
+```
 
-这个 Unity 包由 CI 自动产出，是当前 Unity 侧包布局的分发方式。
+包页面：<https://openupm.com/packages/com.nnrp.client/>
+
+如果你不使用 OpenUPM CLI，也可以直接修改 Unity 项目的 `Packages/manifest.json`：
+
+```json
+{
+	"scopedRegistries": [
+		{
+			"name": "package.openupm.com",
+			"url": "https://package.openupm.com",
+			"scopes": [
+				"com.nnrp.client"
+			]
+		}
+	],
+	"dependencies": {
+		"com.nnrp.client": "<version>"
+	}
+}
+```
+
+GitHub Release asset 仍然会继续发布，但它现在是备用分发方式，而不是推荐的 Unity 安装路径。
 
 ## 说明
 
 1. 对普通 .NET 应用来说，`Nnrp.Client` 和 `Nnrp.Server` 是主要入口包。
 2. 如果你需要更底层的传输层或 wire 级控制，也可以按需使用 `Nnrp.Core`、`Nnrp.Transport.Tcp`、`Nnrp.NativeBridge` 等包。
-3. 当前 Unity 包通过 GitHub Release asset 分发，还不是公开 UPM registry 包。
+3. 当前 Unity 包已经收录到 OpenUPM，推荐使用 OpenUPM CLI 或直接修改 `Packages/manifest.json` 完成安装。
