@@ -45,6 +45,21 @@ If you are building a third-party NNRP implementation, the conformance suite giv
 
 ## Where to go next
 
-- [Quick Start](./quick-start): minimum bring-up path; get a first execution-plan report in five minutes.
-- [Manifests and Report Contract](./manifests): complete JSON field reference.
-- [CI and Version Selection](./ci): full development and CI workflow.
+<div class="doc-grid">
+  <div class="doc-card">
+    <h3><a href="./quick-start">Quick Start</a></h3>
+    <p>Minimum bring-up path. Get a first execution-plan report in five minutes.</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./manifests">Manifests Reference</a></h3>
+    <p>For suite authors. Complete JSON field reference for protocol manifests, case manifests, vector recipes, and reports.</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./sdk-integration">SDK Integration Guide</a></h3>
+    <p>For SDK developers. How to create a capability manifest, run the CLI, write the vector test, and wire CI end-to-end.</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./ci">CI and Version Selection</a></h3>
+    <p>How conformance version binding works and what errors to avoid in CI.</p>
+  </div>
+</div>

@@ -45,6 +45,21 @@ CI 不会猜你的实现对接的是哪个版本的协议。你在 CI 里显式�
 
 ## 快速入口
 
-- [快速开始](./quick-start)：最小接入路径，5 分钟跑出第一份执行计划。
-- [Manifest 与报告契约](./manifests)：完整的 JSON 字段语义参考。
-- [CI 与版本选择](./ci)：开发期和 CI 中的完整工作流。
+<div class="doc-grid">
+  <div class="doc-card">
+    <h3><a href="./quick-start">快速开始</a></h3>
+    <p>最小接入路径，5 分钟跑出第一份执行计划。</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./manifests">Manifest 参考</a></h3>
+    <p>面向套件开发者。Protocol manifest、case manifest、向量 recipe、报告格式的完整字段参考。</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./sdk-integration">SDK 集成指南</a></h3>
+    <p>面向 SDK 开发者。如何创建 capability manifest、运行 CLI、编写向量测试、端到端接入 CI。</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./ci">CI 与版本选择</a></h3>
+    <p>Conformance 版本绑定机制，以及 CI 中需要避免的错误。</p>
+  </div>
+</div>

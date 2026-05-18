@@ -282,7 +282,14 @@ const zhSdkOverviewItems = [
 const zhConformanceItems = [
   { text: "Conformance 总览", link: "/zh/conformance/" },
   { text: "快速开始", link: "/zh/conformance/quick-start" },
-  { text: "Manifest 与报告契约", link: "/zh/conformance/manifests" },
+  {
+    text: "参考",
+    collapsed: false,
+    items: [
+      { text: "Manifest 参考（测试套件开发者）", link: "/zh/conformance/manifests" },
+      { text: "SDK 集成指南", link: "/zh/conformance/sdk-integration" },
+    ]
+  },
   { text: "CI 与版本选择", link: "/zh/conformance/ci" }
 ];
 
@@ -343,7 +350,14 @@ const enSdkOverviewItems = [
 const enConformanceItems = [
   { text: "Conformance Overview", link: "/en/conformance/" },
   { text: "Quick Start", link: "/en/conformance/quick-start" },
-  { text: "Manifests and Report Contract", link: "/en/conformance/manifests" },
+  {
+    text: "Reference",
+    collapsed: false,
+    items: [
+      { text: "Manifests Reference (Suite Authors)", link: "/en/conformance/manifests" },
+      { text: "SDK Integration Guide", link: "/en/conformance/sdk-integration" },
+    ]
+  },
   { text: "CI and Version Selection", link: "/en/conformance/ci" }
 ];
 
