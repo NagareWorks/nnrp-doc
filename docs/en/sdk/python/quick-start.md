@@ -1,15 +1,51 @@
 # Python Quick Start
 
-This page is reserved for the public quick-start entry of the Python SDK.
+This page covers the public package installation path of the Python SDK. API walkthroughs stay in the dedicated API pages; the quick-start should only keep the shortest stable bring-up path.
 
-## Current state
+## Requirements
 
-1. The documentation slot exists, but public examples and installation flow are intentionally deferred.
-2. Before the SDK is opened publicly, this page should only preserve the stable entry point and its final location.
+1. Python 3.11 or newer.
+2. A normal Python environment that can install packages from PyPI.
 
-## Content to land later
+## Install From PyPI
 
-1. Install command and supported Python versions.
-2. Minimal client construction example.
-3. Shortest path for session open, submit, receive, and close.
-4. Common errors and minimal troubleshooting notes.
+The published distribution name is `nnrp-py`.
+
+Using `uv`:
+
+```bash
+uv add nnrp-py
+```
+
+Using `pip`:
+
+```bash
+pip install nnrp-py
+```
+
+If you want to lock to one verified public release explicitly, pin the version:
+
+```bash
+uv add "nnrp-py==1.0.0rc2"
+pip install "nnrp-py==1.0.0rc2"
+```
+
+## Verify The Installation
+
+The distribution name is `nnrp-py`, but the import package name is `nnrp`.
+
+```bash
+python -c "import nnrp; print(nnrp.__name__)"
+```
+
+If the installation is correct, the command prints `nnrp` and exits successfully.
+
+## Local Editable Override For Unpublished Changes
+
+PyPI should be treated as the default installation path for normal consumption and deployment. Only switch to a local editable checkout when you are validating unpublished SDK changes together with another local repository.
+
+```bash
+pip install -e ../nnrp-py
+```
+
+That editable override is for local integration work only; it is not the default public deployment path.
