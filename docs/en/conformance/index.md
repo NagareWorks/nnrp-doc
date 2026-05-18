@@ -1,33 +1,50 @@
-# Conformance Overview
+# NNRP Conformance Suite
 
-This section is separate from both protocol pages and SDK pages. It explains how the shared NNRP conformance suite is consumed by implementation repositories.
+The NNRP Conformance Suite is a shared, language-neutral protocol interoperability baseline that is independent of any single SDK. It gives implementations in different languages and from different organizations a common, versioned standard to prove that they speak the same protocol.
 
-Three boundaries must stay separate:
+## What it is
 
-1. Protocol design pages define the conformance design boundary, versioning strategy, layering, and ownership.
-2. This section defines how conformance baselines are organized, how capabilities are declared, and how the suite is run locally and in CI.
-3. Individual SDK or runtime pages should reference this section rather than redefining public conformance rules on their own.
+As the number of NNRP implementations — official and third-party — continues to grow, a natural question arises: **how do you know these implementations are actually speaking the same protocol, rather than each one just passing its own tests?**
 
-## Intended audience
+The conformance suite answers exactly that question. It consists of:
 
-This section is mainly for:
+1. **Versioned baselines**: each protocol line (for example `nnrp-1-preview3`) has its own baseline directory containing a protocol manifest, case manifests, and golden vectors.
+2. **Case manifests**: machine-readable JSON files that describe each test case's protocol layer (L0–L4), its status (mandatory / optional / experimental), and the capability declarations required to run it.
+3. **Capability manifests**: each implementation repository provides a JSON declaration listing the protocol capabilities it has completed and is willing to publicly claim support for.
+4. **Runner**: a Rust CLI that loads a baseline and an implementation's capability manifest, then produces an execution plan and a compliance report.
 
-1. Implementers of `nnrp-rs`, `nnrp-py`, `nnrp-cs`, and the runtime.
-2. Repository maintainers who need to wire the shared baseline into CI.
-3. Future third-party NNRP implementers.
+## Why it exists
 
-## Recommended reading order
+Without a shared conformance baseline, three failure modes naturally emerge in any multi-implementation phase:
 
-1. Start from [Quick Start](./quick-start) for the minimum repository and baseline bring-up path.
-2. Continue with [Manifests and Report Contract](./manifests) for the public JSON boundaries.
-3. Finish with [CI and Version Selection](./ci) for capability-gated development and explicit protocol-line selection in CI.
+1. **Every CI is green, but nobody owns interoperability.** Each repository only runs its own unit tests. Everything looks passing, but nothing proves that two implementations can complete a handshake, negotiate capabilities, and run a full frame-submit and result-push cycle together.
+2. **Protocol interpretation slowly drifts.** Without external constraints, each implementation develops its own understanding of protocol edge cases. By the time real interoperability is needed, the gap is hard to close.
+3. **"Tests pass" loses its meaning.** If tests only validate internal self-consistency rather than alignment with a protocol standard, green CI is a false sense of security.
 
-## Relationship with the design document
+The conformance suite removes all three failure modes by providing an external, versioned, machine-executable protocol standard that each implementation can validate itself against independently.
 
-If you have not read the conformance design boundary yet, go back to [NNRP Protocol Conformance Suite Design](/en/design/conformance-suite).
+## What you can do with it
 
-This section does not restate why conformance exists or redefine protocol-side design boundaries. It answers a different set of questions:
+### During development: run only completed capabilities
 
-1. How baseline files are organized.
-2. What the public fields of case manifests, capability manifests, and reports mean.
-3. How implementation repositories wire them into local development and CI.
+You do not need to wait until every capability is done before adopting conformance. The capability manifest lets you declare what you currently support, and the runner only executes cases for those capabilities. Cases for unclaimed capabilities are marked `not_claimed`, not as failures.
+
+This means you can wire in conformance at any point during Preview3 development and get a meaningful report rather than a wall of noise from features you have not started yet.
+
+### In CI: explicitly bind a protocol version
+
+CI does not guess which protocol version your implementation targets. You pass an explicit baseline (for example `protocol/nnrp-1-preview3/manifest.json`) and the runner validates three things:
+
+1. Protocol manifest version = case manifest version = capability manifest version.
+2. Only capabilities the implementation claims are promoted into the mandatory or optional execution set.
+3. A version mismatch causes an immediate failure — ambiguous "close enough to this version" states are never allowed to enter the merge flow.
+
+### For third-party implementations: a verifiable interoperability claim
+
+If you are building a third-party NNRP implementation, the conformance suite gives you a concrete way to say "this implementation passes the nnrp-1-preview3 mandatory core and supports the following capabilities" rather than just "I implemented NNRP".
+
+## Where to go next
+
+- [Quick Start](./quick-start): minimum bring-up path; get a first execution-plan report in five minutes.
+- [Manifests and Report Contract](./manifests): complete JSON field reference.
+- [CI and Version Selection](./ci): full development and CI workflow.

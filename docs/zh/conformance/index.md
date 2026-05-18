@@ -1,33 +1,50 @@
-# Conformance 总览
+# NNRP Conformance 测试套件
 
-这个栏目独立于协议页和 SDK 页，专门说明 NNRP 公共一致性测试套件如何被实现仓库消费。
+NNRP Conformance 测试套件是一套独立于任何单一语言 SDK 的公共协议一致性验证基线。它的作用是让不同语言、不同组织的 NNRP 实现，能够用同一套版本化标准来证明自己在协议层面是互通的。
 
-需要先区分三件事：
+## 这个东西是什么
 
-1. 协议设计页定义 conformance 的设计边界、版本策略、分层结构和职责分工。
-2. 这个栏目定义 conformance baseline 如何组织、如何声明能力、如何在本地与 CI 中运行。
-3. 各语言 SDK 或 runtime 页只负责引用它，不重复定义公共 conformance 规则。
+随着 NNRP 的官方实现和第三方实现不断增加，一个自然的问题出现了：**怎么知道这些实现真的在说同一种协议，而不只是各自的测试通过了？**
 
-## 适合谁看
+Conformance 套件回答的就是这个问题。它由以下几个部分构成：
 
-这个栏目主要面向以下读者：
+1. **版本化 baseline**：每条协议版本线（如 `nnrp-1-preview3`）对应一个独立的 baseline 目录，包含协议清单、case 清单和 golden vector。
+2. **Case manifest**：机器可读的 JSON 文件，描述每个测试 case 的协议层（L0～L4）、状态（mandatory / optional / experimental），以及运行这个 case 所需的能力声明。
+3. **Capability manifest**：每个实现仓库提供一份 JSON 声明，列出自己当前已完成并愿意对外宣称支持的协议能力。
+4. **Runner**：一个 Rust 命令行工具，加载 baseline 和实现的 capability manifest，生成执行计划和合规报告。
 
-1. `nnrp-rs`、`nnrp-py`、`nnrp-cs` 和 runtime 的实现者。
-2. 需要把公共 baseline 接入 CI 的仓库维护者。
-3. 未来想做第三方 NNRP 实现的人。
+## 为什么要有它
 
-## 推荐阅读顺序
+没有公共 conformance 基线时，三件坏事会在多实现并行阶段自然发生：
 
-1. 先看 [快速开始](./quick-start)，了解仓库、baseline 和最小执行路径。
-2. 再看 [Manifest 与报告契约](./manifests)，确认公共 JSON 产物的字段边界。
-3. 最后看 [CI 与版本选择](./ci)，明确开发期和 CI 中如何只跑已声明能力，以及如何显式绑定协议版本口径。
+1. **各自 CI 绿，互通没人管。** 每个仓库只跑自己的单元测试，看起来都在通，但没有任何机制能证明两个实现之间实际上能握手、能协商能力、能跑完一次正常的帧提交和结果返回。
+2. **协议口径慢慢漂移。** 在没有约束的情况下，各实现对协议细节的理解会逐渐发散。等到真正要互通时，差距已经很难修复。
+3. **"测试通过"失去意义。** 如果测试只是验证"这个实现内部自洽"，而不是"这个实现对接了协议标准"，那么测试绿色只是一种假安全感。
 
-## 与设计文档的关系
+Conformance 套件把这三个问题都收掉：它提供一个外部的、版本化的、机器可执行的协议标准，让每个实现都能独立地对照它，而不是对照彼此。
 
-如果你还没有看过 conformance 的设计边界，先回到 [协议一致性测试套件设计](/zh/design/conformance-suite)。
+## 能用它做什么
 
-这里不重复解释为什么要有 conformance，也不重复定义协议设计边界。这里回答的是另一类问题：
+### 开发阶段：只跑已完成的能力
 
-1. baseline 文件怎么组织。
-2. case manifest、capability manifest、report 的字段语义是什么。
-3. 实现仓库怎么把它接进本地开发和 CI。
+在实现过程中，你不需要等所有能力都做完才能开始跑 conformance。Capability manifest 让你声明"我现在支持哪些能力"，runner 就只跑对应的 case，未声明的能力被标记为 `not_claimed` 而不是失败。
+
+这意味着你可以在 Preview3 开发的任意阶段接入 conformance，得到一个有意义的报告，而不是一个全红的噪音输出。
+
+### CI 阶段：显式绑定协议版本口径
+
+CI 不会猜你的实现对接的是哪个版本的协议。你在 CI 里显式传入一个 baseline（比如 `protocol/nnrp-1-preview3/manifest.json`），runner 会校验三件事：
+
+1. Protocol manifest 的版本 = Case manifest 的版本 = Capability manifest 的版本。
+2. 只有实现声明支持的能力，才能进入 mandatory/optional 执行集。
+3. 版本对不上就报错退出，不允许"差不多是这个版本"的模糊状态进入合并流程。
+
+### 第三方实现：可验证的互通承诺
+
+如果你要做一个第三方 NNRP 实现，conformance 套件让你有办法公开说明"我的实现通过了 nnrp-1-preview3 mandatory 核心集，支持以下能力"，而不只是说"我实现了 NNRP"。
+
+## 快速入口
+
+- [快速开始](./quick-start)：最小接入路径，5 分钟跑出第一份执行计划。
+- [Manifest 与报告契约](./manifests)：完整的 JSON 字段语义参考。
+- [CI 与版本选择](./ci)：开发期和 CI 中的完整工作流。
