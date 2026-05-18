@@ -261,7 +261,7 @@ Builds the CLIENT_HELLO fixed-metadata golden vector.
 ## 4. Generated Vector Manifest
 
 **Schema:** `schemas/vector-manifest.schema.json`  
-**Produced by:** `nnrp-conformance-runner generate-preview2-vectors`
+**Produced by:** `nnrp-conformance-runner generate-vectors`
 
 This is the **output** artifact produced by the runner from a semantic recipe manifest. It contains the actual hex-encoded wire bytes. SDK tests consume this file. Suite authors do not write it manually.
 
@@ -313,6 +313,10 @@ This is the **output** artifact produced by the runner from a semantic recipe ma
 
 The report is the machine-readable output of one conformance execution. Suite authors use it to understand coverage; CI uses it to gate mandatory cases.
 
+::: tip A report is not a capability manifest
+The capability manifest is implementation-authored input with fields such as `implementation_name`, `protocol_version`, and `supports`. The report is runner-produced output derived from the protocol manifest, case manifests, and capability manifest, so it must never be named or treated like `example-capabilities.json`.
+:::
+
 ### Top-level Fields
 
 | Field | Type | Required | Description |
@@ -335,6 +339,8 @@ The report is the machine-readable output of one conformance execution. Suite au
 | Field | Type | Valid values | Description |
 |---|---|---|---|
 | `id` | string | — | The case identifier from the case manifest. |
+| `feature` | string | — | Optional public capability label for grouping and readability. |
+| `status` | string | `mandatory` \| `optional` \| `experimental` \| `deprecated` | Optional echo of the case lifecycle status. |
 | `selection` | string | `selected` \| `not_claimed` \| `informational` | How the runner classified this case for the given capability manifest. |
 
 ---

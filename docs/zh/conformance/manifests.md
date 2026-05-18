@@ -234,7 +234,7 @@ Case manifest 将一组 conformance 用例归在同一个文件中管理，通�
 ## 4. 生成的 Vector Manifest（线缆向量清单）
 
 **Schema 文件：** `schemas/vector-manifest.schema.json`  
-**由以下命令生成：** `nnrp-conformance-runner generate-preview2-vectors`
+**由以下命令生成：** `nnrp-conformance-runner generate-vectors`
 
 这是 runner 从语义 recipe manifest 生成的**输出产物**，包含实际的十六进制编码线缆字节。SDK 测试消费此文件。套件开发者不需要手动编写该文件。
 
@@ -286,6 +286,10 @@ Case manifest 将一组 conformance 用例归在同一个文件中管理，通�
 
 Report 是一次 conformance 执行的机器可读输出。套件开发者通过它了解覆盖状况；CI 用它对 mandatory 用例做硬约束。
 
+::: tip report 不是 capability manifest
+Capability manifest 是实现方手写输入，核心字段是 `implementation_name`、`protocol_version` 和 `supports`。Report 是 runner 基于 protocol manifest、case manifest 与 capability manifest 计算出的输出，不能复用 `example-capabilities.json` 之类的命名。
+:::
+
 ### 顶层字段
 
 | 字段 | 类型 | 是否必填 | 说明 |
@@ -308,6 +312,8 @@ Report 是一次 conformance 执行的机器可读输出。套件开发者通过
 | 字段 | 类型 | 合法取值 | 说明 |
 |---|---|---|---|
 | `id` | string | — | 来自 case manifest 的用例标识符。 |
+| `feature` | string | — | 可选的公共能力标签，便于报告阅读与分组。 |
+| `status` | string | `mandatory` \| `optional` \| `experimental` \| `deprecated` | 可选的用例状态回显。 |
 | `selection` | string | `selected` \| `not_claimed` \| `informational` | Runner 针对给定 capability manifest 对本用例的分类结果。 |
 
 ---

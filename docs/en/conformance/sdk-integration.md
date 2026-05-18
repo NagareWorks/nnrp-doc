@@ -1,34 +1,32 @@
 # SDK Integration Guide — For SDK Authors
 
 <div class="page-note">
-This page is for engineers who have an NNRP SDK implementation and want to wire it up against the shared conformance suite. If you are maintaining the conformance suite itself (writing case manifests, protocol manifests, vector recipes), see <a href="./manifests">Manifests Reference</a> instead.
+This page documents the current integration model only: conformance is owned by the suite repository, while SDK repositories provide a capability manifest and an exporter command. If you are maintaining the suite itself, see <a href="./manifests">Manifests Reference</a>.
 </div>
 
-## What you need to do
+## Integration Rules
 
-Integrating conformance into an SDK repository involves four steps:
+When an SDK repository integrates conformance, these boundaries are mandatory:
 
-1. **Create a capability manifest** in your repository declaring which protocol capabilities you currently support.
-2. **Run the conformance runner** with your capability manifest to get a coverage report.
-3. **Add the preview2 vector test** that verifies your wire encoding against the generated golden vectors.
-4. **Wire both into CI** so that coverage and vector correctness are gated on every push.
-
-The remainder of this page gives exact instructions for each step.
+1. Conformance must run in a **dedicated CI job**, not inside the main unit-test or coverage job.
+2. Execution orchestration is owned by the `run-conformance` action provided by `nnrp-conformance`.
+3. The SDK repository only provides two inputs: a capability manifest and a command that exports the SDK's vector manifest.
+4. SDK-local pytest, xUnit, or other language-native tests must no longer read suite-generated temporary vector manifests as the formal integration path.
 
 ---
 
 ## Step 1: Create your capability manifest
 
-Create a file at `conformance/nnrp-1-preview2.capabilities.json` (or `nnrp-1-preview3`, depending on your target) in your repository root. The path is conventional but the runner accepts any path via `--capabilities`.
+Create `conformance/nnrp-1-preview2.capabilities.json` in your repository root, or the equivalent file for your target protocol line. The path is conventional and is passed into the suite action via `capabilities-path`.
 
 ### Capability Manifest Field Reference
 
 | Field | Type | Required | Valid values | Description |
 |---|---|---|---|---|
 | `$schema` | string | no | URI | JSON Schema reference. |
-| `implementation_name` | string | **yes** | non-empty string | The canonical short name for your implementation. Used in all report output and CI logs. Convention: use the public package or repository name, e.g. `nnrp-py`, `nnrp-cs`. Do not use a version suffix here; `protocol_version` carries that. |
-| `protocol_version` | string | **yes** | non-empty string | The protocol version line you are targeting. Must exactly match the `protocol_version` in the runner's `--protocol` argument. E.g. `nnrp-1-preview2`. Any mismatch is an immediate runner error. |
-| `supports` | array of string | **yes** | unique capability tokens | Declares which protocol capabilities your implementation has completed and is willing to claim publicly. Each token must match a known capability string for the targeted protocol version. Unknown tokens are accepted but do not activate any cases. |
+| `implementation_name` | string | **yes** | non-empty string | Canonical short name for your implementation, e.g. `nnrp-py` or `nnrp-cs`. |
+| `protocol_version` | string | **yes** | non-empty string | Target protocol line. Must exactly match the suite action's `protocol-version`. |
+| `supports` | array of string | **yes** | unique capability tokens | Capabilities your implementation has completed and is willing to claim publicly. Unclaimed capabilities become `not_claimed`, not silently passed. |
 
 ### Valid capability tokens for `nnrp-1-preview2`
 
@@ -48,12 +46,12 @@ The following tokens are defined in the preview2 case manifests. Only tokens you
     <tr><td><code>control.client_hello</code></td><td>L0 / L1</td><td>Pack and parse the CLIENT_HELLO fixed metadata block.</td></tr>
     <tr><td><code>control.session_patch_ack</code></td><td>L0 / L1</td><td>Pack and parse the SESSION_PATCH_ACK fixed metadata block.</td></tr>
     <tr><td><code>flow_update</code></td><td>L0 / L1</td><td>Round-trip the FLOW_UPDATE packet including credit delta encoding.</td></tr>
-    <tr><td><code>frame_submit.mixed</code></td><td>L0 / L1</td><td>Encode and decode FRAME_SUBMIT in mixed submit mode (inline + reference regions).</td></tr>
+    <tr><td><code>frame_submit.mixed</code></td><td>L0 / L1</td><td>Encode and decode FRAME_SUBMIT in mixed submit mode.</td></tr>
     <tr><td><code>object_reference.cache</code></td><td>L0</td><td>Pack and parse the object-reference block used for cache-backed body regions.</td></tr>
     <tr><td><code>payload.tensor</code></td><td>L0 / L1</td><td>Encode and decode tensor profile payloads including descriptor, schema, and body layout.</td></tr>
-    <tr><td><code>payload.typed</code></td><td>L0 / L1</td><td>Encode and decode typed payload descriptors (non-tensor profile).</td></tr>
+    <tr><td><code>payload.typed</code></td><td>L0 / L1</td><td>Encode and decode typed payload descriptors.</td></tr>
     <tr><td><code>result_hint</code></td><td>L0 / L1</td><td>Round-trip the RESULT_HINT packet including hint metadata.</td></tr>
-    <tr><td><code>result_push.degraded</code></td><td>L1</td><td>Encode and decode RESULT_PUSH in degraded (fallback) mode.</td></tr>
+    <tr><td><code>result_push.degraded</code></td><td>L1</td><td>Encode and decode RESULT_PUSH in degraded mode.</td></tr>
     <tr><td><code>result_push.partial</code></td><td>L1</td><td>Encode and decode RESULT_PUSH in partial delivery mode.</td></tr>
     <tr><td><code>result_push.stale_reuse</code></td><td>L1</td><td>Encode and decode RESULT_PUSH with stale-frame reuse semantics.</td></tr>
     <tr><td><code>transport.probe</code></td><td>L3</td><td>Implement the transport probe handshake and probe result handling.</td></tr>
@@ -91,16 +89,56 @@ The following tokens are defined in the preview2 case manifests. Only tokens you
 ```
 
 ::: warning Claim only what is complete
-Do not list capabilities you have not fully implemented. Claiming a capability means accepting a hard CI gate for every `mandatory` case associated with that token. Partial or in-progress capabilities should be added once the implementation is stable.
+Claiming a capability means accepting a hard CI gate for every `mandatory` case mapped to that token.
 :::
 
 ---
 
-## Step 2: Run the conformance runner locally
+## Step 2: Implement the SDK vector exporter command
 
-The conformance runner is a Rust CLI in `nnrp-conformance`. You need the repository checked out locally. Set the `NNRP_CONFORMANCE_ROOT` environment variable to the checkout path, or pass paths explicitly.
+The suite action does not call your test framework directly. It calls an exporter command provided by your SDK repository. That command must use your real SDK encoding implementation and emit a JSON manifest in the shared vector schema.
 
-### `summary` — execution plan and coverage report
+### Command contract
+
+Your command must support at least these arguments:
+
+| Argument | Required | Description |
+|---|---|---|
+| `--protocol-version` | **yes** | Target protocol line to export. Unsupported versions must fail immediately. |
+| `--output` | **yes** | Output file path. The suite action passes `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`; your command must write the manifest there. |
+
+The output file must satisfy all of the following:
+
+1. UTF-8 JSON, preferably without BOM.
+2. Top-level fields must include at least `protocol_version`, `generator`, and `vectors`.
+3. Each vector entry must include at least `name`, `kind`, `hex`, and `bytes`; `description` is optional.
+4. Vector names must match the canonical recipe's stable names exactly.
+
+### Recommended command shapes
+
+Python:
+
+```bash
+python -m nnrp.tools.conformance --protocol-version nnrp-1-preview2 --output "$NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT"
+```
+
+C#:
+
+```powershell
+dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csproj -- --protocol-version nnrp-1-preview2 --output $env:NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT
+```
+
+::: tip Do not add embedded conformance tests here
+The formal integration contract is now “exporter command + suite action”, not “pytest/xUnit reads a temporary manifest and re-checks it”. Local unit and integration tests still matter, but they are not the shared conformance surface.
+:::
+
+---
+
+## Step 3: Use the suite runner for local debugging
+
+The formal CI path should use the suite action. The commands below are for local debugging and manual inspection only.
+
+### `summary` — inspect the execution plan
 
 ```bash
 cargo run \
@@ -112,133 +150,62 @@ cargo run \
   --capabilities conformance/nnrp-1-preview2.capabilities.json
 ```
 
-Output is a JSON execution plan printed to stdout. It lists each case under one of three categories:
+### `generate-vectors` — produce the canonical vector manifest
 
-| Category | Meaning |
+```bash
+cargo run \
+  --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
+  -p nnrp-conformance-runner \
+  -- \
+  generate-vectors \
+  --recipe <path-to-nnrp-conformance>/protocol/nnrp-1-preview2/vectors/semantic-vectors.json \
+  --output /tmp/canonical-vectors.json
+```
+
+### `verify-vectors` — confirm canonical determinism
+
+```bash
+cargo run \
+  --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
+  -p nnrp-conformance-runner \
+  -- \
+  verify-vectors \
+  --recipe <path-to-nnrp-conformance>/protocol/nnrp-1-preview2/vectors/semantic-vectors.json \
+  --manifest /tmp/canonical-vectors.json
+```
+
+### `compare-vector-manifests` — compare SDK output against canonical output
+
+```bash
+cargo run \
+  --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
+  -p nnrp-conformance-runner \
+  -- \
+  compare-vector-manifests \
+  --expected /tmp/canonical-vectors.json \
+  --actual /tmp/sdk-vectors.json
+```
+
+---
+
+## Step 4: Wire CI through the suite-owned action
+
+### Recommended structure
+
+1. Keep your language-native `test` or `coverage` job focused on repository-local validation.
+2. Add a separate `conformance` job.
+3. In that job, checkout the suite repository and call `run-conformance`.
+4. Pass your exporter command through `sdk-vector-command`.
+
+### Key `run-conformance` inputs
+
+| Input | Description |
 |---|---|
-| `selected` | Your implementation claimed all required capabilities. This case is hard-gated in CI. |
-| `not_claimed` | At least one required capability was not declared. Not a failure; not yet in scope. |
-| `informational` | `experimental` or `deprecated` case. Printed for awareness only. |
-
-### `generate-preview2-vectors` — produce golden vector artifact
-
-Generate the canonical wire vector manifest from the semantic recipe file. Run this before running vector-verification tests.
-
-```bash
-cargo run \
-  --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
-  -p nnrp-conformance-runner \
-  -- \
-  generate-preview2-vectors \
-  --semantic <path-to-nnrp-conformance>/protocol/nnrp-1-preview2/vectors/semantic-vectors.json \
-  --output /tmp/preview2-golden-vectors.json
-```
-
-The output file (`/tmp/preview2-golden-vectors.json`) is the vector manifest your SDK test reads via the `NNRP_CONFORMANCE_VECTOR_MANIFEST` environment variable.
-
-### `verify-preview2-vectors` — re-run determinism check
-
-Verifies that re-generating from the same recipe produces an identical manifest. Use this to confirm your local environment is in a valid state before filing a bug report.
-
-```bash
-cargo run \
-  --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
-  -p nnrp-conformance-runner \
-  -- \
-  verify-preview2-vectors \
-  --semantic <path-to-nnrp-conformance>/protocol/nnrp-1-preview2/vectors/semantic-vectors.json \
-  --manifest /tmp/preview2-golden-vectors.json
-```
-
----
-
-## Step 3: Implement the vector round-trip test
-
-Your SDK must include a test that:
-
-1. Reads the generated vector manifest from `NNRP_CONFORMANCE_VECTOR_MANIFEST`.
-2. Regenerates each vector using your own implementation (pack / serialize / encode, depending on the SDK).
-3. Asserts that your output hex matches the manifest's hex for every named vector.
-
-The test must **skip gracefully** when `NNRP_CONFORMANCE_VECTOR_MANIFEST` is not set, so that local development without the conformance repo checked out still works.
-
-### Python example
-
-```python
-import json
-import os
-from pathlib import Path
-import pytest
-
-def test_preview2_conformance_vectors_match_generated_manifest() -> None:
-    manifest_path_value = os.environ.get("NNRP_CONFORMANCE_VECTOR_MANIFEST")
-    if not manifest_path_value:
-        pytest.skip("NNRP_CONFORMANCE_VECTOR_MANIFEST is not configured")
-
-    manifest_path = Path(manifest_path_value)
-    assert manifest_path.is_file(), f"manifest not found: {manifest_path}"
-
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["protocol_version"] == "nnrp-1-preview2"
-
-    expected = {
-        e["name"]: {"kind": e["kind"], "hex": e["hex"], "bytes": e["bytes"]}
-        for e in manifest["vectors"]
-    }
-    actual = {
-        v.name: {"kind": v.kind, "hex": v.hex_payload, "bytes": v.byte_length}
-        for v in your_sdk.export_golden_vectors()
-    }
-
-    assert set(actual) == set(expected)
-    for name, exp in expected.items():
-        assert actual[name] == exp, f"vector mismatch: {name}"
-```
-
-### C# example
-
-```csharp
-[Fact]
-public void Preview2ConformanceVectorsRoundTrip()
-{
-    var manifestPath = Environment.GetEnvironmentVariable("NNRP_CONFORMANCE_VECTOR_MANIFEST");
-    if (string.IsNullOrEmpty(manifestPath)) return; // skip
-
-    var manifest = JsonSerializer.Deserialize<VectorManifest>(File.ReadAllText(manifestPath));
-    Assert.Equal("nnrp-1-preview2", manifest.ProtocolVersion);
-
-    var expected = manifest.Vectors.ToDictionary(v => v.Name);
-    var actual = YourSdk.ExportGoldenVectors().ToDictionary(v => v.Name);
-
-    Assert.Equal(expected.Keys.Order(), actual.Keys.Order());
-    foreach (var (name, exp) in expected)
-    {
-        Assert.Equal(exp.Hex, actual[name].Hex);
-        Assert.Equal(exp.Bytes, actual[name].Bytes);
-    }
-}
-```
-
----
-
-## Step 4: Wire both into CI
-
-### Environment variable
-
-Your CI job must set:
-
-| Variable | Value | Purpose |
-|---|---|---|
-| `NNRP_CONFORMANCE_VECTOR_MANIFEST` | A temp path, e.g. `${{ runner.temp }}/preview2-golden-vectors.json` | Points to the generated vector manifest artifact. The vector test reads this. |
-
-### Required steps (in order)
-
-1. **Checkout your implementation repository**
-2. **Checkout `nnrp-conformance`** as a sibling (e.g. `path: nnrp-conformance`)
-3. **Setup Rust toolchain** (needed for `cargo run`)
-4. **Generate vectors** from the semantic recipe
-5. **Run conformance summary** to produce the coverage report
-6. **Run your test suite** (including the vector round-trip test)
+| `protocol-version` | Target protocol line, e.g. `nnrp-1-preview2`. |
+| `capabilities-path` | Path to your capability manifest. |
+| `working-directory` | Directory in which the exporter command should run. |
+| `artifact-name` | Artifact name used for reports and generated manifests. |
+| `sdk-vector-command` | Command that exports your SDK vector manifest. The suite action provides `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`. |
 
 ### GitHub Actions example
 
@@ -246,52 +213,36 @@ Your CI job must set:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      NNRP_CONFORMANCE_VECTOR_MANIFEST: ${{ runner.temp }}/preview2-golden-vectors.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run tests
+        run: <your language-native test command>
 
+  conformance:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Checkout nnrp-conformance
+      - name: Checkout nnrp-conformance action
         uses: actions/checkout@v4
         with:
-          repository: NagareWorks/nnrp-conformance
-          path: nnrp-conformance
+          repository: <your-org>/nnrp-conformance
+          path: nnrp-conformance-action
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Setup language runtime
+        run: <install the runtime your SDK exporter needs>
 
-      # Step 4: generate vectors
-      - name: Generate preview2 conformance vectors
-        run: >-
-          cargo run
-          --manifest-path nnrp-conformance/Cargo.toml
-          -p nnrp-conformance-runner
-          --
-          generate-preview2-vectors
-          --semantic nnrp-conformance/protocol/nnrp-1-preview2/vectors/semantic-vectors.json
-          --output ${{ runner.temp }}/preview2-golden-vectors.json
-
-      # Step 5: coverage report
-      - name: Preview2 conformance summary
-        run: >-
-          cargo run
-          --manifest-path nnrp-conformance/Cargo.toml
-          -p nnrp-conformance-runner
-          --
-          summary
-          --protocol nnrp-conformance/protocol/nnrp-1-preview2/manifest.json
-          --capabilities conformance/nnrp-1-preview2.capabilities.json
-
-      # Step 6: test suite (vector test reads NNRP_CONFORMANCE_VECTOR_MANIFEST)
-      - name: Run tests
-        run: <your language's test command>
+      - name: Run suite-owned conformance action
+        uses: ./nnrp-conformance-action/.github/actions/run-conformance
+        with:
+          protocol-version: nnrp-1-preview2
+          capabilities-path: conformance/nnrp-1-preview2.capabilities.json
+          working-directory: .
+          artifact-name: <repo>-conformance-preview2
+          sdk-vector-command: <your exporter command>
 ```
-
-::: tip Step ordering matters
-`generate-preview2-vectors` must complete before any test that reads `NNRP_CONFORMANCE_VECTOR_MANIFEST`. If the file does not exist when the test runs, the test will either fail with a file-not-found error or skip, depending on your implementation.
-:::
 
 ---
 
@@ -299,8 +250,8 @@ jobs:
 
 | Error | Cause | Resolution |
 |---|---|---|
-| `protocol version mismatch: expected nnrp-1-preview2, got nnrp-1-preview3` | `protocol_version` in your capability manifest does not match the `--protocol` argument. | Align both to the same version string. |
-| Test skipped silently | `NNRP_CONFORMANCE_VECTOR_MANIFEST` is not set or is empty. | Verify the env var is exported to the test process. On GitHub Actions, confirm it is set at the `job` or `step` level, not just in a sibling job. |
-| Vector name mismatch | Your SDK's export function returns different names than the manifest. | Ensure your export function uses stable, matching names from the recipe's `name` field. |
-| `manifest not found: /tmp/preview2-golden-vectors.json` | Vector generation step did not run or failed silently. | Check the `generate-preview2-vectors` step's exit code and output. |
-| All cases `not_claimed` | Capability manifest `supports` array is empty or `protocol_version` mismatches. | Verify both fields in your capability manifest file. |
+| `protocol version mismatch` | Capability manifest, suite action input, and exporter command use different version strings. | Align `protocol-version`, the capability manifest's `protocol_version`, and the exporter's argument. |
+| `sdk-vector-command` exits successfully but no output file exists | The exporter ignored the `--output` path. | Ensure the command writes exactly to the path given by `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`. |
+| JSON parse fails at column 1 | The output file contains a BOM or is not valid JSON. | Emit UTF-8 JSON without BOM and return a non-zero exit code on exporter failure. |
+| Vector names do not match | The SDK exporter uses local private names instead of canonical recipe names. | Export the exact stable `name` values from the canonical recipe. |
+| All cases are `not_claimed` | The capability manifest's `supports` list is empty or mismatched for the chosen protocol version. | Verify `supports` and `protocol_version`. |
