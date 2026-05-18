@@ -23,6 +23,10 @@
 		<h3>SDK 控制面</h3>
 		<p>当你需要冻结的控制面接口、多语言入口和部署接入说明时，进入独立的 SDK 视图。</p>
 	</div>
+	<div class="doc-card">
+		<h3>Conformance</h3>
+		<p>当你需要公共一致性测试套件的接入方式、manifest 契约和 CI 版本选择规则时，进入独立的 conformance 视图。</p>
+	</div>
 </div>
 
 推荐阅读顺序：
@@ -32,3 +36,5 @@
 3. 最后进入 [版本入口](/zh/protocol/) 和 [NNRP/1（预览）](/zh/protocol/v1/)。
 
 如果你是通过语言 SDK 接入，请从 [SDK 总览](/zh/sdk/) 开始。
+
+如果你是在实现仓库里接入公共一致性测试套件，请从 [Conformance 总览](/zh/conformance/) 开始。

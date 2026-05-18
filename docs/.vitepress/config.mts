@@ -279,6 +279,13 @@ const zhSdkOverviewItems = [
   { text: "SDK 总览", link: "/zh/sdk/" }
 ];
 
+const zhConformanceItems = [
+  { text: "Conformance 总览", link: "/zh/conformance/" },
+  { text: "快速开始", link: "/zh/conformance/quick-start" },
+  { text: "Manifest 与报告契约", link: "/zh/conformance/manifests" },
+  { text: "CI 与版本选择", link: "/zh/conformance/ci" }
+];
+
 const zhSdkPythonItems = [
   { text: "Python SDK 概览", link: "/zh/sdk/python/" },
   { text: "快速使用", link: "/zh/sdk/python/quick-start" },
@@ -333,6 +340,13 @@ const enSdkOverviewItems = [
   { text: "SDK Overview", link: "/en/sdk/" }
 ];
 
+const enConformanceItems = [
+  { text: "Conformance Overview", link: "/en/conformance/" },
+  { text: "Quick Start", link: "/en/conformance/quick-start" },
+  { text: "Manifests and Report Contract", link: "/en/conformance/manifests" },
+  { text: "CI and Version Selection", link: "/en/conformance/ci" }
+];
+
 const enSdkPythonItems = [
   { text: "Python SDK Overview", link: "/en/sdk/python/" },
   { text: "Quick Start", link: "/en/sdk/python/quick-start" },
@@ -384,6 +398,12 @@ const enSdkRustItems = [
 ];
 
 const zhSidebar = {
+  "/zh/conformance/": [
+    {
+      text: "Conformance",
+      items: zhConformanceItems
+    }
+  ],
   "/zh/sdk/python/": [
     {
       text: "SDK",
@@ -485,6 +505,12 @@ const zhSidebar = {
 };
 
 const enSidebar = {
+  "/en/conformance/": [
+    {
+      text: "Conformance",
+      items: enConformanceItems
+    }
+  ],
   "/en/sdk/python/": [
     {
       text: "SDK",
@@ -614,6 +640,7 @@ export default withMermaid(defineConfig({
       themeConfig: {
         nav: [
           { text: "协议", link: "/zh/" },
+          { text: "Conformance", link: "/zh/conformance/" },
           { text: "SDK", link: "/zh/sdk/" }
         ],
         sidebar: zhSidebar,
@@ -629,6 +656,7 @@ export default withMermaid(defineConfig({
       themeConfig: {
         nav: [
           { text: "Protocol", link: "/en/" },
+          { text: "Conformance", link: "/en/conformance/" },
           { text: "SDK", link: "/en/sdk/" }
         ],
         sidebar: enSidebar,

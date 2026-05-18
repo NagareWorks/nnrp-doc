@@ -23,6 +23,10 @@ The first thing readers should see here is the global story: what NNRP is, which
     <h3>SDK control plane</h3>
     <p>Enter the dedicated SDK view when you need the frozen control-plane surface, language-specific entry points, and deployment guidance.</p>
   </div>
+  <div class="doc-card">
+    <h3>Conformance</h3>
+    <p>Enter the dedicated conformance view when you need shared test-suite integration guidance, manifest contracts, and CI version-selection rules.</p>
+  </div>
 </div>
 
 Recommended reading order:
@@ -32,3 +36,5 @@ Recommended reading order:
 3. Then continue with [Version Entry and Boundaries](/en/protocol/) and [NNRP/1 (Preview)](/en/protocol/v1/).
 
 If you are integrating through a language SDK, start from [SDK Overview](/en/sdk/).
+
+If you are wiring the shared conformance suite into an implementation repository, start from [Conformance Overview](/en/conformance/).
