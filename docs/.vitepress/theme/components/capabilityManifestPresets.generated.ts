@@ -251,8 +251,8 @@ export const capabilityVersionPresets = [
           "en": "Session open, maintain, and close state machine."
         },
         "combination": {
-          "zh": "Appears in multiple combined selections: session.resume; session.multi_session.",
-          "en": "Appears in multiple combined selections: session.resume; session.multi_session."
+          "zh": "常与 session.resume、session.multi_session 组合。",
+          "en": "Often combined with session.resume and session.multi_session."
         }
       },
       {
@@ -327,12 +327,12 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Derived from 5 cases. Round-trip the canonical Preview3 SESSION_OPEN resume-request metadata vector, including resume token length and resumed-session defaults. Round-trip the canonical Preview3 SESSION_OPEN_ACK resumed metadata vector and preserve the resumed session_status semantics. Round-trip the canonical Preview3 SESSION_OPEN_ACK resume-rejected metadata vector and preserve the stable resume_rejected error code. Validate Preview3 resume_from_operation_id semantics, including resumed SESSION_OPEN_ACK status and the requirement that session recovery resumes from an operation waterline rather than from frame-level objects. Validate Preview3 resume rejection behavior: invalid, expired, unauthorized, or incompatible resume_token requests must return session_error_code=resume_rejected without inventing a frame-level recovery path.",
-          "en": "Derived from 5 cases. Round-trip the canonical Preview3 SESSION_OPEN resume-request metadata vector, including resume token length and resumed-session defaults. Round-trip the canonical Preview3 SESSION_OPEN_ACK resumed metadata vector and preserve the resumed session_status semantics. Round-trip the canonical Preview3 SESSION_OPEN_ACK resume-rejected metadata vector and preserve the stable resume_rejected error code. Validate Preview3 resume_from_operation_id semantics, including resumed SESSION_OPEN_ACK status and the requirement that session recovery resumes from an operation waterline rather than from frame-level objects. Validate Preview3 resume rejection behavior: invalid, expired, unauthorized, or incompatible resume_token requests must return session_error_code=resume_rejected without inventing a frame-level recovery path."
+          "zh": "基于 SESSION_OPEN / SESSION_OPEN_ACK 的会话恢复路径，包括 resume_token、resume_from_operation_id 与 resume_rejected 错误语义。",
+          "en": "Session-resume flow based on SESSION_OPEN / SESSION_OPEN_ACK, including resume_token, resume_from_operation_id, and resume_rejected semantics."
         },
         "combination": {
-          "zh": "Also selected with session.open_close.",
-          "en": "Also selected with session.open_close."
+          "zh": "需同时声明 session.open_close。",
+          "en": "Must also claim session.open_close."
         }
       },
       {
@@ -342,8 +342,8 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Derived from 9 cases. Round-trip the canonical Preview3 32-byte schema descriptor header vector, including schema_flags and default stream semantics. Round-trip the canonical Preview3 schema_error_code raw wire values and preserve the frozen schema_unknown, schema_version_unknown, schema_hash_conflict, schema_incompatible, schema_dependency_missing, and schema_update_rejected assignments. Validate the Preview3 32-byte schema descriptor header layout, including stable field offsets for schema_id, schema_version, profile binding, and applicability scope. Validate Preview3 schema_flags bit assignments, including cacheable, critical, and default-bindable semantics without allowing private bindings to redefine the public bit vocabulary. Validate Preview3 default stream semantics in schema descriptors, including append-style token streams versus single-shot payload bindings. Validate Preview3 schema install and update flows, including stable schema_error_code reporting for schema_unknown, schema_version_unknown, and schema_hash_conflict outcomes. Validate Preview3 schema invalidate and conflict flows, including schema_incompatible, schema_dependency_missing, and schema_update_rejected handling. Validate Preview3 schema-registry error mapping at the SDK boundary: when a critical schema, version, or dependency is unknown, the binding must surface stable public schema_error_code outcomes such as schema_unknown, schema_version_unknown, or schema_dependency_missing instead of silently skipping the descriptor or rewriting the failure as a generic transport error. Validate Preview3 schema conflict reporting remains protocol-shaped after crossing a driver or FFI layer: schema_hash_conflict and schema_update_rejected must stay distinct public outcomes rather than being merged into one host-specific installation failure.",
-          "en": "Derived from 9 cases. Round-trip the canonical Preview3 32-byte schema descriptor header vector, including schema_flags and default stream semantics. Round-trip the canonical Preview3 schema_error_code raw wire values and preserve the frozen schema_unknown, schema_version_unknown, schema_hash_conflict, schema_incompatible, schema_dependency_missing, and schema_update_rejected assignments. Validate the Preview3 32-byte schema descriptor header layout, including stable field offsets for schema_id, schema_version, profile binding, and applicability scope. Validate Preview3 schema_flags bit assignments, including cacheable, critical, and default-bindable semantics without allowing private bindings to redefine the public bit vocabulary. Validate Preview3 default stream semantics in schema descriptors, including append-style token streams versus single-shot payload bindings. Validate Preview3 schema install and update flows, including stable schema_error_code reporting for schema_unknown, schema_version_unknown, and schema_hash_conflict outcomes. Validate Preview3 schema invalidate and conflict flows, including schema_incompatible, schema_dependency_missing, and schema_update_rejected handling. Validate Preview3 schema-registry error mapping at the SDK boundary: when a critical schema, version, or dependency is unknown, the binding must surface stable public schema_error_code outcomes such as schema_unknown, schema_version_unknown, or schema_dependency_missing instead of silently skipping the descriptor or rewriting the failure as a generic transport error. Validate Preview3 schema conflict reporting remains protocol-shaped after crossing a driver or FFI layer: schema_hash_conflict and schema_update_rejected must stay distinct public outcomes rather than being merged into one host-specific installation failure."
+          "zh": "Schema descriptor、schema_error_code 以及 schema 安装、更新、失效与绑定层错误映射的一致性。",
+          "en": "Consistency of schema descriptors, schema_error_code values, and schema install/update/invalidate flows including binding-layer error mapping."
         }
       },
       {
@@ -353,8 +353,8 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Derived from 9 cases. Round-trip the canonical Preview3 cache_error_code raw wire values and preserve the frozen cache_miss, lease_expired, version_mismatch, dependency_invalid, and schema_mismatch family assignments. Validate Preview3 cache lease_owner_scope semantics, including the requirement that lease ownership remains a public interoperability contract rather than a runtime-private policy hint. Validate Preview3 object_version monotonicity, including rejection of stale writes and the requirement that version comparison is performed on the public cache object rather than on runtime-private internals. Validate Preview3 dependency_invalid behavior when a cache object depends on schema or cache entries that are expired, revoked, or replaced underneath it. Validate Preview3 cache_error_code=cache_miss is reported for missing public cache objects rather than collapsing the outcome into a generic transport or validation failure. Validate Preview3 cache_error_code=lease_expired when a lease-backed cache object is accessed after its public lease window closes. Validate Preview3 cache_error_code=version_mismatch when callers target the wrong object_version instead of silently rebinding to a newer cache object version. Validate Preview3 cache_error_code=dependency_invalid when dependency chains become unusable even though the directly addressed object still exists. Validate Preview3 cache_error_code=schema_mismatch when a cached object is addressed through an incompatible public schema binding.",
-          "en": "Derived from 9 cases. Round-trip the canonical Preview3 cache_error_code raw wire values and preserve the frozen cache_miss, lease_expired, version_mismatch, dependency_invalid, and schema_mismatch family assignments. Validate Preview3 cache lease_owner_scope semantics, including the requirement that lease ownership remains a public interoperability contract rather than a runtime-private policy hint. Validate Preview3 object_version monotonicity, including rejection of stale writes and the requirement that version comparison is performed on the public cache object rather than on runtime-private internals. Validate Preview3 dependency_invalid behavior when a cache object depends on schema or cache entries that are expired, revoked, or replaced underneath it. Validate Preview3 cache_error_code=cache_miss is reported for missing public cache objects rather than collapsing the outcome into a generic transport or validation failure. Validate Preview3 cache_error_code=lease_expired when a lease-backed cache object is accessed after its public lease window closes. Validate Preview3 cache_error_code=version_mismatch when callers target the wrong object_version instead of silently rebinding to a newer cache object version. Validate Preview3 cache_error_code=dependency_invalid when dependency chains become unusable even though the directly addressed object still exists. Validate Preview3 cache_error_code=schema_mismatch when a cached object is addressed through an incompatible public schema binding."
+          "zh": "缓存 lease、object_version、dependency_invalid 与 schema_mismatch 等公共缓存生命周期语义。",
+          "en": "Public cache-lifecycle semantics including lease ownership, object_version, dependency_invalid, and schema_mismatch behavior."
         }
       },
       {
@@ -364,12 +364,12 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Derived from 6 cases. Round-trip the canonical Preview3 24-byte typed payload descriptor vector, including partial semantics and schema binding fields. Validate the Preview3 24-byte typed payload descriptor layout, descriptor flag semantics, and offset/length interpretation rules. Validate Preview3 token-profile partial semantics, including consumable chunks, stop-reason boundaries, and non-tensor sequence interpretation. Validate Preview3 typed-payload buffer ownership at the SDK or FFI boundary: callback, polling, or borrowed-buffer adapters must preserve offset and length semantics relative to the typed payload frame region instead of rebasing slices against a whole-packet body or a runtime-private subregion. Validate Preview3 typed-payload descriptor exposure stays consistent across callback and polling drive modes: the same public descriptor fields, flags, and stream semantics must be observable without a binding rewriting them into transport-local or runtime-private metadata. Validate Preview3 token-profile partial delivery stays consumable and non-terminal across callback and polling adapters: the binding must preserve chunk ordering, partial versus terminal meaning, and stop-reason visibility instead of collapsing them into one generic text-stream callback.",
-          "en": "Derived from 6 cases. Round-trip the canonical Preview3 24-byte typed payload descriptor vector, including partial semantics and schema binding fields. Validate the Preview3 24-byte typed payload descriptor layout, descriptor flag semantics, and offset/length interpretation rules. Validate Preview3 token-profile partial semantics, including consumable chunks, stop-reason boundaries, and non-tensor sequence interpretation. Validate Preview3 typed-payload buffer ownership at the SDK or FFI boundary: callback, polling, or borrowed-buffer adapters must preserve offset and length semantics relative to the typed payload frame region instead of rebasing slices against a whole-packet body or a runtime-private subregion. Validate Preview3 typed-payload descriptor exposure stays consistent across callback and polling drive modes: the same public descriptor fields, flags, and stream semantics must be observable without a binding rewriting them into transport-local or runtime-private metadata. Validate Preview3 token-profile partial delivery stays consumable and non-terminal across callback and polling adapters: the binding must preserve chunk ordering, partial versus terminal meaning, and stop-reason visibility instead of collapsing them into one generic text-stream callback."
+          "zh": "Typed payload descriptor、offset/length 解释、partial 语义以及 SDK / FFI 边界上的 buffer ownership 约束。",
+          "en": "Typed-payload descriptors, offset/length interpretation, partial semantics, and buffer-ownership rules across SDK / FFI boundaries."
         },
         "combination": {
-          "zh": "Also selected with profile.token.",
-          "en": "Also selected with profile.token."
+          "zh": "常与 profile.token 组合。",
+          "en": "Often combined with profile.token."
         }
       },
       {
@@ -379,12 +379,12 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Derived from 3 cases. Validate Preview3 treats a connection as a multi-session container by allowing multiple live session_ids without cross-session state or credit leakage. Validate closing one Preview3 session does not implicitly close the transport or invalidate sibling sessions that remain active on the same connection. Validate connection-level CLOSE tears down remaining Preview3 sessions as a container shutdown, rather than reusing per-session close semantics or permitting further session traffic.",
-          "en": "Derived from 3 cases. Validate Preview3 treats a connection as a multi-session container by allowing multiple live session_ids without cross-session state or credit leakage. Validate closing one Preview3 session does not implicitly close the transport or invalidate sibling sessions that remain active on the same connection. Validate connection-level CLOSE tears down remaining Preview3 sessions as a container shutdown, rather than reusing per-session close semantics or permitting further session traffic."
+          "zh": "单连接多 session 容器语义，包括 sibling session 隔离与 connection-level CLOSE 的关停行为。",
+          "en": "Multi-session container semantics on one connection, including sibling-session isolation and connection-level CLOSE shutdown behavior."
         },
         "combination": {
-          "zh": "Also selected with session.open_close.",
-          "en": "Also selected with session.open_close."
+          "zh": "需同时声明 session.open_close。",
+          "en": "Must also claim session.open_close."
         }
       },
       {
@@ -394,8 +394,8 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Derived from 3 cases. Validate Preview3 lifecycle progression for accepted, running, partial, and completed states without collapsing partial delivery into terminal completion. Validate Preview3 waiting_tool as a public lifecycle state while keeping tool arguments, tool results, and rich event payloads inside schema/profile payloads rather than fixed public metadata. Validate Preview3 terminal lifecycle resolution keeps cancelled, failed, superseded, and completed distinct, rather than collapsing all terminal outcomes into one generic final state.",
-          "en": "Derived from 3 cases. Validate Preview3 lifecycle progression for accepted, running, partial, and completed states without collapsing partial delivery into terminal completion. Validate Preview3 waiting_tool as a public lifecycle state while keeping tool arguments, tool results, and rich event payloads inside schema/profile payloads rather than fixed public metadata. Validate Preview3 terminal lifecycle resolution keeps cancelled, failed, superseded, and completed distinct, rather than collapsing all terminal outcomes into one generic final state."
+          "zh": "accepted、running、partial、waiting_tool、cancelled、failed、superseded 与 completed 等公共 operation 生命周期语义。",
+          "en": "Public operation lifecycle semantics including accepted, running, partial, waiting_tool, cancelled, failed, superseded, and completed states."
         }
       },
       {
@@ -405,8 +405,8 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Validate Preview3 cancel_scope semantics across single-operation, subtree, operation_group, and whole-session cancellation boundaries.",
-          "en": "Validate Preview3 cancel_scope semantics across single-operation, subtree, operation_group, and whole-session cancellation boundaries."
+          "zh": "single-operation、subtree、operation_group 与 whole-session 四类 cancel_scope 边界语义。",
+          "en": "cancel_scope boundaries across single-operation, subtree, operation_group, and whole-session cancellation."
         }
       },
       {
@@ -416,12 +416,12 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Derived from 2 cases. Validate Preview3 token-profile partial semantics, including consumable chunks, stop-reason boundaries, and non-tensor sequence interpretation. Validate Preview3 token-profile partial delivery stays consumable and non-terminal across callback and polling adapters: the binding must preserve chunk ordering, partial versus terminal meaning, and stop-reason visibility instead of collapsing them into one generic text-stream callback.",
-          "en": "Derived from 2 cases. Validate Preview3 token-profile partial semantics, including consumable chunks, stop-reason boundaries, and non-tensor sequence interpretation. Validate Preview3 token-profile partial delivery stays consumable and non-terminal across callback and polling adapters: the binding must preserve chunk ordering, partial versus terminal meaning, and stop-reason visibility instead of collapsing them into one generic text-stream callback."
+          "zh": "Token profile 的 partial chunk、stop-reason 与 callback / polling 驱动模式下的一致性语义。",
+          "en": "Token-profile semantics for partial chunks, stop reasons, and consistent behavior across callback and polling drive modes."
         },
         "combination": {
-          "zh": "Also selected with payload.typed.",
-          "en": "Also selected with payload.typed."
+          "zh": "常与 payload.typed 组合。",
+          "en": "Often combined with payload.typed."
         }
       }
     ]

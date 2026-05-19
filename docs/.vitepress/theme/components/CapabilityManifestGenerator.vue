@@ -3,11 +3,17 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useData } from "vitepress";
 import {
   capabilityManifestSchemaPath,
-  capabilityVersionPresets,
+  type CapabilityVersionPreset,
   type CapabilityCategory,
   type CapabilityOption,
   type SupportedLocale
-} from "./capabilityManifestPresets";
+} from "./capabilityManifestShared";
+
+type CapabilityPresetDocument = {
+  generated_at: string;
+  source: string;
+  presets: CapabilityVersionPreset[];
+};
 
 type Messages = {
   title: string;
@@ -39,6 +45,8 @@ type Messages = {
   emptyState: string;
   schemaHelper: string;
   selectedState: string;
+  loadingCatalog: string;
+  loadFailed: string;
 };
 
 const localeMessages: Record<SupportedLocale, Messages> = {
@@ -76,7 +84,9 @@ const localeMessages: Record<SupportedLocale, Messages> = {
     combinationLabel: "组合要求",
     emptyState: "没有匹配到能力。请调整筛选词。",
     schemaHelper: "默认值使用文档中推荐的相对 schema 路径。",
-    selectedState: "当前"
+    selectedState: "当前",
+    loadingCatalog: "正在读取当前版本的 capability baseline...",
+    loadFailed: "读取 capability baseline 失败。请稍后刷新页面，或检查构建时导出的 JSON 是否存在。"
   },
   en: {
     title: "Low-Code Capability Manifest Generator",
@@ -112,16 +122,19 @@ const localeMessages: Record<SupportedLocale, Messages> = {
     combinationLabel: "Combination Rule",
     emptyState: "No capabilities match the current filter.",
     schemaHelper: "The default value uses the recommended relative schema path from the docs.",
-    selectedState: "Current"
+    selectedState: "Current",
+    loadingCatalog: "Loading the current capability baseline...",
+    loadFailed: "Failed to load the capability baseline. Refresh the page later or verify that the build exported the JSON artifact."
   }
 };
 
-const { localeIndex } = useData();
+const { localeIndex, site } = useData();
 
 const currentLocale = computed<SupportedLocale>(() => (localeIndex.value === "zh" ? "zh" : "en"));
 const messages = computed(() => localeMessages[currentLocale.value]);
 
-const selectedVersion = ref(capabilityVersionPresets[1]?.version ?? capabilityVersionPresets[0].version);
+const versionPresets = ref<CapabilityVersionPreset[]>([]);
+const selectedVersion = ref("");
 const implementationName = ref("");
 const includeSchema = ref(true);
 const schemaPath = ref(capabilityManifestSchemaPath);
@@ -129,15 +142,17 @@ const filterText = ref("");
 const selectedTokens = ref<string[]>([]);
 const copyState = ref<"idle" | "copied" | "failed">("idle");
 const shareState = ref<"idle" | "copied" | "failed">("idle");
+const isLoadingCatalog = ref(true);
+const loadError = ref("");
 const hasInitializedFromQuery = ref(false);
 const versionMenuRoot = ref<HTMLElement | null>(null);
 const versionMenuOpen = ref(false);
 
 const selectedPreset = computed(() => {
-  return capabilityVersionPresets.find((preset) => preset.version === selectedVersion.value) ?? capabilityVersionPresets[0];
+  return versionPresets.value.find((preset) => preset.version === selectedVersion.value) ?? versionPresets.value[0] ?? null;
 });
 
-const availableTokenSet = computed(() => new Set(selectedPreset.value.capabilities.map((item) => item.token)));
+const availableTokenSet = computed(() => new Set((selectedPreset.value?.capabilities ?? []).map((item) => item.token)));
 
 watch(
   () => selectedVersion.value,
@@ -150,7 +165,7 @@ watch(
 const selectedTokenSet = computed(() => new Set(selectedTokens.value));
 
 const orderedSelectedTokens = computed(() => {
-  return selectedPreset.value.capabilities
+  return (selectedPreset.value?.capabilities ?? [])
     .filter((item) => selectedTokenSet.value.has(item.token))
     .map((item) => item.token);
 });
@@ -159,10 +174,10 @@ const filteredCapabilities = computed(() => {
   const query = filterText.value.trim().toLowerCase();
 
   if (!query) {
-    return selectedPreset.value.capabilities;
+    return selectedPreset.value?.capabilities ?? [];
   }
 
-  return selectedPreset.value.capabilities.filter((capability) => {
+  return (selectedPreset.value?.capabilities ?? []).filter((capability) => {
     const haystack = [
       capability.token,
       capability.layers,
@@ -179,7 +194,7 @@ const filteredCapabilities = computed(() => {
 const manifestJson = computed(() => {
   const manifest: Record<string, unknown> = {
     implementation_name: implementationName.value.trim(),
-    protocol_version: selectedPreset.value.version,
+    protocol_version: selectedPreset.value?.version ?? "",
     supports: orderedSelectedTokens.value
   };
 
@@ -193,8 +208,44 @@ const manifestJson = computed(() => {
 const selectedCountText = computed(() => {
   return messages.value.selectedCount
     .replace("{selected}", String(orderedSelectedTokens.value.length))
-    .replace("{total}", String(selectedPreset.value.capabilities.length));
+    .replace("{total}", String(selectedPreset.value?.capabilities.length ?? 0));
 });
+
+function buildPresetDocumentUrl(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return new URL(`${site.value.base}conformance/capability-manifest-presets.json`, window.location.origin).toString();
+}
+
+async function loadCapabilityPresets(): Promise<void> {
+  const url = buildPresetDocumentUrl();
+  if (!url) {
+    return;
+  }
+
+  isLoadingCatalog.value = true;
+  loadError.value = "";
+
+  try {
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`.trim());
+    }
+
+    const document = await response.json() as CapabilityPresetDocument;
+    versionPresets.value = document.presets;
+
+    if (!selectedVersion.value) {
+      selectedVersion.value = document.presets[1]?.version ?? document.presets[0]?.version ?? "";
+    }
+  } catch (error) {
+    loadError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    isLoadingCatalog.value = false;
+  }
+}
 
 function isTokenSelected(token: string): boolean {
   return selectedTokenSet.value.has(token);
@@ -213,12 +264,12 @@ function toggleToken(token: string): void {
 }
 
 function selectAll(): void {
-  selectedTokens.value = selectedPreset.value.capabilities.map((item) => item.token);
+  selectedTokens.value = selectedPreset.value?.capabilities.map((item) => item.token) ?? [];
   resetFeedbackState();
 }
 
 function selectMandatory(): void {
-  selectedTokens.value = selectedPreset.value.capabilities
+  selectedTokens.value = (selectedPreset.value?.capabilities ?? [])
     .filter((item) => item.categories.includes("mandatory"))
     .map((item) => item.token);
   resetFeedbackState();
@@ -234,11 +285,15 @@ function closeVersionMenu(): void {
 }
 
 function toggleVersionMenu(): void {
+  if (versionPresets.value.length === 0) {
+    return;
+  }
+
   versionMenuOpen.value = !versionMenuOpen.value;
 }
 
 function selectVersion(version: string): void {
-  if (!capabilityVersionPresets.some((preset) => preset.version === version)) {
+  if (!versionPresets.value.some((preset) => preset.version === version)) {
     return;
   }
 
@@ -269,7 +324,7 @@ function sanitizeFileNamePart(value: string): string {
 }
 
 function buildShareUrl(): string | null {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || !selectedPreset.value) {
     return null;
   }
 
@@ -311,7 +366,7 @@ function hydrateFromQuery(): void {
 
   const params = new URLSearchParams(window.location.search);
   const requestedVersion = params.get("protocol_version");
-  if (requestedVersion && capabilityVersionPresets.some((preset) => preset.version === requestedVersion)) {
+  if (requestedVersion && versionPresets.value.some((preset) => preset.version === requestedVersion)) {
     selectedVersion.value = requestedVersion;
   }
 
@@ -344,7 +399,7 @@ async function copyShareLink(): Promise<void> {
 }
 
 function downloadJson(): void {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || !selectedPreset.value) {
     return;
   }
 
@@ -378,10 +433,14 @@ function handleDocumentKeydown(event: KeyboardEvent): void {
   }
 }
 
-onMounted(() => {
-  hydrateFromQuery();
-  syncQueryToLocation();
-  hasInitializedFromQuery.value = true;
+onMounted(async () => {
+  await loadCapabilityPresets();
+  if (selectedPreset.value) {
+    hydrateFromQuery();
+    syncQueryToLocation();
+    hasInitializedFromQuery.value = true;
+  }
+
   document.addEventListener("click", handleDocumentClick);
   document.addEventListener("keydown", handleDocumentKeydown);
 });
@@ -415,6 +474,14 @@ watch(
 
     <div class="capability-manifest-generator__layout">
       <div class="capability-manifest-generator__panel capability-manifest-generator__panel--form">
+        <p v-if="isLoadingCatalog" class="capability-manifest-generator__status">
+          {{ messages.loadingCatalog }}
+        </p>
+        <p v-else-if="loadError" class="capability-manifest-generator__status capability-manifest-generator__status--error">
+          {{ messages.loadFailed }}
+          <span>{{ loadError }}</span>
+        </p>
+        <template v-else-if="selectedPreset">
         <div class="capability-manifest-generator__grid">
           <div ref="versionMenuRoot" class="capability-manifest-generator__field">
             <span>{{ messages.versionLabel }}</span>
@@ -435,7 +502,7 @@ watch(
               <Transition name="capability-version-menu">
                 <div v-if="versionMenuOpen" class="capability-manifest-generator__picker-menu" role="menu" :aria-label="messages.versionLabel">
                   <button
-                    v-for="preset in capabilityVersionPresets"
+                    v-for="preset in versionPresets"
                     :key="preset.version"
                     type="button"
                     class="capability-manifest-generator__picker-option"
@@ -523,19 +590,20 @@ watch(
           </label>
         </div>
         <p v-else class="capability-manifest-generator__empty">{{ messages.emptyState }}</p>
+        </template>
       </div>
 
       <aside class="capability-manifest-generator__panel capability-manifest-generator__panel--preview">
         <div class="capability-manifest-generator__section-head capability-manifest-generator__section-head--preview">
           <h3>{{ messages.previewHeading }}</h3>
           <div class="capability-manifest-generator__actions capability-manifest-generator__actions--preview">
-            <button type="button" class="capability-manifest-generator__copy" @click="copyJson">
+            <button type="button" class="capability-manifest-generator__copy" :disabled="!selectedPreset" @click="copyJson">
               {{ copyState === "copied" ? messages.copied : copyState === "failed" ? messages.copyFailed : messages.copy }}
             </button>
-            <button type="button" class="capability-manifest-generator__copy" @click="copyShareLink">
+            <button type="button" class="capability-manifest-generator__copy" :disabled="!selectedPreset" @click="copyShareLink">
               {{ shareState === "copied" ? messages.shareCopied : shareState === "failed" ? messages.shareFailed : messages.share }}
             </button>
-            <button type="button" class="capability-manifest-generator__copy" @click="downloadJson">
+            <button type="button" class="capability-manifest-generator__copy" :disabled="!selectedPreset" @click="downloadJson">
               {{ messages.download }}
             </button>
           </div>
@@ -820,6 +888,32 @@ watch(
   color: var(--vp-c-text-1);
   font-weight: 700;
   cursor: pointer;
+}
+
+.capability-manifest-generator__actions button:disabled,
+.capability-manifest-generator__copy:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.capability-manifest-generator__status {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(19, 68, 84, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(10, 58, 66, 0.05), rgba(196, 96, 38, 0.07));
+  color: var(--vp-c-text-2);
+}
+
+.capability-manifest-generator__status span {
+  display: block;
+  margin-top: 6px;
+  word-break: break-word;
+}
+
+.capability-manifest-generator__status--error {
+  border-color: rgba(190, 24, 93, 0.24);
+  background: linear-gradient(135deg, rgba(190, 24, 93, 0.06), rgba(196, 96, 38, 0.08));
 }
 
 .capability-manifest-generator__section-head {

@@ -149,6 +149,10 @@ export const capabilityManifestPresetOverrides: Record<string, CapabilityVersion
         description: {
           zh: "会话打开、维持与关闭状态机。",
           en: "Session open, maintain, and close state machine."
+        },
+        combination: {
+          zh: "常与 session.resume、session.multi_session 组合。",
+          en: "Often combined with session.resume and session.multi_session."
         }
       },
       "frame_submit.tensor.inline": {
@@ -187,6 +191,70 @@ export const capabilityManifestPresetOverrides: Record<string, CapabilityVersion
         description: {
           zh: "尚未冻结进 mandatory core 的 flow-control 语义。",
           en: "Flow-control semantics not yet frozen into the mandatory core."
+        }
+      },
+      "session.resume": {
+        description: {
+          zh: "基于 SESSION_OPEN / SESSION_OPEN_ACK 的会话恢复路径，包括 resume_token、resume_from_operation_id 与 resume_rejected 错误语义。",
+          en: "Session-resume flow based on SESSION_OPEN / SESSION_OPEN_ACK, including resume_token, resume_from_operation_id, and resume_rejected semantics."
+        },
+        combination: {
+          zh: "需同时声明 session.open_close。",
+          en: "Must also claim session.open_close."
+        }
+      },
+      "schema.registry": {
+        description: {
+          zh: "Schema descriptor、schema_error_code 以及 schema 安装、更新、失效与绑定层错误映射的一致性。",
+          en: "Consistency of schema descriptors, schema_error_code values, and schema install/update/invalidate flows including binding-layer error mapping."
+        }
+      },
+      "cache.lifecycle": {
+        description: {
+          zh: "缓存 lease、object_version、dependency_invalid 与 schema_mismatch 等公共缓存生命周期语义。",
+          en: "Public cache-lifecycle semantics including lease ownership, object_version, dependency_invalid, and schema_mismatch behavior."
+        }
+      },
+      "payload.typed": {
+        description: {
+          zh: "Typed payload descriptor、offset/length 解释、partial 语义以及 SDK / FFI 边界上的 buffer ownership 约束。",
+          en: "Typed-payload descriptors, offset/length interpretation, partial semantics, and buffer-ownership rules across SDK / FFI boundaries."
+        },
+        combination: {
+          zh: "常与 profile.token 组合。",
+          en: "Often combined with profile.token."
+        }
+      },
+      "session.multi_session": {
+        description: {
+          zh: "单连接多 session 容器语义，包括 sibling session 隔离与 connection-level CLOSE 的关停行为。",
+          en: "Multi-session container semantics on one connection, including sibling-session isolation and connection-level CLOSE shutdown behavior."
+        },
+        combination: {
+          zh: "需同时声明 session.open_close。",
+          en: "Must also claim session.open_close."
+        }
+      },
+      "operation.lifecycle": {
+        description: {
+          zh: "accepted、running、partial、waiting_tool、cancelled、failed、superseded 与 completed 等公共 operation 生命周期语义。",
+          en: "Public operation lifecycle semantics including accepted, running, partial, waiting_tool, cancelled, failed, superseded, and completed states."
+        }
+      },
+      "operation.cancel_scope": {
+        description: {
+          zh: "single-operation、subtree、operation_group 与 whole-session 四类 cancel_scope 边界语义。",
+          en: "cancel_scope boundaries across single-operation, subtree, operation_group, and whole-session cancellation."
+        }
+      },
+      "profile.token": {
+        description: {
+          zh: "Token profile 的 partial chunk、stop-reason 与 callback / polling 驱动模式下的一致性语义。",
+          en: "Token-profile semantics for partial chunks, stop reasons, and consistent behavior across callback and polling drive modes."
+        },
+        combination: {
+          zh: "常与 payload.typed 组合。",
+          en: "Often combined with payload.typed."
         }
       }
     }
