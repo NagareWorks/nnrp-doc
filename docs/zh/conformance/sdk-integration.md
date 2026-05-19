@@ -1,7 +1,7 @@
 # SDK 集成指南 — 面向 SDK 开发者
 
 <div class="page-note">
-本页面只描述当前正式接入模型：conformance 由套件仓库统一拥有，SDK 仓库只提供 capability manifest 和向量导出命令。如果你在维护 conformance 套件本身，请参阅 <a href="./manifests">Manifest 参考</a>。
+本页面描述当前正式接入模型，并标出已经在协议侧冻结、但尚未成为当前 CI 必需输入的 adapter execution contract。当前正式接入仍然是 capability manifest + exporter command；如果你在维护 conformance 套件本身，请参阅 <a href="./manifests">Manifest 参考</a>。
 </div>
 
 ## 集成原则
@@ -12,6 +12,21 @@ SDK 仓库接入 conformance 时，必须遵守以下边界：
 2. conformance 的执行编排由 `nnrp-conformance` 提供的 `run-conformance` action 统一负责。
 3. SDK 仓库只负责两件事：声明 capability manifest，以及提供一个能导出本实现向量 manifest 的命令。
 4. SDK 的 pytest、xUnit 或其他单测框架不再读取 suite 生成的临时向量文件，也不再以“跳过式 conformance 测试”充当正式接入方案。
+
+## 两类接入契约不要混淆
+
+协议侧现在明确区分两类接入契约：
+
+| 契约 | 当前状态 | 主要职责 | suite 与实现仓库交换什么 |
+|---|---|---|---|
+| exporter contract | **当前正式启用** | 校验静态协议字节产物是否与 canonical baseline 一致 | capability manifest、exporter command、vector manifest |
+| adapter execution contract | **协议侧已冻结，尚未成为当前 CI 必需输入** | 执行动态行为用例并回传 machine-readable 结果 | execution plan、adapter command、case result report |
+
+不要把两者混为一谈：
+
+1. exporter contract 不能证明 L1/L2/L3 行为状态机一定正确。
+2. adapter execution contract 也不会替代 exporter contract 的静态字节校验职责。
+3. 在 suite 正式启用 adapter execution 之前，SDK 仓库不应各自发明一套私有 CI 契约并把它包装成公共 conformance 接入面。
 
 ---
 
@@ -78,7 +93,7 @@ SDK 仓库接入 conformance 时，必须遵守以下边界：
 
 ---
 
-## 第二步：实现 SDK 向量导出命令
+## 第二步：实现 SDK 向量导出命令（当前正式接入面）
 
 suite action 不直接调用你的测试框架，而是调用你提供的导出命令。这个命令必须使用你自己的 SDK 编码实现，输出与 canonical manifest 同 schema 的 JSON 文件。
 
@@ -115,6 +130,19 @@ dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csp
 ::: tip 这里不要再写嵌入式 conformance 测试
 正式接入边界是“导出命令 + suite action”，而不是“pytest/xUnit 读取临时 manifest 再断言一遍”。语言内测试仍可保留本仓库自己的单元/集成回归，但它们不再承担公共 conformance 职责。
 :::
+
+---
+
+## 后续预留：adapter execution contract
+
+虽然当前正式 CI 接入仍然只要求 exporter command，但协议侧已经冻结了后续的 adapter execution contract 边界。SDK 开发者现在应理解以下规则：
+
+1. suite 会先基于 protocol manifest 和 capability manifest 生成 execution plan，而不是让 SDK 自己决定跑哪些公共 case。
+2. SDK 仓库未来提供的 adapter command，消费的是语言无关的 execution plan JSON，并返回语言无关的 case result report JSON。
+3. suite 不会把 `pytest`、`xUnit`、`cargo test` 过滤表达式、内部模块路径或测试框架对象模型冻结成公共接口。
+4. 产品级 runtime、宿主业务后端、部署脚本和外部服务启动约定，不属于 adapter execution contract 的公共输入。
+
+因此，在 adapter execution 正式落地之前，SDK 仓库应该避免先行把某个本地测试框架命令、某组内部测试名或某条宿主集成脚本当成“未来公共 adapter API”。
 
 ---
 

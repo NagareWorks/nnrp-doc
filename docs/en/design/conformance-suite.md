@@ -162,6 +162,42 @@ An important distinction must remain explicit:
 1. The public protocol contract consists of fixtures, manifests, case semantics, and report formats.
 2. The internal Rust API of `nnrp-conformance` may evolve and does not need to be frozen as a cross-language public API.
 
+### 9.1 The currently frozen static integration contract
+
+The integration contract that is already formally frozen and allowed in SDK CI today is the static artifact contract, not the behavior-execution contract.
+
+It consists of three parts:
+
+1. Capability manifest: the implementation declares which capability tokens it supports, and the suite uses that declaration to select `mandatory` and `optional` cases.
+2. Exporter command: the implementation repository provides a command that accepts `protocol-version` and an output path, then uses its real encoder implementation to emit a vector manifest.
+3. Vector comparison: the suite compares the implementation-produced vector manifest against the canonical manifest deterministically.
+
+This static integration contract answers only one question:
+
+"Does this implementation produce protocol artifacts that match the canonical baseline for the same protocol version?"
+
+It does not directly answer whether session, operation, flow-control, resume, or submit/result state-machine behavior is executed correctly.
+
+### 9.2 The reserved and frozen adapter execution contract
+
+In addition to the static exporter contract, the protocol side must reserve and freeze a behavior-execution integration surface: the adapter execution contract.
+
+Its boundary relative to the exporter contract must remain explicit:
+
+1. The exporter contract validates static protocol artifacts; the adapter execution contract validates dynamic behavior cases.
+2. The exporter contract does not replace the adapter execution contract; both should exist in parallel rather than as alternatives.
+3. The public interface of the adapter execution contract must be language-neutral input/output JSON, not a private invocation convention tied to one repository's test framework.
+
+At minimum, the adapter execution contract freezes the following public boundaries:
+
+1. The suite computes the execution plan from the protocol manifest and capability manifest; implementation repositories must not decide on their own which public cases to run.
+2. The suite passes a machine-readable execution plan into the implementation repository. At minimum, that plan includes the protocol version, implementation identity, selected case ids, stable case metadata such as layer / status / feature / required capabilities, and artifact-output context.
+3. The implementation repository returns a machine-readable case-result report. At minimum, that report includes case id, outcome status such as pass / fail / skip / error, failure classification, and optional evidence paths.
+4. The suite must not freeze `pytest`, `xUnit`, `cargo test` filters, internal module names, or private repository layouts as the public adapter API.
+5. Business backends, product runtimes, host object trees, and deployment scripts must not become public adapter parameters; they remain implementation-local test support details only.
+
+In other words, the adapter execution contract freezes the execution interface between the suite and an implementation repository, not the internal object model of a repository-local test harness.
+
 ## 10. Recommended Execution Model
 
 The recommended execution model is "one canonical suite, many language adapters":
@@ -169,6 +205,13 @@ The recommended execution model is "one canonical suite, many language adapters"
 1. `nnrp-rs` generates or hosts the canonical conformance artifacts.
 2. Each implementation repository provides a language-specific test driver or adapter.
 3. CI selects the target protocol version, runs the corresponding case set, and emits results in one common format.
+
+The current design must distinguish two integration paths clearly:
+
+1. Static path: capability manifest + exporter command + canonical vector comparison.
+2. Dynamic path: execution plan + implementation-owned adapter command + case-result report.
+
+The static path is the one formally enabled today. The dynamic path is now frozen at the protocol-design level so that it can be implemented incrementally later without every repository inventing its own private contract.
 
 In other words, it is not recommended for every SDK to hand-write a separate set of "roughly similar" protocol tests. That only creates multiple drifting pseudo-baselines.
 

@@ -162,6 +162,42 @@
 1. 公共协议契约是 fixture、manifest、case 语义和报告格式。
 2. `nnrp-conformance` 的 Rust 内部 API 可以演进，不必把 crate 内部类型直接冻结成跨语言公共 API。
 
+### 9.1 当前已冻结的静态接入契约
+
+当前已经正式冻结、并允许 SDK 仓库接入 CI 的，是静态产物接入契约，而不是行为执行契约。
+
+它包含三部分：
+
+1. capability manifest：实现声明自己支持哪些 capability token，用于 suite 侧选择 `mandatory` / `optional` 用例。
+2. exporter command：实现仓库提供一个命令，接收 `protocol-version` 与输出路径，使用本实现自己的真实编码器导出 vector manifest。
+3. vector comparison：suite 负责把实现导出的 vector manifest 与 canonical manifest 做确定性比对。
+
+这套静态接入契约只回答一个问题：
+
+“这个实现导出的协议字节产物，是否与同版本 canonical 基线一致？”
+
+它不直接回答 session、operation、flow-control、resume 或 submit/result 状态机是否被正确执行。
+
+### 9.2 预留并冻结的 adapter execution contract
+
+除静态 exporter 契约外，协议侧还必须预留并冻结行为执行接入契约，即 adapter execution contract。
+
+它与 exporter contract 的边界必须明确如下：
+
+1. exporter contract 用于静态协议产物校验；adapter execution contract 用于动态行为用例执行。
+2. exporter contract 不替代 adapter execution contract；两者未来应并行存在，而不是二选一。
+3. adapter execution contract 的公共接口必须是语言无关的输入/输出 JSON，而不是某个仓库内部测试框架的私有调用约定。
+
+adapter execution contract 至少冻结以下公共边界：
+
+1. suite 先基于 protocol manifest 与 capability manifest 计算 execution plan，而不是让实现仓库自己决定跑哪些 case。
+2. suite 交给实现仓库的是一份 machine-readable execution plan，最少包含：协议版本、实现标识、被选中的 case id、case 的 layer / status / feature / required capabilities，以及产物输出上下文。
+3. 实现仓库返回的是 machine-readable case result report，最少包含：case id、结果状态（如 pass / fail / skip / error）、失败分类，以及可选证据路径。
+4. suite 不得把 `pytest`、`xUnit`、`cargo test` 过滤表达式、内部模块名或仓库私有目录结构冻结成公共 adapter API。
+5. 业务后端、产品 runtime、宿主对象树和部署脚本不得进入 adapter execution contract 的公共输入参数；它们只能作为实现仓库内部的测试支撑细节存在。
+
+换句话说，adapter execution contract 冻结的是 suite 与实现仓库之间的执行接口，不是实现仓库内部测试 harness 的对象模型。
+
 ## 10. 推荐执行模型
 
 推荐执行模型为“一个 canonical suite，多语言 adapter”：
@@ -169,6 +205,13 @@
 1. `nnrp-rs` 生成或承载 canonical conformance 产物。
 2. 各实现仓库提供本语言 test driver / adapter。
 3. CI 按目标协议版本选择 case 集，并输出统一格式结果。
+
+当前阶段应明确区分两条接入路径：
+
+1. 静态路径：capability manifest + exporter command + canonical vector comparison。
+2. 动态路径：execution plan + implementation-owned adapter command + case result report。
+
+当前已正式启用的是静态路径；动态路径作为协议侧已冻结的接入边界，可以在 suite 与实现仓库准备好后逐步落地，但不得再以仓库私有方式各自发明。
 
 换句话说，不推荐让每个 SDK 各自手写一份“看起来差不多”的协议测试；那样只会产生多份漂移的伪基线。
 

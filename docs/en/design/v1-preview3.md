@@ -460,6 +460,36 @@ The minimum standard semantics of `token profile` are frozen as:
 3. In the first round, `token profile` does not require logits, full candidate distributions, or model-private sampling state to enter mandatory public fields; such content may only enter through schema/profile extensions.
 4. Under the token profile, the default meaning of `partial` is "the sequence is not yet complete but the current chunk is consumable," rather than a tensor-style coverage gap.
 
+### 9.1A Freezing of the first-round standard registry assignments
+
+Freezing structure alone is not sufficient. If the public numeric assignments for standard profiles and standard schemas are left implicit, canonical vectors, conformance baselines, and host-visible helpers will still end up allocating identifiers independently. In the first round, preview3 therefore freezes the minimum standard registry assignments that have already entered the public interoperability surface.
+
+`profile_id:u16` freezes the following public assignments in the first round:
+
+| Value | Name | Meaning |
+| --- | --- | --- |
+| `0x0000` | `unspecified` | The current session or payload is not explicitly bound to a standard profile |
+| `0x0001` | `tensor` | Standard tensor profile |
+| `0x0002` | `token` | Standard token profile |
+
+First-round constraints:
+
+1. A new standard profile must be assigned in this table before it is allowed to appear in canonical vectors, conformance baselines, or public multi-language SDK APIs.
+2. `profile_id = 0` only means "no standard profile was explicitly bound"; implementations must not silently reinterpret it as "tensor by default" or as some other runtime-private profile.
+3. If a language binding exposes public `tensor` / `token` constants, it must use the assignments above rather than reordering them locally.
+
+`schema_id:u32 + schema_version:u32` freeze at least the following public registry anchor in the first round:
+
+| profile_id | schema_id | schema_version | Name | Default `stream_semantics` | Description |
+| --- | --- | --- | --- | --- | --- |
+| `0x0002` | `0x00001001` | `3` | `llm.chat.delta.v1` | `append` | First-round standard token incremental schema used by the minimal public token-chunk interpretation path |
+
+First-round constraints:
+
+1. The table above is the minimum standard schema anchor already consumed by canonical vectors and cross-language conformance; no other "standard schema" may be assigned privately before it is added here.
+2. `schema_id = 0` continues to mean "no default schema is bound in the current context"; it is not an alias for some implicit standard schema.
+3. If a future change wants to add a public tensor schema or any other standard-profile schema, that assignment must first be added to the protocol design before it enters conformance or SDK surfaces.
+
 ### 9.2 Boundary of minimal fields in the first-round descriptors
 
 In the first round, preview3 requires typed payload descriptors to be able to stably bind at least the following public fields:

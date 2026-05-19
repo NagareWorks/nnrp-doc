@@ -460,6 +460,36 @@ preview3 首轮标准 profile 先冻结为 `tensor profile` 与 `token profile`�
 3. token profile 首轮不强制把 logits、全量候选分布或模型私有采样状态纳入公共必选字段；这些内容只能通过 schema/profile 扩展进入。
 4. token profile 的 `partial` 语义默认表示“序列尚未完成但当前 chunk 可消费”，而不是 tensor-style coverage 缺口。
 
+### 9.1A 首轮标准注册表编号冻结
+
+仅冻结结构布局还不够；如果标准 profile 与标准 schema 的公共编号不落表，conformance 向量、多语言 helper 和宿主封装仍会各自占号。preview3 首轮因此把当前已经进入公共互通面的最小标准注册表也一起冻结。
+
+`profile_id:u16` 首轮冻结以下公共编号：
+
+| 值 | 名称 | 含义 |
+| --- | --- | --- |
+| `0x0000` | `unspecified` | 当前 session 或 payload 未显式绑定标准 profile |
+| `0x0001` | `tensor` | 标准 tensor profile |
+| `0x0002` | `token` | 标准 token profile |
+
+首轮约束：
+
+1. 新的标准 profile 在进入 canonical vector、conformance baseline 或多语言 SDK 公共 API 前，必须先在此表中占号。
+2. `profile_id = 0` 只表示“未显式绑定标准 profile”，不得被任何实现偷换成“默认就是 tensor”或别的 runtime 私有 profile。
+3. 任意语言绑定若暴露 `tensor` / `token` 的公共常量，必须使用上述编号，不得各自重排。
+
+`schema_id:u32 + schema_version:u32` 首轮至少冻结以下公共 registry 锚点：
+
+| profile_id | schema_id | schema_version | 名称 | 默认 `stream_semantics` | 说明 |
+| --- | --- | --- | --- | --- | --- |
+| `0x0002` | `0x00001001` | `3` | `llm.chat.delta.v1` | `append` | 首轮标准 token 增量 schema，用于 token chunk 的最小公共解释路径 |
+
+首轮约束：
+
+1. 上表是当前 canonical vector 与跨语言 conformance 已消费的最小标准 schema 锚点；在新增公共向量或 host API 前，不得私自给别的“标准 schema”占号。
+2. `schema_id = 0` 继续表示“当前上下文未绑定默认 schema”；它不是某个隐式标准 schema 的别名。
+3. 若后续要补 tensor 或其他标准 profile 的公共 schema，占号必须先回填到协议设计，再进入 conformance 与 SDK。
+
 ### 9.2 首轮 descriptor 最小字段边界
 
 preview3 首轮要求 typed payload descriptor 至少能稳定绑定以下公共字段：

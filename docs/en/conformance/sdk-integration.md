@@ -1,7 +1,7 @@
 # SDK Integration Guide — For SDK Authors
 
 <div class="page-note">
-This page documents the current integration model only: conformance is owned by the suite repository, while SDK repositories provide a capability manifest and an exporter command. If you are maintaining the suite itself, see <a href="./manifests">Manifests Reference</a>.
+This page documents the current formal integration model and marks the adapter execution contract that is already frozen at the protocol-design level but is not yet a required CI input. The current formal integration path remains capability manifest + exporter command. If you are maintaining the suite itself, see <a href="./manifests">Manifests Reference</a>.
 </div>
 
 ## Integration Rules
@@ -12,6 +12,21 @@ When an SDK repository integrates conformance, these boundaries are mandatory:
 2. Execution orchestration is owned by the `run-conformance` action provided by `nnrp-conformance`.
 3. The SDK repository only provides two inputs: a capability manifest and a command that exports the SDK's vector manifest.
 4. SDK-local pytest, xUnit, or other language-native tests must no longer read suite-generated temporary vector manifests as the formal integration path.
+
+## Do not confuse the two integration contracts
+
+The protocol side now distinguishes two integration contracts explicitly:
+
+| Contract | Current status | Primary responsibility | What the suite exchanges with the implementation repository |
+|---|---|---|---|
+| exporter contract | **formally enabled today** | Validate that static protocol artifacts match the canonical baseline | capability manifest, exporter command, vector manifest |
+| adapter execution contract | **frozen at the protocol side, not yet a required CI input** | Execute dynamic behavior cases and return machine-readable results | execution plan, adapter command, case-result report |
+
+These two contracts must not be collapsed into one idea:
+
+1. The exporter contract cannot prove that L1/L2/L3 behavioral state machines are correct.
+2. The adapter execution contract will not replace the exporter's static byte-level validation role.
+3. Until the suite formally enables adapter execution, SDK repositories should not invent private CI contracts and present them as the public conformance integration surface.
 
 ---
 
@@ -75,7 +90,7 @@ Claiming a capability means accepting a hard CI gate for every `mandatory` case 
 
 ---
 
-## Step 2: Implement the SDK vector exporter command
+## Step 2: Implement the SDK vector exporter command (the current formal integration surface)
 
 The suite action does not call your test framework directly. It calls an exporter command provided by your SDK repository. That command must use your real SDK encoding implementation and emit a JSON manifest in the shared vector schema.
 
@@ -112,6 +127,19 @@ dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csp
 ::: tip Do not add embedded conformance tests here
 The formal integration contract is now “exporter command + suite action”, not “pytest/xUnit reads a temporary manifest and re-checks it”. Local unit and integration tests still matter, but they are not the shared conformance surface.
 :::
+
+---
+
+## Reserved next stage: adapter execution contract
+
+Although the current formal CI path still requires only the exporter command, the protocol side has already frozen the boundary of the future adapter execution contract. SDK authors should now treat the following rules as fixed:
+
+1. The suite will compute the execution plan from the protocol manifest and capability manifest; the SDK must not decide on its own which public cases to run.
+2. The future adapter command will consume a language-neutral execution plan JSON and return a language-neutral case-result report JSON.
+3. The suite will not freeze `pytest`, `xUnit`, `cargo test` filters, internal module paths, or framework object models as the public interface.
+4. Product-specific runtimes, host business backends, deployment scripts, and external service startup conventions do not belong to the public adapter execution contract.
+
+Therefore, before adapter execution is formally enabled, SDK repositories should avoid prematurely treating one local test-framework command, one internal test list, or one host-integration script as the future public adapter API.
 
 ---
 
