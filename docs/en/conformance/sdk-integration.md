@@ -17,7 +17,9 @@ When an SDK repository integrates conformance, these boundaries are mandatory:
 
 ## Step 1: Create your capability manifest
 
-Create `conformance/nnrp-1-preview2.capabilities.json` in your repository root, or the equivalent file for your target protocol line. The path is conventional and is passed into the suite action via `capabilities-path`.
+Create `conformance/<protocol-version>.capabilities.json` in your repository root, for example `conformance/nnrp-1-preview3.capabilities.json`. The path is conventional and is passed into the suite action via `capabilities-path`.
+
+If you do not want to hand-write the JSON, start with the [Capability Manifest Generator](./capability-manifest-generator) and then cross-check the selected tokens against the versioned capability catalog.
 
 ### Capability Manifest Field Reference
 
@@ -28,37 +30,28 @@ Create `conformance/nnrp-1-preview2.capabilities.json` in your repository root, 
 | `protocol_version` | string | **yes** | non-empty string | Target protocol line. Must exactly match the suite action's `protocol-version`. |
 | `supports` | array of string | **yes** | unique capability tokens | Capabilities your implementation has completed and is willing to claim publicly. Unclaimed capabilities become `not_claimed`, not silently passed. |
 
-### Valid capability tokens for `nnrp-1-preview2`
+### Find capability tokens by version
 
-The following tokens are defined in the preview2 case manifests. Only tokens you claim become hard-gated in CI.
+Capability tokens are now documented in the versioned capability catalog instead of being hard-coded inside the SDK integration page. That keeps preview2 and preview3 tokens from being mixed together, and it lets each version explain the exact semantics of the same token name independently.
 
-<table class="protocol-table">
-  <thead>
-    <tr>
-      <th>Token</th>
-      <th>Layer</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td><code>body_region.prelude</code></td><td>L0</td><td>Encode and decode the body-region prelude layout covering inline, reference, and typed payload regions.</td></tr>
-    <tr><td><code>cache.lifecycle</code></td><td>L1</td><td>Full cache entry lifecycle: allocate, pin, release, and namespace management.</td></tr>
-    <tr><td><code>control.client_hello</code></td><td>L0 / L1</td><td>Pack and parse the CLIENT_HELLO fixed metadata block.</td></tr>
-    <tr><td><code>control.session_patch_ack</code></td><td>L0 / L1</td><td>Pack and parse the SESSION_PATCH_ACK fixed metadata block.</td></tr>
-    <tr><td><code>flow_update</code></td><td>L0 / L1</td><td>Round-trip the FLOW_UPDATE packet including credit delta encoding.</td></tr>
-    <tr><td><code>frame_submit.mixed</code></td><td>L0 / L1</td><td>Encode and decode FRAME_SUBMIT in mixed submit mode.</td></tr>
-    <tr><td><code>object_reference.cache</code></td><td>L0</td><td>Pack and parse the object-reference block used for cache-backed body regions.</td></tr>
-    <tr><td><code>payload.tensor</code></td><td>L0 / L1</td><td>Encode and decode tensor profile payloads including descriptor, schema, and body layout.</td></tr>
-    <tr><td><code>payload.typed</code></td><td>L0 / L1</td><td>Encode and decode typed payload descriptors.</td></tr>
-    <tr><td><code>result_hint</code></td><td>L0 / L1</td><td>Round-trip the RESULT_HINT packet including hint metadata.</td></tr>
-    <tr><td><code>result_push.degraded</code></td><td>L1</td><td>Encode and decode RESULT_PUSH in degraded mode.</td></tr>
-    <tr><td><code>result_push.partial</code></td><td>L1</td><td>Encode and decode RESULT_PUSH in partial delivery mode.</td></tr>
-    <tr><td><code>result_push.stale_reuse</code></td><td>L1</td><td>Encode and decode RESULT_PUSH with stale-frame reuse semantics.</td></tr>
-    <tr><td><code>transport.probe</code></td><td>L3</td><td>Implement the transport probe handshake and probe result handling.</td></tr>
-    <tr><td><code>transport.quic</code></td><td>L3</td><td>QUIC transport adapter with stream multiplexing and 0-RTT paths.</td></tr>
-    <tr><td><code>transport.tcp</code></td><td>L3</td><td>TCP transport adapter with framing and reconnect handling.</td></tr>
-  </tbody>
-</table>
+<div class="doc-grid">
+  <div class="doc-card">
+    <h3><a href="./capabilities/">Catalog Overview</a></h3>
+    <p>Start here for the rules behind capability tokens, `supports`, and always-on cases with no token.</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./capabilities/nnrp-1-preview2">nnrp-1-preview2</a></h3>
+    <p>Full preview2 token table with combination rules, related cases, and detailed explanations.</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./capabilities/nnrp-1-preview3">nnrp-1-preview3</a></h3>
+    <p>Preview3 capability catalog covering the current mandatory core plus optional and experimental tokens.</p>
+  </div>
+</div>
+
+::: tip Combination rules matter
+Some cases are selected only when multiple tokens are claimed together. For example, the preview2 primary result path depends on `result_push.partial`, `result_push.stale_reuse`, and `payload.tensor` at the same time. Check the version page directly before editing `supports`.
+:::
 
 ### Example capability manifest
 
@@ -66,24 +59,12 @@ The following tokens are defined in the preview2 case manifests. Only tokens you
 {
   "$schema": "../../schemas/capability-manifest.schema.json",
   "implementation_name": "nnrp-py",
-  "protocol_version": "nnrp-1-preview2",
+  "protocol_version": "nnrp-1-preview3",
   "supports": [
-    "body_region.prelude",
-    "cache.lifecycle",
-    "control.client_hello",
-    "control.session_patch_ack",
-    "flow_update",
-    "frame_submit.mixed",
-    "object_reference.cache",
-    "payload.tensor",
-    "payload.typed",
-    "result_hint",
-    "result_push.degraded",
-    "result_push.partial",
-    "result_push.stale_reuse",
-    "transport.probe",
-    "transport.quic",
-    "transport.tcp"
+    "handshake.basic",
+    "session.open_close",
+    "frame_submit.tensor.inline",
+    "result_push.basic"
   ]
 }
 ```
@@ -119,13 +100,13 @@ The output file must satisfy all of the following:
 Python:
 
 ```bash
-python -m nnrp.tools.conformance --protocol-version nnrp-1-preview2 --output "$NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT"
+python -m nnrp.tools.conformance --protocol-version "<protocol-version>" --output "$NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT"
 ```
 
 C#:
 
 ```powershell
-dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csproj -- --protocol-version nnrp-1-preview2 --output $env:NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT
+dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csproj -- --protocol-version <protocol-version> --output $env:NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT
 ```
 
 ::: tip Do not add embedded conformance tests here
@@ -138,6 +119,10 @@ The formal integration contract is now “exporter command + suite action”, no
 
 The formal CI path should use the suite action. The commands below are for local debugging and manual inspection only.
 
+::: tip Replace these with your target baseline
+Substitute `<protocol-version>`, `<path-to-protocol-manifest>`, and `<path-to-recipe>` with the version line you are currently integrating. If you want a concrete recipe-backed example from the current repository, preview2 still provides `protocol/nnrp-1-preview2/vectors/semantic-vectors.json`.
+:::
+
 ### `summary` — inspect the execution plan
 
 ```bash
@@ -146,8 +131,8 @@ cargo run \
   -p nnrp-conformance-runner \
   -- \
   summary \
-  --protocol <path-to-nnrp-conformance>/protocol/nnrp-1-preview2/manifest.json \
-  --capabilities conformance/nnrp-1-preview2.capabilities.json
+  --protocol <path-to-protocol-manifest> \
+  --capabilities conformance/<protocol-version>.capabilities.json
 ```
 
 ### `generate-vectors` — produce the canonical vector manifest
@@ -204,7 +189,7 @@ cargo run \
 | `protocol-version` | Target protocol line, e.g. `nnrp-1-preview2`. |
 | `capabilities-path` | Path to your capability manifest. |
 | `working-directory` | Directory in which the exporter command should run. |
-| `artifact-name` | Artifact name used for reports and generated manifests. |
+| `artifact-name` | Artifact name used for reports and generated manifests. The default recommendation is a generic name such as `<repo>-conformance`; only append the version when one workflow intentionally publishes multiple protocol lines side by side. |
 | `sdk-vector-command` | Command that exports your SDK vector manifest. The suite action provides `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`. |
 
 ### GitHub Actions example
@@ -234,13 +219,23 @@ jobs:
       - name: Setup language runtime
         run: <install the runtime your SDK exporter needs>
 
+      - name: Resolve conformance baseline
+        id: conformance-baseline
+        shell: bash
+        run: |
+          capabilities_path="$(find conformance -maxdepth 1 -name '*.capabilities.json' | head -n 1)"
+          test -n "$capabilities_path"
+          protocol_version="$(basename "$capabilities_path" .capabilities.json)"
+          echo "protocol_version=$protocol_version" >> "$GITHUB_OUTPUT"
+          echo "capabilities_path=$capabilities_path" >> "$GITHUB_OUTPUT"
+
       - name: Run suite-owned conformance action
         uses: ./nnrp-conformance-action/.github/actions/run-conformance
         with:
-          protocol-version: nnrp-1-preview2
-          capabilities-path: conformance/nnrp-1-preview2.capabilities.json
+          protocol-version: ${{ steps.conformance-baseline.outputs.protocol_version }}
+          capabilities-path: ${{ steps.conformance-baseline.outputs.capabilities_path }}
           working-directory: .
-          artifact-name: <repo>-conformance-preview2
+          artifact-name: <repo>-conformance
           sdk-vector-command: <your exporter command>
 ```
 

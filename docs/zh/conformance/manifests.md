@@ -131,7 +131,7 @@ Case manifest 将一组 conformance 用例归在同一个文件中管理，通�
 
 ## 3. 语义向量 Recipe Manifest
 
-**Schema 文件：** `schemas/preview2-vector-recipes.schema.json`  
+**Schema 文件：** `schemas/semantic-vector-recipes.schema.json`  
 **示例文件：** `protocol/nnrp-1-preview2/vectors/semantic-vectors.json`
 
 语义向量 recipe manifest 是由人工维护的源文件，描述如何确定性地生成规范化线缆向量。Runner 读取此文件，生成一份 `vector-manifest.json` 产物。SDK 测试消费该产物。
@@ -143,7 +143,7 @@ Case manifest 将一组 conformance 用例归在同一个文件中管理，通�
 | 字段 | 类型 | 是否必填 | 合法取值 | 说明 |
 |---|---|---|---|---|
 | `$schema` | string | 否 | 任意 URI | JSON Schema 引用。 |
-| `protocol_version` | string | **是** | `nnrp-1-preview2` | 必须恰好为 `nnrp-1-preview2`。本 schema 绑定版本。 |
+| `protocol_version` | string | **是** | 非空字符串 | 该 recipe 所属的协议版本线。它必须与引用它的 protocol manifest 保持一致，但 schema 本身不再绑死到某个 preview。 |
 | `vectors` | 对象数组 | **是** | ≥1 项 | 向量 recipe 条目列表。 |
 
 ### Recipe 对象字段
@@ -206,7 +206,7 @@ Case manifest 将一组 conformance 用例归在同一个文件中管理，通�
 
 ```json
 {
-  "$schema": "../../../schemas/preview2-vector-recipes.schema.json",
+  "$schema": "../../../schemas/semantic-vector-recipes.schema.json",
   "protocol_version": "nnrp-1-preview2",
   "vectors": [
     {
@@ -244,7 +244,7 @@ Case manifest 将一组 conformance 用例归在同一个文件中管理，通�
 |---|---|---|---|---|
 | `$schema` | string | 否 | 任意 URI | JSON Schema 引用。 |
 | `protocol_version` | string | **是** | 非空字符串 | 与 recipe 的 `protocol_version` 一致。 |
-| `generator` | string | 否 | string | 生成该文件的工具标识，例如 `nnrp-conformance-runner`。 |
+| `generator` | string | 否 | string | 生成该文件的工具标识，例如 `nnrp-conformance semantic vector generator`。 |
 | `generated_from` | string | 否 | string | 来源 recipe 文件名，例如 `vectors/semantic-vectors.json`。 |
 | `vectors` | 对象数组 | **是** | ≥1 项 | 已生成的线缆向量列表。 |
 
@@ -263,7 +263,7 @@ Case manifest 将一组 conformance 用例归在同一个文件中管理，通�
 ```json
 {
   "protocol_version": "nnrp-1-preview2",
-  "generator": "nnrp-conformance-runner",
+  "generator": "nnrp-conformance semantic vector generator",
   "generated_from": "vectors/semantic-vectors.json",
   "vectors": [
     {

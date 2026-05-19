@@ -131,7 +131,7 @@ A case with `required_capabilities: []` is selected for **every** implementation
 
 ## 3. Semantic Vector Recipe Manifest
 
-**Schema:** `schemas/preview2-vector-recipes.schema.json`  
+**Schema:** `schemas/semantic-vector-recipes.schema.json`  
 **Example:** `protocol/nnrp-1-preview2/vectors/semantic-vectors.json`
 
 The semantic vector recipe manifest is a human-authored source file that describes how to generate canonical wire vectors deterministically. The runner reads this file and produces a `vector-manifest.json` artifact. The generated artifact is then consumed by SDK tests.
@@ -143,7 +143,7 @@ This design means no binary or hex payloads are checked in to the repository. Th
 | Field | Type | Required | Valid values | Description |
 |---|---|---|---|---|
 | `$schema` | string | no | any URI | JSON Schema reference. |
-| `protocol_version` | string | **yes** | `nnrp-1-preview2` | Must be exactly `nnrp-1-preview2`. This schema is version-specific. |
+| `protocol_version` | string | **yes** | non-empty string | Protocol line targeted by this recipe. It must align with the protocol manifest that references it, but the schema itself is no longer tied to a single preview. |
 | `vectors` | array of object | **yes** | ≥1 items | List of vector recipe entries. |
 
 ### Recipe Object Fields
@@ -206,7 +206,7 @@ Builds the CLIENT_HELLO fixed-metadata golden vector.
 
 ```json
 {
-  "$schema": "../../../schemas/preview2-vector-recipes.schema.json",
+  "$schema": "../../../schemas/semantic-vector-recipes.schema.json",
   "protocol_version": "nnrp-1-preview2",
   "vectors": [
     {
@@ -271,7 +271,7 @@ This is the **output** artifact produced by the runner from a semantic recipe ma
 |---|---|---|---|---|
 | `$schema` | string | no | any URI | JSON Schema reference. |
 | `protocol_version` | string | **yes** | non-empty string | Matches the recipe's `protocol_version`. |
-| `generator` | string | no | string | Identifies the tool that produced this file, e.g. `nnrp-conformance-runner`. |
+| `generator` | string | no | string | Identifies the tool that produced this file, e.g. `nnrp-conformance semantic vector generator`. |
 | `generated_from` | string | no | string | Names the source recipe file, e.g. `vectors/semantic-vectors.json`. |
 | `vectors` | array of object | **yes** | ≥1 items | The generated wire vectors. |
 
@@ -290,7 +290,7 @@ This is the **output** artifact produced by the runner from a semantic recipe ma
 ```json
 {
   "protocol_version": "nnrp-1-preview2",
-  "generator": "nnrp-conformance-runner",
+  "generator": "nnrp-conformance semantic vector generator",
   "generated_from": "vectors/semantic-vectors.json",
   "vectors": [
     {

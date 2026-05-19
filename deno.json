@@ -13,9 +13,10 @@
   "tasks": {
     "clean-cache": "deno eval \"for (const path of ['docs/.vitepress/cache']) { await Deno.remove(path, { recursive: true }).catch(() => {}); await Deno.mkdir(path, { recursive: true }); } await Deno.mkdir('docs/.vitepress/dist', { recursive: true });\"",
     "clean": "deno eval \"for (const path of ['docs/.vitepress/cache']) { await Deno.remove(path, { recursive: true }).catch(() => {}); await Deno.mkdir(path, { recursive: true }); } await Deno.mkdir('docs/.vitepress/dist', { recursive: true });\"",
-    "dev": "deno task clean-cache && deno run -A npm:vitepress dev docs --host 0.0.0.0",
-    "build": "deno run -A npm:vitepress build docs",
-    "preview": "deno run -A npm:vitepress preview docs --host 0.0.0.0"
+    "generate-capability-presets": "deno run -A scripts/generate-capability-manifest-presets.ts",
+    "dev": "deno task clean-cache && deno task generate-capability-presets && deno run -A npm:vitepress dev docs --host 0.0.0.0",
+    "build": "deno task generate-capability-presets && deno run -A npm:vitepress build docs",
+    "preview": "deno task generate-capability-presets && deno run -A npm:vitepress preview docs --host 0.0.0.0"
   },
   "fmt": {
     "lineWidth": 100,

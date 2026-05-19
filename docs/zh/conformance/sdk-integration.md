@@ -17,7 +17,9 @@ SDK 仓库接入 conformance 时，必须遵守以下边界：
 
 ## 第一步：创建 capability manifest
 
-在仓库根目录创建 `conformance/nnrp-1-preview2.capabilities.json`（或目标版本对应文件）。路径是约定俗成的，suite action 通过 `capabilities-path` 读取它。
+在仓库根目录创建 `conformance/<protocol-version>.capabilities.json`（例如 `conformance/nnrp-1-preview3.capabilities.json`）。路径是约定俗成的，suite action 通过 `capabilities-path` 读取它。
+
+如果你不想手写 JSON，可以直接使用 [Capability Manifest 生成器](./capability-manifest-generator) 先生成骨架，再回到版本化能力列表核对 token 语义。
 
 ### Capability Manifest 字段参考
 
@@ -28,37 +30,31 @@ SDK 仓库接入 conformance 时，必须遵守以下边界：
 | `protocol_version` | string | **是** | 非空字符串 | 目标协议版本线，必须与 suite action 传入的 `protocol-version` 完全一致。 |
 | `supports` | string 数组 | **是** | 唯一的能力 token | 你已完成并愿意对外宣称支持的能力。未声明能力不会被伪装成通过，而是归类为 `not_claimed`。 |
 
-### `nnrp-1-preview2` 的合法能力 token
+### 按版本查能力 token
 
-以下 token 在 preview2 case manifest 中已定义。只有你声明的 token 对应的用例才会在 CI 中成为硬约束。
+能力 token 现在单独维护在版本化能力列表中，不再把某个版本的全部 token 硬编码在集成指南里。这样做有两个好处：
 
-<table class="protocol-table">
-  <thead>
-    <tr>
-      <th>Token</th>
-      <th>层级</th>
-      <th>说明</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td><code>body_region.prelude</code></td><td>L0</td><td>编码和解码 body-region prelude 布局，覆盖 inline、reference 和 typed payload 三种区域。</td></tr>
-    <tr><td><code>cache.lifecycle</code></td><td>L1</td><td>完整缓存条目生命周期：分配、pin、释放及命名空间管理。</td></tr>
-    <tr><td><code>control.client_hello</code></td><td>L0 / L1</td><td>打包和解析 CLIENT_HELLO 固定元数据块。</td></tr>
-    <tr><td><code>control.session_patch_ack</code></td><td>L0 / L1</td><td>打包和解析 SESSION_PATCH_ACK 固定元数据块。</td></tr>
-    <tr><td><code>flow_update</code></td><td>L0 / L1</td><td>FLOW_UPDATE 包的往返编解码，含 credit delta 编码。</td></tr>
-    <tr><td><code>frame_submit.mixed</code></td><td>L0 / L1</td><td>混合提交模式（inline + reference 区域）下的 FRAME_SUBMIT 编解码。</td></tr>
-    <tr><td><code>object_reference.cache</code></td><td>L0</td><td>打包和解析缓存后端 body 区域所使用的对象引用块。</td></tr>
-    <tr><td><code>payload.tensor</code></td><td>L0 / L1</td><td>Tensor profile 载荷的编解码，含 descriptor、schema 和 body 布局。</td></tr>
-    <tr><td><code>payload.typed</code></td><td>L0 / L1</td><td>类型化载荷描述符的编解码（非 tensor profile）。</td></tr>
-    <tr><td><code>result_hint</code></td><td>L0 / L1</td><td>RESULT_HINT 包的往返编解码，含 hint 元数据。</td></tr>
-    <tr><td><code>result_push.degraded</code></td><td>L1</td><td>降级（fallback）模式下的 RESULT_PUSH 编解码。</td></tr>
-    <tr><td><code>result_push.partial</code></td><td>L1</td><td>部分交付模式下的 RESULT_PUSH 编解码。</td></tr>
-    <tr><td><code>result_push.stale_reuse</code></td><td>L1</td><td>带旧帧复用语义的 RESULT_PUSH 编解码。</td></tr>
-    <tr><td><code>transport.probe</code></td><td>L3</td><td>实现传输探测握手及探测结果处理。</td></tr>
-    <tr><td><code>transport.quic</code></td><td>L3</td><td>QUIC 传输适配器，含流多路复用和 0-RTT 路径。</td></tr>
-    <tr><td><code>transport.tcp</code></td><td>L3</td><td>TCP 传输适配器，含帧边界处理和重连逻辑。</td></tr>
-  </tbody>
-</table>
+1. SDK 开发者可以直接跳到目标版本页，不会把 preview2、preview3 的 token 混在一起。
+2. 同一个 token 名称在不同版本中可以拥有不同语义边界，文档也能按版本分别解释。
+
+<div class="doc-grid">
+  <div class="doc-card">
+    <h3><a href="./capabilities/">能力列表总览</a></h3>
+    <p>先看 token 是什么、何时应该写进 `supports`，以及为什么有些用例没有 token。</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./capabilities/nnrp-1-preview2">nnrp-1-preview2</a></h3>
+    <p>Preview2 的完整 token 表，包含组合要求、相关 case 和每个能力的详细约束。</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./capabilities/nnrp-1-preview3">nnrp-1-preview3</a></h3>
+    <p>Preview3 当前 mandatory core 与 optional/experimental token 的能力目录。</p>
+  </div>
+</div>
+
+::: tip 关于组合选择
+有些 case 不是由单个 token 触发，而是要求多个 token 同时声明。例如 Preview2 的主结果返回路径同时依赖 `result_push.partial`、`result_push.stale_reuse` 和 `payload.tensor`。具体组合关系请直接看对应版本页。
+:::
 
 ### Capability manifest 示例
 
@@ -66,24 +62,12 @@ SDK 仓库接入 conformance 时，必须遵守以下边界：
 {
   "$schema": "../../schemas/capability-manifest.schema.json",
   "implementation_name": "nnrp-py",
-  "protocol_version": "nnrp-1-preview2",
+  "protocol_version": "nnrp-1-preview3",
   "supports": [
-    "body_region.prelude",
-    "cache.lifecycle",
-    "control.client_hello",
-    "control.session_patch_ack",
-    "flow_update",
-    "frame_submit.mixed",
-    "object_reference.cache",
-    "payload.tensor",
-    "payload.typed",
-    "result_hint",
-    "result_push.degraded",
-    "result_push.partial",
-    "result_push.stale_reuse",
-    "transport.probe",
-    "transport.quic",
-    "transport.tcp"
+    "handshake.basic",
+    "session.open_close",
+    "frame_submit.tensor.inline",
+    "result_push.basic"
   ]
 }
 ```
@@ -119,13 +103,13 @@ suite action 不直接调用你的测试框架，而是调用你提供的导出�
 Python：
 
 ```bash
-python -m nnrp.tools.conformance --protocol-version nnrp-1-preview2 --output "$NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT"
+python -m nnrp.tools.conformance --protocol-version "<protocol-version>" --output "$NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT"
 ```
 
 C#：
 
 ```powershell
-dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csproj -- --protocol-version nnrp-1-preview2 --output $env:NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT
+dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csproj -- --protocol-version <protocol-version> --output $env:NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT
 ```
 
 ::: tip 这里不要再写嵌入式 conformance 测试
@@ -138,6 +122,10 @@ dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csp
 
 CI 正式路径应优先使用 suite action；以下命令只用于本地排障和人工核对。
 
+::: tip 替换成你的目标 baseline
+以下命令中的 `<protocol-version>`、`<path-to-protocol-manifest>` 和 `<path-to-recipe>` 都应替换成你当前对接的版本线。当前仓库里如果你想直接看一份 recipe-backed 示例，可以先参考 Preview2 的 `protocol/nnrp-1-preview2/vectors/semantic-vectors.json`。
+:::
+
 ### `summary` — 查看 execution plan
 
 ```bash
@@ -146,8 +134,8 @@ cargo run \
   -p nnrp-conformance-runner \
   -- \
   summary \
-  --protocol <nnrp-conformance 路径>/protocol/nnrp-1-preview2/manifest.json \
-  --capabilities conformance/nnrp-1-preview2.capabilities.json
+  --protocol <path-to-protocol-manifest> \
+  --capabilities conformance/<protocol-version>.capabilities.json
 ```
 
 ### `generate-vectors` — 生成 canonical 向量 manifest
@@ -204,7 +192,7 @@ cargo run \
 | `protocol-version` | 目标协议版本线，例如 `nnrp-1-preview2`。 |
 | `capabilities-path` | 你的 capability manifest 路径。 |
 | `working-directory` | 在 SDK 仓库中执行导出命令的目录。 |
-| `artifact-name` | CI 中上传 conformance 报告与向量文件的 artifact 名称。 |
+| `artifact-name` | CI 中上传 conformance 报告与向量文件的 artifact 名称。默认建议使用通用名，例如 `<repo>-conformance`；只有在同一工作流并列发布多个版本时才需要附带版本后缀。 |
 | `sdk-vector-command` | 你的 SDK 向量导出命令。suite action 会提供 `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`。 |
 
 ### GitHub Actions 示例
@@ -234,13 +222,23 @@ jobs:
       - name: Setup language runtime
         run: <安装你的 SDK 所需运行时>
 
+      - name: Resolve conformance baseline
+        id: conformance-baseline
+        shell: bash
+        run: |
+          capabilities_path="$(find conformance -maxdepth 1 -name '*.capabilities.json' | head -n 1)"
+          test -n "$capabilities_path"
+          protocol_version="$(basename "$capabilities_path" .capabilities.json)"
+          echo "protocol_version=$protocol_version" >> "$GITHUB_OUTPUT"
+          echo "capabilities_path=$capabilities_path" >> "$GITHUB_OUTPUT"
+
       - name: Run suite-owned conformance action
         uses: ./nnrp-conformance-action/.github/actions/run-conformance
         with:
-          protocol-version: nnrp-1-preview2
-          capabilities-path: conformance/nnrp-1-preview2.capabilities.json
+          protocol-version: ${{ steps.conformance-baseline.outputs.protocol_version }}
+          capabilities-path: ${{ steps.conformance-baseline.outputs.capabilities_path }}
           working-directory: .
-          artifact-name: <repo>-conformance-preview2
+          artifact-name: <repo>-conformance
           sdk-vector-command: <你的导出命令>
 ```
 

@@ -51,6 +51,14 @@ If you are building a third-party NNRP implementation, the conformance suite giv
     <p>Minimum bring-up path. Get a first execution-plan report in five minutes.</p>
   </div>
   <div class="doc-card">
+    <h3><a href="./capability-manifest-generator">Capability Manifest Generator</a></h3>
+    <p>Choose a protocol line, tick capabilities, and generate JSON immediately instead of hand-writing the manifest.</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./capabilities/">Capability Catalog</a></h3>
+    <p>Browse versioned capability tokens, combination rules, and the conformance obligations attached to each claim.</p>
+  </div>
+  <div class="doc-card">
     <h3><a href="./manifests">Manifests Reference</a></h3>
     <p>For suite authors. Complete JSON field reference for protocol manifests, case manifests, vector recipes, and reports.</p>
   </div>

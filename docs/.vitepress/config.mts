@@ -282,6 +282,16 @@ const zhSdkOverviewItems = [
 const zhConformanceItems = [
   { text: "Conformance 总览", link: "/zh/conformance/" },
   { text: "快速开始", link: "/zh/conformance/quick-start" },
+  { text: "Capability Manifest 生成器", link: "/zh/conformance/capability-manifest-generator" },
+  {
+    text: "能力列表",
+    collapsed: false,
+    items: [
+      { text: "能力列表总览", link: "/zh/conformance/capabilities/" },
+      { text: "nnrp-1-preview2", link: "/zh/conformance/capabilities/nnrp-1-preview2" },
+      { text: "nnrp-1-preview3", link: "/zh/conformance/capabilities/nnrp-1-preview3" },
+    ]
+  },
   {
     text: "参考",
     collapsed: false,
@@ -350,6 +360,16 @@ const enSdkOverviewItems = [
 const enConformanceItems = [
   { text: "Conformance Overview", link: "/en/conformance/" },
   { text: "Quick Start", link: "/en/conformance/quick-start" },
+  { text: "Capability Manifest Generator", link: "/en/conformance/capability-manifest-generator" },
+  {
+    text: "Capability Catalog",
+    collapsed: false,
+    items: [
+      { text: "Catalog Overview", link: "/en/conformance/capabilities/" },
+      { text: "nnrp-1-preview2", link: "/en/conformance/capabilities/nnrp-1-preview2" },
+      { text: "nnrp-1-preview3", link: "/en/conformance/capabilities/nnrp-1-preview3" },
+    ]
+  },
   {
     text: "Reference",
     collapsed: false,

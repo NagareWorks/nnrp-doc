@@ -51,6 +51,14 @@ CI 不会猜你的实现对接的是哪个版本的协议。你在 CI 里显式�
     <p>最小接入路径，5 分钟跑出第一份执行计划。</p>
   </div>
   <div class="doc-card">
+    <h3><a href="./capability-manifest-generator">Capability Manifest 生成器</a></h3>
+    <p>选择协议版本、勾选能力并即时生成 JSON，减少实现仓库手写 manifest 的摩擦。</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./capabilities/">能力列表</a></h3>
+    <p>按版本查看 capability token、组合要求，以及每个能力对应的 conformance 约束。</p>
+  </div>
+  <div class="doc-card">
     <h3><a href="./manifests">Manifest 参考</a></h3>
     <p>面向套件开发者。Protocol manifest、case manifest、向量 recipe、报告格式的完整字段参考。</p>
   </div>
