@@ -44,6 +44,18 @@ NNRP is a good fit here because:
 2. It allows one task to be split into multiple operations.
 3. It allows collaboration to progress through streamed results, structured events, and control messages instead of one oversized RPC exchange.
 
+One high-value direction is to use NNRP inside an AI coding-agent orchestrator. The orchestrator can run as a local service and expose an OpenRouter-style interface to IDEs, CLIs, or automation systems. The caller asks for a coding-agent capability; the local service chooses models, decomposes the task, schedules subagents, validates patches, and streams results back.
+
+This makes the NNRP story concrete:
+
+1. The orchestration model can be configured independently, for example using a stronger reasoning model for planning, review, and final decisions.
+2. Subagents can bind different models to different capabilities, such as repository reading, semantic search, diff proposal, or test repair.
+3. A non-AI diff checker, formatter, test runner, and coverage gate can act as a physical validation layer so hallucinated patches do not silently enter the final output.
+4. Agent-to-agent communication can support both common gRPC / A2A paths and an NNRP path, making it possible to compare the effect of long-lived connections, multiple sessions, multiple operations, flow control, cancellation, recovery, and cache semantics.
+5. A JavaScript / TypeScript SDK is a natural fit for this demo because many coding agents, IDE extensions, and local developer tools already live in the Node.js / TypeScript ecosystem.
+
+For that reason, this is better treated as a comparison-oriented demo after preview3 is fully implemented: run the same coding tasks once over generic RPC / A2A and once over NNRP, then compare latency, repeated transfer, cancellation response, context reuse, patch correctness, and local validation overhead.
+
 ## High-value but still more future-facing
 
 ### Neural rendering in the cloud
