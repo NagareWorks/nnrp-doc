@@ -100,6 +100,55 @@ preview3 continues to retain the 40-byte common header and the self-describing l
 3. The extension capability of body regions and the binding relationship between typed payloads and schema.
 4. Connection and session state-machine semantics.
 
+### 6.2A Wire Integer Encoding and Fixed-Metadata Packing Rules
+
+preview3 freezes the following binary encoding rules in the first round:
+
+1. All multi-byte integers are encoded little-endian.
+2. The common header and fixed metadata use compact fixed layouts with no language ABI padding.
+3. Field offsets are byte offsets from the beginning of the structure; every `offset` in the tables below is a wire offset that all implementations must follow.
+4. All `reserved` fields must be cleared by senders; receivers must reject non-zero reserved fields on strict / conformance paths.
+5. Bitmap fields may only set bits frozen by this document; receivers must reject unknown set bits on strict / conformance paths.
+
+### 6.2B Freezing of preview3 Top-Level Message Type Assignments
+
+preview3 freezes the following public `msg_type:u8` assignments in the first round. Existing preview2 assignments remain unchanged, while the new preview3 session-container messages occupy previously reserved control-plane slots.
+
+| Value | Name | Metadata Length | Body Shape | Description |
+| --- | --- | --- | --- | --- |
+| `0x01` | `CLIENT_HELLO` | existing NNRP/1 length | optional extension blocks | Connection-level hello, capability window, and authentication entry |
+| `0x02` | `SERVER_HELLO_ACK` | existing NNRP/1 length | optional extension blocks | Connection-level hello ack and capability-negotiation result |
+| `0x03` | `SESSION_PATCH` | existing NNRP/1 length | optional extension blocks | Low-frequency session update path |
+| `0x04` | `SESSION_PATCH_ACK` | existing NNRP/1 length | optional extension blocks | Low-frequency session update acknowledgment |
+| `0x05` | `CLOSE` | `0` or existing close metadata | optional extension blocks | Connection-level close; no longer means closing one session |
+| `0x06` | `ERROR` | existing NNRP/1 length | optional error extension | Stable protocol error response |
+| `0x07` | `SESSION_OPEN` | `48` | `resume_token_block + auth_block + session_extension_block` | Explicitly open one session |
+| `0x08` | `SESSION_OPEN_ACK` | `56` | `resume_token_block + session_extension_block` | Confirm or reject a session open |
+| `0x09` | `SESSION_CLOSE` | `24` | `0` or close extension block | Close one session |
+| `0x0A` | `SESSION_CLOSE_ACK` | `16` | `0` or close extension block | Acknowledge session close state |
+| `0x10` | `FRAME_SUBMIT` | existing NNRP/1 submit length | submit body / typed payload region | Data-plane submission; preview3 upgrades semantics through session/profile/schema |
+| `0x11` | `FRAME_CANCEL` | existing NNRP/1 length | optional extension blocks | Cancel a submission or operation |
+| `0x12` | `RESULT_PUSH` | existing NNRP/1 result length | result body / typed payload region | Result, partial, terminal, stale/degraded delivery |
+| `0x13` | `RESULT_DROP` | existing NNRP/1 length | optional extension blocks | Explicit result drop or delivery failure |
+| `0x14` | `CACHE_PUT` | existing NNRP/1 length | cache object body | Cache-object write |
+| `0x15` | `CACHE_ACK` | existing NNRP/1 length | optional extension blocks | Cache operation acknowledgment |
+| `0x16` | `CACHE_INVALIDATE` | existing NNRP/1 length | optional extension blocks | Cache or schema invalidation |
+| `0x17` | `FLOW_UPDATE` | `32` | `0` | Three-scope credit / backpressure update |
+| `0x18` | `RESULT_HINT` | existing NNRP/1 length | optional extension blocks | Low-frequency result hint |
+| `0x19` | `TRANSPORT_PROBE` | existing NNRP/1 length | probe body | Transport probing |
+| `0x1A` | `TRANSPORT_PROBE_ACK` | existing NNRP/1 length | probe ack body | Transport probing acknowledgment |
+| `0x1B` | `SESSION_MIGRATE` | existing NNRP/1 length | migration body | Existing migration control path |
+| `0x1C` | `SESSION_MIGRATE_ACK` | existing NNRP/1 length | migration ack body | Existing migration acknowledgment path |
+| `0x20` | `PING` | `0` | `0` | Keepalive / smoke |
+| `0x21` | `PONG` | `0` | `0` | Keepalive / smoke |
+
+First-round constraints:
+
+1. `0x07-0x0A` are the preview3 session-container message assignments; implementations must not use these values for private messages.
+2. Any `msg_type` value not listed above is reserved; receivers must reject unknown message types on strict / conformance paths.
+3. Messages marked as "existing NNRP/1 length" continue to use the currently frozen NNRP/1 layouts; preview3 does not reorder those message assignments or old field offsets in this document.
+4. The body segment order of `SESSION_OPEN` / `SESSION_OPEN_ACK` is determined by the length fields in metadata; a segment is absent when its corresponding length is `0`.
+
 ### 6.3 Continued Principles from Earlier Frozen Work
 
 The following design principles of preview2 continue to hold in preview3:
@@ -680,14 +729,126 @@ In the first round, preview3 freezes the following recovery semantics:
 4. If the `resume_token` is invalid, expired, unauthorized, or incompatible with the requested profile/schema/session capabilities, the server must return `session_error_code = resume_rejected`.
 5. Recovery must not treat historical frames as independent recovery objects; any frame-level or packet-level compensation remains subordinate to session recovery semantics.
 
-## 12. Protocol Freeze Summary
+## 12. preview3 Fixed-Layout Offset Registry
+
+This section collects the fixed metadata / descriptor layouts frozen above into one offset registry for implementations, golden vectors, and conformance runners. All offsets are byte offsets from the beginning of the corresponding structure, and all multi-byte fields are little-endian.
+
+### 12.1 `SESSION_OPEN` Metadata, 48 Bytes
+
+| offset | Field | Type |
+| --- | --- | --- |
+| `0` | `requested_session_id` | `u32` |
+| `4` | `profile_id` | `u16` |
+| `6` | `priority_class` | `u8` |
+| `7` | `session_flags` | `u8` |
+| `8` | `schema_id` | `u32` |
+| `12` | `schema_version` | `u32` |
+| `16` | `default_deadline_ms` | `u32` |
+| `20` | `max_in_flight_operations` | `u16` |
+| `22` | `reserved0` | `u16` |
+| `24` | `lease_ttl_hint_ms` | `u32` |
+| `28` | `resume_token_bytes` | `u32` |
+| `32` | `auth_bytes` | `u32` |
+| `36` | `session_extension_bytes` | `u32` |
+| `40` | `client_session_tag` | `u64` |
+
+### 12.2 `SESSION_OPEN_ACK` Metadata, 56 Bytes
+
+| offset | Field | Type |
+| --- | --- | --- |
+| `0` | `session_id` | `u32` |
+| `4` | `accepted_profile_id` | `u16` |
+| `6` | `accepted_priority_class` | `u8` |
+| `7` | `session_status` | `u8` |
+| `8` | `schema_id` | `u32` |
+| `12` | `schema_version` | `u32` |
+| `16` | `granted_operation_credit` | `u16` |
+| `18` | `max_in_flight_operations` | `u16` |
+| `20` | `lease_ttl_ms` | `u32` |
+| `24` | `resume_window_ms` | `u32` |
+| `28` | `resume_token_bytes` | `u32` |
+| `32` | `session_extension_bytes` | `u32` |
+| `36` | `server_session_tag` | `u64` |
+| `44` | `route_scope_id` | `u32` |
+| `48` | `session_error_code` | `u32` |
+| `52` | `session_flags_ack` | `u32` |
+
+### 12.3 `SESSION_CLOSE` Metadata, 24 Bytes
+
+| offset | Field | Type |
+| --- | --- | --- |
+| `0` | `close_reason` | `u16` |
+| `2` | `in_flight_policy` | `u8` |
+| `3` | `reserved0` | `u8` |
+| `4` | `drain_timeout_ms` | `u32` |
+| `8` | `last_operation_id` | `u64` |
+| `16` | `session_error_code` | `u32` |
+| `20` | `session_close_tag` | `u32` |
+
+### 12.4 `SESSION_CLOSE_ACK` Metadata, 16 Bytes
+
+| offset | Field | Type |
+| --- | --- | --- |
+| `0` | `close_status` | `u8` |
+| `1` | `reserved0` | `u8` |
+| `2` | `reserved1` | `u16` |
+| `4` | `last_operation_id` | `u64` |
+| `12` | `session_error_code` | `u32` |
+
+### 12.5 `FLOW_UPDATE` Metadata, 32 Bytes
+
+| offset | Field | Type |
+| --- | --- | --- |
+| `0` | `scope_kind` | `u8` |
+| `1` | `update_reason` | `u8` |
+| `2` | `backpressure_level` | `u8` |
+| `3` | `reserved0` | `u8` |
+| `4` | `connection_credit` | `u16` |
+| `6` | `session_credit` | `u16` |
+| `8` | `operation_credit` | `u16` |
+| `10` | `reserved1` | `u16` |
+| `12` | `operation_id` | `u64` |
+| `20` | `retry_after_ms` | `u32` |
+| `24` | `credit_epoch` | `u32` |
+| `28` | `flow_flags` | `u32` |
+
+### 12.6 Schema Descriptor Header, 32 Bytes
+
+| offset | Field | Type |
+| --- | --- | --- |
+| `0` | `schema_id` | `u32` |
+| `4` | `schema_version` | `u32` |
+| `8` | `profile_id` | `u16` |
+| `10` | `schema_flags` | `u16` |
+| `12` | `min_version_major` | `u8` |
+| `13` | `max_version_major` | `u8` |
+| `14` | `reserved0` | `u16` |
+| `16` | `body_bytes` | `u32` |
+| `20` | `dependency_count` | `u16` |
+| `22` | `default_stream_semantics` | `u16` |
+| `24` | `schema_hash` | `u64` |
+
+### 12.7 Typed Payload Descriptor, 24 Bytes
+
+| offset | Field | Type |
+| --- | --- | --- |
+| `0` | `profile_id` | `u16` |
+| `2` | `descriptor_flags` | `u16` |
+| `4` | `schema_id` | `u32` |
+| `8` | `schema_version` | `u32` |
+| `12` | `stream_semantics` | `u16` |
+| `14` | `reserved0` | `u16` |
+| `16` | `offset` | `u32` |
+| `20` | `length` | `u32` |
+
+## 13. Protocol Freeze Summary
 
 This document currently freezes the following protocol topics:
 
-1. The `NNRP/1.0` code-level identity, the 40-byte common header, and the `meta_len + body_len` length model.
+1. The `NNRP/1.0` code-level identity, the 40-byte common header, the `msg_type` assignment table, and the `meta_len + body_len` length model.
 2. The layered boundary among connection, session, and operation, including `SESSION_OPEN / SESSION_OPEN_ACK`, explicit session close, recovery objects, and routing semantics.
 3. Runtime semantics such as `FLOW_UPDATE`, priority, cancel scope, operation lifecycle, and recovery watermarks.
-4. Cache lease, schema/profile registry, the 32-byte schema descriptor, the 24-byte typed payload descriptor, and their standard error vocabulary.
+4. Cache lease, schema/profile registry, the 32-byte schema descriptor, the 24-byte typed payload descriptor, the fixed offset registry, and their standard error vocabulary.
 5. The boundary between `structured_event` / `tool_delta` payload families and the public lifecycle model, as well as the cross-implementation baseline of conformance, golden vectors, enum values, and error codes.
 
 Concrete implementation-facing API shape, packaging, and release strategy are outside the freeze scope of this document.

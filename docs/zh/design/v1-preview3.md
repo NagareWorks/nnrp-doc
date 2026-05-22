@@ -100,6 +100,55 @@ preview3 继续保留 40 字节公共头与 `meta_len + body_len` 自描述长�
 3. body region 的扩展能力和 typed payload / schema 绑定关系；
 4. 连接与会话状态机语义。
 
+### 6.2A 线级整数编码与 fixed metadata 打包规则
+
+preview3 首轮冻结以下二进制编码规则：
+
+1. 所有多字节整数一律使用 little-endian 编码。
+2. 公共头与 fixed metadata 均为紧凑固定布局，不插入语言 ABI padding。
+3. 字段偏移以字节为单位，从该结构起始位置计算；表中 `offset` 是跨语言实现必须遵守的 wire offset。
+4. 所有 `reserved` 字段发送端必须清零；接收端在 strict / conformance 路径上遇到非零 reserved 字段必须拒绝。
+5. 所有位图字段只能设置本文已冻结的 bit；接收端在 strict / conformance 路径上遇到未知置位必须拒绝。
+
+### 6.2B preview3 顶层消息类型编号冻结
+
+preview3 首轮冻结以下 `msg_type:u8` 公共编号。已有 preview2 编号保持不变，preview3 新增 session 容器消息占用此前保留的 control-plane 空位。
+
+| 值 | 名称 | metadata 长度 | body 口径 | 说明 |
+| --- | --- | --- | --- | --- |
+| `0x01` | `CLIENT_HELLO` | 既有 NNRP/1 长度 | 可选扩展块 | 连接级 hello、能力窗口、鉴权入口 |
+| `0x02` | `SERVER_HELLO_ACK` | 既有 NNRP/1 长度 | 可选扩展块 | 连接级 hello ack 与能力协商结果 |
+| `0x03` | `SESSION_PATCH` | 既有 NNRP/1 长度 | 可选扩展块 | 低频 session 更新路径 |
+| `0x04` | `SESSION_PATCH_ACK` | 既有 NNRP/1 长度 | 可选扩展块 | 低频 session 更新确认 |
+| `0x05` | `CLOSE` | `0` 或既有关闭元数据 | 可选扩展块 | 连接级关闭；不再表示关闭单个 session |
+| `0x06` | `ERROR` | 既有 NNRP/1 长度 | 可选错误扩展 | 稳定协议错误返回 |
+| `0x07` | `SESSION_OPEN` | `48` | `resume_token_block + auth_block + session_extension_block` | 显式打开一个 session |
+| `0x08` | `SESSION_OPEN_ACK` | `56` | `resume_token_block + session_extension_block` | 确认或拒绝 session open |
+| `0x09` | `SESSION_CLOSE` | `24` | `0` 或关闭扩展块 | 关闭单个 session |
+| `0x0A` | `SESSION_CLOSE_ACK` | `16` | `0` 或关闭扩展块 | 确认 session close 状态 |
+| `0x10` | `FRAME_SUBMIT` | 既有 NNRP/1 submit 长度 | submit body / typed payload region | 数据面提交；preview3 通过 session/profile/schema 语义升级 |
+| `0x11` | `FRAME_CANCEL` | 既有 NNRP/1 长度 | 可选扩展块 | 取消提交或 operation |
+| `0x12` | `RESULT_PUSH` | 既有 NNRP/1 result 长度 | result body / typed payload region | 结果、partial、terminal、stale/degraded 等返回 |
+| `0x13` | `RESULT_DROP` | 既有 NNRP/1 长度 | 可选扩展块 | 显式丢弃或无法交付结果 |
+| `0x14` | `CACHE_PUT` | 既有 NNRP/1 长度 | cache object body | 缓存对象写入 |
+| `0x15` | `CACHE_ACK` | 既有 NNRP/1 长度 | 可选扩展块 | 缓存操作确认 |
+| `0x16` | `CACHE_INVALIDATE` | 既有 NNRP/1 长度 | 可选扩展块 | 缓存或 schema 失效 |
+| `0x17` | `FLOW_UPDATE` | `32` | `0` | 三层 credit / backpressure 更新 |
+| `0x18` | `RESULT_HINT` | 既有 NNRP/1 长度 | 可选扩展块 | 低频结果提示 |
+| `0x19` | `TRANSPORT_PROBE` | 既有 NNRP/1 长度 | probe body | transport probing |
+| `0x1A` | `TRANSPORT_PROBE_ACK` | 既有 NNRP/1 长度 | probe ack body | transport probing ack |
+| `0x1B` | `SESSION_MIGRATE` | 既有 NNRP/1 长度 | migration body | 既有迁移控制路径 |
+| `0x1C` | `SESSION_MIGRATE_ACK` | 既有 NNRP/1 长度 | migration ack body | 既有迁移确认路径 |
+| `0x20` | `PING` | `0` | `0` | keepalive / smoke |
+| `0x21` | `PONG` | `0` | `0` | keepalive / smoke |
+
+首轮约束：
+
+1. `0x07-0x0A` 是 preview3 新增的 session 容器消息编号；实现不得用这些值承载私有消息。
+2. 未列出的 `msg_type` 值均保留；接收端在 strict / conformance 路径上必须拒绝未知消息类型。
+3. 标注为“既有 NNRP/1 长度”的消息继续沿用当前 NNRP/1 已冻结布局；preview3 不在本文重排这些消息编号或旧字段偏移。
+4. `SESSION_OPEN` / `SESSION_OPEN_ACK` 的 body 分段顺序由 metadata 中的长度字段决定；若对应长度为 `0`，该分段不存在。
+
 ### 6.3 已冻结主题的延续原则
 
 preview2 中以下设计原则在 preview3 继续成立：
@@ -680,14 +729,126 @@ preview3 首轮冻结以下恢复语义：
 4. 若 `resume_token` 无效、过期、越权或与请求的 profile/schema/session 能力不兼容，服务端必须返回 `session_error_code = resume_rejected`。
 5. 恢复不得把历史 frame 视为独立恢复对象；任何 frame 级或单包级补偿都必须从属于 session 恢复语义。
 
-## 12. 协议冻结摘要
+## 12. preview3 固定布局 offset registry
+
+本节把前文已经冻结的 fixed metadata / descriptor 布局集中成 offset registry，供实现、golden vector 和 conformance runner 直接消费。所有 offset 均从对应结构的第 0 字节开始计算，所有多字节字段均为 little-endian。
+
+### 12.1 `SESSION_OPEN` metadata，48 字节
+
+| offset | 字段 | 类型 |
+| --- | --- | --- |
+| `0` | `requested_session_id` | `u32` |
+| `4` | `profile_id` | `u16` |
+| `6` | `priority_class` | `u8` |
+| `7` | `session_flags` | `u8` |
+| `8` | `schema_id` | `u32` |
+| `12` | `schema_version` | `u32` |
+| `16` | `default_deadline_ms` | `u32` |
+| `20` | `max_in_flight_operations` | `u16` |
+| `22` | `reserved0` | `u16` |
+| `24` | `lease_ttl_hint_ms` | `u32` |
+| `28` | `resume_token_bytes` | `u32` |
+| `32` | `auth_bytes` | `u32` |
+| `36` | `session_extension_bytes` | `u32` |
+| `40` | `client_session_tag` | `u64` |
+
+### 12.2 `SESSION_OPEN_ACK` metadata，56 字节
+
+| offset | 字段 | 类型 |
+| --- | --- | --- |
+| `0` | `session_id` | `u32` |
+| `4` | `accepted_profile_id` | `u16` |
+| `6` | `accepted_priority_class` | `u8` |
+| `7` | `session_status` | `u8` |
+| `8` | `schema_id` | `u32` |
+| `12` | `schema_version` | `u32` |
+| `16` | `granted_operation_credit` | `u16` |
+| `18` | `max_in_flight_operations` | `u16` |
+| `20` | `lease_ttl_ms` | `u32` |
+| `24` | `resume_window_ms` | `u32` |
+| `28` | `resume_token_bytes` | `u32` |
+| `32` | `session_extension_bytes` | `u32` |
+| `36` | `server_session_tag` | `u64` |
+| `44` | `route_scope_id` | `u32` |
+| `48` | `session_error_code` | `u32` |
+| `52` | `session_flags_ack` | `u32` |
+
+### 12.3 `SESSION_CLOSE` metadata，24 字节
+
+| offset | 字段 | 类型 |
+| --- | --- | --- |
+| `0` | `close_reason` | `u16` |
+| `2` | `in_flight_policy` | `u8` |
+| `3` | `reserved0` | `u8` |
+| `4` | `drain_timeout_ms` | `u32` |
+| `8` | `last_operation_id` | `u64` |
+| `16` | `session_error_code` | `u32` |
+| `20` | `session_close_tag` | `u32` |
+
+### 12.4 `SESSION_CLOSE_ACK` metadata，16 字节
+
+| offset | 字段 | 类型 |
+| --- | --- | --- |
+| `0` | `close_status` | `u8` |
+| `1` | `reserved0` | `u8` |
+| `2` | `reserved1` | `u16` |
+| `4` | `last_operation_id` | `u64` |
+| `12` | `session_error_code` | `u32` |
+
+### 12.5 `FLOW_UPDATE` metadata，32 字节
+
+| offset | 字段 | 类型 |
+| --- | --- | --- |
+| `0` | `scope_kind` | `u8` |
+| `1` | `update_reason` | `u8` |
+| `2` | `backpressure_level` | `u8` |
+| `3` | `reserved0` | `u8` |
+| `4` | `connection_credit` | `u16` |
+| `6` | `session_credit` | `u16` |
+| `8` | `operation_credit` | `u16` |
+| `10` | `reserved1` | `u16` |
+| `12` | `operation_id` | `u64` |
+| `20` | `retry_after_ms` | `u32` |
+| `24` | `credit_epoch` | `u32` |
+| `28` | `flow_flags` | `u32` |
+
+### 12.6 Schema descriptor header，32 字节
+
+| offset | 字段 | 类型 |
+| --- | --- | --- |
+| `0` | `schema_id` | `u32` |
+| `4` | `schema_version` | `u32` |
+| `8` | `profile_id` | `u16` |
+| `10` | `schema_flags` | `u16` |
+| `12` | `min_version_major` | `u8` |
+| `13` | `max_version_major` | `u8` |
+| `14` | `reserved0` | `u16` |
+| `16` | `body_bytes` | `u32` |
+| `20` | `dependency_count` | `u16` |
+| `22` | `default_stream_semantics` | `u16` |
+| `24` | `schema_hash` | `u64` |
+
+### 12.7 Typed payload descriptor，24 字节
+
+| offset | 字段 | 类型 |
+| --- | --- | --- |
+| `0` | `profile_id` | `u16` |
+| `2` | `descriptor_flags` | `u16` |
+| `4` | `schema_id` | `u32` |
+| `8` | `schema_version` | `u32` |
+| `12` | `stream_semantics` | `u16` |
+| `14` | `reserved0` | `u16` |
+| `16` | `offset` | `u32` |
+| `20` | `length` | `u32` |
+
+## 13. 协议冻结摘要
 
 本文档当前冻结的是以下协议主题：
 
-1. `NNRP/1.0` 代码层身份、40B 公共头和 `meta_len + body_len` 长度模型。
+1. `NNRP/1.0` 代码层身份、40B 公共头、`msg_type` 编号表和 `meta_len + body_len` 长度模型。
 2. 连接/会话/operation 的分层边界，以及 `SESSION_OPEN / SESSION_OPEN_ACK`、显式 session close、恢复对象与路由字段语义。
 3. `FLOW_UPDATE`、优先级、取消范围、operation 生命周期和恢复水位等运行时语义。
-4. cache lease、schema/profile registry、32B schema descriptor、24B typed payload descriptor 及其标准错误口径。
+4. cache lease、schema/profile registry、32B schema descriptor、24B typed payload descriptor、固定 offset registry 及其标准错误口径。
 5. `structured_event` / `tool_delta` 与公共 lifecycle 语义之间的边界，以及跨语言 conformance、golden vector、枚举值和错误码基线。
 
 具体实现的 API 形状、打包和发布策略，不属于本文冻结范围。
