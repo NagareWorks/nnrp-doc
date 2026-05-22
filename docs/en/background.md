@@ -30,9 +30,9 @@ In short:
 
 - Not a specialized protocol with hard-coded fields only for neural rendering.
 - Not an interface designed only for offline batch jobs or one-shot synchronous inference.
-- Not a transport protocol—it does not replace HTTP, WebSocket, or WebRTC.
+- Not a replacement for existing application-layer protocols such as HTTP, WebSocket, or WebRTC, and not a transport-layer protocol either.
 
-More precisely, NNRP is **transport-agnostic**: it defines message shapes, semantic boundaries, and state machines, and can run over QUIC, TCP+TLS, or other reliable byte-stream transports.
+More precisely, NNRP is a **domain-level application-layer protocol** for AI model and runtime cooperation. It stabilizes AI runtime semantics such as submission, results, flow control, caching, payload interpretation, and operation lifecycle; the bytes underneath can run over QUIC, TCP+TLS, WebSocket, WebTransport, or another suitable transport binding.
 
 <div class="page-note">
 	For users, the most important mental model is that NNRP is a shared protocol skeleton for real-time AI runtime cooperation. The version pages build on top of that skeleton to describe the current public field boundaries, flow constraints, and frozen scope.

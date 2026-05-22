@@ -30,9 +30,9 @@ NNRP 的起点来自一个很明确的工程目标：让轻量、低性能算力
 
 - 不是只给神经渲染硬编码字段的专用协议。
 - 不是只适合离线批处理或单次同步请求的接口层。
-- 不是 HTTP、WebSocket、WebRTC 的替代品——它不是传输协议。
+- 不是 HTTP、WebSocket、WebRTC 这些既有应用层协议的替代品，也不是一个传输层协议。
 
-更准确地说，NNRP 是**传输无关的**：它关注消息的形状、语义边界和状态机，并不管底层字节是跑在 QUIC 上还是 TCP+TLS 上。
+更准确地说，NNRP 是一个面向 AI 模型与运行时协作的**领域级应用层协议**。它把提交、结果、流控、缓存、payload 解释和 operation 生命周期这些 AI runtime 语义稳定下来；底层字节可以跑在 QUIC、TCP+TLS、WebSocket、WebTransport 或其他合适的 transport binding 上。
 
 <div class="page-note">
   对使用者而言，理解 NNRP 最重要的心智模型，是“它是一套面向实时 AI runtime 协作的公共协议骨架”。版本页是在这个骨架之上，说明当前公开版本的字段边界、流程约束和冻结范围。
