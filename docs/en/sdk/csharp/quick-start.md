@@ -4,12 +4,16 @@ Use the C# SDK in different ways depending on the host type.
 
 ## Choose the installation path
 
+NNRP is documented against the intended stable `1.0.0` API line. During preview
+development, install snippets should pin the current preview package instead of implying a
+stable package. The current C# preview package train is `1.0.0-preview.2`.
+
 ### Regular .NET client application
 
 If you are building a regular .NET client application, install the client package from NuGet:
 
 ```powershell
-dotnet add package Nnrp.Client
+dotnet add package Nnrp.Client --version 1.0.0-preview.2
 ```
 
 Use this path for managed client-side integrations that want the C# session helpers and client-facing API surface.
@@ -19,7 +23,7 @@ Use this path for managed client-side integrations that want the C# session help
 If you are building a regular .NET server application, install the server package from NuGet:
 
 ```powershell
-dotnet add package Nnrp.Server
+dotnet add package Nnrp.Server --version 1.0.0-preview.2
 ```
 
 Use this path for server-side session helpers and protocol-facing server integration.
@@ -50,7 +54,7 @@ If you do not want to use the OpenUPM CLI, you can update `Packages/manifest.jso
 		}
 	],
 	"dependencies": {
-		"com.nnrp.client": "<version>"
+		"com.nnrp.client": "<current-preview-version>"
 	}
 }
 ```

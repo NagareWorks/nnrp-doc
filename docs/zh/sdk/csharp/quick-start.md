@@ -4,12 +4,14 @@
 
 ## 选择安装方式
 
+NNRP 文档按最终稳定线 `1.0.0` 组织。预览开发阶段，安装命令应固定到当前预览包，避免误读为已经发布稳定包；当前 C# 预览包线是 `1.0.0-preview.2`。
+
 ### 普通 .NET Client 项目
 
 如果你在做普通 .NET client 项目，直接从 NuGet 安装客户端包：
 
 ```powershell
-dotnet add package Nnrp.Client
+dotnet add package Nnrp.Client --version 1.0.0-preview.2
 ```
 
 这条路径适合需要托管 client 会话辅助能力和 C# client API 的集成方式。
@@ -19,7 +21,7 @@ dotnet add package Nnrp.Client
 如果你在做普通 .NET server 项目，直接从 NuGet 安装服务端包：
 
 ```powershell
-dotnet add package Nnrp.Server
+dotnet add package Nnrp.Server --version 1.0.0-preview.2
 ```
 
 这条路径适合服务端会话辅助能力和协议侧 server 集成。
@@ -50,7 +52,7 @@ openupm add com.nnrp.client
 		}
 	],
 	"dependencies": {
-		"com.nnrp.client": "<version>"
+		"com.nnrp.client": "<current-preview-version>"
 	}
 }
 ```

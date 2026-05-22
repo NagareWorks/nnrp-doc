@@ -11,6 +11,10 @@ This page covers the public package installation path of the Python SDK. API wal
 
 The published distribution name is `nnrp-py`.
 
+NNRP is documented against the intended stable `1.0.0` API line. During preview
+development, install snippets should use the current verified preview package. The current
+public Python preview package is `1.0.0rc2`.
+
 Using `uv`:
 
 ```bash
