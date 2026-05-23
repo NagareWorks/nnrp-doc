@@ -99,12 +99,19 @@ use nnrp_core::TransportId;
 use nnrp_transport_provider::{
     ProbeSample, RemoteTransportSupport, TransportPolicy, TransportProviderRegistry,
 };
+use nnrp_transport_quic::QuicProvider;
 use nnrp_transport_tcp::TcpProvider;
 
-let registry = TransportProviderRegistry::new().with_provider(TcpProvider::descriptor());
-let remote = RemoteTransportSupport::new([TransportId::Tcp]);
-let selection = registry.select(&remote, TransportPolicy::ForceTcp)?;
-assert_eq!(selection.selected.transport_id, TransportId::Tcp);
+let registry = TransportProviderRegistry::new()
+    .with_provider(TcpProvider::descriptor())
+    .with_provider(QuicProvider::backend_descriptor(
+        "my-quic-backend",
+        "0.1.0",
+        nnrp_transport_provider::TransportProviderKind::NativeDynamic,
+    ));
+let remote = RemoteTransportSupport::new([TransportId::Tcp, TransportId::Quic]);
+let selection = registry.select(&remote, TransportPolicy::PreferQuic)?;
+assert_eq!(selection.selected.transport_id, TransportId::Quic);
 ```
 
 When multiple paths are viable, pass measured probe samples into the score selector:
@@ -125,7 +132,9 @@ let probed = select_transport_with_probe(
 assert_eq!(probed.selected.transport_id, TransportId::Tcp);
 ```
 
-`nnrp-transport-provider` owns the local provider list, native library detection, policy selection, probe sample scoring, and rejected-candidate diagnostics. Scoring combines RTT, timeout/failure rate, effective throughput, and local policy; providers with missing samples or all failed probes appear in rejected candidates with structured reasons. `nnrp-transport-tcp` is the standalone TCP provider package; the QUIC provider will use the same registry and slot contract.
+`nnrp-transport-provider` owns the local provider list, native library detection, policy selection, probe sample scoring, and rejected-candidate diagnostics. Scoring combines RTT, timeout/failure rate, effective throughput, and local policy; providers with missing samples or all failed probes appear in rejected candidates with structured reasons. `nnrp-transport-tcp` is the standalone TCP provider package; `nnrp-transport-quic` provides the QUIC provider slot, config helpers, and injection helpers, but does not select a concrete TLS/QUIC backend by default.
+
+`nnrp-transport-provider` also exposes `tcp`, `quic`, `native-loader`, and `wasm` feature flags. Use `compile_time_provider_features()` to inspect which provider families were enabled in the current build.
 
 ## `NnrpClientSession`
 

@@ -7,7 +7,7 @@ The Rust SDK (`nnrp-rs`) workspace contains four crates. Preview3 now includes t
 | [Core Types](./api/core) | `nnrp-core` | Wire codecs, validation, lifecycle, cache/schema, recovery, conformance baseline | ✅ Preview3 core implemented |
 | [Client (Preview3)](./api/client) | `nnrp-runtime` | `NnrpClient`, `NnrpClientSession`, event receive, submit/cancel/patch/migrate/close | ✅ TCP runtime implemented |
 | [Server (Preview3)](./api/server) | `nnrp-runtime` | `NnrpServer`, `NnrpServerSession`, accept/receive/send/flow/close | ✅ TCP runtime implemented |
-| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` | Provider registry, native library detection, policy resolver, probe score selection, TCP provider | ✅ Implemented |
+| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | Provider registry, native library detection, policy resolver, probe score selection, TCP provider, QUIC provider slot | ✅ Implemented |
 | [FFI / Native](./api/ffi) | `nnrp-ffi` | Value handles, buffer views, callback/polling events, client/server handle ABI | ✅ Implemented |
 | [WASM Exports (Preview3)](./api/wasm) | `nnrp-ffi` | WebAssembly export interface | 🚧 Planned |
 
@@ -26,6 +26,7 @@ nnrp-core = "1.0.0-preview.2"
 nnrp-runtime = "1.0.0-preview.2"
 nnrp-transport-provider = "1.0.0-preview.2"
 nnrp-transport-tcp = "1.0.0-preview.2"
+nnrp-transport-quic = "1.0.0-preview.2"
 
 # FFI integration (C#/Python/Unity callers)
 nnrp-ffi = "1.0.0-preview.2"
@@ -41,7 +42,7 @@ nnrp-ffi = "1.0.0-preview.2"
 
 ## Current Boundary
 
-`nnrp-runtime` currently ships a built-in TCP client/server session runtime and exposes `FramedTransport` / `FramedListener` slots for external TCP/QUIC providers. `connect_quic` / `bind_quic` still do not choose a TLS or QUIC implementation for callers; use `from_transport` / `from_listener` to inject a concrete provider.
+`nnrp-runtime` currently ships a built-in TCP client/server session runtime and exposes `FramedTransport` / `FramedListener` slots for external TCP/QUIC providers. `nnrp-transport-quic` now exists as a standalone provider package, but it does not freeze a specific TLS or QUIC backend for callers; its default descriptor reports the backend as missing. To plug in a concrete QUIC implementation, register the real backend with `QuicProvider::backend_descriptor` and inject it through `from_transport` / `from_listener`.
 
 The FFI layer exposes client/server handles, sessions, operations, and event ABI. It is the low-level control surface for bindings and does not expose Rust async objects or socket pointers directly.
 

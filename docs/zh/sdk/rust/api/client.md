@@ -99,12 +99,19 @@ use nnrp_core::TransportId;
 use nnrp_transport_provider::{
     ProbeSample, RemoteTransportSupport, TransportPolicy, TransportProviderRegistry,
 };
+use nnrp_transport_quic::QuicProvider;
 use nnrp_transport_tcp::TcpProvider;
 
-let registry = TransportProviderRegistry::new().with_provider(TcpProvider::descriptor());
-let remote = RemoteTransportSupport::new([TransportId::Tcp]);
-let selection = registry.select(&remote, TransportPolicy::ForceTcp)?;
-assert_eq!(selection.selected.transport_id, TransportId::Tcp);
+let registry = TransportProviderRegistry::new()
+    .with_provider(TcpProvider::descriptor())
+    .with_provider(QuicProvider::backend_descriptor(
+        "my-quic-backend",
+        "0.1.0",
+        nnrp_transport_provider::TransportProviderKind::NativeDynamic,
+    ));
+let remote = RemoteTransportSupport::new([TransportId::Tcp, TransportId::Quic]);
+let selection = registry.select(&remote, TransportPolicy::PreferQuic)?;
+assert_eq!(selection.selected.transport_id, TransportId::Quic);
 ```
 
 需要比较多条可用路径时，可以把实际探测结果交给评分选择器：
@@ -125,7 +132,9 @@ let probed = select_transport_with_probe(
 assert_eq!(probed.selected.transport_id, TransportId::Tcp);
 ```
 
-`nnrp-transport-provider` 负责本地 provider 列表、native library 探测、策略选择、probe 样本评分和被拒候选诊断。评分会综合 RTT、超时/失败率、有效吞吐和本地 policy；缺少样本或全部失败的 provider 会以结构化原因出现在 rejected candidates 中。`nnrp-transport-tcp` 是独立 TCP provider 包；QUIC provider 会沿用同一个 registry 和 slot contract。
+`nnrp-transport-provider` 负责本地 provider 列表、native library 探测、策略选择、probe 样本评分和被拒候选诊断。评分会综合 RTT、超时/失败率、有效吞吐和本地 policy；缺少样本或全部失败的 provider 会以结构化原因出现在 rejected candidates 中。`nnrp-transport-tcp` 是独立 TCP provider 包；`nnrp-transport-quic` 提供 QUIC provider slot、配置 helper 和注入 helper，但默认不选择具体 TLS/QUIC 后端。
+
+`nnrp-transport-provider` 还暴露 `tcp`、`quic`、`native-loader`、`wasm` feature flags，并可通过 `compile_time_provider_features()` 查看当前编译产物启用了哪些 provider family。
 
 ## `NnrpClientSession`
 
