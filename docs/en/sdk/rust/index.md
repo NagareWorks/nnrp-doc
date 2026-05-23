@@ -13,7 +13,7 @@
 | Server API (`NnrpServer`, `NnrpServerSession`) | ✅ TCP runtime implemented |
 | FFI value handles, buffer views, callback/polling events, error families | ✅ ABI surface implemented |
 | Runtime-backed FFI client / server entrypoints | ✅ Handle/event ABI connected |
-| QUIC runtime binding | 🔶 API hook reserved, transport implementation pending |
+| QUIC runtime binding | 🔶 Transport/listener slots exposed, concrete provider not frozen |
 | WASM exports (`NnrpWasmClient`, `NnrpWasmSession`) | 🔶 Preview3 planned |
 
 ## Toolchain Requirements

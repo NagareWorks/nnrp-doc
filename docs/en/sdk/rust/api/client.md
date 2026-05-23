@@ -34,7 +34,7 @@ Builder methods:
 
 | Method | Description |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | Select TCP or the reserved QUIC hook |
+| `with_transport(RuntimeTransportKind)` | Select TCP or the QUIC slot used by an external provider |
 | `with_cache_hints(impl Into<Vec<CacheObjectKind>>)` | Declare cache object kinds the client expects to use |
 | `with_resume(u32)` | Enable recovery semantics and set resume token length |
 
@@ -54,11 +54,43 @@ impl NnrpClient {
         config: NnrpClientConfig,
     ) -> Result<Self, RuntimeError>;
 
+    pub fn from_transport<T>(
+        transport: T,
+        config: NnrpClientConfig,
+    ) -> Result<Self, RuntimeError>
+    where
+        T: FramedTransport + 'static;
+
+    pub fn from_boxed_transport(
+        transport: BoxedFramedTransport,
+        config: NnrpClientConfig,
+    ) -> Result<Self, RuntimeError>;
+
     pub async fn open_session(self) -> Result<NnrpClientSession, RuntimeError>;
 }
 ```
 
-`connect_quic` currently validates configuration and returns `UnsupportedTransport`; it reserves the public slot for the Preview3 QUIC binding.
+`connect_tcp` uses the built-in `TcpTransport`. `connect_quic` currently validates configuration and returns `UnsupportedTransport` because the Rust SDK does not freeze a TLS / QUIC provider in the public layer. To plug in QUIC, implement `FramedTransport` in the provider and inject it through `from_transport` or `from_boxed_transport`.
+
+## Transport Slot
+
+```rust
+pub enum RuntimeTransportKind {
+    Tcp,
+    Quic,
+}
+
+pub trait FramedTransport: Send {
+    fn transport_kind(&self) -> RuntimeTransportKind;
+    async fn read_packet(&mut self) -> Result<RuntimePacket, RuntimeError>;
+    async fn write_packet(&mut self, packet: &RuntimePacket) -> Result<(), RuntimeError>;
+    async fn close(&mut self) -> Result<(), RuntimeError>;
+}
+
+pub type BoxedFramedTransport = Box<dyn FramedTransport>;
+```
+
+`from_transport` verifies that `transport.transport_kind()` matches `NnrpClientConfig.transport`, preventing accidental TCP/QUIC slot mismatches.
 
 ## `NnrpClientSession`
 
@@ -127,9 +159,10 @@ pub enum NnrpClientEvent {
 
 ```rust
 use nnrp_core::FrameSubmitMetadata;
-use nnrp_runtime::{NnrpClient, NnrpClientConfig};
+use nnrp_runtime::{NnrpClient, NnrpClientConfig, RuntimeTransportKind};
 
-let client = NnrpClient::connect_tcp("127.0.0.1:4433", NnrpClientConfig::default()).await?;
+let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 let mut session = client.open_session().await?;
 
 let frame_id = session

@@ -52,6 +52,6 @@ session.close().await?;
 
 ## 当前限制
 
-1. QUIC API hook 已保留，但 Preview3 Rust runtime 当前只实现 TCP。
+1. Preview3 Rust runtime 内置 TCP；QUIC 通过 `FramedTransport` / `FramedListener` 插槽接入外部 provider。
 2. `submit` 与 `submit_nowait` 当前都会发送 `FRAME_SUBMIT` 并返回 `frame_id`；如果要消费结果，需要随后调用 `await_result` 或 `await_event`。
 3. FFI 层提供 handle/event ABI，适合绑定层接入；Rust 业务代码优先直接使用 `nnrp-runtime`。

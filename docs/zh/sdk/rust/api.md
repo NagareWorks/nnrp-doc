@@ -38,7 +38,7 @@ nnrp-ffi = "1.0.0-preview.2"
 
 ## 当前边界
 
-`nnrp-runtime` 当前提供 TCP 传输上的 client/server session runtime。QUIC API hook 已保留，但调用 `connect_quic` / `bind_quic` 会返回 `UnsupportedTransport`，直到 QUIC binding 落地。
+`nnrp-runtime` 当前内置 TCP 传输上的 client/server session runtime，同时开放 `FramedTransport` / `FramedListener` 插槽给外部 TCP/QUIC provider。`connect_quic` / `bind_quic` 仍不会替调用方选择 TLS 或 QUIC 实现；需要接入具体 provider 时，使用 `from_transport` / `from_listener` 注入。
 
 FFI 层已经暴露 client/server handle、session、operation 和 event ABI；它是跨语言绑定的底层控制面，不直接把 Rust 异步对象或 socket 指针暴露给调用方。
 

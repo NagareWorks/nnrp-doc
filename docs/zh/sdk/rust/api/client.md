@@ -34,7 +34,7 @@ Builder 方法：
 
 | 方法 | 说明 |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | 选择 TCP 或保留的 QUIC hook |
+| `with_transport(RuntimeTransportKind)` | 选择 TCP 或外部 provider 对应的 QUIC slot |
 | `with_cache_hints(impl Into<Vec<CacheObjectKind>>)` | 声明客户端希望使用的缓存对象 kind |
 | `with_resume(u32)` | 打开恢复语义并设置 resume token 字节数 |
 
@@ -54,11 +54,43 @@ impl NnrpClient {
         config: NnrpClientConfig,
     ) -> Result<Self, RuntimeError>;
 
+    pub fn from_transport<T>(
+        transport: T,
+        config: NnrpClientConfig,
+    ) -> Result<Self, RuntimeError>
+    where
+        T: FramedTransport + 'static;
+
+    pub fn from_boxed_transport(
+        transport: BoxedFramedTransport,
+        config: NnrpClientConfig,
+    ) -> Result<Self, RuntimeError>;
+
     pub async fn open_session(self) -> Result<NnrpClientSession, RuntimeError>;
 }
 ```
 
-`connect_quic` 当前只校验配置并返回 `UnsupportedTransport`，用于保留 Preview3 QUIC binding 的公开位置。
+`connect_tcp` 使用内置 `TcpTransport`。`connect_quic` 当前只校验配置并返回 `UnsupportedTransport`，因为 Rust SDK 不在公共层冻结 TLS / QUIC provider。要接入 QUIC，provider 实现 `FramedTransport` 后通过 `from_transport` 或 `from_boxed_transport` 注入。
+
+## Transport slot
+
+```rust
+pub enum RuntimeTransportKind {
+    Tcp,
+    Quic,
+}
+
+pub trait FramedTransport: Send {
+    fn transport_kind(&self) -> RuntimeTransportKind;
+    async fn read_packet(&mut self) -> Result<RuntimePacket, RuntimeError>;
+    async fn write_packet(&mut self, packet: &RuntimePacket) -> Result<(), RuntimeError>;
+    async fn close(&mut self) -> Result<(), RuntimeError>;
+}
+
+pub type BoxedFramedTransport = Box<dyn FramedTransport>;
+```
+
+`from_transport` 会校验 `transport.transport_kind()` 必须等于 `NnrpClientConfig.transport`，避免 TCP/QUIC slot 被错误绑定。
 
 ## `NnrpClientSession`
 
@@ -127,9 +159,10 @@ pub enum NnrpClientEvent {
 
 ```rust
 use nnrp_core::FrameSubmitMetadata;
-use nnrp_runtime::{NnrpClient, NnrpClientConfig};
+use nnrp_runtime::{NnrpClient, NnrpClientConfig, RuntimeTransportKind};
 
-let client = NnrpClient::connect_tcp("127.0.0.1:4433", NnrpClientConfig::default()).await?;
+let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 let mut session = client.open_session().await?;
 
 let frame_id = session

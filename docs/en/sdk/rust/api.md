@@ -38,7 +38,7 @@ nnrp-ffi = "1.0.0-preview.2"
 
 ## Current Boundary
 
-`nnrp-runtime` currently provides client/server session runtime over TCP. QUIC API hooks are reserved, but `connect_quic` / `bind_quic` return `UnsupportedTransport` until the QUIC binding lands.
+`nnrp-runtime` currently ships a built-in TCP client/server session runtime and exposes `FramedTransport` / `FramedListener` slots for external TCP/QUIC providers. `connect_quic` / `bind_quic` still do not choose a TLS or QUIC implementation for callers; use `from_transport` / `from_listener` to inject a concrete provider.
 
 The FFI layer exposes client/server handles, sessions, operations, and event ABI. It is the low-level control surface for bindings and does not expose Rust async objects or socket pointers directly.
 

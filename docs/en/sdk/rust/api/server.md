@@ -25,7 +25,7 @@ Builder methods:
 
 | Method | Description |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | Select TCP or the reserved QUIC hook |
+| `with_transport(RuntimeTransportKind)` | Select TCP or the QUIC slot used by an external provider |
 | `with_supported_profiles(impl Into<Vec<u16>>)` | Set accepted profiles |
 | `with_supported_cache_objects(impl Into<Vec<CacheObjectKind>>)` | Set accepted cache object kinds |
 | `with_cache_limits(usize, u32)` | Set cache object count and per-object byte limits |
@@ -61,13 +61,41 @@ impl NnrpServer {
         config: NnrpServerConfig,
     ) -> Result<Self, RuntimeError>;
 
+    pub fn from_listener<L>(
+        listener: L,
+        config: NnrpServerConfig,
+    ) -> Result<Self, RuntimeError>
+    where
+        L: FramedListener + 'static;
+
+    pub fn from_boxed_listener(
+        listener: BoxedFramedListener,
+        config: NnrpServerConfig,
+    ) -> Result<Self, RuntimeError>;
+
     pub fn local_addr(&self) -> Result<std::net::SocketAddr, RuntimeError>;
     pub fn session_count(&self) -> Result<usize, RuntimeError>;
     pub async fn accept(&self) -> Result<NnrpServerSession, RuntimeError>;
 }
 ```
 
-`bind_quic` currently only reserves the public API slot and returns `UnsupportedTransport`.
+`bind_tcp` uses the built-in `TcpFramedListener`. `bind_quic` currently reserves the public API slot and returns `UnsupportedTransport`. To plug in QUIC, implement `FramedListener` in the provider and inject it through `from_listener` or `from_boxed_listener`.
+
+## Listener Slot
+
+```rust
+pub trait FramedListener: Send + Sync {
+    fn transport_kind(&self) -> RuntimeTransportKind;
+    fn local_addr(&self) -> Result<std::net::SocketAddr, RuntimeError>;
+    async fn accept(&self) -> Result<BoxedFramedTransport, RuntimeError>;
+}
+
+pub type BoxedFramedListener = Box<dyn FramedListener>;
+
+pub struct TcpFramedListener { /* private */ }
+```
+
+`from_listener` verifies that `listener.transport_kind()` matches `NnrpServerConfig.transport`. `accept` returns a boxed `FramedTransport`, so server sessions are no longer tied to the concrete TCP type.
 
 ## `NnrpServerSession`
 

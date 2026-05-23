@@ -52,6 +52,6 @@ session.close().await?;
 
 ## Current Limits
 
-1. QUIC API hooks are reserved, but the Preview3 Rust runtime currently implements TCP only.
+1. The Preview3 Rust runtime ships TCP built in; QUIC plugs in through external `FramedTransport` / `FramedListener` providers.
 2. `submit` and `submit_nowait` both send `FRAME_SUBMIT` and return the assigned `frame_id`; call `await_result` or `await_event` to consume server output.
 3. The FFI layer provides a handle/event ABI for bindings. Rust application code should prefer `nnrp-runtime` directly.

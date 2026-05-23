@@ -13,7 +13,7 @@
 | 服务端 API（`NnrpServer`、`NnrpServerSession`） | ✅ TCP runtime 已实现 |
 | FFI value handle、buffer view、callback/polling event、错误族 | ✅ ABI 表面已实现 |
 | FFI runtime-backed 客户端 / 服务端入口 | ✅ handle/event ABI 已接入 |
-| QUIC runtime binding | 🔶 API hook 已保留，传输实现未落地 |
+| QUIC runtime binding | 🔶 transport/listener 插槽已开放，具体 provider 未冻结 |
 | WASM 导出（`NnrpWasmClient`、`NnrpWasmSession`） | 🔶 Preview3 规划 |
 
 ## 工具链要求

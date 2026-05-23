@@ -25,7 +25,7 @@ Builder 方法：
 
 | 方法 | 说明 |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | 选择 TCP 或保留的 QUIC hook |
+| `with_transport(RuntimeTransportKind)` | 选择 TCP 或外部 provider 对应的 QUIC slot |
 | `with_supported_profiles(impl Into<Vec<u16>>)` | 设置允许的 profile |
 | `with_supported_cache_objects(impl Into<Vec<CacheObjectKind>>)` | 设置允许的缓存对象 kind |
 | `with_cache_limits(usize, u32)` | 设置缓存对象数量和单对象大小上限 |
@@ -61,13 +61,41 @@ impl NnrpServer {
         config: NnrpServerConfig,
     ) -> Result<Self, RuntimeError>;
 
+    pub fn from_listener<L>(
+        listener: L,
+        config: NnrpServerConfig,
+    ) -> Result<Self, RuntimeError>
+    where
+        L: FramedListener + 'static;
+
+    pub fn from_boxed_listener(
+        listener: BoxedFramedListener,
+        config: NnrpServerConfig,
+    ) -> Result<Self, RuntimeError>;
+
     pub fn local_addr(&self) -> Result<std::net::SocketAddr, RuntimeError>;
     pub fn session_count(&self) -> Result<usize, RuntimeError>;
     pub async fn accept(&self) -> Result<NnrpServerSession, RuntimeError>;
 }
 ```
 
-`bind_quic` 当前只保留公开 API 位置，会返回 `UnsupportedTransport`。
+`bind_tcp` 使用内置 `TcpFramedListener`。`bind_quic` 当前只保留公开 API 位置，会返回 `UnsupportedTransport`。要接入 QUIC，provider 实现 `FramedListener`，并通过 `from_listener` 或 `from_boxed_listener` 注入。
+
+## Listener slot
+
+```rust
+pub trait FramedListener: Send + Sync {
+    fn transport_kind(&self) -> RuntimeTransportKind;
+    fn local_addr(&self) -> Result<std::net::SocketAddr, RuntimeError>;
+    async fn accept(&self) -> Result<BoxedFramedTransport, RuntimeError>;
+}
+
+pub type BoxedFramedListener = Box<dyn FramedListener>;
+
+pub struct TcpFramedListener { /* private */ }
+```
+
+`from_listener` 会校验 `listener.transport_kind()` 必须等于 `NnrpServerConfig.transport`。`accept` 返回 boxed `FramedTransport`，所以 server session 不再绑定具体 TCP 类型。
 
 ## `NnrpServerSession`
 
