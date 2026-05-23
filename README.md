@@ -1,3 +1,15 @@
+<p align="center">
+  <img src="assets/nnrp-readme-banner.svg" alt="NNRP - Neural Network Runtime Protocol" width="100%" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/NagareWorks/nnrp-doc/actions"><img alt="CI" src="https://img.shields.io/badge/CI-docs-22c55e"></a>
+  <a href="https://nagareworks.github.io/nnrp-doc/"><img alt="Docs" src="https://img.shields.io/badge/site-nnrp--doc-38bdf8"></a>
+  <a href="https://vitepress.dev"><img alt="VitePress" src="https://img.shields.io/badge/VitePress-1.x-646cff"></a>
+  <a href="https://deno.com"><img alt="Deno" src="https://img.shields.io/badge/Deno-task-000000?logo=deno&logoColor=white"></a>
+  <a href="https://github.com/NagareWorks/nnrp-doc/blob/master/LICENSE"><img alt="Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-64748b"></a>
+</p>
+
 # nnrp-doc
 
 Documentation site for NNRP, built with VitePress and driven by Deno tasks.
