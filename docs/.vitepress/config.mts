@@ -39,6 +39,20 @@ const customStyle = `
   box-sizing: border-box;
 }
 
+.brand-banner {
+  max-width: 1120px;
+  margin: 20px auto 0;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+.brand-banner img {
+  display: block;
+  width: 100%;
+  border-radius: 28px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
 .bilingual-col {
   padding: 28px 32px;
   border: 1px solid var(--nnrp-border);
@@ -67,6 +81,15 @@ const customStyle = `
     grid-template-columns: 1fr;
     gap: 20px;
     padding: 32px 16px;
+  }
+
+  .brand-banner {
+    margin-top: 10px;
+    padding: 0 16px;
+  }
+
+  .brand-banner img {
+    border-radius: 18px;
   }
 }
 

@@ -14,6 +14,10 @@ hero:
       link: /en/
 ---
 
+<div class="brand-banner">
+  <img src="/brand/nnrp-readme-banner.svg" alt="NNRP - Neural Network Runtime Protocol" />
+</div>
+
 <div class="bilingual-index">
   <div class="bilingual-col">
 
