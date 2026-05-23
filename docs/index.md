@@ -1,21 +1,15 @@
 ---
 layout: home
-
-hero:
-  name: NNRP
-  text: Neural Network Runtime Protocol
-  tagline: 实时 AI 运行时协议文档 · Real-time AI runtime protocol documentation
-  actions:
-    - theme: brand
-      text: 简体中文
-      link: /zh/
-    - theme: alt
-      text: English
-      link: /en/
 ---
 
 <div class="brand-banner">
   <img src="/brand/nnrp-readme-banner.svg" alt="NNRP - Neural Network Runtime Protocol" />
+</div>
+
+<div class="landing-actions">
+  <a class="landing-action primary" href="/zh/">协议 · Protocol</a>
+  <a class="landing-action" href="/zh/conformance/">Conformance</a>
+  <a class="landing-action" href="/zh/sdk/">SDK</a>
 </div>
 
 <div class="bilingual-index">
