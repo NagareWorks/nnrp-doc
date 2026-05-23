@@ -8,7 +8,7 @@
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.2"
+nnrp-core = "1.0.0-preview.3"
 ```
 
 ## 已实现的 Preview3 表面

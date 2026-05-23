@@ -6,8 +6,8 @@
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.2"
-nnrp-runtime = "1.0.0-preview.2"
+nnrp-core = "1.0.0-preview.3"
+nnrp-runtime = "1.0.0-preview.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 

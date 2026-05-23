@@ -16,21 +16,21 @@ The Rust SDK (`nnrp-rs`) workspace contains the protocol core, runtime, transpor
 | Property | Value |
 |---|---|
 | Workspace | `nnrp-rs` |
-| Version | `1.0.0-preview.2` |
+| Version | `1.0.0-preview.3` |
 | Min Rust | `1.82` |
 | Runtime deps | `tokio = "1"`, `async-trait = "0.1"` |
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.2"
-nnrp-runtime = "1.0.0-preview.2"
-nnrp-transport-provider = "1.0.0-preview.2"
-nnrp-transport-tcp = "1.0.0-preview.2"
-nnrp-transport-quic = "1.0.0-preview.2"
-nnrp-wasm = "1.0.0-preview.2"
+nnrp-core = "1.0.0-preview.3"
+nnrp-runtime = "1.0.0-preview.3"
+nnrp-transport-provider = "1.0.0-preview.3"
+nnrp-transport-tcp = "1.0.0-preview.3"
+nnrp-transport-quic = "1.0.0-preview.3"
+nnrp-wasm = "1.0.0-preview.3"
 
 # FFI integration (C#/Python/Unity callers)
-nnrp-ffi = "1.0.0-preview.2"
+nnrp-ffi = "1.0.0-preview.3"
 ```
 
 ## Build Targets
