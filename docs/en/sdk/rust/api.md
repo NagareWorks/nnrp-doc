@@ -8,7 +8,7 @@ The Rust SDK (`nnrp-rs`) workspace contains four crates. Preview3 now includes t
 | [Client (Preview3)](./api/client) | `nnrp-runtime` | `NnrpClient`, `NnrpClientSession`, event receive, submit/cancel/patch/migrate/close | ✅ TCP runtime implemented |
 | [Server (Preview3)](./api/server) | `nnrp-runtime` | `NnrpServer`, `NnrpServerSession`, accept/receive/send/flow/close | ✅ TCP runtime implemented |
 | Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | Provider registry, native library detection, policy resolver, probe score selection, TCP provider, QUIC provider slot | ✅ Implemented |
-| [FFI / Native](./api/ffi) | `nnrp-ffi` | Value handles, buffer views, callback/polling events, client/server handle ABI | ✅ Implemented |
+| [FFI / Native](./api/ffi) | `nnrp-ffi` | Value handles, buffer views, callback/polling events, client/server handle ABI, native artifact packaging | ✅ Implemented |
 | [WASM Exports (Preview3)](./api/wasm) | `nnrp-ffi` | WebAssembly export interface | 🚧 Planned |
 
 ## Workspace Info
@@ -37,7 +37,7 @@ nnrp-ffi = "1.0.0-preview.2"
 | Target | Output | Use |
 |---|---|---|
 | `--lib` | `libnnrp_core.rlib` / `libnnrp_runtime.rlib` | Rust dependencies |
-| `--lib --crate-type=cdylib` | `nnrp_ffi.dll` / `.so` / `.dylib` | C#/Python/Unity/Node native FFI integration |
+| `python scripts/package_native_artifacts.py` | `nnrp_ffi.dll` / `.so` / `.dylib` + `nnrp_ffi.h` + manifest | C#/Python/Unity/Node native FFI integration |
 | `--target wasm32-unknown-unknown` | raw `nnrp_ffi.wasm` | Low-level WASM compile target; the browser SDK still needs wasm-bindgen plus a JS/TS wrapper |
 
 ## Current Boundary
@@ -46,7 +46,7 @@ nnrp-ffi = "1.0.0-preview.2"
 
 The FFI layer exposes client/server handles, sessions, operations, and event ABI. It is the low-level control surface for bindings and does not expose Rust async objects or socket pointers directly.
 
-Native link libraries fit C#/Python/Unity and Node.js backend native-addon scenarios. Browsers cannot load `.dll` / `.so` / `.dylib`, so the future JS/TS browser SDK must use a WASM package plus WebSocket/WebTransport transport adapters.
+Native link libraries fit C#/Python/Unity and Node.js backend native-addon scenarios. `nnrp-rs` publishes native/WASM primitives plus the C ABI header; future `nnrp-js` should probe native link libraries first in Node.js and fall back to WASM when native loading is unavailable. Browsers cannot load `.dll` / `.so` / `.dylib`, so the future JS/TS browser SDK must use a WASM package plus WebSocket/WebTransport transport adapters.
 
 ## Rust-specific expectations
 

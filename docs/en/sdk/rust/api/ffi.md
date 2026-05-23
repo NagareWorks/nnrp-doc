@@ -19,9 +19,10 @@ crate-type = ["cdylib", "rlib"]
 | Windows DLL | `cargo build --release -p nnrp-ffi` | `nnrp_ffi.dll` | C# P/Invoke, Python ctypes, Unity |
 | Linux SO | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.so` | C# LibraryImport, Python ctypes |
 | macOS dylib | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.dylib` | Same |
+| Native package | `python scripts/package_native_artifacts.py` | native library + `nnrp_ffi.h` + `manifest.json` | Node native loaders, C ABI consumers, release artifacts |
 | Raw WASM | `cargo build --target wasm32-unknown-unknown -p nnrp-ffi` | `nnrp_ffi.wasm` | Low-level compile target; not a complete browser SDK |
 
-Native link libraries are for C#/Python/Unity and Node.js backend native addons. Browser scenarios cannot load native link libraries and require a dedicated WASM/JS/TS wrapper layer.
+Native link libraries are for C#/Python/Unity and Node.js backend native addons. Packages include a `manifest.json` that declares the platform, architecture, library name, header, and required exported `nnrp_*` symbols; Node loaders should validate the manifest before loading the native library. Browser scenarios cannot load native link libraries and require a dedicated WASM/JS/TS wrapper layer.
 
 ## Core ABI Types
 
@@ -137,7 +138,7 @@ version = lib.nnrp_current_protocol_version()
 
 The FFI layer exposes a cross-language handle/event control plane. It does not hand Rust async runtime objects, socket pointers, or long-lived borrowed payload ownership to callers; bindings should call follow-up functions through handles and copy any callback/polling data they need to keep.
 
-Raw `nnrp_ffi.wasm` is only a low-level ABI compilation artifact. A browser-facing SDK still needs `wasm-bindgen`, `.d.ts` declarations, a JS/TS session wrapper, and WebSocket/WebTransport transport adapters; the Rust packaging shard tracks that work.
+Raw `nnrp_ffi.wasm` is only a low-level ABI compilation artifact. A browser-facing SDK still needs `wasm-bindgen`, `.d.ts` declarations, a JS/TS session wrapper, and WebSocket/WebTransport transport adapters; `nnrp-rs` owns only the WASM/native primitives, while npm layout, the Node native loader, and browser transport adapters belong in `nnrp-js`.
 
 ::: warning
 1. **Do not retain borrowed buffer or event pointers after return.** They are valid only for the duration of the call or callback.

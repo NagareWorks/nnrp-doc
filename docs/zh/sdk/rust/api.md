@@ -8,7 +8,7 @@ Rust SDK（`nnrp-rs`）工作区包含四个 crate。Preview3 当前已经具备
 | [客户端（Preview3）](./api/client) | `nnrp-runtime` | `NnrpClient`、`NnrpClientSession`、事件接收、submit/cancel/patch/migrate/close | ✅ TCP runtime 已实现 |
 | [服务端（Preview3）](./api/server) | `nnrp-runtime` | `NnrpServer`、`NnrpServerSession`、accept/receive/send/flow/close | ✅ TCP runtime 已实现 |
 | Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | provider registry、native library detection、policy resolver、probe score selection、TCP provider、QUIC provider slot | ✅ 已实现 |
-| [FFI / 原生接口](./api/ffi) | `nnrp-ffi` | Value handle、buffer view、callback/polling event、client/server handle ABI | ✅ 已实现 |
+| [FFI / 原生接口](./api/ffi) | `nnrp-ffi` | Value handle、buffer view、callback/polling event、client/server handle ABI、native artifact packaging | ✅ 已实现 |
 | [WASM 导出（Preview3）](./api/wasm) | `nnrp-ffi` | WebAssembly 导出接口 | 🚧 规划中 |
 
 ## 工作区信息
@@ -37,7 +37,7 @@ nnrp-ffi = "1.0.0-preview.2"
 | 目标 | 产物 | 用途 |
 |---|---|---|
 | `--lib` | `libnnrp_core.rlib` / `libnnrp_runtime.rlib` | Rust 内部依赖 |
-| `--lib --crate-type=cdylib` | `nnrp_ffi.dll` / `.so` / `.dylib` | C#/Python/Unity/Node native FFI 集成 |
+| `python scripts/package_native_artifacts.py` | `nnrp_ffi.dll` / `.so` / `.dylib` + `nnrp_ffi.h` + manifest | C#/Python/Unity/Node native FFI 集成 |
 | `--target wasm32-unknown-unknown` | raw `nnrp_ffi.wasm` | 底层 WASM 编译目标；浏览器 SDK 仍需要 wasm-bindgen + JS/TS wrapper |
 
 ## 当前边界
@@ -46,7 +46,7 @@ nnrp-ffi = "1.0.0-preview.2"
 
 FFI 层已经暴露 client/server handle、session、operation 和 event ABI；它是跨语言绑定的底层控制面，不直接把 Rust 异步对象或 socket 指针暴露给调用方。
 
-Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。浏览器不能加载 `.dll` / `.so` / `.dylib`，后续 JS/TS 浏览器 SDK 必须走 WASM 包和 WebSocket/WebTransport transport adapter。
+Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。`nnrp-rs` 发布 native/WASM primitives 和 C ABI header；未来 `nnrp-js` 在 Node.js 中应优先探测 native link library，并在不可用时回退到 WASM。浏览器不能加载 `.dll` / `.so` / `.dylib`，后续 JS/TS 浏览器 SDK 必须走 WASM 包和 WebSocket/WebTransport transport adapter。
 
 ## Rust 侧约束
 

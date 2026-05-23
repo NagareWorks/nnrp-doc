@@ -19,9 +19,10 @@ crate-type = ["cdylib", "rlib"]
 | Windows DLL | `cargo build --release -p nnrp-ffi` | `nnrp_ffi.dll` | C# P/Invoke、Python ctypes、Unity |
 | Linux SO | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.so` | C# LibraryImport、Python ctypes |
 | macOS dylib | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.dylib` | 同上 |
+| Native package | `python scripts/package_native_artifacts.py` | native library + `nnrp_ffi.h` + `manifest.json` | Node native loader、C ABI consumers、release artifacts |
 | Raw WASM | `cargo build --target wasm32-unknown-unknown -p nnrp-ffi` | `nnrp_ffi.wasm` | 底层编译目标；不是完整浏览器 SDK |
 
-Native 链接库用于 C#/Python/Unity 以及 Node.js 后端 native addon。浏览器场景不能加载 native link library，需要独立 WASM/JS/TS 包装层。
+Native 链接库用于 C#/Python/Unity 以及 Node.js 后端 native addon。发布包会附带 `manifest.json`，其中声明平台、架构、库名、header 和必须导出的 `nnrp_*` symbols；Node 侧 loader 应先校验 manifest，再加载 native library。浏览器场景不能加载 native link library，需要独立 WASM/JS/TS 包装层。
 
 ## 核心 ABI 类型
 
@@ -137,7 +138,7 @@ version = lib.nnrp_current_protocol_version()
 
 FFI 层暴露的是跨语言 handle/event 控制面。它不会把 Rust async runtime 对象、socket 指针或借用 payload 的长期所有权交给调用方；binding 层需要用 handle 调用后续函数，并在 callback/polling 时复制需要保留的数据。
 
-Raw `nnrp_ffi.wasm` 只是底层 ABI 编译产物。面向浏览器的 SDK 还需要 `wasm-bindgen`、`.d.ts` 类型声明、JS/TS session wrapper，以及 WebSocket/WebTransport transport adapter；这些内容由 Rust packaging shard 继续跟进。
+Raw `nnrp_ffi.wasm` 只是底层 ABI 编译产物。面向浏览器的 SDK 还需要 `wasm-bindgen`、`.d.ts` 类型声明、JS/TS session wrapper，以及 WebSocket/WebTransport transport adapter；`nnrp-rs` 只负责 WASM/native primitives，npm 包布局、Node native loader 与浏览器 transport adapter 由 `nnrp-js` 负责。
 
 ::: warning
 1. **不要在返回后保留借用 buffer 或 event 指针。** 它们只在调用或 callback 期间有效。
