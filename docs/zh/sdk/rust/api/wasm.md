@@ -1,7 +1,7 @@
 # Rust — WASM 导出（Preview3）
 
 ::: warning 规划中
-WASM 导出计划在 Preview3 实现，依赖 `nnrp-ffi` crate 的 `wasm32-unknown-unknown` 构建目标。
+WASM 导出计划在 Preview3 实现。当前 `nnrp-ffi` 可以作为 raw WASM 编译目标，但浏览器可用 SDK 还需要 wasm-bindgen、JS/TS wrapper 与 WebSocket/WebTransport transport adapter。
 :::
 
 ## 用途
@@ -9,7 +9,7 @@ WASM 导出计划在 Preview3 实现，依赖 `nnrp-ffi` crate 的 `wasm32-unkno
 WASM 导出允许在以下场景中不依赖原生 SDK 直接使用 NNRP 协议：
 
 - 浏览器端 Web 应用（通过 WebTransport 或 WebSocket 接入服务端）
-- Node.js 服务（无原生依赖）
+- Node.js 服务（无原生依赖，或作为 native addon 的替代路径）
 - Electron 应用嵌入 NNRP 客户端逻辑
 
 ---
@@ -29,6 +29,8 @@ cargo build --target wasm32-unknown-unknown --release -p nnrp-ffi
 ```
 
 产物目录：`target/wasm32-unknown-unknown/release/nnrp_ffi.wasm`
+
+这个 raw wasm 文件不是完整 npm 包。浏览器不能加载 native `.dll` / `.so` / `.dylib`，因此最终 JS/TS SDK 需要发布 `.wasm`、生成的 JS glue、`.d.ts` 类型声明和浏览器 transport adapter。
 
 ---
 

@@ -33,14 +33,16 @@ nnrp-ffi = "1.0.0-preview.2"
 | Target | Output | Use |
 |---|---|---|
 | `--lib` | `libnnrp_core.rlib` / `libnnrp_runtime.rlib` | Rust dependencies |
-| `--lib --crate-type=cdylib` | `nnrp_ffi.dll` / `.so` / `.dylib` | C#/Python/Unity FFI integration |
-| `--target wasm32-unknown-unknown` | `nnrp_ffi.wasm` | Web applications (planned) |
+| `--lib --crate-type=cdylib` | `nnrp_ffi.dll` / `.so` / `.dylib` | C#/Python/Unity/Node native FFI integration |
+| `--target wasm32-unknown-unknown` | raw `nnrp_ffi.wasm` | Low-level WASM compile target; the browser SDK still needs wasm-bindgen plus a JS/TS wrapper |
 
 ## Current Boundary
 
 `nnrp-runtime` currently ships a built-in TCP client/server session runtime and exposes `FramedTransport` / `FramedListener` slots for external TCP/QUIC providers. `connect_quic` / `bind_quic` still do not choose a TLS or QUIC implementation for callers; use `from_transport` / `from_listener` to inject a concrete provider.
 
 The FFI layer exposes client/server handles, sessions, operations, and event ABI. It is the low-level control surface for bindings and does not expose Rust async objects or socket pointers directly.
+
+Native link libraries fit C#/Python/Unity and Node.js backend native-addon scenarios. Browsers cannot load `.dll` / `.so` / `.dylib`, so the future JS/TS browser SDK must use a WASM package plus WebSocket/WebTransport transport adapters.
 
 ## Rust-specific expectations
 

@@ -33,14 +33,16 @@ nnrp-ffi = "1.0.0-preview.2"
 | 目标 | 产物 | 用途 |
 |---|---|---|
 | `--lib` | `libnnrp_core.rlib` / `libnnrp_runtime.rlib` | Rust 内部依赖 |
-| `--lib --crate-type=cdylib` | `nnrp_ffi.dll` / `.so` / `.dylib` | C#/Python/Unity FFI 集成 |
-| `--target wasm32-unknown-unknown` | `nnrp_ffi.wasm` | Web 应用（规划中） |
+| `--lib --crate-type=cdylib` | `nnrp_ffi.dll` / `.so` / `.dylib` | C#/Python/Unity/Node native FFI 集成 |
+| `--target wasm32-unknown-unknown` | raw `nnrp_ffi.wasm` | 底层 WASM 编译目标；浏览器 SDK 仍需要 wasm-bindgen + JS/TS wrapper |
 
 ## 当前边界
 
 `nnrp-runtime` 当前内置 TCP 传输上的 client/server session runtime，同时开放 `FramedTransport` / `FramedListener` 插槽给外部 TCP/QUIC provider。`connect_quic` / `bind_quic` 仍不会替调用方选择 TLS 或 QUIC 实现；需要接入具体 provider 时，使用 `from_transport` / `from_listener` 注入。
 
 FFI 层已经暴露 client/server handle、session、operation 和 event ABI；它是跨语言绑定的底层控制面，不直接把 Rust 异步对象或 socket 指针暴露给调用方。
+
+Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。浏览器不能加载 `.dll` / `.so` / `.dylib`，后续 JS/TS 浏览器 SDK 必须走 WASM 包和 WebSocket/WebTransport transport adapter。
 
 ## Rust 侧约束
 

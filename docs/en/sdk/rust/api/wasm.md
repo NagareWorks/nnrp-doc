@@ -1,6 +1,6 @@
 # Rust — WASM / Web (Preview3)
 
-> **This page describes the planned WASM integration for Preview3. WASM bindings are not yet available; the native Rust runtime exists, but the browser/Node transport adapter and wasm-bindgen surface have not landed yet.**
+> **This page describes the planned WASM integration for Preview3. `nnrp-ffi` can be compiled as raw WASM, but browser-ready WASM bindings are not yet available; the browser/Node transport adapter and wasm-bindgen surface have not landed yet.**
 
 ---
 
@@ -19,6 +19,8 @@ wasm-pack build nnrp-ffi --target web --out-dir pkg/web
 # Build for Node.js
 wasm-pack build nnrp-ffi --target nodejs --out-dir pkg/node
 ```
+
+The raw `nnrp_ffi.wasm` artifact is not a complete npm package. Browsers cannot load native `.dll` / `.so` / `.dylib` libraries, so the JS/TS SDK must ship `.wasm`, generated JS glue, `.d.ts` declarations, and browser transport adapters.
 
 ---
 

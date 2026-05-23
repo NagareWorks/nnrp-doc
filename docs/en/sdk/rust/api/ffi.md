@@ -19,7 +19,9 @@ crate-type = ["cdylib", "rlib"]
 | Windows DLL | `cargo build --release -p nnrp-ffi` | `nnrp_ffi.dll` | C# P/Invoke, Python ctypes, Unity |
 | Linux SO | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.so` | C# LibraryImport, Python ctypes |
 | macOS dylib | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.dylib` | Same |
-| WASM | `cargo build --target wasm32-unknown-unknown -p nnrp-ffi` | `nnrp_ffi.wasm` | Planned Web target |
+| Raw WASM | `cargo build --target wasm32-unknown-unknown -p nnrp-ffi` | `nnrp_ffi.wasm` | Low-level compile target; not a complete browser SDK |
+
+Native link libraries are for C#/Python/Unity and Node.js backend native addons. Browser scenarios cannot load native link libraries and require a dedicated WASM/JS/TS wrapper layer.
 
 ## Core ABI Types
 
@@ -134,6 +136,8 @@ version = lib.nnrp_current_protocol_version()
 ## Current Boundary
 
 The FFI layer exposes a cross-language handle/event control plane. It does not hand Rust async runtime objects, socket pointers, or long-lived borrowed payload ownership to callers; bindings should call follow-up functions through handles and copy any callback/polling data they need to keep.
+
+Raw `nnrp_ffi.wasm` is only a low-level ABI compilation artifact. A browser-facing SDK still needs `wasm-bindgen`, `.d.ts` declarations, a JS/TS session wrapper, and WebSocket/WebTransport transport adapters; the Rust packaging shard tracks that work.
 
 ::: warning
 1. **Do not retain borrowed buffer or event pointers after return.** They are valid only for the duration of the call or callback.
