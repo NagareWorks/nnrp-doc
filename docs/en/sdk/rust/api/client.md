@@ -110,11 +110,11 @@ let registry = TransportProviderRegistry::new()
         nnrp_transport_provider::TransportProviderKind::NativeDynamic,
     ));
 let remote = RemoteTransportSupport::new([TransportId::Tcp, TransportId::Quic]);
-let selection = registry.select(&remote, TransportPolicy::PreferQuic)?;
-assert_eq!(selection.selected.transport_id, TransportId::Quic);
+let candidates = registry.select(&remote, TransportPolicy::PreferQuic)?;
+assert_eq!(candidates.selected.transport_id, TransportId::Quic);
 ```
 
-When multiple paths are viable, pass measured probe samples into the score selector:
+`registry.select` only filters candidates by local providers, remote capabilities, and local policy. It is useful for `force_*` policies, availability diagnostics, or a fallback candidate when no probe results exist. Production routing should not treat "QUIC is available" as "QUIC must be selected". When multiple paths are viable, pass measured probe samples into the score selector:
 
 ```rust
 use nnrp_transport_provider::select_transport_with_probe;
@@ -122,11 +122,13 @@ use nnrp_transport_provider::select_transport_with_probe;
 let samples = [
     ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 4_800, 1024, 1024),
     ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 5_100, 1024, 1024),
+    ProbeSample::success(TransportId::Quic, "my-quic-backend", 20_000, 15_000, 1024, 1024),
+    ProbeSample::failure(TransportId::Quic, "my-quic-backend", 20_000, true),
 ];
 let probed = select_transport_with_probe(
     registry.providers(),
     &remote,
-    TransportPolicy::PreferTcp,
+    TransportPolicy::PreferQuic,
     &samples,
 )?;
 assert_eq!(probed.selected.transport_id, TransportId::Tcp);

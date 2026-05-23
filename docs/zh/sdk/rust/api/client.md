@@ -110,11 +110,11 @@ let registry = TransportProviderRegistry::new()
         nnrp_transport_provider::TransportProviderKind::NativeDynamic,
     ));
 let remote = RemoteTransportSupport::new([TransportId::Tcp, TransportId::Quic]);
-let selection = registry.select(&remote, TransportPolicy::PreferQuic)?;
-assert_eq!(selection.selected.transport_id, TransportId::Quic);
+let candidates = registry.select(&remote, TransportPolicy::PreferQuic)?;
+assert_eq!(candidates.selected.transport_id, TransportId::Quic);
 ```
 
-需要比较多条可用路径时，可以把实际探测结果交给评分选择器：
+`registry.select` 只做本地 provider、远端能力和本地 policy 的候选过滤；它适合 `force_*` 策略、诊断可用性，或在没有探测结果时给出 fallback 候选。生产选路不要把“QUIC 可用”直接等同于“最终走 QUIC”。需要比较多条可用路径时，应把实际探测结果交给评分选择器：
 
 ```rust
 use nnrp_transport_provider::select_transport_with_probe;
@@ -122,11 +122,13 @@ use nnrp_transport_provider::select_transport_with_probe;
 let samples = [
     ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 4_800, 1024, 1024),
     ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 5_100, 1024, 1024),
+    ProbeSample::success(TransportId::Quic, "my-quic-backend", 20_000, 15_000, 1024, 1024),
+    ProbeSample::failure(TransportId::Quic, "my-quic-backend", 20_000, true),
 ];
 let probed = select_transport_with_probe(
     registry.providers(),
     &remote,
-    TransportPolicy::PreferTcp,
+    TransportPolicy::PreferQuic,
     &samples,
 )?;
 assert_eq!(probed.selected.transport_id, TransportId::Tcp);
