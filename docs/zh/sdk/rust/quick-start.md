@@ -4,11 +4,30 @@ Rust SDK 的 Preview3 runtime 已经可以在 TCP 和默认 QUIC provider 上完
 
 ## 依赖
 
+常用 Rust client/server runtime 加 TCP transport：
+
+```bash
+cargo add nnrp-core@1.0.0-preview.3.1 nnrp-runtime@1.0.0-preview.3.1 nnrp-transport-tcp@1.0.0-preview.3.1
+cargo add tokio --features macros,rt-multi-thread,net,io-util,time
+```
+
+需要 QUIC、FFI 或 WASM primitive 时再追加对应包：
+
+```bash
+cargo add nnrp-transport-quic@1.0.0-preview.3.1
+cargo add nnrp-transport-provider@1.0.0-preview.3.1
+cargo add nnrp-ffi@1.0.0-preview.3.1
+cargo add nnrp-wasm@1.0.0-preview.3.1
+```
+
+等价的 `Cargo.toml` 写法：
+
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3"
-nnrp-runtime = "1.0.0-preview.3"
-nnrp-transport-quic = "1.0.0-preview.3"
+nnrp-core = "1.0.0-preview.3.1"
+nnrp-runtime = "1.0.0-preview.3.1"
+nnrp-transport-tcp = "1.0.0-preview.3.1"
+nnrp-transport-quic = "1.0.0-preview.3.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 

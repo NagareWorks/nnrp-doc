@@ -8,7 +8,7 @@ It does not contain the networked client/server runtime yet.
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3"
+nnrp-core = "1.0.0-preview.3.1"
 ```
 
 ## Implemented Preview3 Surface
