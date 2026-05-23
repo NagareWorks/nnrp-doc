@@ -1,6 +1,6 @@
 # Rust Quick Start
 
-The Preview3 Rust runtime can complete a minimal client/server session over TCP: the client connects, opens a session, submits a frame, and awaits a result; the server listens, accepts, receives submit, and sends result.
+The Preview3 Rust runtime can complete a minimal client/server session over TCP and the default QUIC provider: the client connects, opens a session, submits a frame, and awaits a result; the server listens, accepts, receives submit, and sends result.
 
 ## Dependencies
 
@@ -8,6 +8,7 @@ The Preview3 Rust runtime can complete a minimal client/server session over TCP:
 [dependencies]
 nnrp-core = "1.0.0-preview.3"
 nnrp-runtime = "1.0.0-preview.3"
+nnrp-transport-quic = "1.0.0-preview.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 
@@ -52,6 +53,6 @@ session.close().await?;
 
 ## Current Limits
 
-1. The Preview3 Rust runtime ships TCP built in; QUIC plugs in through external `FramedTransport` / `FramedListener` providers.
+1. The Preview3 Rust runtime ships TCP built in; the default QUIC path is provided by the Quinn/Rustls provider in `nnrp-transport-quic`, while `FramedTransport` / `FramedListener` slots remain available for external providers.
 2. `submit` and `submit_nowait` both send `FRAME_SUBMIT` and return the assigned `frame_id`; call `await_result` or `await_event` to consume server output.
 3. The FFI layer provides a handle/event ABI for bindings. Rust application code should prefer `nnrp-runtime` directly.

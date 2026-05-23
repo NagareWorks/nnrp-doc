@@ -8,6 +8,7 @@
 [dependencies]
 nnrp-core = "1.0.0-preview.3"
 nnrp-runtime = "1.0.0-preview.3"
+nnrp-transport-quic = "1.0.0-preview.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 
@@ -34,7 +35,7 @@ Builder 方法：
 
 | 方法 | 说明 |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | 选择 TCP 或外部 provider 对应的 QUIC slot |
+| `with_transport(RuntimeTransportKind)` | 选择 TCP 或 QUIC provider 对应的 runtime slot |
 | `with_cache_hints(impl Into<Vec<CacheObjectKind>>)` | 声明客户端希望使用的缓存对象 kind |
 | `with_resume(u32)` | 打开恢复语义并设置 resume token 字节数 |
 
@@ -70,7 +71,19 @@ impl NnrpClient {
 }
 ```
 
-`connect_tcp` 使用内置 `TcpTransport`。`connect_quic` 当前只校验配置并返回 `UnsupportedTransport`，因为 Rust SDK 不在公共层冻结 TLS / QUIC provider。要接入 QUIC，provider 实现 `FramedTransport` 后通过 `from_transport` 或 `from_boxed_transport` 注入。
+`connect_tcp` 使用 runtime 内置的 `TcpTransport`。`nnrp-runtime::NnrpClient::connect_quic` 仍只保留抽象 API 位置；开箱 QUIC 连接由独立包 `nnrp-transport-quic` 提供，以避免把 Quinn/Rustls 依赖塞进 transport-neutral runtime。
+
+```rust
+use nnrp_runtime::{NnrpClientConfig, RuntimeTransportKind};
+use nnrp_transport_quic::{QuicClientEndpointConfig, QuicProvider};
+
+let endpoint_config =
+    QuicClientEndpointConfig::localhost_with_root_certificate(server_certificate_der);
+let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Quic);
+let client = QuicProvider::connect("127.0.0.1:4433", endpoint_config, config).await?;
+```
+
+如果部署方需要平台 QUIC、native addon 或 WASM-facing 后端，仍可实现 `FramedTransport` 并通过 `from_transport` / `from_boxed_transport` 注入。
 
 ## Transport slot
 
@@ -104,11 +117,7 @@ use nnrp_transport_tcp::TcpProvider;
 
 let registry = TransportProviderRegistry::new()
     .with_provider(TcpProvider::descriptor())
-    .with_provider(QuicProvider::backend_descriptor(
-        "my-quic-backend",
-        "0.1.0",
-        nnrp_transport_provider::TransportProviderKind::NativeDynamic,
-    ));
+    .with_provider(QuicProvider::descriptor());
 let remote = RemoteTransportSupport::new([TransportId::Tcp, TransportId::Quic]);
 let candidates = registry.select(&remote, TransportPolicy::PreferQuic)?;
 assert_eq!(candidates.selected.transport_id, TransportId::Quic);
@@ -122,8 +131,8 @@ use nnrp_transport_provider::select_transport_with_probe;
 let samples = [
     ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 4_800, 1024, 1024),
     ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 5_100, 1024, 1024),
-    ProbeSample::success(TransportId::Quic, "my-quic-backend", 20_000, 15_000, 1024, 1024),
-    ProbeSample::failure(TransportId::Quic, "my-quic-backend", 20_000, true),
+    ProbeSample::success(TransportId::Quic, QuicProvider::NAME, 20_000, 15_000, 1024, 1024),
+    ProbeSample::failure(TransportId::Quic, QuicProvider::NAME, 20_000, true),
 ];
 let probed = select_transport_with_probe(
     registry.providers(),
@@ -134,7 +143,7 @@ let probed = select_transport_with_probe(
 assert_eq!(probed.selected.transport_id, TransportId::Tcp);
 ```
 
-`nnrp-transport-provider` 负责本地 provider 列表、native library 探测、策略选择、probe 样本评分和被拒候选诊断。评分会综合 RTT、超时/失败率、有效吞吐和本地 policy；缺少样本或全部失败的 provider 会以结构化原因出现在 rejected candidates 中。`nnrp-transport-tcp` 是独立 TCP provider 包；`nnrp-transport-quic` 提供 QUIC provider slot、配置 helper 和注入 helper，但默认不选择具体 TLS/QUIC 后端。
+`nnrp-transport-provider` 负责本地 provider 列表、native library 探测、策略选择、probe 样本评分和被拒候选诊断。评分会综合 RTT、超时/失败率、有效吞吐和本地 policy；缺少样本或全部失败的 provider 会以结构化原因出现在 rejected candidates 中。`nnrp-transport-tcp` 是独立 TCP provider 包；`nnrp-transport-quic` 默认提供 Quinn/Rustls QUIC provider、证书配置 helper 和注入 helper。自定义 QUIC 后端可继续用 `QuicProvider::backend_descriptor` 暴露为独立 provider。
 
 `nnrp-transport-provider` 还暴露 `tcp`、`quic`、`native-loader`、`wasm` feature flags，并可通过 `compile_time_provider_features()` 查看当前编译产物启用了哪些 provider family。
 

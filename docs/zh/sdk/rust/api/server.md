@@ -25,7 +25,7 @@ Builder 方法：
 
 | 方法 | 说明 |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | 选择 TCP 或外部 provider 对应的 QUIC slot |
+| `with_transport(RuntimeTransportKind)` | 选择 TCP 或 QUIC provider 对应的 runtime slot |
 | `with_supported_profiles(impl Into<Vec<u16>>)` | 设置允许的 profile |
 | `with_supported_cache_objects(impl Into<Vec<CacheObjectKind>>)` | 设置允许的缓存对象 kind |
 | `with_cache_limits(usize, u32)` | 设置缓存对象数量和单对象大小上限 |
@@ -79,7 +79,20 @@ impl NnrpServer {
 }
 ```
 
-`bind_tcp` 使用内置 `TcpFramedListener`。`bind_quic` 当前只保留公开 API 位置，会返回 `UnsupportedTransport`。要接入 QUIC，provider 实现 `FramedListener`，并通过 `from_listener` 或 `from_boxed_listener` 注入。
+`bind_tcp` 使用 runtime 内置的 `TcpFramedListener`。`nnrp-runtime::NnrpServer::bind_quic` 仍只保留抽象 API 位置；开箱 QUIC listener 由独立包 `nnrp-transport-quic` 提供。
+
+```rust
+use nnrp_runtime::{NnrpServerConfig, RuntimeTransportKind};
+use nnrp_transport_quic::{QuicProvider, QuicServerEndpointConfig};
+
+let bind_addr = "127.0.0.1:4433".parse()?;
+let (endpoint_config, certificate) =
+    QuicServerEndpointConfig::self_signed_localhost(bind_addr)?;
+let config = NnrpServerConfig::default().with_transport(RuntimeTransportKind::Quic);
+let server = QuicProvider::bind(endpoint_config, config).await?;
+```
+
+生产环境通常传入正式证书链和 PKCS#8 私钥；测试或本地 bring-up 可使用 `self_signed_localhost` 并把返回的 `certificate.certificate_der` 配给客户端信任根。平台 QUIC、native addon 或 WASM-facing 后端仍可实现 `FramedListener`，再通过 `from_listener` / `from_boxed_listener` 注入。
 
 ## Listener slot
 

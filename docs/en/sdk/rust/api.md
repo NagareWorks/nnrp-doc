@@ -1,13 +1,13 @@
 # Rust — Frozen API
 
-The Rust SDK (`nnrp-rs`) workspace contains the protocol core, runtime, transport providers, FFI/native packaging, WASM primitives, and conformance crates. Preview3 now includes the protocol core, async TCP client/server runtime, conformance fixtures, and the FFI ABI / WASM primitive surface for cross-language bindings.
+The Rust SDK (`nnrp-rs`) workspace contains the protocol core, runtime, transport providers, FFI/native packaging, WASM primitives, and conformance crates. Preview3 now includes the protocol core, async TCP client/server runtime, the default QUIC provider, conformance fixtures, and the FFI ABI / WASM primitive surface for cross-language bindings.
 
 | Group | Crate | Description | Status |
 |---|---|---|---|
 | [Core Types](./api/core) | `nnrp-core` | Wire codecs, validation, lifecycle, cache/schema, recovery, conformance baseline | ✅ Preview3 core implemented |
-| [Client (Preview3)](./api/client) | `nnrp-runtime` | `NnrpClient`, `NnrpClientSession`, event receive, submit/cancel/patch/migrate/close | ✅ TCP runtime implemented |
-| [Server (Preview3)](./api/server) | `nnrp-runtime` | `NnrpServer`, `NnrpServerSession`, accept/receive/send/flow/close | ✅ TCP runtime implemented |
-| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | Provider registry, native library detection, policy resolver, probe score selection, TCP provider, QUIC provider slot | ✅ Implemented |
+| [Client (Preview3)](./api/client) | `nnrp-runtime` | `NnrpClient`, `NnrpClientSession`, event receive, submit/cancel/patch/migrate/close | ✅ TCP runtime and QUIC provider path implemented |
+| [Server (Preview3)](./api/server) | `nnrp-runtime` | `NnrpServer`, `NnrpServerSession`, accept/receive/send/flow/close | ✅ TCP runtime and QUIC provider path implemented |
+| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | Provider registry, native library detection, policy resolver, probe score selection, TCP provider, Quinn/Rustls QUIC provider | ✅ Implemented |
 | [FFI / Native](./api/ffi) | `nnrp-ffi` | Value handles, buffer views, callback/polling events, client/server handle ABI, native artifact packaging | ✅ Implemented |
 | [WASM Exports (Preview3)](./api/wasm) | `nnrp-wasm` | wasm-bindgen JSON primitives, probe scoring, transport selection, `.d.ts` / `.wasm` packaging | ✅ Primitive implemented |
 
@@ -43,7 +43,7 @@ nnrp-ffi = "1.0.0-preview.3"
 
 ## Current Boundary
 
-`nnrp-runtime` currently ships a built-in TCP client/server session runtime and exposes `FramedTransport` / `FramedListener` slots for external TCP/QUIC providers. `nnrp-transport-quic` now exists as a standalone provider package, but it does not freeze a specific TLS or QUIC backend for callers; its default descriptor reports the backend as missing. To plug in a concrete QUIC implementation, register the real backend with `QuicProvider::backend_descriptor` and inject it through `from_transport` / `from_listener`.
+`nnrp-runtime` currently ships a built-in TCP client/server session runtime and exposes `FramedTransport` / `FramedListener` slots for external TCP/QUIC providers. `nnrp-transport-quic` is a standalone provider package that uses Quinn/Rustls by default for out-of-the-box QUIC connect, listen, and certificate configuration helpers. Platform QUIC, native-addon, or WASM-facing backends can still register their real backend with `QuicProvider::backend_descriptor` and inject it through `from_transport` / `from_listener`.
 
 The FFI layer exposes client/server handles, sessions, operations, and event ABI. It is the low-level control surface for bindings and does not expose Rust async objects or socket pointers directly.
 

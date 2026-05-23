@@ -1,13 +1,13 @@
 # Rust — 冻结 API
 
-Rust SDK（`nnrp-rs`）工作区包含协议核心、runtime、transport provider、FFI/native packaging、WASM primitives 和一致性测试 crate。Preview3 当前已经具备协议核心、异步 TCP client/server runtime、一致性 fixtures，以及跨语言绑定所需的 FFI ABI / WASM primitive 表面。
+Rust SDK（`nnrp-rs`）工作区包含协议核心、runtime、transport provider、FFI/native packaging、WASM primitives 和一致性测试 crate。Preview3 当前已经具备协议核心、异步 TCP client/server runtime、默认 QUIC provider、一致性 fixtures，以及跨语言绑定所需的 FFI ABI / WASM primitive 表面。
 
 | 分组 | Crate | 说明 | 状态 |
 |---|---|---|---|
 | [核心类型](./api/core) | `nnrp-core` | Wire codec、校验、生命周期、缓存/Schema、恢复、一致性基线 | ✅ Preview3 core 已实现 |
-| [客户端（Preview3）](./api/client) | `nnrp-runtime` | `NnrpClient`、`NnrpClientSession`、事件接收、submit/cancel/patch/migrate/close | ✅ TCP runtime 已实现 |
-| [服务端（Preview3）](./api/server) | `nnrp-runtime` | `NnrpServer`、`NnrpServerSession`、accept/receive/send/flow/close | ✅ TCP runtime 已实现 |
-| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | provider registry、native library detection、policy resolver、probe score selection、TCP provider、QUIC provider slot | ✅ 已实现 |
+| [客户端（Preview3）](./api/client) | `nnrp-runtime` | `NnrpClient`、`NnrpClientSession`、事件接收、submit/cancel/patch/migrate/close | ✅ TCP runtime 与 QUIC provider 接入已实现 |
+| [服务端（Preview3）](./api/server) | `nnrp-runtime` | `NnrpServer`、`NnrpServerSession`、accept/receive/send/flow/close | ✅ TCP runtime 与 QUIC provider 接入已实现 |
+| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | provider registry、native library detection、policy resolver、probe score selection、TCP provider、Quinn/Rustls QUIC provider | ✅ 已实现 |
 | [FFI / 原生接口](./api/ffi) | `nnrp-ffi` | Value handle、buffer view、callback/polling event、client/server handle ABI、native artifact packaging | ✅ 已实现 |
 | [WASM 导出（Preview3）](./api/wasm) | `nnrp-wasm` | wasm-bindgen JSON primitive、probe scoring、transport selection、`.d.ts` / `.wasm` 打包 | ✅ Primitive 已实现 |
 
@@ -43,7 +43,7 @@ nnrp-ffi = "1.0.0-preview.3"
 
 ## 当前边界
 
-`nnrp-runtime` 当前内置 TCP 传输上的 client/server session runtime，同时开放 `FramedTransport` / `FramedListener` 插槽给外部 TCP/QUIC provider。`nnrp-transport-quic` 已作为独立 provider 包存在，但它不会替调用方冻结某个 TLS 或 QUIC 后端；默认 descriptor 会报告后端缺失。需要接入具体 QUIC 实现时，使用 `QuicProvider::backend_descriptor` 注册真实 backend，并通过 `from_transport` / `from_listener` 注入。
+`nnrp-runtime` 当前内置 TCP 传输上的 client/server session runtime，同时开放 `FramedTransport` / `FramedListener` 插槽给外部 TCP/QUIC provider。`nnrp-transport-quic` 是独立 provider 包，默认使用 Quinn/Rustls 提供开箱 QUIC 连接、监听和证书配置 helper；需要接入平台 QUIC、native addon 或 WASM-facing 后端时，仍可使用 `QuicProvider::backend_descriptor` 注册真实 backend，并通过 `from_transport` / `from_listener` 注入。
 
 FFI 层已经暴露 client/server handle、session、operation 和 event ABI；它是跨语言绑定的底层控制面，不直接把 Rust 异步对象或 socket 指针暴露给调用方。
 

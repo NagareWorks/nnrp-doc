@@ -25,7 +25,7 @@ Builder methods:
 
 | Method | Description |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | Select TCP or the QUIC slot used by an external provider |
+| `with_transport(RuntimeTransportKind)` | Select the runtime slot used by TCP or a QUIC provider |
 | `with_supported_profiles(impl Into<Vec<u16>>)` | Set accepted profiles |
 | `with_supported_cache_objects(impl Into<Vec<CacheObjectKind>>)` | Set accepted cache object kinds |
 | `with_cache_limits(usize, u32)` | Set cache object count and per-object byte limits |
@@ -79,7 +79,20 @@ impl NnrpServer {
 }
 ```
 
-`bind_tcp` uses the built-in `TcpFramedListener`. `bind_quic` currently reserves the public API slot and returns `UnsupportedTransport`. To plug in QUIC, implement `FramedListener` in the provider and inject it through `from_listener` or `from_boxed_listener`.
+`bind_tcp` uses the runtime's built-in `TcpFramedListener`. `nnrp-runtime::NnrpServer::bind_quic` still reserves the abstraction point; the out-of-the-box QUIC listener lives in the separate `nnrp-transport-quic` package.
+
+```rust
+use nnrp_runtime::{NnrpServerConfig, RuntimeTransportKind};
+use nnrp_transport_quic::{QuicProvider, QuicServerEndpointConfig};
+
+let bind_addr = "127.0.0.1:4433".parse()?;
+let (endpoint_config, certificate) =
+    QuicServerEndpointConfig::self_signed_localhost(bind_addr)?;
+let config = NnrpServerConfig::default().with_transport(RuntimeTransportKind::Quic);
+let server = QuicProvider::bind(endpoint_config, config).await?;
+```
+
+Production deployments usually pass a real certificate chain and PKCS#8 private key. Tests or local bring-up can use `self_signed_localhost` and pass `certificate.certificate_der` to the client trust root. Platform QUIC, native-addon, or WASM-facing backends can still implement `FramedListener` and inject it through `from_listener` / `from_boxed_listener`.
 
 ## Listener Slot
 
