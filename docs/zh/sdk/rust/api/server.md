@@ -1,221 +1,157 @@
 # Rust — 服务端（Preview3）
 
-::: warning 规划中
-本页描述的是 Preview3 runtime API 规划。协议 core、FFI ABI 表面和 conformance fixtures 已存在；`NnrpServer` 与 `NnrpServerSession` 尚未实现。
-:::
+`nnrp-runtime` 已经暴露 Preview3 TCP 服务端 API。服务端负责监听、接收 `SESSION_OPEN`、执行 profile/schema/resume 校验，随后在 session 上接收 submit、返回 result/drop/flow update，并处理 patch、migrate、close。
 
-## 规划 API
-
-### `NnrpServerConfig`
+## `NnrpServerConfig`
 
 ```rust
 pub struct NnrpServerConfig {
-    pub max_concurrent_frames: usize,
-    pub enable_cache: bool,
-    pub max_sections: usize,
-    pub max_body_bytes: usize,
-    pub supported_payload_kinds: PayloadKind,
-    pub max_cache_entries: usize,
-    pub max_cache_bytes: usize,
-}
-
-impl Default for NnrpServerConfig {
-    fn default() -> Self {
-        // max_concurrent_frames=1, enable_cache=true, max_sections=16,
-        // max_body_bytes=32MB, supported_payload_kinds=ALL
-    }
+    pub transport: RuntimeTransportKind,
+    pub supported_profiles: Vec<u16>,
+    pub supported_cache_objects: Vec<CacheObjectKind>,
+    pub max_cache_objects: usize,
+    pub max_cache_object_bytes: u32,
+    pub schema_registry: SchemaRegistry,
+    pub resume_token_bytes: u32,
+    pub max_in_flight_operations: u16,
+    pub granted_operation_credit: u16,
+    pub lease_ttl_ms: u32,
+    pub resume_window_ms: u32,
+    pub application_policy: Arc<dyn NnrpServerPolicy>,
 }
 ```
 
-### `NnrpServer`
+Builder 方法：
+
+| 方法 | 说明 |
+|---|---|
+| `with_transport(RuntimeTransportKind)` | 选择 TCP 或保留的 QUIC hook |
+| `with_supported_profiles(impl Into<Vec<u16>>)` | 设置允许的 profile |
+| `with_supported_cache_objects(impl Into<Vec<CacheObjectKind>>)` | 设置允许的缓存对象 kind |
+| `with_cache_limits(usize, u32)` | 设置缓存对象数量和单对象大小上限 |
+| `with_schema_registry(SchemaRegistry)` | 替换 schema registry |
+| `with_resume_token_bytes(u32)` | 设置恢复 token 字节数 |
+| `with_application_policy(P)` | 接入应用层 session open 校验 |
+
+默认配置使用 TCP、标准 token profile、Preview3 标准 schema registry、`max_in_flight_operations = 4`、`granted_operation_credit = 2`、`lease_ttl_ms = 30000`、`resume_window_ms = 120000`。
+
+## 应用层策略
 
 ```rust
-pub struct NnrpServer { /* ... */ }
+pub trait NnrpServerPolicy: Send + Sync {
+    fn validate_session_open(&self, open: &SessionOpenMetadata) -> Result<(), u32>;
+}
 
+pub struct AllowAllServerPolicy;
+```
+
+策略返回 `Err(session_error_code)` 时，服务端会拒绝 `SESSION_OPEN`。
+
+## `NnrpServer`
+
+```rust
 impl NnrpServer {
-    /// 创建 TCP 监听服务端
     pub async fn bind_tcp(
-        addr: impl ToSocketAddrs,
+        addr: impl tokio::net::ToSocketAddrs,
         config: NnrpServerConfig,
-    ) -> Result<Self, NnrpError>;
+    ) -> Result<Self, RuntimeError>;
 
-    /// 创建 QUIC 监听服务端
     pub async fn bind_quic(
-        addr: impl ToSocketAddrs,
+        endpoint: &str,
         config: NnrpServerConfig,
-        tls: NnrpQuicServerConfig,
-    ) -> Result<Self, NnrpError>;
+    ) -> Result<Self, RuntimeError>;
 
-    /// 接受下一个连接，完成握手，返回服务端会话
-    pub async fn accept(&self) -> Result<NnrpServerSession, NnrpError>;
-
-    /// 接受时带认证回调
-    pub async fn accept_with_auth(
-        &self,
-        auth: impl Fn(&[u8]) -> bool + Send + Sync,
-    ) -> Result<NnrpServerSession, NnrpError>;
+    pub fn local_addr(&self) -> Result<std::net::SocketAddr, RuntimeError>;
+    pub fn session_count(&self) -> Result<usize, RuntimeError>;
+    pub async fn accept(&self) -> Result<NnrpServerSession, RuntimeError>;
 }
 ```
 
-### `NnrpServerSession`
+`bind_quic` 当前只保留公开 API 位置，会返回 `UnsupportedTransport`。
+
+## `NnrpServerSession`
 
 ```rust
-pub struct NnrpServerSession { /* ... */ }
-
 impl NnrpServerSession {
     pub fn session_id(&self) -> u32;
-    pub fn transport_id(&self) -> TransportId;
-    pub fn capabilities(&self) -> &NnrpCapabilitySelection;
-    pub fn client_hello(&self) -> &NnrpClientHello;
+    pub fn client_open(&self) -> &SessionOpenMetadata;
+    pub fn lifecycle(&self) -> &ConnectionLifecycle;
+    pub fn operations(&self) -> &OperationRegistry;
+    pub fn cache_object_count(&self) -> usize;
 
-    /// 等待并接收下一个帧提交
-    pub async fn receive_submit(&self) -> Result<NnrpFrameSubmit, NnrpError>;
-
-    /// 推送处理结果
-    pub async fn send_result(&self, result: NnrpServerResult) -> Result<usize, NnrpError>;
-
-    /// 发送结果丢弃通知
-    pub async fn send_drop(&self, frame_id: u32) -> Result<(), NnrpError>;
-
-    /// 发送流控更新
-    pub async fn send_flow_update(&self, update: NnrpFlowUpdate) -> Result<(), NnrpError>;
-
-    /// 关闭会话
-    pub async fn close(self) -> Result<(), NnrpError>;
+    pub async fn receive_submit(&mut self) -> Result<NnrpSubmit, RuntimeError>;
+    pub async fn send_result(
+        &mut self,
+        frame_id: u32,
+        metadata: ResultPushMetadata,
+        body: Vec<u8>,
+    ) -> Result<(), RuntimeError>;
+    pub async fn send_result_drop(&mut self, frame_id: u32) -> Result<(), RuntimeError>;
+    pub async fn receive_cancel(&mut self) -> Result<NnrpCancel, RuntimeError>;
+    pub fn track_cache_object(&mut self, object_id: CacheObjectId) -> Result<(), RuntimeError>;
+    pub async fn receive_patch(&mut self) -> Result<SessionPatchMetadata, RuntimeError>;
+    pub async fn send_patch_ack(&mut self, ack: SessionPatchAckMetadata) -> Result<(), RuntimeError>;
+    pub async fn send_flow_update(&mut self, metadata: FlowUpdateMetadata) -> Result<(), RuntimeError>;
+    pub async fn receive_migrate(&mut self) -> Result<NnrpMigration, RuntimeError>;
+    pub async fn send_migrate_ack(
+        &mut self,
+        request: &SessionMigrateMetadata,
+        ack: SessionMigrateAckMetadata,
+    ) -> Result<(), RuntimeError>;
+    pub async fn receive_close(&mut self) -> Result<SessionCloseMetadata, RuntimeError>;
+    pub async fn ack_close(&mut self, close: &SessionCloseMetadata) -> Result<(), RuntimeError>;
+    pub async fn close(self) -> Result<(), RuntimeError>;
 }
 ```
 
-### `NnrpFrameSubmit`
+## 数据结构
 
 ```rust
-pub struct NnrpFrameSubmit {
-    pub session_id: u32,
+pub struct NnrpSubmit {
     pub frame_id: u32,
-    pub view_id: u32,
-    pub input_profile: InputProfile,
-    pub submit_mode: SubmitMode,
-    pub budget_policy: BudgetPolicy,
-    pub payload_kind_bitmap: PayloadKind,
-    pub inference_budget_ms: u32,
-    pub deadline_ms: u32,
-    pub sections: Vec<NnrpTensorSection>,
-    pub typed_payloads: Vec<NnrpTypedPayload>,
+    pub metadata: FrameSubmitMetadata,
+    pub body: Vec<u8>,
 }
-```
 
-### `NnrpServerResult`
-
-```rust
-pub struct NnrpServerResult {
+pub struct NnrpCancel {
     pub frame_id: u32,
-    pub tile_ids: Vec<u16>,
-    pub sections: Vec<NnrpTensorSection>,
-    pub typed_payloads: Vec<NnrpTypedPayload>,
-    pub result_class: ResultClass,
-    pub result_flags: ResultFlags,
-    pub applied_budget_policy: BudgetPolicy,
-    pub active_profile_id: u8,
-    pub inference_ms: u32,
-    pub queue_ms: u32,
-    pub server_total_ms: u32,
-    pub status_code: u16,
-    pub tile_index_mode: TileIndexMode,
-    pub covered_tile_count: u16,
-    pub dropped_tile_count: u16,
-    pub view_id: u32,
+}
+
+pub struct NnrpMigration {
+    pub metadata: SessionMigrateMetadata,
 }
 ```
 
----
+`RuntimeSessionRecord` 记录服务端 runtime 中的 session 状态：`session_id`、profile/schema、resume 状态、token 字节数和最后 operation id。
 
-## 完整服务端示例（规划）
-
-Rust 实现侧通过 `nnrp-rs/doc/todo/v1-preview3/06-client-server-runtime.md` 跟踪这部分工作。
+## 示例
 
 ```rust
-use nnrp_core::{NnrpServer, NnrpServerConfig, ResultClass};
+use nnrp_core::ResultPushMetadata;
+use nnrp_runtime::{NnrpServer, NnrpServerConfig};
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = NnrpServerConfig::default();
-    let server = NnrpServer::bind_tcp("0.0.0.0:4433", config).await?;
+let server = NnrpServer::bind_tcp("127.0.0.1:4433", NnrpServerConfig::default()).await?;
 
-    loop {
-        let session = server.accept().await?;
-
-        tokio::spawn(async move {
-            loop {
-                let submit = session.receive_submit().await?;
-                let output_sections = run_inference(&submit.sections).await;
-                session.send_result(NnrpServerResult {
-                    frame_id: submit.frame_id,
-                    sections: output_sections,
-                    result_class: ResultClass::Complete,
-                    inference_ms: 12,
-                    ..Default::default()
-                }).await?;
-            }
-            Ok::<(), nnrp_core::NnrpError>(())
-        });
-    }
-}
-```
-
----
-
-## 典型使用场景（Preview3 规划）
-
-### 完整服务端循环
-
-```rust
-// Preview3 预期用法
-use nnrp_server::{NnrpServer, NnrpServerConfig};
-use nnrp_core::{ResultClass, NnrpServerResult};
-
-let config = NnrpServerConfig::builder()
-    .bind("0.0.0.0:4433")
-    .transport(TransportPolicy::PreferQuic)
-    .max_concurrent_frames(8)
-    .build()?;
-
-let server = NnrpServer::bind(config).await?;
-while let Ok(mut session) = server.accept().await {
+loop {
+    let mut session = server.accept().await?;
     tokio::spawn(async move {
-        while let Ok(submit) = session.receive_submit().await {
-            let sections = run_inference(&submit.sections).await;
-            session.send_result(NnrpServerResult {
-                frame_id: submit.frame_id,
-                sections,
-                result_class: ResultClass::Complete,
-                ..Default::default()
-            }).await?;
-        }
-        Ok::<_, Box<dyn std::error::Error>>(())
+        let submit = session.receive_submit().await?;
+        let output = run_model(submit.body).await;
+        session
+            .send_result(submit.frame_id, ResultPushMetadata::default(), output)
+            .await?;
+
+        let close = session.receive_close().await?;
+        session.ack_close(&close).await?;
+        session.close().await
     });
 }
 ```
 
-### 背压信号
-
-```rust
-if queue_len > MAX_QUEUE {
-    session.send_result_drop(submit.frame_id).await?;
-    session.send_flow_update(NnrpFlowUpdate {
-        flags: FlowUpdateFlags::CREDIT_VALID,
-        credit: 0, // 暂停接收
-        ..Default::default()
-    }).await?;
-}
-```
-
----
-
-## 常见坱点
+## 常见坑点
 
 ::: warning
-1. **超时帧必须发送 `send_result_drop`。** 默默跳过会让客户端 `submit()` 永久卡住。
-
-2. **尚未实现内置认证。** Preview3 认证需在应用层完成，不要期待中间件自动验证。
-
-3. **`tokio::spawn` 内不要阔塞。** 同步推理务必须包装在 `tokio::task::spawn_blocking` 或单独线程池。
+1. **超时帧必须发送 `send_result_drop`。** 默默跳过会让客户端等待结果时卡住。
+2. **`receive_*` 是顺序读取。** 如果你的应用需要同时处理 cancel、patch、migrate 和 submit，需要在上层设计明确的事件循环。
+3. **同步推理不要直接阻塞 tokio runtime。** CPU/GPU 阻塞式调用应放到专用线程池或 `spawn_blocking`。
 :::

@@ -157,7 +157,7 @@ self.onmessage = async ({ data }) => {
 
 ---
 
-## 常见坱点
+## 常见坑点
 
 ::: warning
 1. **WASM 不支持原生 TCP/UDP。** 必须利用 WebSocket 或 WebTransport；不要尝试直连原始套接字。

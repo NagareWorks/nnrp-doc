@@ -1,15 +1,57 @@
 # Rust 快速使用
 
-这一页保留给 Rust SDK 的对外快速使用入口。
+Rust SDK 的 Preview3 runtime 已经可以在 TCP 上完成最小 client/server 会话：客户端连接、打开 session、提交 frame、等待结果；服务端监听、accept、接收 submit、返回 result。
 
-## 当前状态
+## 依赖
 
-1. 文档结构已经预留，但公开 crate 接入和运行时样例暂不展开。
-2. 在 SDK 正式对外开放前，这里只维护稳定入口和文档位置，不写临时 feature 组合细节。
+```toml
+[dependencies]
+nnrp-core = "1.0.0-preview.2"
+nnrp-runtime = "1.0.0-preview.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+```
 
-## 后续应放置的内容
+## 客户端最短路径
 
-1. crate 接入方式与工具链要求。
-2. Rust runtime 落地后的最小 client 构造示例。
-3. `NnrpClient` / `NnrpServer` 存在后的会话打开、提交、接收、关闭最短路径。
-4. 常见错误与最小排障提示。
+```rust
+use nnrp_core::FrameSubmitMetadata;
+use nnrp_runtime::{NnrpClient, NnrpClientConfig, RuntimeTransportKind};
+
+let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
+let mut session = client.open_session().await?;
+
+let frame_id = session
+    .submit(FrameSubmitMetadata::default(), b"input".to_vec())
+    .await?;
+let result = session.await_result().await?;
+assert_eq!(result.frame_id, frame_id);
+
+session.close().await?;
+```
+
+## 服务端最短路径
+
+```rust
+use nnrp_core::ResultPushMetadata;
+use nnrp_runtime::{NnrpServer, NnrpServerConfig, RuntimeTransportKind};
+
+let config = NnrpServerConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
+
+let mut session = server.accept().await?;
+let submit = session.receive_submit().await?;
+session
+    .send_result(submit.frame_id, ResultPushMetadata::default(), b"output".to_vec())
+    .await?;
+
+let close = session.receive_close().await?;
+session.ack_close(&close).await?;
+session.close().await?;
+```
+
+## 当前限制
+
+1. QUIC API hook 已保留，但 Preview3 Rust runtime 当前只实现 TCP。
+2. `submit` 与 `submit_nowait` 当前都会发送 `FRAME_SUBMIT` 并返回 `frame_id`；如果要消费结果，需要随后调用 `await_result` 或 `await_event`。
+3. FFI 层提供 handle/event ABI，适合绑定层接入；Rust 业务代码优先直接使用 `nnrp-runtime`。

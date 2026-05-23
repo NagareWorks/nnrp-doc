@@ -1,52 +1,34 @@
 # Rust — FFI / Native Bindings
 
-The `nnrp-ffi` crate exposes a C-compatible ABI for C#, Python, Unity, and future language bindings. In the current Preview3 Rust implementation, this is an ABI surface over protocol handles, buffer views, event delivery, and error families. It is not yet a networked client/server runtime.
+The `nnrp-ffi` crate exposes Rust protocol semantics as a C-compatible ABI (`#[repr(C)]`) for C#, Python, Unity, and future language bindings. Preview3 now includes stable value handles, buffer views, callback/polling events, error families, and runtime-backed client/server handle entrypoints.
 
-## Build Targets
+## Cargo.toml
 
-| Target | Output | Use Case |
-|---|---|---|
-| `x86_64-pc-windows-msvc` | `nnrp_ffi.dll` | Windows native (C#/Python/Unity) |
-| `x86_64-unknown-linux-gnu` | `libnnrp_ffi.so` | Linux native (C#/Python server) |
-| `aarch64-apple-darwin` | `libnnrp_ffi.dylib` | macOS ARM native |
-| `wasm32-unknown-unknown` | `nnrp_ffi.wasm` | Planned WebAssembly target |
+```toml
+[dependencies]
+nnrp-ffi = "1.0.0-preview.2"
 
----
+[lib]
+crate-type = ["cdylib", "rlib"]
+```
 
-## Current C ABI Types
+## Build Outputs
 
-### `NnrpProtocolVersion`
+| Target | Command | Output | Use Case |
+|---|---|---|---|
+| Windows DLL | `cargo build --release -p nnrp-ffi` | `nnrp_ffi.dll` | C# P/Invoke, Python ctypes, Unity |
+| Linux SO | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.so` | C# LibraryImport, Python ctypes |
+| macOS dylib | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.dylib` | Same |
+| WASM | `cargo build --target wasm32-unknown-unknown -p nnrp-ffi` | `nnrp_ffi.wasm` | Planned Web target |
+
+## Core ABI Types
 
 ```c
-// C equivalent (from cbindgen output)
 typedef struct {
     uint8_t major;
     uint8_t wire_format;
 } NnrpProtocolVersion;
-```
 
-```rust
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct NnrpProtocolVersion {
-    pub major: u8,
-    pub wire_format: u8,
-}
-
-impl From<ProtocolVersion> for NnrpProtocolVersion {
-    fn from(v: ProtocolVersion) -> Self {
-        Self { major: v.major, wire_format: v.wire_format }
-    }
-}
-```
-
----
-
-### Value handles and buffer views
-
-Preview3 uses ABI-safe value handles rather than exposing Rust-owned `Box<T>` pointers as the stable cross-language contract:
-
-```c
 typedef struct {
     uint32_t kind;
     uint64_t id;
@@ -60,33 +42,69 @@ typedef struct {
 } NnrpBufferView;
 ```
 
-Non-empty buffer views must provide non-null pointers. The callee borrows the memory for the duration of the call and must not retain the pointer.
+Non-empty buffer views must provide non-null pointers. The callee borrows memory only for the duration of the call and does not retain the pointer after returning.
 
-### Events and status
+## Status, Diagnostics, and Events
 
-The ABI exposes callback and polling delivery shapes using `NnrpEvent`, `NnrpCallbackSink`, `NnrpPollResult`, and `NnrpFfiStatus`. Status values include an FFI status code, protocol error family, optional protocol error code, and detail code.
+| Type | Description |
+|---|---|
+| `NnrpFfiStatusCode` | ABI status values such as `Ok`, `InvalidArgument`, `NotFound`, `AlreadyExists`, `WouldBlock`, and `ProtocolError` |
+| `NnrpErrorFamily` | Cross-language family for core/runtime errors |
+| `NnrpFfiStatus` | ABI status code, error family, protocol error code, and detail code |
+| `NnrpFfiDiagnostic` | Status plus related connection/session/operation/frame ids |
+| `NnrpEventKind` | `ConnectionOpened`, `SessionOpened`, `SubmitAccepted`, `ResultPushed`, `ResultDropped`, `FlowUpdated`, `Error`, and others |
+| `NnrpEvent` | One callback/polling event with handles, frame id, borrowed payload, and diagnostic |
+| `NnrpCallbackSink` | Callback delivery entrypoint |
+| `NnrpPollResult` | Polling delivery result |
+
+The `NnrpEvent*` passed to a callback is valid only while the callback is running. Bindings must copy values and payloads they need to retain.
+
+## Request Types
+
+| Type | Description |
+|---|---|
+| `NnrpConnectionBootstrap` | Compatibility entry for constructing a connection handle |
+| `NnrpClientConnectRequest` | Create a client connection handle |
+| `NnrpServerBindRequest` | Create a server handle |
+| `NnrpSessionOpenRequest` | Open a session on a client connection |
+| `NnrpSubmitRequest` | Client submit, creating an operation handle |
+| `NnrpClientCancelRequest` | Client cancel |
+| `NnrpServerAcceptRequest` | Server accept, creating a server session handle |
+| `NnrpServerReceiveSubmitRequest` | Server-side submit receive, creating an operation handle |
+| `NnrpServerSendResultRequest` | Server-side result event |
+| `NnrpServerFlowUpdateRequest` | Server-side flow-update event |
+| `NnrpControlRequest` | Generic control-plane request |
 
 ## Exported Functions
-
-The current exported functions are ABI/lifecycle primitives:
 
 | Function | Description |
 |---|---|
 | `nnrp_current_protocol_version` | Return the current protocol version |
-| `nnrp_connection_bootstrap` | Build a connection value handle for binding smoke tests |
-| `nnrp_session_open` | Build a session value handle from a connection handle |
-| `nnrp_submit` | Validate submit arguments and build an operation value handle |
-| `nnrp_session_close` | Validate a session handle close boundary |
-| `nnrp_control` | Validate control argument shape |
+| `nnrp_connection_bootstrap` | Compatibility wrapper for creating a client connection handle |
+| `nnrp_client_connect` | Create a client connection handle and enqueue `ConnectionOpened` |
+| `nnrp_session_open` | Compatibility wrapper for opening a client session |
+| `nnrp_client_open_session` | Create a client session handle and enqueue `SessionOpened` |
+| `nnrp_submit` | Compatibility wrapper for submit |
+| `nnrp_client_submit` | Create an operation handle and enqueue `SubmitAccepted` |
+| `nnrp_session_close` | Compatibility wrapper for closing a session |
+| `nnrp_client_close` | Close a client session and enqueue `SessionClosed` |
+| `nnrp_client_cancel` | Enqueue cancel/drop-related events |
+| `nnrp_client_await_event` | Poll one event from a connection/session-associated queue |
+| `nnrp_server_bind` | Create a server handle and enqueue `ConnectionOpened` |
+| `nnrp_server_accept` | Create a server session handle and enqueue `SessionOpened` |
+| `nnrp_server_receive_submit` | Create a server operation handle and enqueue `SubmitAccepted` |
+| `nnrp_server_send_result` | Enqueue `ResultPushed` |
+| `nnrp_server_send_flow_update` | Enqueue `FlowUpdated` |
+| `nnrp_server_close` | Close a server session and enqueue `SessionClosed` |
+| `nnrp_control` | Validate a control request and enqueue `Control` |
 | `nnrp_poll_empty` | Return an empty polling result with `WouldBlock` |
 | `nnrp_dispatch_event` | Deliver one borrowed event through a callback |
-
----
 
 ## C# P/Invoke Example
 
 ```csharp
-using System.Runtime.InteropServices;
+[LibraryImport("nnrp_ffi", EntryPoint = "nnrp_current_protocol_version")]
+public static partial NnrpProtocolVersion CurrentProtocolVersion();
 
 [StructLayout(LayoutKind.Sequential)]
 public struct NnrpProtocolVersion
@@ -94,19 +112,7 @@ public struct NnrpProtocolVersion
     public byte Major;
     public byte WireFormat;
 }
-
-public static class NnrpFfi
-{
-    [DllImport("nnrp_ffi", EntryPoint = "nnrp_current_protocol_version")]
-    public static extern NnrpProtocolVersion CurrentProtocolVersion();
-}
-
-// Usage
-var version = NnrpFfi.CurrentProtocolVersion();
-Console.WriteLine($"NNRP v{version.Major}, wire_format={version.WireFormat}");
 ```
-
----
 
 ## Python ctypes Example
 
@@ -114,54 +120,23 @@ Console.WriteLine($"NNRP v{version.Major}, wire_format={version.WireFormat}");
 import ctypes
 
 class NnrpProtocolVersion(ctypes.Structure):
-    _fields_ = [
-        ("major", ctypes.c_uint8),
-        ("wire_format", ctypes.c_uint8),
-    ]
+    _fields_ = [("major", ctypes.c_uint8), ("wire_format", ctypes.c_uint8)]
 
 lib = ctypes.CDLL("./libnnrp_ffi.so")
 lib.nnrp_current_protocol_version.restype = NnrpProtocolVersion
 version = lib.nnrp_current_protocol_version()
-print(f"NNRP v{version.major}, wire_format={version.wire_format}")
 ```
-
----
 
 ## `nnrp-conformance` Crate
 
-`nnrp-conformance` exports Rust-generated preview3 golden vectors, fixture manifests, and an adapter wrapper. Downstream bindings should consume those fixtures as the canonical preview3 baseline.
-
----
-
-## Runtime Expansion Plan
-
-The current ABI does not perform real network I/O. Runtime-backed client/server entrypoints are planned after the Rust client/server runtime lands:
-
-| Function | Description |
-|---|---|
-| `nnrp_client_connect_tcp` | Open a client TCP connection |
-| `nnrp_client_connect_quic` | Open a client QUIC connection |
-| `nnrp_server_bind_tcp` | Bind a server TCP listener |
-| `nnrp_server_accept` | Accept a server-side session |
-| `nnrp_client_session_submit` | Submit a frame |
-| `nnrp_client_session_await_result` | Await result |
-| `nnrp_server_session_receive_submit` | Receive a submit request |
-| `nnrp_server_session_send_result` | Send a result |
-
----
+`nnrp-conformance` exports Rust-generated preview3 golden vectors, fixture manifests, and an adapter wrapper. Downstream SDKs should consume those fixtures as the canonical preview3 baseline.
 
 ## Current Boundary
 
-Use the current FFI to validate cross-language ABI shape and to bind Rust-owned protocol semantics. Do not treat it as a complete client/server SDK until the runtime-backed functions above exist.
-
----
-
-## Common Pitfalls
+The FFI layer exposes a cross-language handle/event control plane. It does not hand Rust async runtime objects, socket pointers, or long-lived borrowed payload ownership to callers; bindings should call follow-up functions through handles and copy any callback/polling data they need to keep.
 
 ::: warning
-1. **Do not retain borrowed buffer or event pointers.** They are valid only for the duration of the call or callback.
-
-2. **Do not assume value handles are network connections.** They are stable identifiers until the runtime layer backs them.
-
-3. **Null pointers are rejected for non-empty buffers and required output arguments.** Callers should still validate pointers before crossing the FFI boundary.
+1. **Do not retain borrowed buffer or event pointers after return.** They are valid only for the duration of the call or callback.
+2. **Null pointers are rejected for non-empty buffers and required output arguments.** Callers should still validate before crossing the FFI boundary.
+3. **Handles carry kind / id / generation.** Bindings should store all three, not only the raw id.
 :::

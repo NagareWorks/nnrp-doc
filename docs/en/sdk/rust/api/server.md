@@ -1,194 +1,157 @@
 # Rust — Server (Preview3)
 
-> **This page describes the planned runtime API for Preview3. The protocol core, FFI ABI surface, and conformance fixtures exist; `NnrpServer` and `NnrpServerSession` are not implemented yet.**
+`nnrp-runtime` now exposes the Preview3 TCP server API. The server listens, receives `SESSION_OPEN`, validates profile/schema/resume state, then receives submit, sends result/drop/flow update, and handles patch, migrate, and close on the session.
 
----
-
-## Planned API
-
-### `NnrpServerConfig`
+## `NnrpServerConfig`
 
 ```rust
 pub struct NnrpServerConfig {
-    pub max_concurrent_frames: u32,
-    pub enable_cache: bool,
-    pub max_sections: u32,
-    pub max_body_bytes: u32,
-    pub model_name: String,
-    pub idle_timeout: Duration,
+    pub transport: RuntimeTransportKind,
+    pub supported_profiles: Vec<u16>,
+    pub supported_cache_objects: Vec<CacheObjectKind>,
+    pub max_cache_objects: usize,
+    pub max_cache_object_bytes: u32,
+    pub schema_registry: SchemaRegistry,
+    pub resume_token_bytes: u32,
+    pub max_in_flight_operations: u16,
+    pub granted_operation_credit: u16,
+    pub lease_ttl_ms: u32,
+    pub resume_window_ms: u32,
+    pub application_policy: Arc<dyn NnrpServerPolicy>,
 }
-
-impl Default for NnrpServerConfig { ... }
 ```
 
-### `NnrpServer`
+Builder methods:
+
+| Method | Description |
+|---|---|
+| `with_transport(RuntimeTransportKind)` | Select TCP or the reserved QUIC hook |
+| `with_supported_profiles(impl Into<Vec<u16>>)` | Set accepted profiles |
+| `with_supported_cache_objects(impl Into<Vec<CacheObjectKind>>)` | Set accepted cache object kinds |
+| `with_cache_limits(usize, u32)` | Set cache object count and per-object byte limits |
+| `with_schema_registry(SchemaRegistry)` | Replace the schema registry |
+| `with_resume_token_bytes(u32)` | Set resume token length |
+| `with_application_policy(P)` | Attach application-level session-open validation |
+
+Defaults use TCP, the standard token profile, the Preview3 standard schema registry, `max_in_flight_operations = 4`, `granted_operation_credit = 2`, `lease_ttl_ms = 30000`, and `resume_window_ms = 120000`.
+
+## Application Policy
 
 ```rust
-pub struct NnrpServer { /* private */ }
+pub trait NnrpServerPolicy: Send + Sync {
+    fn validate_session_open(&self, open: &SessionOpenMetadata) -> Result<(), u32>;
+}
 
+pub struct AllowAllServerPolicy;
+```
+
+Returning `Err(session_error_code)` rejects `SESSION_OPEN`.
+
+## `NnrpServer`
+
+```rust
 impl NnrpServer {
-    pub async fn bind_tcp(host: &str, port: u16, config: NnrpServerConfig) -> Result<Self, NnrpError>;
-    pub async fn bind_quic(host: &str, port: u16, config: NnrpServerConfig, tls: TlsConfig) -> Result<Self, NnrpError>;
+    pub async fn bind_tcp(
+        addr: impl tokio::net::ToSocketAddrs,
+        config: NnrpServerConfig,
+    ) -> Result<Self, RuntimeError>;
 
-    /// Accept next client connection (with default allow-all auth)
-    pub async fn accept(&self) -> Result<NnrpServerSession, NnrpError>;
+    pub async fn bind_quic(
+        endpoint: &str,
+        config: NnrpServerConfig,
+    ) -> Result<Self, RuntimeError>;
 
-    /// Accept with auth validator; returns Err if validator returns false
-    pub async fn accept_with_auth<F>(&self, auth_fn: F) -> Result<NnrpServerSession, NnrpError>
-    where
-        F: Fn(&[u8]) -> bool;
+    pub fn local_addr(&self) -> Result<std::net::SocketAddr, RuntimeError>;
+    pub fn session_count(&self) -> Result<usize, RuntimeError>;
+    pub async fn accept(&self) -> Result<NnrpServerSession, RuntimeError>;
 }
 ```
 
-### `NnrpServerSession`
+`bind_quic` currently only reserves the public API slot and returns `UnsupportedTransport`.
+
+## `NnrpServerSession`
 
 ```rust
-pub struct NnrpServerSession { /* private */ }
-
 impl NnrpServerSession {
     pub fn session_id(&self) -> u32;
-    pub fn client_hello(&self) -> &ClientHelloMetadata;
+    pub fn client_open(&self) -> &SessionOpenMetadata;
+    pub fn lifecycle(&self) -> &ConnectionLifecycle;
+    pub fn operations(&self) -> &OperationRegistry;
+    pub fn cache_object_count(&self) -> usize;
 
-    pub async fn receive_submit(&self) -> Result<NnrpFrameSubmit, NnrpError>;
-    pub async fn send_result(&self, result: NnrpServerResult) -> Result<(), NnrpError>;
-    pub async fn send_result_drop(&self, frame_id: u32) -> Result<(), NnrpError>;
-    pub async fn send_flow_update(&self, update: FlowUpdate) -> Result<(), NnrpError>;
-    pub async fn close(self) -> Result<(), NnrpError>;
+    pub async fn receive_submit(&mut self) -> Result<NnrpSubmit, RuntimeError>;
+    pub async fn send_result(
+        &mut self,
+        frame_id: u32,
+        metadata: ResultPushMetadata,
+        body: Vec<u8>,
+    ) -> Result<(), RuntimeError>;
+    pub async fn send_result_drop(&mut self, frame_id: u32) -> Result<(), RuntimeError>;
+    pub async fn receive_cancel(&mut self) -> Result<NnrpCancel, RuntimeError>;
+    pub fn track_cache_object(&mut self, object_id: CacheObjectId) -> Result<(), RuntimeError>;
+    pub async fn receive_patch(&mut self) -> Result<SessionPatchMetadata, RuntimeError>;
+    pub async fn send_patch_ack(&mut self, ack: SessionPatchAckMetadata) -> Result<(), RuntimeError>;
+    pub async fn send_flow_update(&mut self, metadata: FlowUpdateMetadata) -> Result<(), RuntimeError>;
+    pub async fn receive_migrate(&mut self) -> Result<NnrpMigration, RuntimeError>;
+    pub async fn send_migrate_ack(
+        &mut self,
+        request: &SessionMigrateMetadata,
+        ack: SessionMigrateAckMetadata,
+    ) -> Result<(), RuntimeError>;
+    pub async fn receive_close(&mut self) -> Result<SessionCloseMetadata, RuntimeError>;
+    pub async fn ack_close(&mut self, close: &SessionCloseMetadata) -> Result<(), RuntimeError>;
+    pub async fn close(self) -> Result<(), RuntimeError>;
 }
 ```
 
-### `NnrpFrameSubmit`
+## Data Types
 
 ```rust
-pub struct NnrpFrameSubmit {
+pub struct NnrpSubmit {
     pub frame_id: u32,
-    pub session_id: u32,
-    pub input_profile: InputProfile,
-    pub budget_policy: BudgetPolicy,
-    pub inference_budget_ms: u32,
-    pub deadline_ms: u64,
-    pub sections: Vec<NnrpTensorSection>,
-    pub typed_payloads: Vec<NnrpTypedPayload>,
+    pub metadata: FrameSubmitMetadata,
+    pub body: Vec<u8>,
+}
+
+pub struct NnrpCancel {
+    pub frame_id: u32,
+}
+
+pub struct NnrpMigration {
+    pub metadata: SessionMigrateMetadata,
 }
 ```
 
-### `NnrpServerResult`
-
-```rust
-pub struct NnrpServerResult {
-    pub frame_id: u32,
-    pub result_class: ResultClass,
-    pub result_flags: ResultFlags,
-    pub applied_budget_policy: BudgetPolicy,
-    pub inference_ms: u32,
-    pub queue_ms: u32,
-    pub server_total_ms: u32,
-    pub status_code: u32,
-    pub sections: Vec<NnrpTensorSection>,
-    pub typed_payloads: Vec<NnrpTypedPayload>,
-}
-```
-
----
+`RuntimeSessionRecord` stores server runtime session state: `session_id`, profile/schema, resume state, token length, and last operation id.
 
 ## Example
 
 ```rust
-use nnrp::server::{NnrpServer, NnrpServerConfig};
+use nnrp_core::ResultPushMetadata;
+use nnrp_runtime::{NnrpServer, NnrpServerConfig};
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = NnrpServerConfig {
-        max_concurrent_frames: 4,
-        enable_cache: true,
-        ..Default::default()
-    };
+let server = NnrpServer::bind_tcp("127.0.0.1:4433", NnrpServerConfig::default()).await?;
 
-    let server = NnrpServer::bind_tcp("0.0.0.0", 4433, config).await?;
-
-    loop {
-        let session = server.accept_with_auth(|auth| validate_auth(auth)).await?;
-
-        tokio::spawn(async move {
-            loop {
-                let submit = session.receive_submit().await?;
-                let result = run_inference(&submit);
-                session.send_result(result).await?;
-            }
-            Ok::<_, Box<dyn std::error::Error>>(())
-        });
-    }
-}
-```
-
----
-
-## Preview3 Checklist
-
-- [ ] `NnrpServerConfig` and `NnrpServer::bind_tcp/quic`
-- [ ] `NnrpServerSession::receive_submit`
-- [ ] `NnrpServerSession::send_result` / `send_result_drop`
-- [ ] `NnrpServerSession::send_flow_update`
-- [ ] FFI bindings for server exposed via `nnrp-ffi`
-- [ ] Server conformance tests in `nnrp-conformance`
-
-The Rust implementation tracks this work in `nnrp-rs/doc/todo/v1-preview3/06-client-server-runtime.md`.
-
----
-
-## Typical Use Cases (Preview3 Plan)
-
-### Full server accept loop
-
-```rust
-// Expected Preview3 usage
-use nnrp_server::{NnrpServer, NnrpServerConfig};
-use nnrp_core::{ResultClass, NnrpServerResult};
-
-let config = NnrpServerConfig::builder()
-    .bind("0.0.0.0:4433")
-    .transport(TransportPolicy::PreferQuic)
-    .max_concurrent_frames(8)
-    .build()?;
-
-let server = NnrpServer::bind(config).await?;
-while let Ok(mut session) = server.accept().await {
+loop {
+    let mut session = server.accept().await?;
     tokio::spawn(async move {
-        while let Ok(submit) = session.receive_submit().await {
-            let sections = run_inference(&submit.sections).await;
-            session.send_result(NnrpServerResult {
-                frame_id: submit.frame_id,
-                sections,
-                result_class: ResultClass::Complete,
-                ..Default::default()
-            }).await?;
-        }
-        Ok::<_, Box<dyn std::error::Error>>(())
+        let submit = session.receive_submit().await?;
+        let output = run_model(submit.body).await;
+        session
+            .send_result(submit.frame_id, ResultPushMetadata::default(), output)
+            .await?;
+
+        let close = session.receive_close().await?;
+        session.ack_close(&close).await?;
+        session.close().await
     });
 }
 ```
 
-### Backpressure signaling
-
-```rust
-if queue_len > MAX_QUEUE {
-    session.send_result_drop(submit.frame_id).await?;
-    session.send_flow_update(NnrpFlowUpdate {
-        flags: FlowUpdateFlags::CREDIT_VALID,
-        credit: 0, // pause client sends
-        ..Default::default()
-    }).await?;
-}
-```
-
----
-
 ## Common Pitfalls
 
 ::: warning
-1. **Timed-out frames must receive `send_result_drop`.** Silently skipping them leaves the client's `submit().await` hanging forever.
-
-2. **Authentication is not built-in.** Implement it in the application layer before Preview3 ships a middleware API.
-
-3. **Do not block inside `tokio::spawn`.** Wrap synchronous inference in `tokio::task::spawn_blocking`; blocking the async runtime causes PING timeouts.
+1. **Timed-out frames must receive `send_result_drop`.** Silently skipping them leaves clients blocked while waiting for a result.
+2. **`receive_*` calls read sequentially.** If your application needs to handle cancel, patch, migrate, and submit concurrently, build an explicit event loop above this API.
+3. **Do not block the tokio runtime with synchronous inference.** CPU/GPU blocking calls should run in a dedicated thread pool or `spawn_blocking`.
 :::

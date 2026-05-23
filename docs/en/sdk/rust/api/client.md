@@ -1,140 +1,160 @@
 # Rust — Client (Preview3)
 
-> **This page describes the planned runtime API for Preview3. The protocol core, FFI ABI surface, and conformance fixtures exist; `NnrpClient` and `NnrpClientSession` are not implemented yet.**
+`nnrp-runtime` now exposes the Preview3 TCP client API. The client owns transport setup, sends `SESSION_OPEN`, submits operations, receives result / drop / flow-update events, and closes the session explicitly.
 
----
+## Dependencies
 
-## Planned API
+```toml
+[dependencies]
+nnrp-core = "1.0.0-preview.2"
+nnrp-runtime = "1.0.0-preview.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+```
 
-### `NnrpClientConfig`
+## `NnrpClientConfig`
 
 ```rust
 pub struct NnrpClientConfig {
-    pub max_views: u32,
-    pub enable_cache: bool,
-    pub max_cache_entries: u32,
-    pub max_cache_bytes: u64,
-    pub transport_policy: TransportPolicy,
-    pub loss_tolerance: LossTolerance,
-    pub connect_timeout: Duration,
-    pub idle_timeout: Duration,
+    pub transport: RuntimeTransportKind,
+    pub requested_session_id: u32,
+    pub profile_id: u16,
+    pub schema_id: u32,
+    pub schema_version: u32,
+    pub priority_class: SessionPriorityClass,
+    pub default_deadline_ms: u32,
+    pub max_in_flight_operations: u16,
+    pub lease_ttl_hint_ms: u32,
+    pub allow_resume: bool,
+    pub resume_token_bytes: u32,
+    pub cache_hints: Vec<CacheObjectKind>,
 }
-
-impl Default for NnrpClientConfig { ... }
 ```
 
-### `NnrpClient`
+Builder methods:
+
+| Method | Description |
+|---|---|
+| `with_transport(RuntimeTransportKind)` | Select TCP or the reserved QUIC hook |
+| `with_cache_hints(impl Into<Vec<CacheObjectKind>>)` | Declare cache object kinds the client expects to use |
+| `with_resume(u32)` | Enable recovery semantics and set resume token length |
+
+Defaults use TCP, the standard token profile/schema, `Balanced` priority, `default_deadline_ms = 500`, `max_in_flight_operations = 4`, and `lease_ttl_hint_ms = 30000`.
+
+## `NnrpClient`
 
 ```rust
-pub struct NnrpClient { /* private */ }
-
 impl NnrpClient {
-    pub async fn connect_tcp(host: &str, port: u16, config: NnrpClientConfig) -> Result<Self, NnrpError>;
-    pub async fn connect_quic(host: &str, port: u16, config: NnrpClientConfig) -> Result<Self, NnrpError>;
-    pub async fn open_session(&self) -> Result<NnrpClientSession, NnrpError>;
+    pub async fn connect_tcp(
+        addr: impl tokio::net::ToSocketAddrs,
+        config: NnrpClientConfig,
+    ) -> Result<Self, RuntimeError>;
+
+    pub async fn connect_quic(
+        endpoint: &str,
+        config: NnrpClientConfig,
+    ) -> Result<Self, RuntimeError>;
+
+    pub async fn open_session(self) -> Result<NnrpClientSession, RuntimeError>;
 }
 ```
 
-### `NnrpClientSession`
+`connect_quic` currently validates configuration and returns `UnsupportedTransport`; it reserves the public slot for the Preview3 QUIC binding.
+
+## `NnrpClientSession`
 
 ```rust
-pub struct NnrpClientSession { /* private */ }
-
 impl NnrpClientSession {
-    pub async fn submit(&self, request: NnrpSubmitRequest) -> Result<NnrpResult, NnrpError>;
-    pub async fn submit_nowait(&self, request: NnrpSubmitRequest) -> Result<(), NnrpError>;
-    pub async fn await_result(&self, frame_id: u32) -> Result<NnrpResult, NnrpError>;
-    pub async fn cancel_frame(&self, frame_id: u32) -> Result<(), NnrpError>;
-    pub async fn patch_session(&self, patch: SessionPatch) -> Result<SessionPatchAck, NnrpError>;
-    pub async fn close(self) -> Result<(), NnrpError>;
+    pub fn session_id(&self) -> u32;
+    pub fn lifecycle(&self) -> &ConnectionLifecycle;
+
+    pub async fn submit(
+        &mut self,
+        metadata: FrameSubmitMetadata,
+        body: Vec<u8>,
+    ) -> Result<u32, RuntimeError>;
+
+    pub async fn submit_nowait(
+        &mut self,
+        metadata: FrameSubmitMetadata,
+        body: Vec<u8>,
+    ) -> Result<u32, RuntimeError>;
+
+    pub async fn await_result(&mut self) -> Result<NnrpResult, RuntimeError>;
+    pub async fn await_event(&mut self) -> Result<NnrpClientEvent, RuntimeError>;
+    pub async fn cancel_frame(&mut self, frame_id: u32) -> Result<(), RuntimeError>;
+    pub async fn patch_session(
+        &mut self,
+        patch: SessionPatchMetadata,
+    ) -> Result<SessionPatchAckMetadata, RuntimeError>;
+    pub async fn migrate_transport(
+        &mut self,
+        request: SessionMigrateMetadata,
+    ) -> Result<SessionMigrateAckMetadata, RuntimeError>;
+    pub fn build_migration_request(
+        &self,
+        new_transport_id: TransportId,
+        last_result_frame_id: u64,
+        client_migrate_ts_us: u64,
+    ) -> SessionMigrateMetadata;
+    pub async fn close(self) -> Result<(), RuntimeError>;
+    pub async fn close_with(
+        &mut self,
+        close: SessionCloseMetadata,
+    ) -> Result<SessionCloseAckMetadata, RuntimeError>;
+    pub async fn close_transport(self) -> Result<(), RuntimeError>;
 }
 ```
 
-### `NnrpSubmitRequest`
-
-```rust
-pub struct NnrpSubmitRequest {
-    pub frame_id: u32,
-    pub tile_ids: Vec<u16>,
-    pub sections: Vec<NnrpTensorSection>,
-    pub typed_payloads: Vec<NnrpTypedPayload>,
-    pub input_profile: InputProfile,
-    pub submit_mode: SubmitMode,
-    pub budget_policy: BudgetPolicy,
-    pub inference_budget_ms: u32,
-    pub deadline_ms: u64,
-}
-```
-
-### `NnrpResult`
+## Results and Events
 
 ```rust
 pub struct NnrpResult {
     pub frame_id: u32,
-    pub result_class: ResultClass,
-    pub result_flags: ResultFlags,
-    pub inference_ms: u32,
-    pub server_total_ms: u32,
-    pub sections: Vec<NnrpTensorSection>,
-    pub typed_payloads: Vec<NnrpTypedPayload>,
+    pub metadata: ResultPushMetadata,
+    pub body: Vec<u8>,
+}
+
+pub enum NnrpClientEvent {
+    Result(NnrpResult),
+    ResultDrop { frame_id: u32 },
+    FlowUpdate(FlowUpdateMetadata),
 }
 ```
 
----
+`await_result` only accepts `RESULT_PUSH`; if the server returns `RESULT_DROP` or `FLOW_UPDATE`, it reports `UnexpectedMessage`. Use `await_event` for a full event loop.
 
-## Preview3 Checklist
-
-- [ ] `NnrpClientConfig` and `NnrpClient::connect_tcp/quic`
-- [ ] `NnrpClientSession::submit` / `await_result`
-- [ ] `NnrpClientSession::cancel_frame`
-- [ ] `NnrpClientSession::patch_session`
-- [ ] FFI bindings exposed via `nnrp-ffi`
-- [ ] Conformance tests in `nnrp-conformance`
-
-The Rust implementation tracks this work in `nnrp-rs/doc/todo/v1-preview3/06-client-server-runtime.md`.
-
----
-
-## Typical Use Cases (Preview3 Plan)
-
-### Full connect-and-render loop
+## Example
 
 ```rust
-// Expected Preview3 usage
-use nnrp_core::{NnrpClient, NnrpClientConfig, NnrpSubmitRequest};
-use nnrp_core::{InputProfile, BudgetPolicy, ResultClass, TransportPolicy};
+use nnrp_core::FrameSubmitMetadata;
+use nnrp_runtime::{NnrpClient, NnrpClientConfig};
 
-let config = NnrpClientConfig {
-    transport_policy: TransportPolicy::PreferQuic,
-    ..Default::default()
-};
+let client = NnrpClient::connect_tcp("127.0.0.1:4433", NnrpClientConfig::default()).await?;
+let mut session = client.open_session().await?;
 
-// TCP connect (for QUIC use NnrpClient::connect_quic with a TLS config)
-let mut session = NnrpClient::connect_tcp("render.example.com:4433", config).await?;
+let frame_id = session
+    .submit(FrameSubmitMetadata::default(), b"delta".to_vec())
+    .await?;
 
-for frame_id in 0u32.. {
-    let result = session.submit(NnrpSubmitRequest {
-        frame_id,
-        input_profile: InputProfile::ChangedTilesLuma,
-        budget_policy: BudgetPolicy::ALLOW_PARTIAL,
-        sections: capture_delta(),
-        ..Default::default()
-    }).await?;
-    if result.result_class == ResultClass::Complete {
-        display(&result.sections);
+match session.await_event().await? {
+    nnrp_runtime::NnrpClientEvent::Result(result) => {
+        assert_eq!(result.frame_id, frame_id);
+    }
+    nnrp_runtime::NnrpClientEvent::ResultDrop { frame_id } => {
+        eprintln!("frame dropped: {frame_id}");
+    }
+    nnrp_runtime::NnrpClientEvent::FlowUpdate(update) => {
+        eprintln!("flow update: {:?}", update);
     }
 }
+
 session.close().await?;
 ```
-
----
 
 ## Common Pitfalls
 
 ::: warning
-1. **`NnrpClientSession` does not yet have a `Drop` auto-close.** In Preview3 call `session.close().await` explicitly, or the server detects an abnormal disconnect.
-
-2. **Do not retry timed-out frames with the same `frame_id`.** Use a fresh ID to avoid duplicate-frame server errors.
-
-3. **Concurrent `submit()` calls are unspecified.** Until Preview3 is stable, either submit sequentially or wrap with `Mutex`.
+1. **`open_session(self)` consumes the client.** The Preview3 runtime currently uses the minimal model of one transport bound to one session.
+2. **`submit` does not automatically wait for a result.** It returns the assigned `frame_id`; consume output with `await_result` or `await_event`.
+3. **Prefer `close()` for normal shutdown.** Call `close_transport()` only on exceptional paths or in tests.
 :::

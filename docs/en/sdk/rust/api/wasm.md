@@ -1,6 +1,6 @@
 # Rust — WASM / Web (Preview3)
 
-> **This page describes the planned WASM integration for Preview3. WASM bindings are not yet available; they depend on the runtime-backed client/server layer.**
+> **This page describes the planned WASM integration for Preview3. WASM bindings are not yet available; the native Rust runtime exists, but the browser/Node transport adapter and wasm-bindgen surface have not landed yet.**
 
 ---
 

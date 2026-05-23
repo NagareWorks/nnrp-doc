@@ -1,15 +1,57 @@
 # Rust Quick Start
 
-This page is reserved for the public quick-start entry of the Rust SDK.
+The Preview3 Rust runtime can complete a minimal client/server session over TCP: the client connects, opens a session, submits a frame, and awaits a result; the server listens, accepts, receives submit, and sends result.
 
-## Current state
+## Dependencies
 
-1. The documentation slot exists, but public crate onboarding and runtime examples are intentionally deferred.
-2. Before the SDK is opened publicly, this page should only preserve the stable entry point and its final location.
+```toml
+[dependencies]
+nnrp-core = "1.0.0-preview.2"
+nnrp-runtime = "1.0.0-preview.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+```
 
-## Content to land later
+## Minimal Client
 
-1. Crate onboarding path and toolchain requirements.
-2. Minimal client construction example after the Rust runtime lands.
-3. Shortest path for session open, submit, receive, and close after `NnrpClient` / `NnrpServer` exist.
-4. Common errors and minimal troubleshooting notes.
+```rust
+use nnrp_core::FrameSubmitMetadata;
+use nnrp_runtime::{NnrpClient, NnrpClientConfig, RuntimeTransportKind};
+
+let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
+let mut session = client.open_session().await?;
+
+let frame_id = session
+    .submit(FrameSubmitMetadata::default(), b"input".to_vec())
+    .await?;
+let result = session.await_result().await?;
+assert_eq!(result.frame_id, frame_id);
+
+session.close().await?;
+```
+
+## Minimal Server
+
+```rust
+use nnrp_core::ResultPushMetadata;
+use nnrp_runtime::{NnrpServer, NnrpServerConfig, RuntimeTransportKind};
+
+let config = NnrpServerConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
+
+let mut session = server.accept().await?;
+let submit = session.receive_submit().await?;
+session
+    .send_result(submit.frame_id, ResultPushMetadata::default(), b"output".to_vec())
+    .await?;
+
+let close = session.receive_close().await?;
+session.ack_close(&close).await?;
+session.close().await?;
+```
+
+## Current Limits
+
+1. QUIC API hooks are reserved, but the Preview3 Rust runtime currently implements TCP only.
+2. `submit` and `submit_nowait` both send `FRAME_SUBMIT` and return the assigned `frame_id`; call `await_result` or `await_event` to consume server output.
+3. The FFI layer provides a handle/event ABI for bindings. Rust application code should prefer `nnrp-runtime` directly.

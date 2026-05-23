@@ -1,98 +1,34 @@
 # Rust — FFI / 原生接口
 
-`nnrp-ffi` crate 将 Rust 侧协议语义暴露为 C ABI（`#[repr(C)]`），供 C#、Python、Unity 和未来语言绑定使用。当前 Preview3 实现已经有 handle、buffer view、event delivery 与错误族 ABI 表面，但还不是网络化 client/server runtime。
+`nnrp-ffi` crate 将 Rust 侧协议语义暴露为 C ABI（`#[repr(C)]`），供 C#、Python、Unity 和未来语言绑定使用。Preview3 当前已经包含稳定 value handle、buffer view、callback/polling event、错误族，以及 runtime-backed client/server handle 入口。
 
 ## Cargo.toml
 
 ```toml
-# Rust 项目直接依赖（通常不需要，请直接依赖 nnrp-core）
 [dependencies]
 nnrp-ffi = "1.0.0-preview.2"
 
-# 构建 cdylib 产物（dll/so）
 [lib]
 crate-type = ["cdylib", "rlib"]
 ```
-
----
 
 ## 构建产物
 
 | 目标 | 命令 | 产物 | 用途 |
 |---|---|---|---|
-| Windows DLL | `cargo build --release` | `nnrp_ffi.dll` | C# P/Invoke、Python ctypes |
-| Linux SO | `cargo build --release` | `libnnrp_ffi.so` | C# LibraryImport、Python ctypes |
-| macOS dylib | `cargo build --release` | `libnnrp_ffi.dylib` | 同上 |
-| WASM | `cargo build --target wasm32-unknown-unknown` | `nnrp_ffi.wasm` | 规划中的 Web 目标 |
+| Windows DLL | `cargo build --release -p nnrp-ffi` | `nnrp_ffi.dll` | C# P/Invoke、Python ctypes、Unity |
+| Linux SO | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.so` | C# LibraryImport、Python ctypes |
+| macOS dylib | `cargo build --release -p nnrp-ffi` | `libnnrp_ffi.dylib` | 同上 |
+| WASM | `cargo build --target wasm32-unknown-unknown -p nnrp-ffi` | `nnrp_ffi.wasm` | 规划中的 Web 目标 |
 
----
-
-## 当前导出 API（Preview3）
-
-### `NnrpProtocolVersion`
-
-C ABI 友好的协议版本结构体（`#[repr(C)]`）。
-
-```rust
-#[repr(C)]
-pub struct NnrpProtocolVersion {
-    pub major: u8,
-    pub wire_format: u8,
-}
-```
-
-与 `nnrp_core::ProtocolVersion` 的转换：
-
-```rust
-impl From<ProtocolVersion> for NnrpProtocolVersion {
-    fn from(v: ProtocolVersion) -> Self {
-        Self { major: v.major, wire_format: v.wire_format }
-    }
-}
-```
-
-### `nnrp_current_protocol_version`
-
-```rust
-/// 返回当前协议版本（C ABI 导出）。
-/// 等价于 ProtocolVersion::CURRENT。
-#[no_mangle]
-pub extern "C" fn nnrp_current_protocol_version() -> NnrpProtocolVersion;
-```
-
-**C# P/Invoke 示例：**
-
-```csharp
-[LibraryImport("nnrp_ffi")]
-public static partial NnrpProtocolVersion nnrp_current_protocol_version();
-
-[StructLayout(LayoutKind.Sequential)]
-public struct NnrpProtocolVersion { public byte Major; public byte WireFormat; }
-```
-
-**Python ctypes 示例：**
-
-```python
-import ctypes
-
-lib = ctypes.CDLL("nnrp_ffi.dll")  # Windows
-
-class NnrpProtocolVersion(ctypes.Structure):
-    _fields_ = [("major", ctypes.c_uint8), ("wire_format", ctypes.c_uint8)]
-
-lib.nnrp_current_protocol_version.restype = NnrpProtocolVersion
-version = lib.nnrp_current_protocol_version()
-assert version.major == 1
-assert version.wire_format == 0
-```
-
----
-
-### Value handle 与 buffer view
-
-当前 ABI 使用稳定的 value handle，而不是把 Rust `Box<T>` 指针直接作为跨语言长期所有权模型：
+## 核心 ABI 类型
 
 ```c
+typedef struct {
+    uint8_t major;
+    uint8_t wire_format;
+} NnrpProtocolVersion;
+
 typedef struct {
     uint32_t kind;
     uint64_t id;
@@ -108,60 +44,99 @@ typedef struct {
 
 非空 buffer view 必须提供非空指针。被调用方只在调用期间借用这段内存，不会在返回后保留指针。
 
-### Event 与 status
+## Status、diagnostic 与 event
 
-ABI 暴露 callback 与 polling 两种事件交付形态，核心类型包括 `NnrpEvent`、`NnrpCallbackSink`、`NnrpPollResult` 与 `NnrpFfiStatus`。错误状态包含 FFI status code、协议错误族、可选协议错误码与 detail code。
+| 类型 | 说明 |
+|---|---|
+| `NnrpFfiStatusCode` | `Ok`、`InvalidArgument`、`NotFound`、`AlreadyExists`、`WouldBlock`、`ProtocolError` 等 ABI 状态 |
+| `NnrpErrorFamily` | 将 core/runtime 错误归类到跨语言可消费的错误族 |
+| `NnrpFfiStatus` | ABI status code、error family、protocol error code、detail code |
+| `NnrpFfiDiagnostic` | status + 相关 connection/session/operation/frame id |
+| `NnrpEventKind` | `ConnectionOpened`、`SessionOpened`、`SubmitAccepted`、`ResultPushed`、`ResultDropped`、`FlowUpdated`、`Error` 等 |
+| `NnrpEvent` | 一次 callback/polling 事件，包含 handle、frame id、借用 payload 和 diagnostic |
+| `NnrpCallbackSink` | callback 交付入口 |
+| `NnrpPollResult` | polling 交付结果 |
 
-### 当前函数
+callback 中的 `NnrpEvent*` 只在 callback 执行期间有效；binding 层如需保留内容，必须复制值和 payload。
+
+## 请求结构体
+
+| 类型 | 说明 |
+|---|---|
+| `NnrpConnectionBootstrap` | 兼容入口，用于构造 connection handle |
+| `NnrpClientConnectRequest` | 创建 client connection handle |
+| `NnrpServerBindRequest` | 创建 server handle |
+| `NnrpSessionOpenRequest` | 在 client connection 上打开 session |
+| `NnrpSubmitRequest` | client submit，创建 operation handle |
+| `NnrpClientCancelRequest` | client cancel |
+| `NnrpServerAcceptRequest` | server accept，创建 server session handle |
+| `NnrpServerReceiveSubmitRequest` | server 侧接收 submit，创建 operation handle |
+| `NnrpServerSendResultRequest` | server 侧发送 result event |
+| `NnrpServerFlowUpdateRequest` | server 侧发送 flow update event |
+| `NnrpControlRequest` | 通用控制面请求 |
+
+## 导出函数
 
 | 函数 | 说明 |
 |---|---|
 | `nnrp_current_protocol_version` | 返回当前协议版本 |
-| `nnrp_connection_bootstrap` | 为绑定 smoke test 构造 connection value handle |
-| `nnrp_session_open` | 基于 connection handle 构造 session value handle |
-| `nnrp_submit` | 校验 submit 参数并构造 operation value handle |
-| `nnrp_session_close` | 校验 session close 边界 |
-| `nnrp_control` | 校验 control 参数形状 |
+| `nnrp_connection_bootstrap` | 兼容 wrapper，等价于创建 client connection handle |
+| `nnrp_client_connect` | 创建 client connection handle，并投递 `ConnectionOpened` |
+| `nnrp_session_open` | 兼容 wrapper，打开 client session |
+| `nnrp_client_open_session` | 创建 client session handle，并投递 `SessionOpened` |
+| `nnrp_submit` | 兼容 wrapper，提交 operation |
+| `nnrp_client_submit` | 创建 operation handle，并投递 `SubmitAccepted` |
+| `nnrp_session_close` | 兼容 wrapper，关闭 session |
+| `nnrp_client_close` | 关闭 client session，并投递 `SessionClosed` |
+| `nnrp_client_cancel` | 投递 `ResultDropped` / cancel 相关事件 |
+| `nnrp_client_await_event` | 从 connection/session 关联队列 polling 一个事件 |
+| `nnrp_server_bind` | 创建 server handle，并投递 `ConnectionOpened` |
+| `nnrp_server_accept` | 创建 server session handle，并投递 `SessionOpened` |
+| `nnrp_server_receive_submit` | 创建 server operation handle，并投递 `SubmitAccepted` |
+| `nnrp_server_send_result` | 投递 `ResultPushed` |
+| `nnrp_server_send_flow_update` | 投递 `FlowUpdated` |
+| `nnrp_server_close` | 关闭 server session，并投递 `SessionClosed` |
+| `nnrp_control` | 校验控制请求并投递 `Control` |
 | `nnrp_poll_empty` | 返回空 polling 结果与 `WouldBlock` |
 | `nnrp_dispatch_event` | 通过 callback 交付一个借用 event |
+
+## C# P/Invoke 示例
+
+```csharp
+[LibraryImport("nnrp_ffi", EntryPoint = "nnrp_current_protocol_version")]
+public static partial NnrpProtocolVersion CurrentProtocolVersion();
+
+[StructLayout(LayoutKind.Sequential)]
+public struct NnrpProtocolVersion
+{
+    public byte Major;
+    public byte WireFormat;
+}
+```
+
+## Python ctypes 示例
+
+```python
+import ctypes
+
+class NnrpProtocolVersion(ctypes.Structure):
+    _fields_ = [("major", ctypes.c_uint8), ("wire_format", ctypes.c_uint8)]
+
+lib = ctypes.CDLL("./libnnrp_ffi.so")
+lib.nnrp_current_protocol_version.restype = NnrpProtocolVersion
+version = lib.nnrp_current_protocol_version()
+```
 
 ## `nnrp-conformance` crate
 
 同工作区下的一致性测试 crate，导出 Rust 生成的 preview3 golden vectors、fixture manifest 与 adapter wrapper。下游 SDK 应把这些 fixture 作为 canonical preview3 基线。
 
----
-
-## Runtime 扩展计划
-
-当前 ABI 不执行真实网络 I/O。完整 client/server runtime 落地后，FFI 会继续接入 runtime-backed 函数：
-
-```c
-int nnrp_client_connect_tcp(...);
-int nnrp_client_connect_quic(...);
-int nnrp_server_bind_tcp(...);
-int nnrp_server_accept(...);
-int nnrp_client_session_submit(...);
-int nnrp_client_session_await_result(...);
-int nnrp_server_session_receive_submit(...);
-int nnrp_server_session_send_result(...);
-```
-
-这套 runtime-backed ABI 将作为 C#/Python 原生绑定和后续 WASM 导出的基础层。
-
----
-
 ## 当前边界
 
-当前 FFI 用于验证跨语言 ABI 形状，并让绑定层消费 Rust-owned 协议语义。不要把它当成完整客户端/服务端 SDK；真正的 connect/listen/accept/session pump/submit-result stream 仍在 Rust runtime shard 中。
-
----
-
-## 常见坑点
+FFI 层暴露的是跨语言 handle/event 控制面。它不会把 Rust async runtime 对象、socket 指针或借用 payload 的长期所有权交给调用方；binding 层需要用 handle 调用后续函数，并在 callback/polling 时复制需要保留的数据。
 
 ::: warning
 1. **不要在返回后保留借用 buffer 或 event 指针。** 它们只在调用或 callback 期间有效。
-
-2. **不要把 value handle 当成真实网络连接。** 在 runtime 层接入前，它们是稳定标识符和 ABI 合同。
-
-3. **非空 buffer 和必要输出参数不能传空指针。** ABI 会拒绝明显非法参数，调用方仍应在跨 FFI 前做本地校验。
+2. **非空 buffer 和必要输出参数不能传空指针。** ABI 会拒绝明显非法参数，调用方仍应在跨 FFI 前做本地校验。
+3. **handle 有 kind / id / generation。** binding 层应同时保存三者，不要只保存裸 id。
 :::

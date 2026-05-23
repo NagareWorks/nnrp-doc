@@ -1,175 +1,160 @@
 # Rust — 客户端（Preview3）
 
-::: warning 规划中
-本页描述的是 Preview3 runtime API 规划。协议 core、FFI ABI 表面和 conformance fixtures 已存在；`NnrpClient` 与 `NnrpClientSession` 尚未实现。
-:::
+`nnrp-runtime` 已经暴露 Preview3 TCP 客户端 API。客户端负责建立 transport、发送 `SESSION_OPEN`、提交 operation、接收 result / drop / flow update，并显式关闭 session。
 
-以下为规划的客户端 API 形态，供集成方提前评估和反馈。
-
-## 规划依赖
+## 依赖
 
 ```toml
 [dependencies]
 nnrp-core = "1.0.0-preview.2"
-tokio = { version = "1", features = ["full"] }
+nnrp-runtime = "1.0.0-preview.2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 
----
-
-## 规划 API
-
-### `NnrpClientConfig`
+## `NnrpClientConfig`
 
 ```rust
 pub struct NnrpClientConfig {
-    pub max_views: u8,
-    pub enable_cache: bool,
-    pub max_cache_entries: usize,
-    pub max_cache_bytes: usize,
-    pub transport_policy: TransportPolicy,
-    pub loss_tolerance: LossTolerance,
-}
-
-impl Default for NnrpClientConfig {
-    fn default() -> Self { /* max_views=1, enable_cache=true, ... */ }
+    pub transport: RuntimeTransportKind,
+    pub requested_session_id: u32,
+    pub profile_id: u16,
+    pub schema_id: u32,
+    pub schema_version: u32,
+    pub priority_class: SessionPriorityClass,
+    pub default_deadline_ms: u32,
+    pub max_in_flight_operations: u16,
+    pub lease_ttl_hint_ms: u32,
+    pub allow_resume: bool,
+    pub resume_token_bytes: u32,
+    pub cache_hints: Vec<CacheObjectKind>,
 }
 ```
 
-### `NnrpClient`
+Builder 方法：
+
+| 方法 | 说明 |
+|---|---|
+| `with_transport(RuntimeTransportKind)` | 选择 TCP 或保留的 QUIC hook |
+| `with_cache_hints(impl Into<Vec<CacheObjectKind>>)` | 声明客户端希望使用的缓存对象 kind |
+| `with_resume(u32)` | 打开恢复语义并设置 resume token 字节数 |
+
+默认值使用 TCP、标准 token profile/schema、`Balanced` priority、`default_deadline_ms = 500`、`max_in_flight_operations = 4`、`lease_ttl_hint_ms = 30000`。
+
+## `NnrpClient`
 
 ```rust
-pub struct NnrpClient { /* ... */ }
-
 impl NnrpClient {
-    /// 创建客户端并建立连接（TCP）
     pub async fn connect_tcp(
-        addr: impl ToSocketAddrs,
+        addr: impl tokio::net::ToSocketAddrs,
         config: NnrpClientConfig,
-    ) -> Result<NnrpClientSession, NnrpError>;
+    ) -> Result<Self, RuntimeError>;
 
-    /// 创建客户端并建立连接（QUIC）
     pub async fn connect_quic(
-        addr: impl ToSocketAddrs,
+        endpoint: &str,
         config: NnrpClientConfig,
-        tls: NnrpQuicClientConfig,
-    ) -> Result<NnrpClientSession, NnrpError>;
+    ) -> Result<Self, RuntimeError>;
+
+    pub async fn open_session(self) -> Result<NnrpClientSession, RuntimeError>;
 }
 ```
 
-### `NnrpClientSession`
+`connect_quic` 当前只校验配置并返回 `UnsupportedTransport`，用于保留 Preview3 QUIC binding 的公开位置。
+
+## `NnrpClientSession`
 
 ```rust
-pub struct NnrpClientSession { /* ... */ }
-
 impl NnrpClientSession {
     pub fn session_id(&self) -> u32;
-    pub fn transport_id(&self) -> TransportId;
-    pub fn capabilities(&self) -> &NnrpCapabilitySelection;
+    pub fn lifecycle(&self) -> &ConnectionLifecycle;
 
-    /// 提交帧并等待结果
-    pub async fn submit(&self, req: NnrpSubmitRequest) -> Result<NnrpResult, NnrpError>;
+    pub async fn submit(
+        &mut self,
+        metadata: FrameSubmitMetadata,
+        body: Vec<u8>,
+    ) -> Result<u32, RuntimeError>;
 
-    /// 提交帧（不等待结果）
-    pub async fn submit_nowait(&self, req: NnrpSubmitRequest) -> Result<u32, NnrpError>;
+    pub async fn submit_nowait(
+        &mut self,
+        metadata: FrameSubmitMetadata,
+        body: Vec<u8>,
+    ) -> Result<u32, RuntimeError>;
 
-    /// 等待特定帧结果
-    pub async fn await_result(&self, frame_id: u32) -> Result<NnrpResult, NnrpError>;
-
-    /// 取消帧
-    pub async fn cancel_frame(&self, frame_id: u32) -> Result<(), NnrpError>;
-
-    /// 发送会话补丁
-    pub async fn patch_session(&self, patch: NnrpSessionPatch) -> Result<NnrpSessionPatchAck, NnrpError>;
-
-    /// 关闭会话
-    pub async fn close(self) -> Result<(), NnrpError>;
+    pub async fn await_result(&mut self) -> Result<NnrpResult, RuntimeError>;
+    pub async fn await_event(&mut self) -> Result<NnrpClientEvent, RuntimeError>;
+    pub async fn cancel_frame(&mut self, frame_id: u32) -> Result<(), RuntimeError>;
+    pub async fn patch_session(
+        &mut self,
+        patch: SessionPatchMetadata,
+    ) -> Result<SessionPatchAckMetadata, RuntimeError>;
+    pub async fn migrate_transport(
+        &mut self,
+        request: SessionMigrateMetadata,
+    ) -> Result<SessionMigrateAckMetadata, RuntimeError>;
+    pub fn build_migration_request(
+        &self,
+        new_transport_id: TransportId,
+        last_result_frame_id: u64,
+        client_migrate_ts_us: u64,
+    ) -> SessionMigrateMetadata;
+    pub async fn close(self) -> Result<(), RuntimeError>;
+    pub async fn close_with(
+        &mut self,
+        close: SessionCloseMetadata,
+    ) -> Result<SessionCloseAckMetadata, RuntimeError>;
+    pub async fn close_transport(self) -> Result<(), RuntimeError>;
 }
 ```
 
-### `NnrpSubmitRequest`
-
-```rust
-pub struct NnrpSubmitRequest {
-    pub frame_id: u32,
-    pub tile_ids: Vec<u16>,
-    pub sections: Vec<NnrpTensorSection>,
-    pub typed_payloads: Vec<NnrpTypedPayload>,
-    pub input_profile: InputProfile,
-    pub submit_mode: SubmitMode,
-    pub budget_policy: BudgetPolicy,
-    pub inference_budget_ms: u32,
-    pub deadline_ms: u32,
-    pub view_id: u32,
-}
-```
-
-### `NnrpResult`
+## 结果与事件
 
 ```rust
 pub struct NnrpResult {
     pub frame_id: u32,
-    pub result_class: ResultClass,
-    pub result_flags: ResultFlags,
-    pub applied_budget_policy: BudgetPolicy,
-    pub inference_ms: u32,
-    pub queue_ms: u32,
-    pub server_total_ms: u32,
-    pub status_code: u16,
-    pub sections: Vec<NnrpTensorSection>,
-    pub typed_payloads: Vec<NnrpTypedPayload>,
+    pub metadata: ResultPushMetadata,
+    pub body: Vec<u8>,
+}
+
+pub enum NnrpClientEvent {
+    Result(NnrpResult),
+    ResultDrop { frame_id: u32 },
+    FlowUpdate(FlowUpdateMetadata),
 }
 ```
 
----
+`await_result` 只接受 `RESULT_PUSH`；如果服务端返回 `RESULT_DROP` 或 `FLOW_UPDATE`，会报 `UnexpectedMessage`。需要完整事件循环时使用 `await_event`。
 
-## 反馈
-
-如有 API 形态建议，请在 [GitHub Issues](https://github.com/SPYN/nnrp-rs) 提交，或在 Preview3 集成窗口期内联系维护者。
-
-Rust 实现侧通过 `nnrp-rs/doc/todo/v1-preview3/06-client-server-runtime.md` 跟踪这部分工作。
---- 
-
-## 典型使用场景（Preview3 规划）
-
-### 完整连接与渲染循环
+## 示例
 
 ```rust
-// Preview3 预期用法
-use nnrp_core::{NnrpClient, NnrpClientConfig, NnrpSubmitRequest};
-use nnrp_core::{InputProfile, BudgetPolicy, ResultClass, TransportPolicy};
+use nnrp_core::FrameSubmitMetadata;
+use nnrp_runtime::{NnrpClient, NnrpClientConfig};
 
-let config = NnrpClientConfig {
-    transport_policy: TransportPolicy::PreferQuic,
-    ..Default::default()
-};
+let client = NnrpClient::connect_tcp("127.0.0.1:4433", NnrpClientConfig::default()).await?;
+let mut session = client.open_session().await?;
 
-// TCP 接入（QUIC 接入使用 NnrpClient::connect_quic，需额外传入 TLS 配置）
-let mut session = NnrpClient::connect_tcp("render.example.com:4433", config).await?;
+let frame_id = session
+    .submit(FrameSubmitMetadata::default(), b"delta".to_vec())
+    .await?;
 
-for frame_id in 0u32.. {
-    let req = NnrpSubmitRequest {
-        frame_id,
-        input_profile: InputProfile::ChangedTilesLuma,
-        budget_policy: BudgetPolicy::ALLOW_PARTIAL,
-        sections: capture_delta(),
-        ..Default::default()
-    };
-    let result = session.submit(req).await?;
-    if result.result_class == ResultClass::Complete {
-        display(&result.sections);
+match session.await_event().await? {
+    nnrp_runtime::NnrpClientEvent::Result(result) => {
+        assert_eq!(result.frame_id, frame_id);
+    }
+    nnrp_runtime::NnrpClientEvent::ResultDrop { frame_id } => {
+        eprintln!("frame dropped: {frame_id}");
+    }
+    nnrp_runtime::NnrpClientEvent::FlowUpdate(update) => {
+        eprintln!("flow update: {:?}", update);
     }
 }
+
 session.close().await?;
 ```
-
----
 
 ## 常见坑点
 
 ::: warning
-1. **`NnrpClientSession` 尚未实现 `Drop` 优雅关闭。** Preview3 中需显式调用 `session.close().await`，否则服务端可能检测到异常断连。
-
-2. **`submit()` 不会重试超时帧。** 上层需要自行实现超时重试逻辑，且重试时应使用新的 `frame_id`。
-
-3. **并发 `submit()` 调用目前未指定安全性。** 在 Preview3 稳定前，请单线程顺序提交或用 `Mutex` 包装。
+1. **`open_session(self)` 会消费 client。** Preview3 runtime 当前是一条 transport 绑定一个 session 的最小模型。
+2. **`submit` 不会自动等待结果。** 它返回分配出的 `frame_id`，结果需要通过 `await_result` 或 `await_event` 消费。
+3. **关闭时优先使用 `close()`。** 只有在异常路径或测试场景中才直接调用 `close_transport()`。
 :::
