@@ -7,7 +7,7 @@ Rust SDK（`nnrp-rs`）工作区包含四个 crate。Preview3 当前已经具备
 | [核心类型](./api/core) | `nnrp-core` | Wire codec、校验、生命周期、缓存/Schema、恢复、一致性基线 | ✅ Preview3 core 已实现 |
 | [客户端（Preview3）](./api/client) | `nnrp-runtime` | `NnrpClient`、`NnrpClientSession`、事件接收、submit/cancel/patch/migrate/close | ✅ TCP runtime 已实现 |
 | [服务端（Preview3）](./api/server) | `nnrp-runtime` | `NnrpServer`、`NnrpServerSession`、accept/receive/send/flow/close | ✅ TCP runtime 已实现 |
-| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` | provider registry、native library detection、policy resolver、TCP provider | ✅ 已实现 |
+| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` | provider registry、native library detection、policy resolver、probe score selection、TCP provider | ✅ 已实现 |
 | [FFI / 原生接口](./api/ffi) | `nnrp-ffi` | Value handle、buffer view、callback/polling event、client/server handle ABI | ✅ 已实现 |
 | [WASM 导出（Preview3）](./api/wasm) | `nnrp-ffi` | WebAssembly 导出接口 | 🚧 规划中 |
 

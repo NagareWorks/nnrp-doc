@@ -97,7 +97,7 @@ pub type BoxedFramedTransport = Box<dyn FramedTransport>;
 ```rust
 use nnrp_core::TransportId;
 use nnrp_transport_provider::{
-    RemoteTransportSupport, TransportPolicy, TransportProviderRegistry,
+    ProbeSample, RemoteTransportSupport, TransportPolicy, TransportProviderRegistry,
 };
 use nnrp_transport_tcp::TcpProvider;
 
@@ -107,7 +107,25 @@ let selection = registry.select(&remote, TransportPolicy::ForceTcp)?;
 assert_eq!(selection.selected.transport_id, TransportId::Tcp);
 ```
 
-`nnrp-transport-provider` 负责本地 provider 列表、native library 探测、策略选择和被拒候选诊断。`nnrp-transport-tcp` 是独立 TCP provider 包；QUIC provider 会沿用同一个 registry 和 slot contract。
+需要比较多条可用路径时，可以把实际探测结果交给评分选择器：
+
+```rust
+use nnrp_transport_provider::select_transport_with_probe;
+
+let samples = [
+    ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 4_800, 1024, 1024),
+    ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 5_100, 1024, 1024),
+];
+let probed = select_transport_with_probe(
+    registry.providers(),
+    &remote,
+    TransportPolicy::PreferTcp,
+    &samples,
+)?;
+assert_eq!(probed.selected.transport_id, TransportId::Tcp);
+```
+
+`nnrp-transport-provider` 负责本地 provider 列表、native library 探测、策略选择、probe 样本评分和被拒候选诊断。评分会综合 RTT、超时/失败率、有效吞吐和本地 policy；缺少样本或全部失败的 provider 会以结构化原因出现在 rejected candidates 中。`nnrp-transport-tcp` 是独立 TCP provider 包；QUIC provider 会沿用同一个 registry 和 slot contract。
 
 ## `NnrpClientSession`
 

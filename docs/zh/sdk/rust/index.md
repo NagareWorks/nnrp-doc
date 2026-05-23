@@ -11,7 +11,7 @@
 | Rust 生成的一致性 fixtures 与 adapter 执行 | ✅ Preview3 core 已实现 |
 | 客户端 API（`NnrpClient`、`NnrpClientSession`） | ✅ TCP runtime 已实现 |
 | 服务端 API（`NnrpServer`、`NnrpServerSession`） | ✅ TCP runtime 已实现 |
-| Transport provider registry / policy resolver | ✅ TCP provider 与本地/远端能力交集选择已实现 |
+| Transport provider registry / policy resolver | ✅ TCP provider、本地/远端能力交集选择与 probe 评分选择已实现 |
 | FFI value handle、buffer view、callback/polling event、错误族 | ✅ ABI 表面已实现 |
 | FFI runtime-backed 客户端 / 服务端入口 | ✅ handle/event ABI 已接入 |
 | QUIC runtime binding | 🔶 transport/listener/provider 插槽已开放，具体 provider 未冻结 |

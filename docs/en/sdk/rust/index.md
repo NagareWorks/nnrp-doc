@@ -11,7 +11,7 @@
 | Rust-generated conformance fixtures and adapter execution | ✅ Preview3 core implemented |
 | Client API (`NnrpClient`, `NnrpClientSession`) | ✅ TCP runtime implemented |
 | Server API (`NnrpServer`, `NnrpServerSession`) | ✅ TCP runtime implemented |
-| Transport provider registry / policy resolver | ✅ TCP provider and local/remote capability intersection implemented |
+| Transport provider registry / policy resolver | ✅ TCP provider, local/remote capability intersection, and probe score selection implemented |
 | FFI value handles, buffer views, callback/polling events, error families | ✅ ABI surface implemented |
 | Runtime-backed FFI client / server entrypoints | ✅ Handle/event ABI connected |
 | QUIC runtime binding | 🔶 Transport/listener/provider slots exposed, concrete provider not frozen |
