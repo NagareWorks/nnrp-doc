@@ -1,6 +1,6 @@
 # Rust SDK 概览
 
-`nnrp-rs` 是 NNRP 的 Rust 工作区，当前由 `nnrp-core`、`nnrp-runtime`、`nnrp-ffi` 和 `nnrp-conformance` 组成。Preview3 已经具备协议核心、TCP client/server runtime、FFI handle/event ABI 与一致性 fixtures。
+`nnrp-rs` 是 NNRP 的 Rust 工作区，当前由 `nnrp-core`、`nnrp-runtime`、`nnrp-transport-provider`、`nnrp-transport-tcp`、`nnrp-ffi` 和 `nnrp-conformance` 组成。Preview3 已经具备协议核心、TCP client/server runtime、transport provider registry、FFI handle/event ABI 与一致性 fixtures。
 
 ## 当前状态（Preview3）
 
@@ -11,9 +11,10 @@
 | Rust 生成的一致性 fixtures 与 adapter 执行 | ✅ Preview3 core 已实现 |
 | 客户端 API（`NnrpClient`、`NnrpClientSession`） | ✅ TCP runtime 已实现 |
 | 服务端 API（`NnrpServer`、`NnrpServerSession`） | ✅ TCP runtime 已实现 |
+| Transport provider registry / policy resolver | ✅ TCP provider 与本地/远端能力交集选择已实现 |
 | FFI value handle、buffer view、callback/polling event、错误族 | ✅ ABI 表面已实现 |
 | FFI runtime-backed 客户端 / 服务端入口 | ✅ handle/event ABI 已接入 |
-| QUIC runtime binding | 🔶 transport/listener 插槽已开放，具体 provider 未冻结 |
+| QUIC runtime binding | 🔶 transport/listener/provider 插槽已开放，具体 provider 未冻结 |
 | WASM 导出（`NnrpWasmClient`、`NnrpWasmSession`） | 🔶 Preview3 规划 |
 
 ## 工具链要求

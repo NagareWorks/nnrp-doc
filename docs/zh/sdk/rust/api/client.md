@@ -92,6 +92,23 @@ pub type BoxedFramedTransport = Box<dyn FramedTransport>;
 
 `from_transport` 会校验 `transport.transport_kind()` 必须等于 `NnrpClientConfig.transport`，避免 TCP/QUIC slot 被错误绑定。
 
+## Provider registry
+
+```rust
+use nnrp_core::TransportId;
+use nnrp_transport_provider::{
+    RemoteTransportSupport, TransportPolicy, TransportProviderRegistry,
+};
+use nnrp_transport_tcp::TcpProvider;
+
+let registry = TransportProviderRegistry::new().with_provider(TcpProvider::descriptor());
+let remote = RemoteTransportSupport::new([TransportId::Tcp]);
+let selection = registry.select(&remote, TransportPolicy::ForceTcp)?;
+assert_eq!(selection.selected.transport_id, TransportId::Tcp);
+```
+
+`nnrp-transport-provider` 负责本地 provider 列表、native library 探测、策略选择和被拒候选诊断。`nnrp-transport-tcp` 是独立 TCP provider 包；QUIC provider 会沿用同一个 registry 和 slot contract。
+
 ## `NnrpClientSession`
 
 ```rust

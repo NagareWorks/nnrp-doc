@@ -7,6 +7,7 @@ The Rust SDK (`nnrp-rs`) workspace contains four crates. Preview3 now includes t
 | [Core Types](./api/core) | `nnrp-core` | Wire codecs, validation, lifecycle, cache/schema, recovery, conformance baseline | ✅ Preview3 core implemented |
 | [Client (Preview3)](./api/client) | `nnrp-runtime` | `NnrpClient`, `NnrpClientSession`, event receive, submit/cancel/patch/migrate/close | ✅ TCP runtime implemented |
 | [Server (Preview3)](./api/server) | `nnrp-runtime` | `NnrpServer`, `NnrpServerSession`, accept/receive/send/flow/close | ✅ TCP runtime implemented |
+| Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` | Provider registry, native library detection, policy resolver, TCP provider | ✅ Implemented |
 | [FFI / Native](./api/ffi) | `nnrp-ffi` | Value handles, buffer views, callback/polling events, client/server handle ABI | ✅ Implemented |
 | [WASM Exports (Preview3)](./api/wasm) | `nnrp-ffi` | WebAssembly export interface | 🚧 Planned |
 
@@ -23,6 +24,8 @@ The Rust SDK (`nnrp-rs`) workspace contains four crates. Preview3 now includes t
 [dependencies]
 nnrp-core = "1.0.0-preview.2"
 nnrp-runtime = "1.0.0-preview.2"
+nnrp-transport-provider = "1.0.0-preview.2"
+nnrp-transport-tcp = "1.0.0-preview.2"
 
 # FFI integration (C#/Python/Unity callers)
 nnrp-ffi = "1.0.0-preview.2"

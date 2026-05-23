@@ -1,6 +1,6 @@
 # Rust SDK Overview
 
-`nnrp-rs` is the Rust workspace for NNRP. It currently contains `nnrp-core`, `nnrp-runtime`, `nnrp-ffi`, and `nnrp-conformance`. Preview3 now includes the protocol core, TCP client/server runtime, FFI handle/event ABI, and conformance fixtures.
+`nnrp-rs` is the Rust workspace for NNRP. It currently contains `nnrp-core`, `nnrp-runtime`, `nnrp-transport-provider`, `nnrp-transport-tcp`, `nnrp-ffi`, and `nnrp-conformance`. Preview3 now includes the protocol core, TCP client/server runtime, transport provider registry, FFI handle/event ABI, and conformance fixtures.
 
 ## Current Status (Preview3)
 
@@ -11,9 +11,10 @@
 | Rust-generated conformance fixtures and adapter execution | ✅ Preview3 core implemented |
 | Client API (`NnrpClient`, `NnrpClientSession`) | ✅ TCP runtime implemented |
 | Server API (`NnrpServer`, `NnrpServerSession`) | ✅ TCP runtime implemented |
+| Transport provider registry / policy resolver | ✅ TCP provider and local/remote capability intersection implemented |
 | FFI value handles, buffer views, callback/polling events, error families | ✅ ABI surface implemented |
 | Runtime-backed FFI client / server entrypoints | ✅ Handle/event ABI connected |
-| QUIC runtime binding | 🔶 Transport/listener slots exposed, concrete provider not frozen |
+| QUIC runtime binding | 🔶 Transport/listener/provider slots exposed, concrete provider not frozen |
 | WASM exports (`NnrpWasmClient`, `NnrpWasmSession`) | 🔶 Preview3 planned |
 
 ## Toolchain Requirements
