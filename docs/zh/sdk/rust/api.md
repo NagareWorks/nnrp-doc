@@ -1,13 +1,13 @@
 # Rust — 冻结 API
 
-Rust SDK（`nnrp-rs`）工作区包含三个 crate。当前已发布的公开 API 为核心类型与 FFI 层；完整客户端/服务端 API 计划在 Preview3 实现。
+Rust SDK（`nnrp-rs`）工作区包含三个 crate。Preview3 当前已经具备协议核心、一致性 fixtures 与稳定 FFI ABI 表面；可直接跑业务的 client/server runtime 仍是后续工作。
 
 | 分组 | Crate | 说明 | 状态 |
 |---|---|---|---|
-| [核心类型](./api/core) | `nnrp-core` | 协议版本、错误类型 | ✅ 已冻结 |
-| [FFI / 原生接口](./api/ffi) | `nnrp-ffi` | C ABI 导出、dll/so/wasm 构建目标 | ✅ 已冻结（基础） |
-| [客户端（Preview3）](./api/client) | `nnrp-core` | 异步客户端 API | 🚧 规划中 |
-| [服务端（Preview3）](./api/server) | `nnrp-core` | 异步服务端 API | 🚧 规划中 |
+| [核心类型](./api/core) | `nnrp-core` | Wire codec、校验、生命周期、缓存/Schema、恢复、一致性基线 | ✅ Preview3 core 已实现 |
+| [FFI / 原生接口](./api/ffi) | `nnrp-ffi` | Value handle、buffer view、callback/polling event、错误族 | ✅ ABI 表面已实现 |
+| [客户端（Preview3）](./api/client) | runtime crate / `nnrp-core` consumer | 异步客户端 API | 🚧 runtime 尚未实现 |
+| [服务端（Preview3）](./api/server) | runtime crate / `nnrp-core` consumer | 异步服务端 API | 🚧 runtime 尚未实现 |
 | [WASM 导出（Preview3）](./api/wasm) | `nnrp-ffi` | WebAssembly 导出接口 | 🚧 规划中 |
 
 ## 工作区信息
@@ -15,16 +15,16 @@ Rust SDK（`nnrp-rs`）工作区包含三个 crate。当前已发布的公开 AP
 | 属性 | 值 |
 |---|---|
 | 工作区 | `nnrp-rs` |
-| 版本 | `0.1.0` |
+| 版本 | `1.0.0-preview.2` |
 | 最低 Rust | `1.82` |
-| 唯一依赖 | `thiserror = "2.0"` |
+| Core 依赖 | `thiserror = "2.0"` |
 
 ```toml
 [dependencies]
-nnrp-core = "0.1"
+nnrp-core = "1.0.0-preview.2"
 
 # FFI 集成（C#/Python 调用）
-nnrp-ffi = { version = "0.1", features = ["cdylib"] }
+nnrp-ffi = "1.0.0-preview.2"
 ```
 
 ## 构建目标（当前）
@@ -34,7 +34,10 @@ nnrp-ffi = { version = "0.1", features = ["cdylib"] }
 | `--lib` | `libnnrp_core.rlib` | Rust 内部依赖 |
 | `--lib --crate-type=cdylib` | `nnrp_ffi.dll` / `.so` | C#/Python FFI 集成 |
 | `--target wasm32-unknown-unknown` | `nnrp_ffi.wasm` | Web 应用（Preview3） |
-5. 稳定的错误枚举与关闭语义。
+
+## 当前边界
+
+当前 FFI 函数是 ABI 与生命周期原语，不是网络化 client/server runtime。真正的 `connect`、`listen`、`accept`、session pump、submit/result stream，以及 runtime-backed FFI entrypoint 是 Rust SDK 下一阶段。
 
 ## Rust 侧约束
 

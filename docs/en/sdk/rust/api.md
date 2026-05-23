@@ -1,13 +1,13 @@
 # Rust — Frozen API
 
-The Rust SDK (`nnrp-rs`) workspace contains three crates. Currently published public API covers core types and the FFI layer; full client/server API is planned for Preview3.
+The Rust SDK (`nnrp-rs`) workspace contains three crates. Preview3 currently has the protocol core, conformance fixtures, and a stable FFI ABI surface. The usable client/server runtime is still tracked as follow-up work.
 
 | Group | Crate | Description | Status |
 |---|---|---|---|
-| [Core Types](./api/core) | `nnrp-core` | Protocol version, error types | ✅ Frozen |
-| [FFI / Native](./api/ffi) | `nnrp-ffi` | C ABI exports, dll/so/wasm build targets | ✅ Frozen (basic) |
-| [Client (Preview3)](./api/client) | `nnrp-core` | Async client API | 🚧 Planned |
-| [Server (Preview3)](./api/server) | `nnrp-core` | Async server API | 🚧 Planned |
+| [Core Types](./api/core) | `nnrp-core` | Wire codecs, validation, lifecycle, cache/schema, recovery, conformance baseline | ✅ Preview3 core implemented |
+| [FFI / Native](./api/ffi) | `nnrp-ffi` | Value handles, buffer views, callback/polling events, error families | ✅ ABI surface implemented |
+| [Client (Preview3)](./api/client) | runtime crate / `nnrp-core` consumer | Async client API | 🚧 Runtime not implemented |
+| [Server (Preview3)](./api/server) | runtime crate / `nnrp-core` consumer | Async server API | 🚧 Runtime not implemented |
 | [WASM Exports (Preview3)](./api/wasm) | `nnrp-ffi` | WebAssembly export interface | 🚧 Planned |
 
 ## Workspace Info
@@ -15,20 +15,21 @@ The Rust SDK (`nnrp-rs`) workspace contains three crates. Currently published pu
 | Property | Value |
 |---|---|
 | Workspace | `nnrp-rs` |
-| Version | `0.1.0` |
+| Version | `1.0.0-preview.2` |
 | Min Rust | `1.82` |
-| Only dep | `thiserror = "2.0"` |
+| Core dep | `thiserror = "2.0"` |
 
 ```toml
 [dependencies]
-nnrp-core = "0.1"
+nnrp-core = "1.0.0-preview.2"
 
 # FFI integration (C#/Python callers)
-nnrp-ffi = { version = "0.1", features = ["cdylib"] }
+nnrp-ffi = "1.0.0-preview.2"
 ```
-3. Operation submission, stream receive, and cancellation.
-4. Cache and schema lifecycle operations.
-5. Stable error enums and shutdown semantics.
+
+## Current Boundary
+
+The current FFI functions are ABI and lifecycle primitives. They are not a networked client/server runtime yet. Real `connect`, `listen`, `accept`, session pumps, submit/result streams, and runtime-backed FFI entrypoints are the next Rust SDK milestone.
 
 ## Rust-specific expectations
 

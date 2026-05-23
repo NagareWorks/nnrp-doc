@@ -1,6 +1,6 @@
 # Rust — Server (Preview3)
 
-> **This page describes the planned API for Preview3. The server is not yet implemented in the current release (0.1.x).**
+> **This page describes the planned runtime API for Preview3. The protocol core, FFI ABI surface, and conformance fixtures exist; `NnrpServer` and `NnrpServerSession` are not implemented yet.**
 
 ---
 
@@ -131,6 +131,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 - [ ] `NnrpServerSession::send_flow_update`
 - [ ] FFI bindings for server exposed via `nnrp-ffi`
 - [ ] Server conformance tests in `nnrp-conformance`
+
+The Rust implementation tracks this work in `nnrp-rs/doc/todo/v1-preview3/06-client-server-runtime.md`.
 
 ---
 

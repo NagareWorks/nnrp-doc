@@ -1,23 +1,24 @@
 # Rust SDK Overview
 
-`nnrp-core` is the Rust implementation of the NNRP protocol. `nnrp-ffi` exposes a C ABI and WASM exports for cross-language and web use.
+`nnrp-core` is the Rust implementation of the NNRP protocol. `nnrp-ffi` exposes a C ABI surface for cross-language binding work.
 
 ## Current Status (Preview3)
 
 | Module | Status |
 |---|---|
-| Protocol version and base error types (`ProtocolVersion`, `NnrpError`) | ✅ Available (0.1.0) |
-| FFI C ABI (`current_protocol_version`) | ✅ Available (0.1.0) |
-| Full wire types (`NnrpHeader`, message types, etc.) | 🔶 Preview3 planned (0.3) |
-| Client API (`NnrpClient`, `NnrpClientSession`) | 🔶 Preview3 planned (0.3) |
-| Server API (`NnrpServer`, `NnrpServerSession`) | 🔶 Preview3 planned (0.3) |
-| Full FFI client / server C ABI | 🔶 Preview3 planned |
+| Protocol version, wire codecs, message types, and core errors | ✅ Preview3 core implemented |
+| Connection/session lifecycle, flow control, cache/schema, recovery, operation model | ✅ Preview3 core implemented |
+| Rust-generated conformance fixtures and adapter execution | ✅ Preview3 core implemented |
+| FFI value handles, buffer views, callback/polling events, error families | ✅ ABI surface implemented |
+| Client API (`NnrpClient`, `NnrpClientSession`) | 🚧 Runtime not implemented yet |
+| Server API (`NnrpServer`, `NnrpServerSession`) | 🚧 Runtime not implemented yet |
+| Runtime-backed FFI client / server entrypoints | 🚧 Depends on Rust runtime |
 | WASM exports (`NnrpWasmClient`, `NnrpWasmSession`) | 🔶 Preview3 planned |
 
 ## Toolchain Requirements
 
 - Rust ≥ 1.75 (stable)
-- tokio 1.x (async runtime)
+- tokio 1.x (planned for the client/server runtime)
 - WASM target: `wasm32-unknown-unknown` + wasm-pack
 
 ## Contents

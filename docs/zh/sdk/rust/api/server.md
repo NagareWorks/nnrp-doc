@@ -1,7 +1,7 @@
 # Rust — 服务端（Preview3）
 
 ::: warning 规划中
-本页描述的 API 计划在 Preview3 实现。当前 `nnrp-core` 0.1.0 尚未包含服务端实现。
+本页描述的是 Preview3 runtime API 规划。协议 core、FFI ABI 表面和 conformance fixtures 已存在；`NnrpServer` 与 `NnrpServerSession` 尚未实现。
 :::
 
 ## 规划 API
@@ -129,6 +129,8 @@ pub struct NnrpServerResult {
 ---
 
 ## 完整服务端示例（规划）
+
+Rust 实现侧通过 `nnrp-rs/doc/todo/v1-preview3/06-client-server-runtime.md` 跟踪这部分工作。
 
 ```rust
 use nnrp_core::{NnrpServer, NnrpServerConfig, ResultClass};

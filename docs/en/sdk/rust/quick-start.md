@@ -10,6 +10,6 @@ This page is reserved for the public quick-start entry of the Rust SDK.
 ## Content to land later
 
 1. Crate onboarding path and toolchain requirements.
-2. Minimal client construction example.
-3. Shortest path for session open, submit, receive, and close.
+2. Minimal client construction example after the Rust runtime lands.
+3. Shortest path for session open, submit, receive, and close after `NnrpClient` / `NnrpServer` exist.
 4. Common errors and minimal troubleshooting notes.

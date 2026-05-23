@@ -1,6 +1,6 @@
-# Rust — FFI / WASM Bindings
+# Rust — FFI / Native Bindings
 
-The `nnrp-ffi` crate exposes a C-compatible ABI for integration with C#, Python, and other languages. The `nnrp-conformance` crate provides protocol conformance test utilities.
+The `nnrp-ffi` crate exposes a C-compatible ABI for C#, Python, Unity, and future language bindings. In the current Preview3 Rust implementation, this is an ABI surface over protocol handles, buffer views, event delivery, and error families. It is not yet a networked client/server runtime.
 
 ## Build Targets
 
@@ -9,11 +9,11 @@ The `nnrp-ffi` crate exposes a C-compatible ABI for integration with C#, Python,
 | `x86_64-pc-windows-msvc` | `nnrp_ffi.dll` | Windows native (C#/Python/Unity) |
 | `x86_64-unknown-linux-gnu` | `libnnrp_ffi.so` | Linux native (C#/Python server) |
 | `aarch64-apple-darwin` | `libnnrp_ffi.dylib` | macOS ARM native |
-| `wasm32-unknown-unknown` | `nnrp_ffi.wasm` | WebAssembly (browser/Node.js) |
+| `wasm32-unknown-unknown` | `nnrp_ffi.wasm` | Planned WebAssembly target |
 
 ---
 
-## C ABI Types
+## Current C ABI Types
 
 ### `NnrpProtocolVersion`
 
@@ -42,16 +42,44 @@ impl From<ProtocolVersion> for NnrpProtocolVersion {
 
 ---
 
-## Exported Functions
+### Value handles and buffer views
 
-### `current_protocol_version`
+Preview3 uses ABI-safe value handles rather than exposing Rust-owned `Box<T>` pointers as the stable cross-language contract:
 
-```rust
-#[no_mangle]
-pub extern "C" fn current_protocol_version() -> NnrpProtocolVersion;
+```c
+typedef struct {
+    uint32_t kind;
+    uint64_t id;
+    uint32_t generation;
+    uint32_t flags;
+} NnrpHandle;
+
+typedef struct {
+    const uint8_t* ptr;
+    uintptr_t len;
+} NnrpBufferView;
 ```
 
-Returns the current protocol version as a C-compatible struct.
+Non-empty buffer views must provide non-null pointers. The callee borrows the memory for the duration of the call and must not retain the pointer.
+
+### Events and status
+
+The ABI exposes callback and polling delivery shapes using `NnrpEvent`, `NnrpCallbackSink`, `NnrpPollResult`, and `NnrpFfiStatus`. Status values include an FFI status code, protocol error family, optional protocol error code, and detail code.
+
+## Exported Functions
+
+The current exported functions are ABI/lifecycle primitives:
+
+| Function | Description |
+|---|---|
+| `nnrp_current_protocol_version` | Return the current protocol version |
+| `nnrp_connection_bootstrap` | Build a connection value handle for binding smoke tests |
+| `nnrp_session_open` | Build a session value handle from a connection handle |
+| `nnrp_submit` | Validate submit arguments and build an operation value handle |
+| `nnrp_session_close` | Validate a session handle close boundary |
+| `nnrp_control` | Validate control argument shape |
+| `nnrp_poll_empty` | Return an empty polling result with `WouldBlock` |
+| `nnrp_dispatch_event` | Deliver one borrowed event through a callback |
 
 ---
 
@@ -69,7 +97,7 @@ public struct NnrpProtocolVersion
 
 public static class NnrpFfi
 {
-    [DllImport("nnrp_ffi", EntryPoint = "current_protocol_version")]
+    [DllImport("nnrp_ffi", EntryPoint = "nnrp_current_protocol_version")]
     public static extern NnrpProtocolVersion CurrentProtocolVersion();
 }
 
@@ -92,8 +120,8 @@ class NnrpProtocolVersion(ctypes.Structure):
     ]
 
 lib = ctypes.CDLL("./libnnrp_ffi.so")
-lib.current_protocol_version.restype = NnrpProtocolVersion
-version = lib.current_protocol_version()
+lib.nnrp_current_protocol_version.restype = NnrpProtocolVersion
+version = lib.nnrp_current_protocol_version()
 print(f"NNRP v{version.major}, wire_format={version.wire_format}")
 ```
 
@@ -101,75 +129,39 @@ print(f"NNRP v{version.major}, wire_format={version.wire_format}")
 
 ## `nnrp-conformance` Crate
 
-`nnrp-conformance` provides test utilities for validating protocol conformance:
-
-- `ConformanceRunner` — runs a set of conformance test cases
-- `ConformanceReport` — machine-readable test report
-- `ConformanceTestCase` — individual test case (serialize/parse roundtrip, edge cases)
-
-Use this crate in your integration test suite to verify that your custom transport or session layer correctly implements the NNRP wire protocol.
+`nnrp-conformance` exports Rust-generated preview3 golden vectors, fixture manifests, and an adapter wrapper. Downstream bindings should consume those fixtures as the canonical preview3 baseline.
 
 ---
 
-## Preview3 Expansion Plan
+## Runtime Expansion Plan
 
-The C ABI surface will be expanded significantly in Preview3:
+The current ABI does not perform real network I/O. Runtime-backed client/server entrypoints are planned after the Rust client/server runtime lands:
 
 | Function | Description |
 |---|---|
-| `nnrp_build_frame_submit` | Build a `FRAME_SUBMIT` packet |
-| `nnrp_parse_result_push` | Parse a `RESULT_PUSH` packet |
 | `nnrp_client_connect_tcp` | Open a client TCP connection |
 | `nnrp_client_connect_quic` | Open a client QUIC connection |
 | `nnrp_server_bind_tcp` | Bind a server TCP listener |
+| `nnrp_server_accept` | Accept a server-side session |
 | `nnrp_client_session_submit` | Submit a frame |
 | `nnrp_client_session_await_result` | Await result |
-| `nnrp_free_*` | Companion deallocation functions |
-
-All returned pointer types will use Rust's `Box<T>` ownership with explicit `free` functions to avoid memory leaks across the FFI boundary.
+| `nnrp_server_session_receive_submit` | Receive a submit request |
+| `nnrp_server_session_send_result` | Send a result |
 
 ---
 
-## Typical Use Cases (Preview3 Plan)
+## Current Boundary
 
-### Calling from C (game engine plug-in)
-
-```c
-/* Expected Preview3 C ABI */
-NnrpClientConfig cfg = { .host = "127.0.0.1", .port = 4433 };
-NnrpClient* client = nnrp_client_create(&cfg);
-NnrpSession* session = nnrp_session_open(client);
-
-NnrpFrameSubmit submit = {
-    .frame_id = 1,
-    .input_profile = NNRP_INPUT_CHANGED_TILES_LUMA,
-    .section_count = 1,
-    .sections = &tile_section,
-};
-NnrpResult result;
-nnrp_session_submit(session, &submit, &result);
-
-nnrp_session_close(session);
-nnrp_client_destroy(client);
-```
-
-### Memory ownership rule
-
-```c
-// Every nnrp_*_create must be paired with nnrp_*_destroy
-NnrpResult* result = nnrp_session_recv_result(session);
-// ... use result ...
-nnrp_free_result(result);  // REQUIRED — Rust allocated this via Box<T>
-```
+Use the current FFI to validate cross-language ABI shape and to bind Rust-owned protocol semantics. Do not treat it as a complete client/server SDK until the runtime-backed functions above exist.
 
 ---
 
 ## Common Pitfalls
 
 ::: warning
-1. **Every `nnrp_*_create` must have a corresponding `nnrp_*_destroy`.** No GC; forgetting to call `destroy` leaks Rust heap memory into the host process.
+1. **Do not retain borrowed buffer or event pointers.** They are valid only for the duration of the call or callback.
 
-2. **Do not share one `NnrpSession*` across threads.** The C ABI has no internal locking; concurrent access is undefined behavior.
+2. **Do not assume value handles are network connections.** They are stable identifiers until the runtime layer backs them.
 
-3. **Passing a null pointer causes a Rust panic and terminates the process.** The C ABI does not validate nulls — callers must ensure valid pointers.
+3. **Null pointers are rejected for non-empty buffers and required output arguments.** Callers should still validate pointers before crossing the FFI boundary.
 :::

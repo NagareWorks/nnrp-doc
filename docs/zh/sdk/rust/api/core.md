@@ -1,139 +1,39 @@
 # Rust — 核心类型
 
-`nnrp-core` crate 提供协议基础类型。当前版本（0.1.0）仅包含协议版本与错误类型；完整线路类型计划在 Preview3 实现。
+`nnrp-core` crate 是 Preview3 协议语义的 Rust canonical source。它包含 wire codec、固定布局 metadata、枚举/错误基线、生命周期状态机、流控校验、缓存/Schema 语义、恢复校验和操作状态。
+
+它还不包含网络化 client/server runtime。
 
 ## Cargo.toml
 
 ```toml
 [dependencies]
-nnrp-core = "0.1"
+nnrp-core = "1.0.0-preview.2"
 ```
 
----
+## 已实现的 Preview3 表面
 
-## 常量
+| 领域 | 状态 |
+|---|---|
+| Common header、消息类型、header flags、协议版本 | 已实现 |
+| Client/server hello、session open/ack/close、migration/probe metadata | 已实现 |
+| `FRAME_SUBMIT`、`RESULT_PUSH`、`RESULT_DROP`、body region、object reference | 已实现 |
+| Typed payload descriptor 与 payload-family 边界 | 已实现 |
+| `FLOW_UPDATE`、result hint、priority、operation state、cancel scope | 已实现 |
+| Cache put/ack/invalidate 以及 lease/version/dependency 校验 | 已实现 |
+| Schema/profile registry 与 token delta schema anchor | 已实现 |
+| Session-bound recovery 与 migration resume cursor 校验 | 已实现 |
 
-### `CURRENT_WIRE_FORMAT: u8`
+## 边界
 
-当前线路格式版本号，固定为 `0`（NNRP/1）。
+`nnrp-core` 是 host-neutral 层。它校验协议行为并暴露可复用状态机原语，但不打开 socket、不启动 async task、不 accept client，也不运行 submit/result stream。
 
-```rust
-pub const CURRENT_WIRE_FORMAT: u8 = 0;
-```
-
----
-
-## `ProtocolVersion`
-
-协议版本描述符（`#[derive(Debug, Clone, Copy, PartialEq, Eq)]`）。
-
-```rust
-pub struct ProtocolVersion {
-    pub major: u8,
-    pub wire_format: u8,
-}
-```
-
-### 常量
-
-```rust
-impl ProtocolVersion {
-    /// 当前协议版本（major=1, wire_format=0）
-    pub const CURRENT: Self = Self {
-        major: 1,
-        wire_format: CURRENT_WIRE_FORMAT,
-    };
-}
-```
-
-### 方法
-
-```rust
-impl ProtocolVersion {
-    /// 验证并构造 ProtocolVersion。
-    /// 若 wire_format 不是已知值，返回 Err(NnrpError::UnsupportedWireFormat)。
-    pub fn try_new(major: u8, wire_format: u8) -> Result<Self, NnrpError>;
-}
-```
-
----
-
-## `NnrpError`
-
-协议错误枚举（`#[derive(Debug, thiserror::Error)]`）。
-
-```rust
-#[derive(Debug, thiserror::Error)]
-pub enum NnrpError {
-    #[error("unsupported wire format: {0}")]
-    UnsupportedWireFormat(u8),
-}
-```
-
-> **Preview3 扩展计划**：`NnrpError` 将增加完整线路类型错误变体，包括 `MalformedHeader`、`MalformedBody`、`UnsupportedVersion`、`AuthFailed` 等，与 Python/C# SDK 枚举对齐。
-
----
-
-## Preview3 规划（`nnrp-core` 完整线路类型）
-
-以下类型计划在 Preview3 发布，当前版本尚未实现：
-
-```rust
-// 计划类型（尚未实现）
-pub struct NnrpHeader { /* 对应 Python NnrpHeader */ }
-pub struct NnrpPacket { /* 完整数据包 */ }
-pub enum MessageType { ClientHello = 0x01, ... }
-pub struct FrameSubmitMetadata { /* 帧提交元数据 */ }
-pub struct ResultPushMetadata { /* 结果推送元数据 */ }
-// ... 完整协议类型
-```
-
----
-
-## 与 Python/C# 的互操作说明
-
-`ProtocolVersion::CURRENT` 与 Python `WireFormat.CURRENT=0` / C# `WireFormat.Current=0` 完全对应。所有 SDK 在握手阶段均使用相同的线路格式常量，保证跨语言互通。
-
----
-
-## 典型使用场景（Preview3 规划）
-
-### 构造合规的帧元数据
-
-```rust
-// Preview3 中预期用法
-use nnrp_core::{FrameSubmitMetadata, InputProfile, BudgetPolicy, SubmitMode};
-
-let meta = FrameSubmitMetadata {
-    frame_id: 42,
-    input_profile: InputProfile::ChangedTilesLuma,
-    submit_mode: SubmitMode::Inline,
-    budget_policy: BudgetPolicy::ALLOW_PARTIAL,
-    inference_budget_ms: 8,
-    tile_ids: vec![3, 7, 12],
-    ..Default::default()
-};
-```
-
-### 版本协商
-
-```rust
-if peer_version > ProtocolVersion::CURRENT {
-    // 降级到当前支持版本
-    negotiate_version(ProtocolVersion::CURRENT)
-} else {
-    negotiate_version(peer_version)
-}
-```
-
----
+可直接使用的 Rust `NnrpClient` / `NnrpServer` API 由 runtime shard 跟踪，应该消费这些 core 类型，而不是重新定义协议行为。
 
 ## 常见坑点
 
 ::: warning
-1. **这些类型目前为规划形态，Preview3 正式发布前 API 可能变化。** 生产代码请等待稳定版本。
-
-2. **`BudgetPolicy` 是位标志。** 组合使用 `|` 运算符：`BudgetPolicy::ALLOW_PARTIAL | BudgetPolicy::ALLOW_STALE_REUSE`。
-
-3. **跨语言互通的核心约束：** 不要在 Rust 侧修改 `ProtocolVersion::CURRENT` 的数值后，在不升级 Python/C# 侧的情况下部署，否则握手阶段会立即失败。
+1. **不要把 core lifecycle object 当成网络 runtime。** 它们是协议状态机，不是 socket pump。
+2. **不要在 SDK 侧重新发明 retry、cache 或 schema 语义。** 下游 SDK 应消费 Rust-owned semantics。
+3. **不要在不更新 conformance fixtures 的情况下修改枚举/错误/消息数值。**
 :::

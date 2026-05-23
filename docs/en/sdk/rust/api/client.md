@@ -1,6 +1,6 @@
 # Rust — Client (Preview3)
 
-> **This page describes the planned API for Preview3. The client is not yet implemented in the current release (0.1.x).**
+> **This page describes the planned runtime API for Preview3. The protocol core, FFI ABI surface, and conformance fixtures exist; `NnrpClient` and `NnrpClientSession` are not implemented yet.**
 
 ---
 
@@ -90,6 +90,8 @@ pub struct NnrpResult {
 - [ ] `NnrpClientSession::patch_session`
 - [ ] FFI bindings exposed via `nnrp-ffi`
 - [ ] Conformance tests in `nnrp-conformance`
+
+The Rust implementation tracks this work in `nnrp-rs/doc/todo/v1-preview3/06-client-server-runtime.md`.
 
 ---
 

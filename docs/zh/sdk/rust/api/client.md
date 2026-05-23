@@ -1,7 +1,7 @@
 # Rust — 客户端（Preview3）
 
 ::: warning 规划中
-本页描述的 API 计划在 Preview3 实现。当前 `nnrp-core` 0.1.0 尚未包含客户端实现。
+本页描述的是 Preview3 runtime API 规划。协议 core、FFI ABI 表面和 conformance fixtures 已存在；`NnrpClient` 与 `NnrpClientSession` 尚未实现。
 :::
 
 以下为规划的客户端 API 形态，供集成方提前评估和反馈。
@@ -10,7 +10,7 @@
 
 ```toml
 [dependencies]
-nnrp-core = "0.3"  # Preview3 版本
+nnrp-core = "1.0.0-preview.2"
 tokio = { version = "1", features = ["full"] }
 ```
 
@@ -125,7 +125,9 @@ pub struct NnrpResult {
 ## 反馈
 
 如有 API 形态建议，请在 [GitHub Issues](https://github.com/SPYN/nnrp-rs) 提交，或在 Preview3 集成窗口期内联系维护者。
----
+
+Rust 实现侧通过 `nnrp-rs/doc/todo/v1-preview3/06-client-server-runtime.md` 跟踪这部分工作。
+--- 
 
 ## 典型使用场景（Preview3 规划）
 
