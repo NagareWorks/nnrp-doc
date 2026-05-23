@@ -1,6 +1,6 @@
 # Rust — 冻结 API
 
-Rust SDK（`nnrp-rs`）工作区包含四个 crate。Preview3 当前已经具备协议核心、异步 TCP client/server runtime、一致性 fixtures，以及跨语言绑定所需的 FFI ABI 表面。
+Rust SDK（`nnrp-rs`）工作区包含协议核心、runtime、transport provider、FFI/native packaging、WASM primitives 和一致性测试 crate。Preview3 当前已经具备协议核心、异步 TCP client/server runtime、一致性 fixtures，以及跨语言绑定所需的 FFI ABI / WASM primitive 表面。
 
 | 分组 | Crate | 说明 | 状态 |
 |---|---|---|---|
@@ -9,7 +9,7 @@ Rust SDK（`nnrp-rs`）工作区包含四个 crate。Preview3 当前已经具备
 | [服务端（Preview3）](./api/server) | `nnrp-runtime` | `NnrpServer`、`NnrpServerSession`、accept/receive/send/flow/close | ✅ TCP runtime 已实现 |
 | Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | provider registry、native library detection、policy resolver、probe score selection、TCP provider、QUIC provider slot | ✅ 已实现 |
 | [FFI / 原生接口](./api/ffi) | `nnrp-ffi` | Value handle、buffer view、callback/polling event、client/server handle ABI、native artifact packaging | ✅ 已实现 |
-| [WASM 导出（Preview3）](./api/wasm) | `nnrp-ffi` | WebAssembly 导出接口 | 🚧 规划中 |
+| [WASM 导出（Preview3）](./api/wasm) | `nnrp-wasm` | wasm-bindgen JSON primitive、probe scoring、transport selection、`.d.ts` / `.wasm` 打包 | ✅ Primitive 已实现 |
 
 ## 工作区信息
 
@@ -27,6 +27,7 @@ nnrp-runtime = "1.0.0-preview.2"
 nnrp-transport-provider = "1.0.0-preview.2"
 nnrp-transport-tcp = "1.0.0-preview.2"
 nnrp-transport-quic = "1.0.0-preview.2"
+nnrp-wasm = "1.0.0-preview.2"
 
 # FFI 集成（C#/Python/Unity 调用）
 nnrp-ffi = "1.0.0-preview.2"
@@ -38,7 +39,7 @@ nnrp-ffi = "1.0.0-preview.2"
 |---|---|---|
 | `--lib` | `libnnrp_core.rlib` / `libnnrp_runtime.rlib` | Rust 内部依赖 |
 | `python scripts/package_native_artifacts.py` | `nnrp_ffi.dll` / `.so` / `.dylib` + `nnrp_ffi.h` + manifest | C#/Python/Unity/Node native FFI 集成 |
-| `--target wasm32-unknown-unknown` | raw `nnrp_ffi.wasm` | 底层 WASM 编译目标；浏览器 SDK 仍需要 wasm-bindgen + JS/TS wrapper |
+| `python scripts/package_wasm_primitives.py` | `nnrp_wasm.wasm` + `nnrp_wasm.d.ts` + manifest | `nnrp-js` 封装浏览器/Node WASM primitive |
 
 ## 当前边界
 
@@ -46,7 +47,7 @@ nnrp-ffi = "1.0.0-preview.2"
 
 FFI 层已经暴露 client/server handle、session、operation 和 event ABI；它是跨语言绑定的底层控制面，不直接把 Rust 异步对象或 socket 指针暴露给调用方。
 
-Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。`nnrp-rs` 发布 native/WASM primitives 和 C ABI header；未来 `nnrp-js` 在 Node.js 中应优先探测 native link library，并在不可用时回退到 WASM。浏览器不能加载 `.dll` / `.so` / `.dylib`，后续 JS/TS 浏览器 SDK 必须走 WASM 包和 WebSocket/WebTransport transport adapter。
+Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。`nnrp-rs` 发布 native/WASM primitives 和 C ABI header；未来 `nnrp-js` 在 Node.js 中应优先探测 native link library，并在不可用时回退到 WASM。浏览器不能加载 `.dll` / `.so` / `.dylib`，后续 JS/TS 浏览器 SDK 必须走 `nnrp-wasm` primitive 包和 WebSocket/WebTransport transport adapter。
 
 ## Rust 侧约束
 

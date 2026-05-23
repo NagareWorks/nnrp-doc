@@ -1,6 +1,6 @@
 # Rust — Frozen API
 
-The Rust SDK (`nnrp-rs`) workspace contains four crates. Preview3 now includes the protocol core, async TCP client/server runtime, conformance fixtures, and the FFI ABI surface for cross-language bindings.
+The Rust SDK (`nnrp-rs`) workspace contains the protocol core, runtime, transport providers, FFI/native packaging, WASM primitives, and conformance crates. Preview3 now includes the protocol core, async TCP client/server runtime, conformance fixtures, and the FFI ABI / WASM primitive surface for cross-language bindings.
 
 | Group | Crate | Description | Status |
 |---|---|---|---|
@@ -9,7 +9,7 @@ The Rust SDK (`nnrp-rs`) workspace contains four crates. Preview3 now includes t
 | [Server (Preview3)](./api/server) | `nnrp-runtime` | `NnrpServer`, `NnrpServerSession`, accept/receive/send/flow/close | ✅ TCP runtime implemented |
 | Transport provider | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | Provider registry, native library detection, policy resolver, probe score selection, TCP provider, QUIC provider slot | ✅ Implemented |
 | [FFI / Native](./api/ffi) | `nnrp-ffi` | Value handles, buffer views, callback/polling events, client/server handle ABI, native artifact packaging | ✅ Implemented |
-| [WASM Exports (Preview3)](./api/wasm) | `nnrp-ffi` | WebAssembly export interface | 🚧 Planned |
+| [WASM Exports (Preview3)](./api/wasm) | `nnrp-wasm` | wasm-bindgen JSON primitives, probe scoring, transport selection, `.d.ts` / `.wasm` packaging | ✅ Primitive implemented |
 
 ## Workspace Info
 
@@ -27,6 +27,7 @@ nnrp-runtime = "1.0.0-preview.2"
 nnrp-transport-provider = "1.0.0-preview.2"
 nnrp-transport-tcp = "1.0.0-preview.2"
 nnrp-transport-quic = "1.0.0-preview.2"
+nnrp-wasm = "1.0.0-preview.2"
 
 # FFI integration (C#/Python/Unity callers)
 nnrp-ffi = "1.0.0-preview.2"
@@ -38,7 +39,7 @@ nnrp-ffi = "1.0.0-preview.2"
 |---|---|---|
 | `--lib` | `libnnrp_core.rlib` / `libnnrp_runtime.rlib` | Rust dependencies |
 | `python scripts/package_native_artifacts.py` | `nnrp_ffi.dll` / `.so` / `.dylib` + `nnrp_ffi.h` + manifest | C#/Python/Unity/Node native FFI integration |
-| `--target wasm32-unknown-unknown` | raw `nnrp_ffi.wasm` | Low-level WASM compile target; the browser SDK still needs wasm-bindgen plus a JS/TS wrapper |
+| `python scripts/package_wasm_primitives.py` | `nnrp_wasm.wasm` + `nnrp_wasm.d.ts` + manifest | Browser/Node WASM primitives wrapped by `nnrp-js` |
 
 ## Current Boundary
 
@@ -46,7 +47,7 @@ nnrp-ffi = "1.0.0-preview.2"
 
 The FFI layer exposes client/server handles, sessions, operations, and event ABI. It is the low-level control surface for bindings and does not expose Rust async objects or socket pointers directly.
 
-Native link libraries fit C#/Python/Unity and Node.js backend native-addon scenarios. `nnrp-rs` publishes native/WASM primitives plus the C ABI header; future `nnrp-js` should probe native link libraries first in Node.js and fall back to WASM when native loading is unavailable. Browsers cannot load `.dll` / `.so` / `.dylib`, so the future JS/TS browser SDK must use a WASM package plus WebSocket/WebTransport transport adapters.
+Native link libraries fit C#/Python/Unity and Node.js backend native-addon scenarios. `nnrp-rs` publishes native/WASM primitives plus the C ABI header; future `nnrp-js` should probe native link libraries first in Node.js and fall back to WASM when native loading is unavailable. Browsers cannot load `.dll` / `.so` / `.dylib`, so the future JS/TS browser SDK must use the `nnrp-wasm` primitive package plus WebSocket/WebTransport transport adapters.
 
 ## Rust-specific expectations
 

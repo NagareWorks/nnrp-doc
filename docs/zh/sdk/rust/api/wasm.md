@@ -1,172 +1,80 @@
-# Rust — WASM 导出（Preview3）
+# Rust — WASM Primitives（Preview3）
 
-::: warning 规划中
-WASM 导出计划在 Preview3 实现。当前 `nnrp-ffi` 可以作为 raw WASM 编译目标，但浏览器可用 SDK 还需要 wasm-bindgen、JS/TS wrapper 与 WebSocket/WebTransport transport adapter。
+::: tip 已实现的边界
+`nnrp-rs` 当前提供 `nnrp-wasm` primitive crate：它通过 `wasm-bindgen` 暴露协议版本、transport probe scoring 和 transport selection 的低层 JSON 接口，并产出 `.wasm`、`.d.ts` 与 manifest。完整 JS/TS SDK、npm 包布局、Node native loader、浏览器 WebSocket/WebTransport adapter 由后续 `nnrp-js` 仓库负责。
 :::
 
-## 用途
+## 产物边界
 
-WASM 导出允许在以下场景中不依赖原生 SDK 直接使用 NNRP 协议：
+| 场景 | 推荐路径 |
+|---|---|
+| Node.js 后端 | 优先探测 `nnrp_ffi.dll` / `.so` / `.dylib` native link library；不可用时回退到 `nnrp-wasm` |
+| 浏览器 | 使用 `nnrp-wasm` primitives，加上 `nnrp-js` 提供的 WebSocket/WebTransport adapter |
+| C#/Python/Unity | 使用 `nnrp-ffi` native package，不走浏览器 WASM 包 |
 
-- 浏览器端 Web 应用（通过 WebTransport 或 WebSocket 接入服务端）
-- Node.js 服务（无原生依赖，或作为 native addon 的替代路径）
-- Electron 应用嵌入 NNRP 客户端逻辑
+浏览器不能加载 native link library，也不能直接打开原生 TCP/UDP。浏览器侧的实际传输仍必须由 JS/TS 层使用 WebSocket 或 WebTransport 接入。
 
----
-
-## 构建方式（规划）
+## 构建
 
 ```bash
-# 安装工具链
 rustup target add wasm32-unknown-unknown
-cargo install wasm-pack
-
-# 构建（from nnrp-rs/nnrp-ffi）
-wasm-pack build --target web --out-dir pkg
-
-# 或仅编译 wasm 二进制
-cargo build --target wasm32-unknown-unknown --release -p nnrp-ffi
+python scripts/package_wasm_primitives.py --out artifacts/wasm
 ```
 
-产物目录：`target/wasm32-unknown-unknown/release/nnrp_ffi.wasm`
+输出目录：
 
-这个 raw wasm 文件不是完整 npm 包。浏览器不能加载 native `.dll` / `.so` / `.dylib`，因此最终 JS/TS SDK 需要发布 `.wasm`、生成的 JS glue、`.d.ts` 类型声明和浏览器 transport adapter。
+```text
+artifacts/wasm/nnrp-wasm-primitives/
+  nnrp_wasm.wasm
+  nnrp_wasm.d.ts
+  manifest.json
+```
 
----
+CI 会构建并上传 `nnrp-wasm-primitives` artifact；release 包也会包含 `artifacts/wasm/**`。
 
-## 规划导出接口（JavaScript/TypeScript）
-
-编译后通过 `wasm-bindgen` 自动生成 TypeScript 类型定义：
+## 当前导出
 
 ```typescript
-// 规划接口（Preview3，尚未实现）
+export function nnrp_wasm_protocol_major(): number;
+export function nnrp_wasm_wire_format(): number;
 
-export class NnrpWasmClient {
-    constructor(config: NnrpClientConfig);
+export function selectTransportWithProbeJson(
+  providersJson: string,
+  remoteTransportsJson: string,
+  policy: TransportPolicy,
+  samplesJson: string
+): string;
 
-    /** 连接到服务端（通过 WebTransport） */
-    async connect(url: string): Promise<NnrpWasmSession>;
-}
-
-export class NnrpWasmSession {
-    readonly sessionId: number;
-    readonly transportId: TransportId;
-
-    /** 提交帧并等待结果 */
-    async submit(request: NnrpSubmitRequest): Promise<NnrpResult>;
-
-    /** 取消帧 */
-    async cancelFrame(frameId: number): Promise<void>;
-
-    /** 关闭会话 */
-    async close(): Promise<void>;
-}
-
-export interface NnrpClientConfig {
-    maxViews?: number;        // default: 1
-    enableCache?: boolean;    // default: true
-    transportPolicy?: string; // "auto" | "prefer_quic" | "force_tcp" | ...
-}
-
-export interface NnrpSubmitRequest {
-    frameId: number;
-    sections: NnrpTensorSection[];
-    inferenceBudgetMs?: number;
-    deadlineMs?: number;
-}
-
-export interface NnrpResult {
-    frameId: number;
-    resultClass: "complete" | "partial" | "stale_reuse" | "degraded";
-    inferenceMs: number;
-    sections: NnrpTensorSection[];
-}
+export function scoreProviderProbeJson(
+  providerJson: string,
+  policy: TransportPolicy,
+  samplesJson: string
+): string;
 ```
 
----
+`selectTransportWithProbeJson` 与 `scoreProviderProbeJson` 使用 JSON 字符串作为 ABI 边界，方便 `nnrp-js` 在 Node/browser 两侧复用同一套低层 primitive。返回 JSON 中包含 selected provider、probe score、candidate scores 与 rejected candidate diagnostics。
 
-## Web 应用集成规划
+## 策略语义
 
-```html
-<!-- 浏览器端（Preview3 规划） -->
-<script type="module">
-import init, { NnrpWasmClient } from "./pkg/nnrp_ffi.js";
+`auto`、`prefer_quic`、`prefer_tcp` 会在本地 provider、远端能力和 probe 样本之间做综合评分；不会因为 QUIC 能连通就一定选择 QUIC。`force_quic` / `force_tcp` 会在目标 provider 缺失、远端不支持或 probe 全失败时 fail-fast。
 
-await init();
+评分会综合：
 
-const client = new NnrpWasmClient({ maxViews: 1 });
-const session = await client.connect("https://render.example.com/nnrp");
+- RTT / latency
+- timeout 与失败率
+- 有效吞吐
+- 本地 policy 偏好
 
-const result = await session.submit({
-    frameId: 1,
-    sections: [encodedTensorSection],
-    inferenceBudgetMs: 50,
-});
+## 非目标
 
-console.log(`Inference: ${result.inferenceMs}ms, class: ${result.resultClass}`);
-</script>
-```
-
----
-
-## 限制与注意事项
-
-| 限制 | 说明 |
-|---|---|
-| 无 QUIC | 浏览器 WASM 不支持原生 QUIC，使用 WebTransport（基于 HTTP/3）或 WebSocket |
-| 单线程 | WASM 默认单线程，异步推理需要 Web Workers |
-| 包体大小 | Tensor 数据传输需注意 ArrayBuffer 拷贝开销 |
-| TLS | 浏览器强制 HTTPS，开发环境需配置自签证书 |
-
----
-
-## 典型使用场景（Preview3 规划）
-
-### 在浏览器中接入 NNRP
-
-```html
-<script type="module">
-import init, { NnrpWasmClient } from '/pkg/nnrp_wasm.js';
-await init();
-
-// Preview3 预期 API
-const client = await NnrpWasmClient.connect('wss://render.example.com/nnrp');
-const session = await client.openSession();
-
-const result = await session.submit({
-    frameId: 1,
-    inputProfile: 'ChangedTilesLuma',
-    tiles: [3, 7, 12],
-    tensorData: capturedBuffer,
-});
-console.log('推理完成:', result.inferenceMs, 'ms');
-await session.close();
-</script>
-```
-
-### 利用 Web Worker 避免阻塞主线程
-
-```js
-// worker.js
-import init, { NnrpWasmClient } from '/pkg/nnrp_wasm.js';
-await init();
-const client = await NnrpWasmClient.connect(ENDPOINT);
-self.onmessage = async ({ data }) => {
-    const result = await client.openSession().then(s => s.submit(data));
-    self.postMessage(result);
-};
-```
-
----
+- `nnrp-wasm` 不提供 `NnrpWasmClient` / `NnrpWasmSession` 高层 API。
+- `nnrp-rs` 不维护 npm package、bundler adapter、React/Vue 示例或浏览器 transport adapter。
+- raw `nnrp_ffi.wasm` 不是浏览器 SDK；跨语言 C ABI 继续属于 native/FFI 路径。
 
 ## 常见坑点
 
 ::: warning
-1. **WASM 不支持原生 TCP/UDP。** 必须利用 WebSocket 或 WebTransport；不要尝试直连原始套接字。
-
-2. **`ArrayBuffer` 跨 Worker 传递后会转移所有权。** 如果主线程还需读取数据，要先 `slice()` 拷贝。
-
-3. **`wasm-pack build --target web` 输出的 `.js` 和 `.wasm` 必须同时部署，且不要跨域加载。**
-
-4. **当前 WASM 包为 Preview3 占位。** API 形态尚未决定，不要在生产环境中依赖当前接口。
+1. **浏览器不能加载 `.dll` / `.so` / `.dylib`。** Node 可以走 native addon，浏览器只能走 WASM + web transport。
+2. **WASM 不等于传输实现。** WebSocket/WebTransport 连接、重连、鉴权和 fetch/worker 生命周期由 `nnrp-js` 管理。
+3. **选择 QUIC/TCP 不能只看“能通”。** 生产路径应使用 probe score、失败率、远端能力和本地策略综合选择。
 :::
