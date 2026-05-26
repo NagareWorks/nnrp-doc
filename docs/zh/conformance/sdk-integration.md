@@ -1,7 +1,7 @@
 # SDK 集成指南 — 面向 SDK 开发者
 
 <div class="page-note">
-本页面描述当前正式接入模型，并标出已经在协议侧冻结、但尚未成为当前 CI 必需输入的 adapter execution contract。当前正式接入仍然是 capability manifest + exporter command；如果你在维护 conformance 套件本身，请参阅 <a href="./manifests">Manifest 参考</a>。
+本页面描述 SDK 仓库当前正式接入模型。如果你在维护 conformance 套件本身，请参阅 <a href="./manifests">Manifest 参考</a>。
 </div>
 
 ## 集成原则
@@ -10,23 +10,18 @@ SDK 仓库接入 conformance 时，必须遵守以下边界：
 
 1. conformance 必须是**独立 CI job**，不能再嵌入单元测试、覆盖率或语言自带测试框架的主 job。
 2. conformance 的执行编排由 `nnrp-conformance` 提供的 `run-conformance` action 统一负责。
-3. SDK 仓库只负责两件事：声明 capability manifest，以及提供一个能导出本实现向量 manifest 的命令。
-4. SDK 的 pytest、xUnit 或其他单测框架不再读取 suite 生成的临时向量文件，也不再以“跳过式 conformance 测试”充当正式接入方案。
+3. SDK 仓库负责声明 capability manifest，并在开启行为验证时提供 adapter command。
+4. SDK 的 pytest、xUnit 或其他单测框架不能替代 suite 生成的 execution plan 与统一 result schema。
 
-## 两类接入契约不要混淆
+## 接入契约
 
-协议侧现在明确区分两类接入契约：
+suite 负责 baseline 选择、canonical vector 生成、execution plan 创建和 result 校验。SDK 仓库只负责实现自己的 adapter 入口，以及按需附带证据文件。
 
-| 契约 | 当前状态 | 主要职责 | suite 与实现仓库交换什么 |
+| 接入面 | 职责 | suite 与实现仓库交换什么 |
 |---|---|---|---|
-| exporter contract | **当前正式启用** | 校验静态协议字节产物是否与 canonical baseline 一致 | capability manifest、exporter command、vector manifest |
-| adapter execution contract | **协议侧已冻结，尚未成为当前 CI 必需输入** | 执行动态行为用例并回传 machine-readable 结果 | execution plan、adapter command、case result report |
-
-不要把两者混为一谈：
-
-1. exporter contract 不能证明 L1/L2/L3 行为状态机一定正确。
-2. adapter execution contract 也不会替代 exporter contract 的静态字节校验职责。
-3. 在 suite 正式启用 adapter execution 之前，SDK 仓库不应各自发明一套私有 CI 契约并把它包装成公共 conformance 接入面。
+| capability selection | 决定当前实现会被选择哪些公共 case | capability manifest、conformance report |
+| canonical vectors | 从可读 recipe 生成确定性的字节级 fixture | suite 生成的 vector manifest |
+| adapter execution | 执行选中的动态行为用例并返回机器可读结果 | execution plan、adapter command、case-result report |
 
 ---
 
@@ -93,56 +88,43 @@ SDK 仓库接入 conformance 时，必须遵守以下边界：
 
 ---
 
-## 第二步：实现 SDK 向量导出命令（当前正式接入面）
+## 第二步：实现 SDK adapter command
 
-suite action 不直接调用你的测试框架，而是调用你提供的导出命令。这个命令必须使用你自己的 SDK 编码实现，输出与 canonical manifest 同 schema 的 JSON 文件。
+suite action 不直接调用你的测试框架，而是调用你提供的 adapter command。这个命令必须消费 suite 生成的 execution plan，并输出统一 schema 的 case-result report。
 
 ### 命令契约
 
 你的命令至少要支持以下参数：
 
-| 参数 | 是否必填 | 说明 |
+| 环境变量 | 是否必填 | 说明 |
 |---|---|---|
-| `--protocol-version` | **是** | 当前导出的协议版本线。未知版本必须直接失败。 |
-| `--output` | **是** | 输出文件路径。suite action 会把 `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT` 传给你，你的命令必须把结果写到这里。 |
+| `NNRP_CONFORMANCE_ADAPTER_PLAN` | **是** | suite 生成的 execution plan JSON 绝对路径。 |
+| `NNRP_CONFORMANCE_ADAPTER_RESULTS` | **是** | adapter 必须写入的 case-result report JSON 绝对路径。 |
 
 输出文件必须满足以下要求：
 
 1. UTF-8 JSON，建议无 BOM。
-2. 顶层至少包含 `protocol_version`、`generator`、`vectors`。
-3. 每个向量条目至少包含 `name`、`kind`、`hex`、`bytes`；`description` 可选。
-4. 向量名称必须与 canonical recipe 的稳定名称一一对应。
+2. 顶层必须包含 `protocol_version`、`implementation_name` 和 `results`。
+3. 每个 result 条目必须包含 `id` 和 `outcome`。
+4. result id 必须与 execution plan 中的 case id 完全一致。
 
 ### 推荐的命令形态
 
 Python：
 
 ```bash
-python -m nnrp.tools.conformance --protocol-version "<protocol-version>" --output "$NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT"
+python -m nnrp.tools.adapter_conformance
 ```
 
 C#：
 
 ```powershell
-dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csproj -- --protocol-version <protocol-version> --output $env:NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT
+dotnet run --project tools/Nnrp.ConformanceAdapter/Nnrp.ConformanceAdapter.csproj
 ```
 
 ::: tip 这里不要再写嵌入式 conformance 测试
-正式接入边界是“导出命令 + suite action”，而不是“pytest/xUnit 读取临时 manifest 再断言一遍”。语言内测试仍可保留本仓库自己的单元/集成回归，但它们不再承担公共 conformance 职责。
+正式接入边界是“suite-owned plan + adapter command + suite-validated results”。语言内测试仍可保留本仓库自己的单元/集成回归，但它们不再承担公共 conformance 职责。
 :::
-
----
-
-## 后续预留：adapter execution contract
-
-虽然当前正式 CI 接入仍然只要求 exporter command，但协议侧已经冻结了后续的 adapter execution contract 边界。SDK 开发者现在应理解以下规则：
-
-1. suite 会先基于 protocol manifest 和 capability manifest 生成 execution plan，而不是让 SDK 自己决定跑哪些公共 case。
-2. SDK 仓库未来提供的 adapter command，消费的是语言无关的 execution plan JSON，并返回语言无关的 case result report JSON。
-3. suite 不会把 `pytest`、`xUnit`、`cargo test` 过滤表达式、内部模块路径或测试框架对象模型冻结成公共接口。
-4. 产品级 runtime、宿主业务后端、部署脚本和外部服务启动约定，不属于 adapter execution contract 的公共输入。
-
-因此，在 adapter execution 正式落地之前，SDK 仓库应该避免先行把某个本地测试框架命令、某组内部测试名或某条宿主集成脚本当成“未来公共 adapter API”。
 
 ---
 
@@ -151,7 +133,7 @@ dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csp
 CI 正式路径应优先使用 suite action；以下命令只用于本地排障和人工核对。
 
 ::: tip 替换成你的目标 baseline
-以下命令中的 `<protocol-version>`、`<path-to-protocol-manifest>` 和 `<path-to-recipe>` 都应替换成你当前对接的版本线。当前仓库里如果你想直接看一份 recipe-backed 示例，可以先参考 Preview2 的 `protocol/nnrp-1-preview2/vectors/semantic-vectors.json`。
+以下命令中的 `<protocol-version>`、`<path-to-protocol-manifest>` 和 `<path-to-recipe>` 都应替换成你当前对接的版本线。
 :::
 
 ### `summary` — 查看 execution plan
@@ -174,7 +156,7 @@ cargo run \
   -p nnrp-conformance-runner \
   -- \
   generate-vectors \
-  --recipe <nnrp-conformance 路径>/protocol/nnrp-1-preview2/vectors/semantic-vectors.json \
+  --recipe <nnrp-conformance 路径>/protocol/<protocol-version>/vectors/semantic-vectors.json \
   --output /tmp/canonical-vectors.json
 ```
 
@@ -186,20 +168,20 @@ cargo run \
   -p nnrp-conformance-runner \
   -- \
   verify-vectors \
-  --recipe <nnrp-conformance 路径>/protocol/nnrp-1-preview2/vectors/semantic-vectors.json \
+  --recipe <nnrp-conformance 路径>/protocol/<protocol-version>/vectors/semantic-vectors.json \
   --manifest /tmp/canonical-vectors.json
 ```
 
-### `compare-vector-manifests` — 对比 SDK 导出结果与 canonical 结果
+### `validate-adapter-results` — 校验 adapter 输出
 
 ```bash
 cargo run \
   --manifest-path <nnrp-conformance 路径>/Cargo.toml \
   -p nnrp-conformance-runner \
   -- \
-  compare-vector-manifests \
-  --expected /tmp/canonical-vectors.json \
-  --actual /tmp/sdk-vectors.json
+  validate-adapter-results \
+  --plan /tmp/adapter-plan.json \
+  --results /tmp/adapter-results.json
 ```
 
 ---
@@ -211,17 +193,17 @@ cargo run \
 1. 保留语言原生的 `test` / `coverage` job，只做本仓库测试。
 2. 额外新增一个独立的 `conformance` job。
 3. 在该 job 中检出 suite 仓库，并调用 `run-conformance` action。
-4. 通过 `sdk-vector-command` 把你的导出命令交给 suite action 执行。
+4. 通过 `adapter-command` 把你的 adapter 命令交给 suite action 执行。
 
 ### `run-conformance` 的关键输入
 
 | 输入 | 说明 |
 |---|---|
-| `protocol-version` | 目标协议版本线，例如 `nnrp-1-preview2`。 |
+| `protocol-version` | 目标协议版本线，例如 `nnrp-1-preview3`。 |
 | `capabilities-path` | 你的 capability manifest 路径。 |
-| `working-directory` | 在 SDK 仓库中执行导出命令的目录。 |
+| `working-directory` | 在 SDK 仓库中执行 adapter command 的目录。 |
 | `artifact-name` | CI 中上传 conformance 报告与向量文件的 artifact 名称。默认建议使用通用名，例如 `<repo>-conformance`；只有在同一工作流并列发布多个版本时才需要附带版本后缀。 |
-| `sdk-vector-command` | 你的 SDK 向量导出命令。suite action 会提供 `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`。 |
+| `adapter-command` | 消费 `NNRP_CONFORMANCE_ADAPTER_PLAN` 并写入 `NNRP_CONFORMANCE_ADAPTER_RESULTS` 的命令。 |
 
 ### GitHub Actions 示例
 
@@ -267,7 +249,7 @@ jobs:
           capabilities-path: ${{ steps.conformance-baseline.outputs.capabilities_path }}
           working-directory: .
           artifact-name: <repo>-conformance
-          sdk-vector-command: <你的导出命令>
+          adapter-command: <你的 adapter 命令>
 ```
 
 ---
@@ -276,8 +258,8 @@ jobs:
 
 | 错误 | 原因 | 解决方法 |
 |---|---|---|
-| `protocol version mismatch` | capability manifest、suite action 输入和导出命令使用了不同版本字符串。 | 统一 `protocol-version`、capability manifest 的 `protocol_version`，以及导出命令的入参。 |
-| `sdk-vector-command` 成功退出，但找不到输出文件 | 你的导出命令没有写入 `--output` 指定路径。 | 确认命令实际消费了 `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT` 对应的路径。 |
+| `protocol version mismatch` | capability manifest、suite action 输入和 adapter result 使用了不同版本字符串。 | 统一 `protocol-version`、capability manifest 的 `protocol_version` 和 result report。 |
+| `adapter-command` 成功退出，但找不到输出文件 | adapter 没有写入预期 result 路径。 | 确认命令实际写入 `NNRP_CONFORMANCE_ADAPTER_RESULTS`。 |
 | JSON 在第 1 列解析失败 | 输出文件编码包含 BOM 或文件内容不是合法 JSON。 | 使用 UTF-8 无 BOM 输出，并确认命令失败时返回非零退出码。 |
-| 向量名称不匹配 | SDK 导出函数使用了本地私有命名，而不是 canonical recipe 名称。 | 让导出结果的 `name` 与 canonical recipe 中的稳定名称完全一致。 |
+| result id 不匹配 | adapter 返回了本地私有 id，而不是 plan 中的 case id。 | 直接使用 execution plan 中的 `id`。 |
 | 所有用例均为 `not_claimed` | capability manifest 的 `supports` 为空，或声明的 token 与目标版本不匹配。 | 检查 `supports` 和 `protocol_version`。 |

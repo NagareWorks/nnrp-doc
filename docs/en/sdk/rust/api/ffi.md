@@ -132,7 +132,7 @@ version = lib.nnrp_current_protocol_version()
 
 ## `nnrp-conformance` Crate
 
-`nnrp-conformance` exports Rust-generated preview3 golden vectors, fixture manifests, and an adapter wrapper. Downstream SDKs should consume those fixtures as the canonical preview3 baseline.
+`nnrp-conformance` hosts Rust-backed conformance case execution and adapter helpers. Downstream SDKs should consume the versioned `nnrp-conformance` baseline through suite-owned manifests, plans, and result schemas.
 
 ## Current Boundary
 
