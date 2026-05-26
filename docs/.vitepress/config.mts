@@ -31,8 +31,8 @@ const customStyle = `
 /* Language homepages */
 .landing-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
-  gap: 30px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
   align-items: stretch;
   max-width: 1160px;
   margin: 20px auto 0;
@@ -40,26 +40,24 @@ const customStyle = `
   box-sizing: border-box;
 }
 
-.landing-hero__banner,
+.landing-hero__banner {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--nnrp-border);
+  border-radius: 24px;
+  background: #0f172a;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
+}
+
 .landing-hero__intro {
   border: 1px solid var(--nnrp-border);
   border-radius: 24px;
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
-}
-
-.landing-hero__banner {
-  display: block;
-  width: 100%;
-  min-height: 320px;
-  object-fit: cover;
-  background: #0f172a;
-}
-
-.landing-hero__intro {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 34px;
+  justify-content: flex-start;
+  padding: 28px 34px;
   background:
     radial-gradient(circle at 20% 20%, rgba(15, 118, 110, 0.16), transparent 34%),
     linear-gradient(135deg, #ffffff, #f5efe5 58%, #e7eef9);
@@ -180,10 +178,6 @@ const customStyle = `
   .landing-hero__intro,
   .landing-panel {
     border-radius: 18px;
-  }
-
-  .landing-hero__banner {
-    min-height: 180px;
   }
 
   .landing-hero__intro {
