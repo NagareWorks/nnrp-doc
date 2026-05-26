@@ -110,12 +110,33 @@ const customStyle = `
   font-weight: 700;
   text-decoration: none;
   box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+  transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .landing-action.primary {
   border-color: transparent;
   background: #0f766e;
   color: #f8fafc;
+}
+
+.vp-doc a.landing-action,
+.vp-doc a.landing-action:hover,
+.vp-doc a.landing-action:focus-visible {
+  text-decoration: none;
+}
+
+.vp-doc a.landing-action:hover {
+  transform: translateY(-1px);
+  border-color: rgba(15, 118, 110, 0.28);
+  color: #0f172a;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+}
+
+.vp-doc a.landing-action.primary:hover {
+  border-color: transparent;
+  background: #115e59;
+  color: #f8fafc;
+  box-shadow: 0 16px 32px rgba(15, 118, 110, 0.24);
 }
 
 .landing-panels {
@@ -129,18 +150,56 @@ const customStyle = `
 }
 
 .landing-panel {
+  position: relative;
   display: block;
   min-height: 142px;
   padding: 22px;
   border: 1px solid var(--nnrp-border);
   border-radius: 20px;
-  background: #fff;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
   color: inherit;
   text-decoration: none;
   box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.landing-panel::before {
+  position: absolute;
+  inset: -42%;
+  z-index: 0;
+  content: "";
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.74), transparent 18%),
+    linear-gradient(115deg, transparent 36%, rgba(15, 118, 110, 0.14) 48%, rgba(196, 96, 38, 0.16) 56%, transparent 68%);
+  opacity: 0;
+  transform: translate3d(-18%, -10%, 0) rotate(8deg);
+  transition: opacity 0.22s ease, transform 0.32s ease;
+}
+
+.vp-doc a.landing-panel,
+.vp-doc a.landing-panel:hover,
+.vp-doc a.landing-panel:focus-visible {
+  color: inherit;
+  text-decoration: none;
+}
+
+.vp-doc a.landing-panel:hover {
+  transform: translateY(-3px);
+  border-color: rgba(15, 118, 110, 0.28);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.13);
+}
+
+.vp-doc a.landing-panel:hover::before {
+  opacity: 1;
+  transform: translate3d(12%, 8%, 0) rotate(8deg);
 }
 
 .landing-panel span {
+  position: relative;
+  z-index: 1;
   display: block;
   margin-bottom: 10px;
   color: #c46026;
@@ -151,11 +210,15 @@ const customStyle = `
 }
 
 .landing-panel strong {
+  position: relative;
+  z-index: 1;
   display: block;
   font-size: 18px;
 }
 
 .landing-panel p {
+  position: relative;
+  z-index: 1;
   margin: 10px 0 0;
   color: var(--nnrp-text-soft);
   line-height: 1.6;
