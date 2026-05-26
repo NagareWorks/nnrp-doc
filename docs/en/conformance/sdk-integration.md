@@ -1,7 +1,7 @@
 # SDK Integration Guide — For SDK Authors
 
 <div class="page-note">
-This page documents the current formal integration model and marks the adapter execution contract that is already frozen at the protocol-design level but is not yet a required CI input. The current formal integration path remains capability manifest + exporter command. If you are maintaining the suite itself, see <a href="./manifests">Manifests Reference</a>.
+This page documents the current formal integration model for SDK repositories. If you are maintaining the suite itself, see <a href="./manifests">Manifests Reference</a>.
 </div>
 
 ## Integration Rules
@@ -10,23 +10,18 @@ When an SDK repository integrates conformance, these boundaries are mandatory:
 
 1. Conformance must run in a **dedicated CI job**, not inside the main unit-test or coverage job.
 2. Execution orchestration is owned by the `run-conformance` action provided by `nnrp-conformance`.
-3. The SDK repository only provides two inputs: a capability manifest and a command that exports the SDK's vector manifest.
-4. SDK-local pytest, xUnit, or other language-native tests must no longer read suite-generated temporary vector manifests as the formal integration path.
+3. The SDK repository provides a capability manifest and, when behavior validation is enabled, an adapter command.
+4. SDK-local pytest, xUnit, or other language-native tests must not replace the suite-owned execution plan and result schema.
 
-## Do not confuse the two integration contracts
+## Integration Contract
 
-The protocol side now distinguishes two integration contracts explicitly:
+The suite owns baseline selection, canonical vector generation, execution-plan creation, and result validation. SDK repositories own only their implementation-specific adapter entrypoint and any evidence files they choose to attach.
 
-| Contract | Current status | Primary responsibility | What the suite exchanges with the implementation repository |
-|---|---|---|---|
-| exporter contract | **formally enabled today** | Validate that static protocol artifacts match the canonical baseline | capability manifest, exporter command, vector manifest |
-| adapter execution contract | **frozen at the protocol side, not yet a required CI input** | Execute dynamic behavior cases and return machine-readable results | execution plan, adapter command, case-result report |
-
-These two contracts must not be collapsed into one idea:
-
-1. The exporter contract cannot prove that L1/L2/L3 behavioral state machines are correct.
-2. The adapter execution contract will not replace the exporter's static byte-level validation role.
-3. Until the suite formally enables adapter execution, SDK repositories should not invent private CI contracts and present them as the public conformance integration surface.
+| Surface | Responsibility | What the suite exchanges with the implementation repository |
+|---|---|---|
+| capability selection | Decide which public cases are selected for this implementation | capability manifest, conformance report |
+| canonical vectors | Produce deterministic byte-level fixtures from readable recipes | suite-generated vector manifest |
+| adapter execution | Execute selected dynamic behavior cases and return machine-readable results | execution plan, adapter command, case-result report |
 
 ---
 
@@ -90,56 +85,43 @@ Claiming a capability means accepting a hard CI gate for every `mandatory` case 
 
 ---
 
-## Step 2: Implement the SDK vector exporter command (the current formal integration surface)
+## Step 2: Implement the SDK adapter command
 
-The suite action does not call your test framework directly. It calls an exporter command provided by your SDK repository. That command must use your real SDK encoding implementation and emit a JSON manifest in the shared vector schema.
+The suite action does not call your test framework directly. It calls an adapter command provided by your SDK repository. That command must consume the suite-owned execution plan and emit a case-result report in the shared schema.
 
 ### Command contract
 
 Your command must support at least these arguments:
 
-| Argument | Required | Description |
+| Environment variable | Required | Description |
 |---|---|---|
-| `--protocol-version` | **yes** | Target protocol line to export. Unsupported versions must fail immediately. |
-| `--output` | **yes** | Output file path. The suite action passes `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`; your command must write the manifest there. |
+| `NNRP_CONFORMANCE_ADAPTER_PLAN` | **yes** | Absolute path to the suite-generated execution plan JSON. |
+| `NNRP_CONFORMANCE_ADAPTER_RESULTS` | **yes** | Absolute path where the adapter must write the case-result report JSON. |
 
 The output file must satisfy all of the following:
 
 1. UTF-8 JSON, preferably without BOM.
-2. Top-level fields must include at least `protocol_version`, `generator`, and `vectors`.
-3. Each vector entry must include at least `name`, `kind`, `hex`, and `bytes`; `description` is optional.
-4. Vector names must match the canonical recipe's stable names exactly.
+2. Top-level fields must include `protocol_version`, `implementation_name`, and `results`.
+3. Each result entry must include `id` and `outcome`.
+4. Result ids must match the execution-plan case ids exactly.
 
 ### Recommended command shapes
 
 Python:
 
 ```bash
-python -m nnrp.tools.conformance --protocol-version "<protocol-version>" --output "$NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT"
+python -m nnrp.tools.adapter_conformance
 ```
 
 C#:
 
 ```powershell
-dotnet run --project tools/Nnrp.ConformanceExporter/Nnrp.ConformanceExporter.csproj -- --protocol-version <protocol-version> --output $env:NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT
+dotnet run --project tools/Nnrp.ConformanceAdapter/Nnrp.ConformanceAdapter.csproj
 ```
 
 ::: tip Do not add embedded conformance tests here
-The formal integration contract is now “exporter command + suite action”, not “pytest/xUnit reads a temporary manifest and re-checks it”. Local unit and integration tests still matter, but they are not the shared conformance surface.
+The formal integration contract is “suite-owned plan + adapter command + suite-validated results”. Local unit and integration tests still matter, but they are not the shared conformance surface.
 :::
-
----
-
-## Reserved next stage: adapter execution contract
-
-Although the current formal CI path still requires only the exporter command, the protocol side has already frozen the boundary of the future adapter execution contract. SDK authors should now treat the following rules as fixed:
-
-1. The suite will compute the execution plan from the protocol manifest and capability manifest; the SDK must not decide on its own which public cases to run.
-2. The future adapter command will consume a language-neutral execution plan JSON and return a language-neutral case-result report JSON.
-3. The suite will not freeze `pytest`, `xUnit`, `cargo test` filters, internal module paths, or framework object models as the public interface.
-4. Product-specific runtimes, host business backends, deployment scripts, and external service startup conventions do not belong to the public adapter execution contract.
-
-Therefore, before adapter execution is formally enabled, SDK repositories should avoid prematurely treating one local test-framework command, one internal test list, or one host-integration script as the future public adapter API.
 
 ---
 
@@ -148,7 +130,7 @@ Therefore, before adapter execution is formally enabled, SDK repositories should
 The formal CI path should use the suite action. The commands below are for local debugging and manual inspection only.
 
 ::: tip Replace these with your target baseline
-Substitute `<protocol-version>`, `<path-to-protocol-manifest>`, and `<path-to-recipe>` with the version line you are currently integrating. If you want a concrete recipe-backed example from the current repository, preview2 still provides `protocol/nnrp-1-preview2/vectors/semantic-vectors.json`.
+Substitute `<protocol-version>`, `<path-to-protocol-manifest>`, and `<path-to-recipe>` with the version line you are currently integrating.
 :::
 
 ### `summary` — inspect the execution plan
@@ -171,7 +153,7 @@ cargo run \
   -p nnrp-conformance-runner \
   -- \
   generate-vectors \
-  --recipe <path-to-nnrp-conformance>/protocol/nnrp-1-preview2/vectors/semantic-vectors.json \
+  --recipe <path-to-nnrp-conformance>/protocol/<protocol-version>/vectors/semantic-vectors.json \
   --output /tmp/canonical-vectors.json
 ```
 
@@ -183,20 +165,20 @@ cargo run \
   -p nnrp-conformance-runner \
   -- \
   verify-vectors \
-  --recipe <path-to-nnrp-conformance>/protocol/nnrp-1-preview2/vectors/semantic-vectors.json \
+  --recipe <path-to-nnrp-conformance>/protocol/<protocol-version>/vectors/semantic-vectors.json \
   --manifest /tmp/canonical-vectors.json
 ```
 
-### `compare-vector-manifests` — compare SDK output against canonical output
+### `validate-adapter-results` — validate adapter output
 
 ```bash
 cargo run \
   --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
   -p nnrp-conformance-runner \
   -- \
-  compare-vector-manifests \
-  --expected /tmp/canonical-vectors.json \
-  --actual /tmp/sdk-vectors.json
+  validate-adapter-results \
+  --plan /tmp/adapter-plan.json \
+  --results /tmp/adapter-results.json
 ```
 
 ---
@@ -208,17 +190,17 @@ cargo run \
 1. Keep your language-native `test` or `coverage` job focused on repository-local validation.
 2. Add a separate `conformance` job.
 3. In that job, checkout the suite repository and call `run-conformance`.
-4. Pass your exporter command through `sdk-vector-command`.
+4. Pass your adapter command through `adapter-command`.
 
 ### Key `run-conformance` inputs
 
 | Input | Description |
 |---|---|
-| `protocol-version` | Target protocol line, e.g. `nnrp-1-preview2`. |
+| `protocol-version` | Target protocol line, e.g. `nnrp-1-preview3`. |
 | `capabilities-path` | Path to your capability manifest. |
-| `working-directory` | Directory in which the exporter command should run. |
+| `working-directory` | Directory in which the adapter command should run. |
 | `artifact-name` | Artifact name used for reports and generated manifests. The default recommendation is a generic name such as `<repo>-conformance`; only append the version when one workflow intentionally publishes multiple protocol lines side by side. |
-| `sdk-vector-command` | Command that exports your SDK vector manifest. The suite action provides `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`. |
+| `adapter-command` | Command that consumes `NNRP_CONFORMANCE_ADAPTER_PLAN` and writes `NNRP_CONFORMANCE_ADAPTER_RESULTS`. |
 
 ### GitHub Actions example
 
@@ -245,7 +227,7 @@ jobs:
           path: nnrp-conformance-action
 
       - name: Setup language runtime
-        run: <install the runtime your SDK exporter needs>
+        run: <install the runtime your SDK adapter needs>
 
       - name: Resolve conformance baseline
         id: conformance-baseline
@@ -264,7 +246,7 @@ jobs:
           capabilities-path: ${{ steps.conformance-baseline.outputs.capabilities_path }}
           working-directory: .
           artifact-name: <repo>-conformance
-          sdk-vector-command: <your exporter command>
+          adapter-command: <your adapter command>
 ```
 
 ---
@@ -273,8 +255,8 @@ jobs:
 
 | Error | Cause | Resolution |
 |---|---|---|
-| `protocol version mismatch` | Capability manifest, suite action input, and exporter command use different version strings. | Align `protocol-version`, the capability manifest's `protocol_version`, and the exporter's argument. |
-| `sdk-vector-command` exits successfully but no output file exists | The exporter ignored the `--output` path. | Ensure the command writes exactly to the path given by `NNRP_CONFORMANCE_SDK_VECTOR_OUTPUT`. |
-| JSON parse fails at column 1 | The output file contains a BOM or is not valid JSON. | Emit UTF-8 JSON without BOM and return a non-zero exit code on exporter failure. |
-| Vector names do not match | The SDK exporter uses local private names instead of canonical recipe names. | Export the exact stable `name` values from the canonical recipe. |
+| `protocol version mismatch` | Capability manifest, suite action input, and adapter result use different version strings. | Align `protocol-version`, the capability manifest's `protocol_version`, and the result report. |
+| `adapter-command` exits successfully but no output file exists | The adapter did not write the expected result path. | Ensure the command writes exactly to `NNRP_CONFORMANCE_ADAPTER_RESULTS`. |
+| JSON parse fails at column 1 | The output file contains a BOM or is not valid JSON. | Emit UTF-8 JSON without BOM and return a non-zero exit code on adapter failure. |
+| Result ids do not match | The adapter returned local private ids instead of plan case ids. | Copy the exact `id` values from the execution plan. |
 | All cases are `not_claimed` | The capability manifest's `supports` list is empty or mismatched for the chosen protocol version. | Verify `supports` and `protocol_version`. |

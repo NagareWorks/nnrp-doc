@@ -40,7 +40,7 @@ The protocol document freezes semantics. The conformance suite turns frozen sema
 `nnrp-rs` owns:
 
 1. The canonical `nnrp-conformance` artifacts and the first reference implementation.
-2. The export of golden vectors, fixture manifests, state-machine scenarios, error-path baselines, and machine-readable report formats.
+2. The generation of recipe-backed vectors, fixture manifests, state-machine scenarios, error-path baselines, and machine-readable report formats.
 3. Acting as the first implementation that consumes the protocol document, while still not inventing protocol semantics before they are frozen in `nnrp-doc`.
 
 ### 3.3 What SDK and Runtime Repositories Own
@@ -162,31 +162,9 @@ An important distinction must remain explicit:
 1. The public protocol contract consists of fixtures, manifests, case semantics, and report formats.
 2. The internal Rust API of `nnrp-conformance` may evolve and does not need to be frozen as a cross-language public API.
 
-### 9.1 The currently frozen static integration contract
+### 9.1 The frozen adapter execution contract
 
-The integration contract that is already formally frozen and allowed in SDK CI today is the static artifact contract, not the behavior-execution contract.
-
-It consists of three parts:
-
-1. Capability manifest: the implementation declares which capability tokens it supports, and the suite uses that declaration to select `mandatory` and `optional` cases.
-2. Exporter command: the implementation repository provides a command that accepts `protocol-version` and an output path, then uses its real encoder implementation to emit a vector manifest.
-3. Vector comparison: the suite compares the implementation-produced vector manifest against the canonical manifest deterministically.
-
-This static integration contract answers only one question:
-
-"Does this implementation produce protocol artifacts that match the canonical baseline for the same protocol version?"
-
-It does not directly answer whether session, operation, flow-control, resume, or submit/result state-machine behavior is executed correctly.
-
-### 9.2 The reserved and frozen adapter execution contract
-
-In addition to the static exporter contract, the protocol side must reserve and freeze a behavior-execution integration surface: the adapter execution contract.
-
-Its boundary relative to the exporter contract must remain explicit:
-
-1. The exporter contract validates static protocol artifacts; the adapter execution contract validates dynamic behavior cases.
-2. The exporter contract does not replace the adapter execution contract; both should exist in parallel rather than as alternatives.
-3. The public interface of the adapter execution contract must be language-neutral input/output JSON, not a private invocation convention tied to one repository's test framework.
+The protocol side freezes a behavior-execution integration surface: the adapter execution contract. Its public interface must be language-neutral input/output JSON, not a private invocation convention tied to one repository's test framework.
 
 At minimum, the adapter execution contract freezes the following public boundaries:
 
@@ -206,12 +184,7 @@ The recommended execution model is "one canonical suite, many language adapters"
 2. Each implementation repository provides a language-specific test driver or adapter.
 3. CI selects the target protocol version, runs the corresponding case set, and emits results in one common format.
 
-The current design must distinguish two integration paths clearly:
-
-1. Static path: capability manifest + exporter command + canonical vector comparison.
-2. Dynamic path: execution plan + implementation-owned adapter command + case-result report.
-
-The static path is the one formally enabled today. The dynamic path is now frozen at the protocol-design level so that it can be implemented incrementally later without every repository inventing its own private contract.
+The shared integration path is capability manifest + suite-owned execution plan + implementation-owned adapter command + case-result report. Canonical byte vectors remain suite-owned artifacts generated from readable recipes and validated by the suite itself.
 
 In other words, it is not recommended for every SDK to hand-write a separate set of "roughly similar" protocol tests. That only creates multiple drifting pseudo-baselines.
 

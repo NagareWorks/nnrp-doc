@@ -132,7 +132,7 @@ version = lib.nnrp_current_protocol_version()
 
 ## `nnrp-conformance` crate
 
-同工作区下的一致性测试 crate，导出 Rust 生成的 preview3 golden vectors、fixture manifest 与 adapter wrapper。下游 SDK 应把这些 fixture 作为 canonical preview3 基线。
+同工作区下的一致性测试 crate，承载 Rust 侧 conformance case 执行与 adapter helper。下游 SDK 应通过 suite-owned manifest、plan 与 result schema 消费版本化 `nnrp-conformance` 基线。
 
 ## 当前边界
 
