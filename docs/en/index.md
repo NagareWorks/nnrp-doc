@@ -1,40 +1,40 @@
-# Documentation Overview
+---
+layout: home
+---
 
-The first thing readers should see here is the global story: what NNRP is, which real-time problems it targets, which objects it is built around, and only then which version branch to enter.
-
-1. Global concepts and usage first.
-2. Core objects, flows, and stable packet skeletons next.
-3. Version-specific entry points after that.
-
-<div class="doc-grid">
-  <div class="doc-card">
-    <h3>Start from global concepts</h3>
-    <p>Begin with the background, use cases, core objects, and common header instead of one preview branch.</p>
+<section class="landing-hero">
+  <img class="landing-hero__banner" src="/brand/nnrp-readme-banner.svg" alt="NNRP - Neural Network Runtime Protocol" />
+  <div class="landing-hero__intro">
+    <p class="landing-hero__eyebrow">Neural Network Runtime Protocol</p>
+    <h1>Real-time AI Runtime Protocol</h1>
+    <p>
+      NNRP is a domain-level application protocol for AI model calls, streaming results,
+      cache bindings, and session migration. It moves runtime cooperation semantics into
+      the protocol layer so SDKs, conformance suites, and cloud runtime integrations can
+      evolve around the same contract.
+    </p>
+    <div class="landing-actions">
+      <a class="landing-action primary" href="overview">Protocol</a>
+      <a class="landing-action" href="conformance/">Conformance</a>
+      <a class="landing-action" href="sdk/">SDK</a>
+    </div>
   </div>
-  <div class="doc-card">
-    <h3>Version entry</h3>
-    <p>Use Version Entry and Boundaries together with the current NNRP/1 entry to read the active public contract and its boundaries.</p>
-  </div>
-  <div class="doc-card">
-    <h3>Protocol design</h3>
-    <p>When you need the frozen scope, design tradeoffs, and detailed preview plans, go straight to the protocol design pages.</p>
-  </div>
-  <div class="doc-card">
-    <h3>SDK control plane</h3>
-    <p>Enter the dedicated SDK view when you need the frozen control-plane surface, language-specific entry points, and deployment guidance.</p>
-  </div>
-  <div class="doc-card">
-    <h3>Conformance</h3>
-    <p>Enter the dedicated conformance view when you need shared test-suite integration guidance, manifest contracts, and CI version-selection rules.</p>
-  </div>
-</div>
+</section>
 
-Recommended reading order:
-
-1. [Background and Intro](/en/background) and [Use Cases and Boundaries](/en/use-cases).
-2. [Core Objects and Flow](/en/core-concepts), [Standard Profiles](/en/profiles/), and [Common Header](/en/common-header/).
-3. Then continue with [Version Entry and Boundaries](/en/protocol/) and [NNRP/1 (Preview)](/en/protocol/v1/).
-
-If you are integrating through a language SDK, start from [SDK Overview](/en/sdk/).
-
-If you are wiring the shared conformance suite into an implementation repository, start from [Conformance Overview](/en/conformance/).
+<section class="landing-panels">
+  <a class="landing-panel" href="overview">
+    <span>Protocol</span>
+    <strong>Overview</strong>
+    <p>Start from the background, boundaries, core objects, and version entry points.</p>
+  </a>
+  <a class="landing-panel" href="conformance/">
+    <span>Conformance</span>
+    <strong>Shared Test Suite</strong>
+    <p>Read capability manifests, CI integration, and version-selection rules.</p>
+  </a>
+  <a class="landing-panel" href="sdk/">
+    <span>SDK</span>
+    <strong>Language SDKs</strong>
+    <p>Open quick starts and API references for Python, C#, Rust, and more.</p>
+  </a>
+</section>

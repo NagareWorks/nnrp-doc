@@ -28,40 +28,75 @@ const customStyle = `
   display: none;
 }
 
-/* Bilingual root homepage */
-.bilingual-index {
+/* Language homepages */
+.landing-hero {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 32px;
-  max-width: 1152px;
-  margin: 0 auto;
-  padding: 48px 24px;
-  box-sizing: border-box;
-}
-
-.brand-banner {
-  max-width: 1120px;
+  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+  gap: 30px;
+  align-items: stretch;
+  max-width: 1160px;
   margin: 20px auto 0;
   padding: 0 24px;
   box-sizing: border-box;
 }
 
-.brand-banner img {
-  display: block;
-  width: 100%;
-  border-radius: 28px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+.landing-hero__banner,
+.landing-hero__intro {
+  border: 1px solid var(--nnrp-border);
+  border-radius: 24px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
 }
 
-.landing-actions {
+.landing-hero__banner {
+  display: block;
+  width: 100%;
+  min-height: 320px;
+  object-fit: cover;
+  background: #0f172a;
+}
+
+.landing-hero__intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 34px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(15, 118, 110, 0.16), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f5efe5 58%, #e7eef9);
+}
+
+.landing-hero__eyebrow {
+  margin: 0 0 10px;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.landing-hero__intro h1 {
+  margin: 0;
+  font-size: 36px;
+  line-height: 1.12;
+}
+
+.landing-hero__intro p:not(.landing-hero__eyebrow) {
+  margin: 16px 0 0;
+  color: #334155;
+  line-height: 1.7;
+}
+
+.landing-actions,
+.language-fallback {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: 12px;
-  max-width: 1120px;
-  margin: 22px auto 0;
-  padding: 0 24px;
-  box-sizing: border-box;
+  margin-top: 24px;
+}
+
+.language-fallback {
+  justify-content: center;
+  padding: 80px 24px;
 }
 
 .landing-action {
@@ -71,7 +106,7 @@ const customStyle = `
   padding: 0 18px;
   border: 1px solid var(--nnrp-border);
   border-radius: 21px;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
   font-size: 14px;
   font-weight: 700;
@@ -85,48 +120,78 @@ const customStyle = `
   color: #f8fafc;
 }
 
-.bilingual-col {
-  padding: 28px 32px;
+.landing-panels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  max-width: 1160px;
+  margin: 18px auto 0;
+  padding: 0 24px 48px;
+  box-sizing: border-box;
+}
+
+.landing-panel {
+  display: block;
+  min-height: 142px;
+  padding: 22px;
   border: 1px solid var(--nnrp-border);
   border-radius: 20px;
-  background: var(--nnrp-surface);
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
 }
 
-.bilingual-col h2 {
-  margin-top: 0;
-  margin-bottom: 14px;
-  font-size: 20px;
+.landing-panel span {
+  display: block;
+  margin-bottom: 10px;
+  color: #c46026;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.bilingual-col ul {
-  margin: 12px 0 20px;
-  padding-left: 20px;
+.landing-panel strong {
+  display: block;
+  font-size: 18px;
 }
 
-.bilingual-col li {
-  margin: 6px 0;
+.landing-panel p {
+  margin: 10px 0 0;
   color: var(--nnrp-text-soft);
+  line-height: 1.6;
 }
 
-@media (max-width: 768px) {
-  .bilingual-index {
+@media (max-width: 860px) {
+  .landing-hero,
+  .landing-panels {
     grid-template-columns: 1fr;
-    gap: 20px;
-    padding: 32px 16px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
-  .brand-banner {
+  .landing-hero {
+    gap: 16px;
     margin-top: 10px;
-    padding: 0 16px;
   }
 
-  .brand-banner img {
+  .landing-hero__banner,
+  .landing-hero__intro,
+  .landing-panel {
     border-radius: 18px;
   }
 
-  .landing-actions {
-    justify-content: flex-start;
-    padding: 0 16px;
+  .landing-hero__banner {
+    min-height: 180px;
+  }
+
+  .landing-hero__intro {
+    padding: 24px;
+  }
+
+  .landing-hero__intro h1 {
+    font-size: 28px;
   }
 }
 
@@ -526,7 +591,7 @@ const zhSidebar = {
   {
     text: "文档总览",
     items: [
-      { text: "总览", link: "/zh/" },
+      { text: "总览", link: "/zh/overview" },
       { text: "协议背景与介绍", link: "/zh/background" },
       { text: "常见场景与边界", link: "/zh/use-cases" }
     ]
@@ -633,7 +698,7 @@ const enSidebar = {
   {
     text: "Documentation",
     items: [
-      { text: "Overview", link: "/en/" },
+      { text: "Overview", link: "/en/overview" },
       { text: "Background and Intro", link: "/en/background" },
       { text: "Use Cases and Boundaries", link: "/en/use-cases" }
     ]
@@ -733,7 +798,7 @@ export default withMermaid(defineConfig({
       link: "/zh/",
       themeConfig: {
         nav: [
-          { text: "协议", link: "/zh/" },
+          { text: "协议", link: "/zh/overview" },
           { text: "Conformance", link: "/zh/conformance/" },
           { text: "SDK", link: "/zh/sdk/" }
         ],
@@ -749,7 +814,7 @@ export default withMermaid(defineConfig({
       link: "/en/",
       themeConfig: {
         nav: [
-          { text: "Protocol", link: "/en/" },
+          { text: "Protocol", link: "/en/overview" },
           { text: "Conformance", link: "/en/conformance/" },
           { text: "SDK", link: "/en/sdk/" }
         ],
