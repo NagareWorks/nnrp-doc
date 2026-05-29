@@ -2,6 +2,8 @@
 
 客户端 API 定义在 `nnrp.client` 包中。
 
+Host runtime 集成应优先使用高层 client/session API，以及 `nnrp.native` 导出的 native runtime facade。本页里的低层 packet builder 仍然是公开 API，主要用于测试、诊断和自定义传输实验。
+
 ## 导入
 
 ```python

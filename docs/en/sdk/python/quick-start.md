@@ -13,7 +13,7 @@ The published distribution name is `nnrp-py`.
 
 NNRP is documented against the intended stable `1.0.0` API line. During preview
 development, install snippets should use the current verified preview package. The current
-public Python preview package is `1.0.0rc2`.
+public Python preview package is `1.0.0rc3`.
 
 Using `uv`:
 
@@ -30,8 +30,8 @@ pip install nnrp-py
 If you want to lock to one verified public release explicitly, pin the version:
 
 ```bash
-uv add "nnrp-py==1.0.0rc2"
-pip install "nnrp-py==1.0.0rc2"
+uv add "nnrp-py==1.0.0rc3"
+pip install "nnrp-py==1.0.0rc3"
 ```
 
 ## Verify The Installation
@@ -43,6 +43,31 @@ python -c "import nnrp; print(nnrp.__name__)"
 ```
 
 If the installation is correct, the command prints `nnrp` and exits successfully.
+
+## Native Runtime Check
+
+The Python SDK uses packaged Rust native artifacts for runtime hot paths when the installed wheel includes one for the current platform. The default binding mode is `auto`.
+
+```bash
+python -c "from nnrp import probe_native_artifact; print(probe_native_artifact())"
+```
+
+If you are developing on a machine that cannot build or load the cffi API fast path, force the compiler-free fallback:
+
+```bash
+NNRP_NATIVE_BINDING_MODE=ctypes python -m pytest
+```
+
+Use `NNRP_NATIVE_BINDING_MODE=cffi_api` only when you want to require the cffi API fast path and fail immediately if it is unavailable.
+
+## Conformance and Benchmark Entrypoints
+
+The SDK exposes suite-owned integration commands:
+
+```bash
+python -m nnrp.tools.adapter_conformance
+python -m nnrp.tools.benchmark --plan benchmark-plan.json --output artifacts/benchmark-results.json
+```
 
 ## Local Editable Override For Unpublished Changes
 

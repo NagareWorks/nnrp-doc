@@ -8,10 +8,10 @@ As the number of NNRP implementations — official and third-party — continues
 
 The conformance suite answers exactly that question. It consists of:
 
-1. **Versioned baselines**: each protocol line (for example `nnrp-1-preview3`) has its own baseline directory containing a protocol manifest, case manifests, and golden vectors.
+1. **Versioned baselines**: each protocol line (for example `nnrp-1-preview3`) has its own baseline directory containing a protocol manifest, case manifests, semantic vector recipes, and generated artifacts.
 2. **Case manifests**: machine-readable JSON files that describe each test case's protocol layer (L0–L4), its status (mandatory / optional / experimental), and the capability declarations required to run it.
 3. **Capability manifests**: each implementation repository provides a JSON declaration listing the protocol capabilities it has completed and is willing to publicly claim support for.
-4. **Runner**: a Rust CLI that loads a baseline and an implementation's capability manifest, then produces an execution plan and a compliance report.
+4. **Runner**: a Rust CLI that loads a baseline and an implementation's capability manifest, then produces execution plans, adapter result validation, benchmark plans, and reports.
 
 ## Why it exists
 
@@ -29,7 +29,7 @@ The conformance suite removes all three failure modes by providing an external, 
 
 You do not need to wait until every capability is done before adopting conformance. The capability manifest lets you declare what you currently support, and the runner only executes cases for those capabilities. Cases for unclaimed capabilities are marked `not_claimed`, not as failures.
 
-This means you can wire in conformance at any point during Preview3 development and get a meaningful report rather than a wall of noise from features you have not started yet.
+This means you can wire in conformance at any point during active development and get a meaningful report rather than a wall of noise from features you have not started yet.
 
 ### In CI: explicitly bind a protocol version
 
@@ -38,6 +38,10 @@ CI does not guess which protocol version your implementation targets. You pass a
 1. Protocol manifest version = case manifest version = capability manifest version.
 2. Only capabilities the implementation claims are promoted into the mandatory or optional execution set.
 3. A version mismatch causes an immediate failure — ambiguous "close enough to this version" states are never allowed to enter the merge flow.
+
+### For SDK integration: use suite-owned adapter and benchmark contracts
+
+SDK repositories do not hand-maintain byte fixtures. The suite owns readable semantic recipes, generated canonical vectors, adapter execution plans, adapter result schemas, benchmark execution plans, and benchmark result schemas. SDK repositories provide only capability claims, an adapter command, and optional benchmark runner evidence.
 
 ### For third-party implementations: a verifiable interoperability claim
 
@@ -60,11 +64,11 @@ If you are building a third-party NNRP implementation, the conformance suite giv
   </div>
   <div class="doc-card">
     <h3><a href="./manifests">Manifests Reference</a></h3>
-    <p>For suite authors. Complete JSON field reference for protocol manifests, case manifests, vector recipes, and reports.</p>
+    <p>For suite authors. Complete JSON field reference for protocol manifests, case manifests, vector recipes, adapter plans, benchmark plans, and reports.</p>
   </div>
   <div class="doc-card">
     <h3><a href="./sdk-integration">SDK Integration Guide</a></h3>
-    <p>For SDK developers. How to create a capability manifest, run the CLI, write the vector test, and wire CI end-to-end.</p>
+    <p>For SDK developers. How to create a capability manifest, implement the adapter command, run benchmarks, and wire CI end-to-end.</p>
   </div>
   <div class="doc-card">
     <h3><a href="./ci">CI and Version Selection</a></h3>

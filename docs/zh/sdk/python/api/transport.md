@@ -2,6 +2,8 @@
 
 传输适配器封装了底层 QUIC 和 TCP 连接。所有类型从 `nnrp.adapters` 导出，也可从顶层 `nnrp` 包访问。
 
+QUIC 通过 `aioquic` 作为传输插槽提供，并不是所有部署都必须启用。证书处理或 QUIC 支持不可用时，TCP 仍然是推荐的本地开发路径。
+
 ## 导入
 
 ```python

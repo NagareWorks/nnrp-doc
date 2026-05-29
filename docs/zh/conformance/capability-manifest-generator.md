@@ -6,4 +6,6 @@
 
 使用方式很直接：先选协议版本，再填写实现名，勾选已经完成且愿意对外承诺的能力，下方预览区就会实时生成 JSON。复制之后，建议仍然回到 [能力列表](./capabilities/) 复核 token 语义与组合要求。
 
+生成器的能力目录来自 conformance 仓库中版本化的 protocol manifest 与 case manifest。它只输出 SDK 负责维护的 capability manifest 结构：`implementation_name`、`protocol_version` 和 `supports`。它不会生成 adapter plan、benchmark plan 或 case 定义。
+
 <CapabilityManifestGenerator />
