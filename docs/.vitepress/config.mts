@@ -3,7 +3,10 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 import { fileURLToPath } from "node:url";
 
 const dayjsEsmPath = fileURLToPath(
-  new URL("../../node_modules/.deno/dayjs@1.11.20/node_modules/dayjs/esm/index.js", import.meta.url)
+  new URL(
+    "../../node_modules/.deno/dayjs@1.11.20/node_modules/dayjs/esm/index.js",
+    import.meta.url,
+  ),
 );
 const sanitizeUrlShimPath = fileURLToPath(new URL("./shims/sanitize-url.ts", import.meta.url));
 
@@ -513,7 +516,7 @@ const customStyle = `
 `;
 
 const zhSdkOverviewItems = [
-  { text: "SDK 总览", link: "/zh/sdk/" }
+  { text: "SDK 总览", link: "/zh/sdk/" },
 ];
 
 const zhConformanceItems = [
@@ -527,7 +530,7 @@ const zhConformanceItems = [
       { text: "能力列表总览", link: "/zh/conformance/capabilities/" },
       { text: "nnrp-1-preview2", link: "/zh/conformance/capabilities/nnrp-1-preview2" },
       { text: "nnrp-1-preview3", link: "/zh/conformance/capabilities/nnrp-1-preview3" },
-    ]
+    ],
   },
   {
     text: "参考",
@@ -535,9 +538,9 @@ const zhConformanceItems = [
     items: [
       { text: "Manifest 参考（测试套件开发者）", link: "/zh/conformance/manifests" },
       { text: "SDK 集成指南", link: "/zh/conformance/sdk-integration" },
-    ]
+    ],
   },
-  { text: "CI 与版本选择", link: "/zh/conformance/ci" }
+  { text: "CI 与版本选择", link: "/zh/conformance/ci" },
 ];
 
 const zhSdkPythonItems = [
@@ -553,8 +556,8 @@ const zhSdkPythonItems = [
       { text: "客户端", link: "/zh/sdk/python/api/client" },
       { text: "服务端", link: "/zh/sdk/python/api/server" },
       { text: "传输适配器", link: "/zh/sdk/python/api/transport" },
-    ]
-  }
+    ],
+  },
 ];
 
 const zhSdkCsharpItems = [
@@ -570,8 +573,8 @@ const zhSdkCsharpItems = [
       { text: "客户端", link: "/zh/sdk/csharp/api/client" },
       { text: "服务端", link: "/zh/sdk/csharp/api/server" },
       { text: "传输层", link: "/zh/sdk/csharp/api/transport" },
-    ]
-  }
+    ],
+  },
 ];
 
 const zhSdkRustItems = [
@@ -586,12 +589,26 @@ const zhSdkRustItems = [
       { text: "客户端（Preview3）", link: "/zh/sdk/rust/api/client" },
       { text: "服务端（Preview3）", link: "/zh/sdk/rust/api/server" },
       { text: "WASM 导出（Preview3）", link: "/zh/sdk/rust/api/wasm" },
-    ]
-  }
+    ],
+  },
+];
+
+const zhSdkJavascriptItems = [
+  { text: "JS/TS SDK 概览", link: "/zh/sdk/javascript/" },
+  { text: "快速使用", link: "/zh/sdk/javascript/quick-start" },
+  {
+    text: "API 参考",
+    collapsed: false,
+    items: [
+      { text: "核心类型", link: "/zh/sdk/javascript/api/core" },
+      { text: "Native 后端", link: "/zh/sdk/javascript/api/native" },
+      { text: "WASM 浏览器客户端", link: "/zh/sdk/javascript/api/wasm" },
+    ],
+  },
 ];
 
 const enSdkOverviewItems = [
-  { text: "SDK Overview", link: "/en/sdk/" }
+  { text: "SDK Overview", link: "/en/sdk/" },
 ];
 
 const enConformanceItems = [
@@ -605,7 +622,7 @@ const enConformanceItems = [
       { text: "Catalog Overview", link: "/en/conformance/capabilities/" },
       { text: "nnrp-1-preview2", link: "/en/conformance/capabilities/nnrp-1-preview2" },
       { text: "nnrp-1-preview3", link: "/en/conformance/capabilities/nnrp-1-preview3" },
-    ]
+    ],
   },
   {
     text: "Reference",
@@ -613,9 +630,9 @@ const enConformanceItems = [
     items: [
       { text: "Manifests Reference (Suite Authors)", link: "/en/conformance/manifests" },
       { text: "SDK Integration Guide", link: "/en/conformance/sdk-integration" },
-    ]
+    ],
   },
-  { text: "CI and Version Selection", link: "/en/conformance/ci" }
+  { text: "CI and Version Selection", link: "/en/conformance/ci" },
 ];
 
 const enSdkPythonItems = [
@@ -631,8 +648,8 @@ const enSdkPythonItems = [
       { text: "Client", link: "/en/sdk/python/api/client" },
       { text: "Server", link: "/en/sdk/python/api/server" },
       { text: "Transport Adapters", link: "/en/sdk/python/api/transport" },
-    ]
-  }
+    ],
+  },
 ];
 
 const enSdkCsharpItems = [
@@ -648,8 +665,8 @@ const enSdkCsharpItems = [
       { text: "Client", link: "/en/sdk/csharp/api/client" },
       { text: "Server", link: "/en/sdk/csharp/api/server" },
       { text: "Transport", link: "/en/sdk/csharp/api/transport" },
-    ]
-  }
+    ],
+  },
 ];
 
 const enSdkRustItems = [
@@ -664,103 +681,122 @@ const enSdkRustItems = [
       { text: "Client (Preview3)", link: "/en/sdk/rust/api/client" },
       { text: "Server (Preview3)", link: "/en/sdk/rust/api/server" },
       { text: "WASM Exports (Preview3)", link: "/en/sdk/rust/api/wasm" },
-    ]
-  }
+    ],
+  },
+];
+
+const enSdkJavascriptItems = [
+  { text: "JS/TS SDK Overview", link: "/en/sdk/javascript/" },
+  { text: "Quick Start", link: "/en/sdk/javascript/quick-start" },
+  {
+    text: "API Reference",
+    collapsed: false,
+    items: [
+      { text: "Core Types", link: "/en/sdk/javascript/api/core" },
+      { text: "Native Backend", link: "/en/sdk/javascript/api/native" },
+      { text: "WASM Browser Client", link: "/en/sdk/javascript/api/wasm" },
+    ],
+  },
 ];
 
 const zhSidebar = {
   "/zh/conformance/": [
     {
       text: "Conformance",
-      items: zhConformanceItems
-    }
+      items: zhConformanceItems,
+    },
   ],
   "/zh/sdk/python/": [
     {
       text: "SDK",
-      items: zhSdkPythonItems
-    }
+      items: zhSdkPythonItems,
+    },
   ],
   "/zh/sdk/csharp/": [
     {
       text: "SDK",
-      items: zhSdkCsharpItems
-    }
+      items: zhSdkCsharpItems,
+    },
   ],
   "/zh/sdk/rust/": [
     {
       text: "SDK",
-      items: zhSdkRustItems
-    }
+      items: zhSdkRustItems,
+    },
+  ],
+  "/zh/sdk/javascript/": [
+    {
+      text: "SDK",
+      items: zhSdkJavascriptItems,
+    },
   ],
   "/zh/sdk/": [
     {
       text: "SDK",
-      items: zhSdkOverviewItems
-    }
+      items: zhSdkOverviewItems,
+    },
   ],
   "/zh/": [
-  {
-    text: "文档总览",
-    items: [
-      { text: "总览", link: "/zh/overview" },
-      { text: "协议背景与介绍", link: "/zh/background" },
-      { text: "常见场景与边界", link: "/zh/use-cases" }
-    ]
-  },
-  {
-    text: "协议指南",
-    collapsed: false,
-    items: [
-      { text: "快速上手", link: "/zh/protocol/v1/quick-start" },
-      { text: "会话与操作模型", link: "/zh/protocol/v1/operation-model" },
-      { text: "传输策略与探测", link: "/zh/protocol/v1/transport-strategy" },
-      { text: "核心对象与流程", link: "/zh/core-concepts" },
-      { text: "缓存能力与租约", link: "/zh/protocol/v1/cache-and-lease" },
-      { text: "Schema / Profile Registry", link: "/zh/protocol/v1/schema-registry" },
-      { text: "流控与优先级", link: "/zh/protocol/v1/flow-control-and-priority" },
-      { text: "公共头", link: "/zh/common-header" },
-      {
-        text: "类型化载荷描述符",
-        link: "/zh/typed-payload-descriptor"
-      },
-      {
-        text: "标准 Profiles",
-        collapsed: true,
-        items: [
-          {
-            text: "Tensor Profile",
-            collapsed: true,
-            items: [
-              { text: "概览", link: "/zh/profiles/tensor" },
-              { text: "Tensor Descriptor 公共头", link: "/zh/profiles/tensor/descriptor-header" },
-              { text: "Tensor Schema 与 Body", link: "/zh/profiles/tensor/schema-body" },
-              { text: "Tensor Payload Frame", link: "/zh/profiles/tensor/payload-frame" }
-            ]
-          },
-          {
-            text: "Token Profile",
-            collapsed: true,
-            items: [
-              { text: "概览", link: "/zh/profiles/token" },
-              { text: "Token Descriptor 公共头", link: "/zh/profiles/token/descriptor-header" },
-              { text: "Token Schema 与 Body", link: "/zh/profiles/token/schema-body" },
-              { text: "Token Payload Frame", link: "/zh/profiles/token/payload-frame" }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    text: "版本管理",
-    collapsed: true,
-    items: [
-      { text: "版本与兼容", link: "/zh/protocol/" },
-      { text: "NNRP/1（预览）", link: "/zh/protocol/v1/" }
-    ]
-  }
-  ,
+    {
+      text: "文档总览",
+      items: [
+        { text: "总览", link: "/zh/overview" },
+        { text: "协议背景与介绍", link: "/zh/background" },
+        { text: "常见场景与边界", link: "/zh/use-cases" },
+      ],
+    },
+    {
+      text: "协议指南",
+      collapsed: false,
+      items: [
+        { text: "快速上手", link: "/zh/protocol/v1/quick-start" },
+        { text: "会话与操作模型", link: "/zh/protocol/v1/operation-model" },
+        { text: "传输策略与探测", link: "/zh/protocol/v1/transport-strategy" },
+        { text: "核心对象与流程", link: "/zh/core-concepts" },
+        { text: "缓存能力与租约", link: "/zh/protocol/v1/cache-and-lease" },
+        { text: "Schema / Profile Registry", link: "/zh/protocol/v1/schema-registry" },
+        { text: "流控与优先级", link: "/zh/protocol/v1/flow-control-and-priority" },
+        { text: "公共头", link: "/zh/common-header" },
+        {
+          text: "类型化载荷描述符",
+          link: "/zh/typed-payload-descriptor",
+        },
+        {
+          text: "标准 Profiles",
+          collapsed: true,
+          items: [
+            {
+              text: "Tensor Profile",
+              collapsed: true,
+              items: [
+                { text: "概览", link: "/zh/profiles/tensor" },
+                { text: "Tensor Descriptor 公共头", link: "/zh/profiles/tensor/descriptor-header" },
+                { text: "Tensor Schema 与 Body", link: "/zh/profiles/tensor/schema-body" },
+                { text: "Tensor Payload Frame", link: "/zh/profiles/tensor/payload-frame" },
+              ],
+            },
+            {
+              text: "Token Profile",
+              collapsed: true,
+              items: [
+                { text: "概览", link: "/zh/profiles/token" },
+                { text: "Token Descriptor 公共头", link: "/zh/profiles/token/descriptor-header" },
+                { text: "Token Schema 与 Body", link: "/zh/profiles/token/schema-body" },
+                { text: "Token Payload Frame", link: "/zh/profiles/token/payload-frame" },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      text: "版本管理",
+      collapsed: true,
+      items: [
+        { text: "版本与兼容", link: "/zh/protocol/" },
+        { text: "NNRP/1（预览）", link: "/zh/protocol/v1/" },
+      ],
+    },
     {
       text: "协议设计",
       collapsed: true,
@@ -770,105 +806,116 @@ const zhSidebar = {
         { text: "v1-preview2", link: "/zh/design/v1-preview2" },
         { text: "v1-preview3", link: "/zh/design/v1-preview3" },
         { text: "一致性测试套件设计", link: "/zh/design/conformance-suite" },
-        { text: "OpenAI 兼容 Profile 草案", link: "/zh/design/openai-compatible-profile" }
-      ]
-    }
-  ]
+        { text: "OpenAI 兼容 Profile 草案", link: "/zh/design/openai-compatible-profile" },
+      ],
+    },
+  ],
 };
 
 const enSidebar = {
   "/en/conformance/": [
     {
       text: "Conformance",
-      items: enConformanceItems
-    }
+      items: enConformanceItems,
+    },
   ],
   "/en/sdk/python/": [
     {
       text: "SDK",
-      items: enSdkPythonItems
-    }
+      items: enSdkPythonItems,
+    },
   ],
   "/en/sdk/csharp/": [
     {
       text: "SDK",
-      items: enSdkCsharpItems
-    }
+      items: enSdkCsharpItems,
+    },
   ],
   "/en/sdk/rust/": [
     {
       text: "SDK",
-      items: enSdkRustItems
-    }
+      items: enSdkRustItems,
+    },
+  ],
+  "/en/sdk/javascript/": [
+    {
+      text: "SDK",
+      items: enSdkJavascriptItems,
+    },
   ],
   "/en/sdk/": [
     {
       text: "SDK",
-      items: enSdkOverviewItems
-    }
+      items: enSdkOverviewItems,
+    },
   ],
   "/en/": [
-  {
-    text: "Documentation",
-    items: [
-      { text: "Overview", link: "/en/overview" },
-      { text: "Background and Intro", link: "/en/background" },
-      { text: "Use Cases and Boundaries", link: "/en/use-cases" }
-    ]
-  },
-  {
-    text: "Guides",
-    collapsed: false,
-    items: [
-      { text: "Quick Start", link: "/en/protocol/v1/quick-start" },
-      { text: "Session and Operation Model", link: "/en/protocol/v1/operation-model" },
-      { text: "Transport Strategy and Probing", link: "/en/protocol/v1/transport-strategy" },
-      { text: "Core Objects and Flow", link: "/en/core-concepts" },
-      { text: "Cache Capabilities and Leases", link: "/en/protocol/v1/cache-and-lease" },
-      { text: "Schema / Profile Registry", link: "/en/protocol/v1/schema-registry" },
-      { text: "Flow Control and Priority", link: "/en/protocol/v1/flow-control-and-priority" },
-      { text: "Common Header", link: "/en/common-header" },
-      {
-        text: "Typed Payload Descriptor",
-        link: "/en/typed-payload-descriptor"
-      },
-      {
-        text: "Standard Profiles",
-        collapsed: true,
-        items: [
-          {
-            text: "Tensor Profile",
-            collapsed: true,
-            items: [
-              { text: "Overview", link: "/en/profiles/tensor" },
-              { text: "Tensor Descriptor Common Header", link: "/en/profiles/tensor/descriptor-header" },
-              { text: "Tensor Schema and Body", link: "/en/profiles/tensor/schema-body" },
-              { text: "Tensor Payload Frame", link: "/en/profiles/tensor/payload-frame" }
-            ]
-          },
-          {
-            text: "Token Profile",
-            collapsed: true,
-            items: [
-              { text: "Overview", link: "/en/profiles/token" },
-              { text: "Token Descriptor Common Header", link: "/en/profiles/token/descriptor-header" },
-              { text: "Token Schema and Body", link: "/en/profiles/token/schema-body" },
-              { text: "Token Payload Frame", link: "/en/profiles/token/payload-frame" }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  {
-    text: "Version Management",
-    collapsed: true,
-    items: [
-      { text: "Versions and Compatibility", link: "/en/protocol/" },
-      { text: "NNRP/1 (Preview)", link: "/en/protocol/v1/" }
-    ]
-  }
-  ,
+    {
+      text: "Documentation",
+      items: [
+        { text: "Overview", link: "/en/overview" },
+        { text: "Background and Intro", link: "/en/background" },
+        { text: "Use Cases and Boundaries", link: "/en/use-cases" },
+      ],
+    },
+    {
+      text: "Guides",
+      collapsed: false,
+      items: [
+        { text: "Quick Start", link: "/en/protocol/v1/quick-start" },
+        { text: "Session and Operation Model", link: "/en/protocol/v1/operation-model" },
+        { text: "Transport Strategy and Probing", link: "/en/protocol/v1/transport-strategy" },
+        { text: "Core Objects and Flow", link: "/en/core-concepts" },
+        { text: "Cache Capabilities and Leases", link: "/en/protocol/v1/cache-and-lease" },
+        { text: "Schema / Profile Registry", link: "/en/protocol/v1/schema-registry" },
+        { text: "Flow Control and Priority", link: "/en/protocol/v1/flow-control-and-priority" },
+        { text: "Common Header", link: "/en/common-header" },
+        {
+          text: "Typed Payload Descriptor",
+          link: "/en/typed-payload-descriptor",
+        },
+        {
+          text: "Standard Profiles",
+          collapsed: true,
+          items: [
+            {
+              text: "Tensor Profile",
+              collapsed: true,
+              items: [
+                { text: "Overview", link: "/en/profiles/tensor" },
+                {
+                  text: "Tensor Descriptor Common Header",
+                  link: "/en/profiles/tensor/descriptor-header",
+                },
+                { text: "Tensor Schema and Body", link: "/en/profiles/tensor/schema-body" },
+                { text: "Tensor Payload Frame", link: "/en/profiles/tensor/payload-frame" },
+              ],
+            },
+            {
+              text: "Token Profile",
+              collapsed: true,
+              items: [
+                { text: "Overview", link: "/en/profiles/token" },
+                {
+                  text: "Token Descriptor Common Header",
+                  link: "/en/profiles/token/descriptor-header",
+                },
+                { text: "Token Schema and Body", link: "/en/profiles/token/schema-body" },
+                { text: "Token Payload Frame", link: "/en/profiles/token/payload-frame" },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      text: "Version Management",
+      collapsed: true,
+      items: [
+        { text: "Versions and Compatibility", link: "/en/protocol/" },
+        { text: "NNRP/1 (Preview)", link: "/en/protocol/v1/" },
+      ],
+    },
     {
       text: "Protocol Design",
       collapsed: true,
@@ -878,10 +925,10 @@ const enSidebar = {
         { text: "v1-preview2", link: "/en/design/v1-preview2" },
         { text: "v1-preview3", link: "/en/design/v1-preview3" },
         { text: "Conformance Suite Design", link: "/en/design/conformance-suite" },
-        { text: "OpenAI-Compatible Profile Draft", link: "/en/design/openai-compatible-profile" }
-      ]
-    }
-  ]
+        { text: "OpenAI-Compatible Profile Draft", link: "/en/design/openai-compatible-profile" },
+      ],
+    },
+  ],
 };
 
 export default withMermaid(defineConfig({
@@ -891,7 +938,7 @@ export default withMermaid(defineConfig({
   base: "/nnrp-doc/",
   head: [
     ["link", { rel: "icon", type: "image/svg+xml", href: "/nnrp-doc/logo.svg" }],
-    ["style", {}, customStyle]
+    ["style", {}, customStyle],
   ],
   cleanUrls: true,
   lastUpdated: true,
@@ -902,9 +949,9 @@ export default withMermaid(defineConfig({
       themeConfig: {
         sidebar: {},
         socialLinks: [
-          { icon: "github", link: "https://github.com/NagareWorks" }
-        ]
-      }
+          { icon: "github", link: "https://github.com/NagareWorks" },
+        ],
+      },
     },
     zh: {
       label: "简体中文",
@@ -914,13 +961,13 @@ export default withMermaid(defineConfig({
         nav: [
           { text: "协议", link: "/zh/overview" },
           { text: "Conformance", link: "/zh/conformance/" },
-          { text: "SDK", link: "/zh/sdk/" }
+          { text: "SDK", link: "/zh/sdk/" },
         ],
         sidebar: zhSidebar,
         socialLinks: [
-          { icon: "github", link: "https://github.com/NagareWorks" }
-        ]
-      }
+          { icon: "github", link: "https://github.com/NagareWorks" },
+        ],
+      },
     },
     en: {
       label: "English",
@@ -930,14 +977,14 @@ export default withMermaid(defineConfig({
         nav: [
           { text: "Protocol", link: "/en/overview" },
           { text: "Conformance", link: "/en/conformance/" },
-          { text: "SDK", link: "/en/sdk/" }
+          { text: "SDK", link: "/en/sdk/" },
         ],
         sidebar: enSidebar,
         socialLinks: [
-          { icon: "github", link: "https://github.com/NagareWorks" }
-        ]
-      }
-    }
+          { icon: "github", link: "https://github.com/NagareWorks" },
+        ],
+      },
+    },
   },
   themeConfig: {
     search: {
@@ -947,30 +994,30 @@ export default withMermaid(defineConfig({
         miniSearch: {
           searchOptions: {
             fuzzy: 0.2,
-            prefix: true
-          }
-        }
-      }
+            prefix: true,
+          },
+        },
+      },
     },
     logo: "/logo.svg",
     footer: {
       message: "NNRP Documentation",
-      copyright: "Copyright © NagareWorks · NNRP"
-    }
+      copyright: "Copyright © NagareWorks · NNRP",
+    },
   },
   vite: {
     resolve: {
       alias: [
         {
           find: /^dayjs$/,
-          replacement: dayjsEsmPath
+          replacement: dayjsEsmPath,
         },
         {
           find: /^@braintree\/sanitize-url$/,
-          replacement: sanitizeUrlShimPath
-        }
-      ]
-    }
+          replacement: sanitizeUrlShimPath,
+        },
+      ],
+    },
   },
-  mermaid: {}
+  mermaid: {},
 }));
