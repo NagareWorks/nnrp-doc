@@ -626,9 +626,9 @@ watch(
   display: grid;
   gap: 14px;
   padding: 22px 24px;
-  border: 1px solid rgba(19, 68, 84, 0.16);
+  border: 1px solid var(--nnrp-border);
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.07), rgba(196, 96, 38, 0.09));
+  background: var(--nnrp-surface);
 }
 
 .capability-manifest-generator__hero h2 {
@@ -656,10 +656,10 @@ watch(
   gap: 16px;
   min-width: 0;
   padding: 20px;
-  border: 1px solid rgba(19, 68, 84, 0.16);
+  border: 1px solid var(--nnrp-border);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+  background: var(--nnrp-elevated-bg);
+  box-shadow: var(--nnrp-shadow);
 }
 
 .capability-manifest-generator__grid {
@@ -684,7 +684,7 @@ watch(
   width: 100%;
   box-sizing: border-box;
   padding: 11px 12px;
-  border: 1px solid rgba(19, 68, 84, 0.18);
+  border: 1px solid var(--nnrp-border);
   border-radius: 12px;
   background: var(--vp-c-bg-soft);
   color: var(--vp-c-text-1);
@@ -694,24 +694,24 @@ watch(
   position: relative;
   display: flex;
   align-items: center;
-  border: 1px solid rgba(19, 68, 84, 0.18);
+  border: 1px solid var(--nnrp-border);
   border-radius: 12px;
   background:
-    linear-gradient(135deg, rgba(10, 58, 66, 0.05), rgba(196, 96, 38, 0.08)),
+    var(--nnrp-surface),
     var(--vp-c-bg-soft);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--nnrp-shadow);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .capability-manifest-generator__picker:hover {
-  border-color: rgba(19, 68, 84, 0.28);
+  border-color: var(--nnrp-border-strong);
   transform: translateY(-1px);
 }
 
 .capability-manifest-generator__picker:focus-within,
 .capability-manifest-generator__picker-button.is-open {
-  border-color: rgba(15, 118, 110, 0.45);
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14), 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-color: var(--nnrp-border-strong);
+  box-shadow: 0 0 0 3px var(--nnrp-soft-bg), var(--nnrp-shadow);
 }
 
 .capability-manifest-generator__picker-button {
@@ -757,7 +757,7 @@ watch(
 
 .capability-manifest-generator__picker-button.is-open .capability-manifest-generator__picker-icon {
   transform: translateY(1px) rotate(225deg);
-  border-color: #0f766e;
+  border-color: var(--nnrp-accent);
 }
 
 .capability-manifest-generator__picker-menu {
@@ -769,11 +769,11 @@ watch(
   display: grid;
   gap: 8px;
   padding: 10px;
-  border: 1px solid rgba(19, 68, 84, 0.16);
+  border: 1px solid var(--nnrp-border);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--nnrp-elevated-bg);
   backdrop-filter: blur(14px);
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--nnrp-shadow-strong);
 }
 
 .capability-manifest-generator__picker-option {
@@ -794,14 +794,14 @@ watch(
 
 .capability-manifest-generator__picker-option:hover {
   transform: translateY(-1px);
-  border-color: rgba(15, 118, 110, 0.22);
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.06), rgba(196, 96, 38, 0.08));
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  border-color: var(--nnrp-border-strong);
+  background: var(--nnrp-surface);
+  box-shadow: var(--nnrp-shadow);
 }
 
 .capability-manifest-generator__picker-option.is-active {
-  border-color: rgba(15, 118, 110, 0.26);
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.08), rgba(196, 96, 38, 0.12));
+  border-color: var(--nnrp-border-strong);
+  background: var(--nnrp-surface);
 }
 
 .capability-manifest-generator__picker-option-title {
@@ -819,8 +819,8 @@ watch(
   align-self: start;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(15, 118, 110, 0.12);
-  color: #0f766e;
+  background: var(--nnrp-soft-bg);
+  color: var(--nnrp-accent-text);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -847,7 +847,7 @@ watch(
   gap: 6px;
   padding: 14px 16px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.05), rgba(196, 96, 38, 0.07));
+  background: var(--nnrp-surface);
 }
 
 .capability-manifest-generator__version-note strong {
@@ -857,7 +857,7 @@ watch(
 .capability-manifest-generator__version-note code {
   padding: 2px 6px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.05);
+  background: var(--nnrp-soft-bg);
 }
 
 .capability-manifest-generator__toggle {
@@ -882,9 +882,9 @@ watch(
 .capability-manifest-generator__actions button,
 .capability-manifest-generator__copy {
   padding: 10px 14px;
-  border: 1px solid rgba(15, 118, 110, 0.22);
+  border: 1px solid var(--nnrp-border-strong);
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.08), rgba(196, 96, 38, 0.12));
+  background: var(--nnrp-surface);
   color: var(--vp-c-text-1);
   font-weight: 700;
   cursor: pointer;
@@ -899,9 +899,9 @@ watch(
 .capability-manifest-generator__status {
   margin: 0;
   padding: 14px 16px;
-  border: 1px solid rgba(19, 68, 84, 0.16);
+  border: 1px solid var(--nnrp-border);
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.05), rgba(196, 96, 38, 0.07));
+  background: var(--nnrp-surface);
   color: var(--vp-c-text-2);
 }
 
@@ -913,7 +913,7 @@ watch(
 
 .capability-manifest-generator__status--error {
   border-color: rgba(190, 24, 93, 0.24);
-  background: linear-gradient(135deg, rgba(190, 24, 93, 0.06), rgba(196, 96, 38, 0.08));
+  background: linear-gradient(135deg, rgba(190, 24, 93, 0.12), rgba(196, 96, 38, 0.1));
 }
 
 .capability-manifest-generator__section-head {
@@ -943,15 +943,15 @@ watch(
   grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid rgba(19, 68, 84, 0.16);
+  border: 1px solid var(--nnrp-border);
   border-radius: 16px;
   background: var(--vp-c-bg-soft);
   cursor: pointer;
 }
 
 .capability-manifest-generator__capability.is-selected {
-  border-color: rgba(15, 118, 110, 0.28);
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.07), rgba(196, 96, 38, 0.1));
+  border-color: var(--nnrp-border-strong);
+  background: var(--nnrp-surface);
 }
 
 .capability-manifest-generator__capability input {
@@ -984,8 +984,8 @@ watch(
   width: fit-content;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(15, 118, 110, 0.11);
-  color: #0f766e;
+  background: var(--nnrp-soft-bg);
+  color: var(--nnrp-accent-text);
   font-weight: 700;
 }
 

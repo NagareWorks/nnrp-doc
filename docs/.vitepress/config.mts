@@ -11,7 +11,65 @@ const customStyle = `
 :root {
   --nnrp-surface: linear-gradient(135deg, rgba(10, 58, 66, 0.08), rgba(196, 96, 38, 0.12));
   --nnrp-border: rgba(19, 68, 84, 0.18);
-  --nnrp-text-soft: #4b5563;
+  --nnrp-border-strong: rgba(15, 118, 110, 0.28);
+  --nnrp-text-soft: var(--vp-c-text-2);
+  --nnrp-text-strong: var(--vp-c-text-1);
+  --nnrp-card-bg: rgba(255, 255, 255, 0.88);
+  --nnrp-card-bg-hover: rgba(255, 255, 255, 0.96);
+  --nnrp-elevated-bg: rgba(255, 255, 255, 0.96);
+  --nnrp-soft-bg: rgba(15, 118, 110, 0.08);
+  --nnrp-chip-bg: rgba(255, 255, 255, 0.92);
+  --nnrp-accent: #0f766e;
+  --nnrp-accent-hover: #115e59;
+  --nnrp-accent-text: #0f766e;
+  --nnrp-accent-inverse: #f8fafc;
+  --nnrp-warm-accent: #b45309;
+  --nnrp-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  --nnrp-shadow-strong: 0 24px 70px rgba(15, 23, 42, 0.16);
+  --nnrp-hero-bg:
+    radial-gradient(circle at 20% 20%, rgba(15, 118, 110, 0.16), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f5efe5 58%, #e7eef9);
+  --nnrp-panel-sheen:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.74), transparent 18%),
+    linear-gradient(115deg, transparent 36%, rgba(15, 118, 110, 0.14) 48%, rgba(196, 96, 38, 0.16) 56%, transparent 68%);
+  --nnrp-tone-a: #dff4f1;
+  --nnrp-tone-b: #f5efe5;
+  --nnrp-tone-c: #e7eef9;
+  --nnrp-tone-d: #f8e5e1;
+  --nnrp-tone-e: #ece8f7;
+  --nnrp-tooltip-bg: #0f172a;
+  --nnrp-tooltip-text: #f8fafc;
+}
+
+.dark {
+  --nnrp-surface: linear-gradient(135deg, rgba(20, 184, 166, 0.13), rgba(251, 146, 60, 0.1));
+  --nnrp-border: rgba(148, 163, 184, 0.22);
+  --nnrp-border-strong: rgba(45, 212, 191, 0.34);
+  --nnrp-card-bg: rgba(32, 33, 39, 0.82);
+  --nnrp-card-bg-hover: rgba(39, 41, 49, 0.96);
+  --nnrp-elevated-bg: rgba(32, 33, 39, 0.98);
+  --nnrp-soft-bg: rgba(45, 212, 191, 0.1);
+  --nnrp-chip-bg: rgba(32, 33, 39, 0.92);
+  --nnrp-accent: #2dd4bf;
+  --nnrp-accent-hover: #5eead4;
+  --nnrp-accent-text: #5eead4;
+  --nnrp-accent-inverse: #0f172a;
+  --nnrp-warm-accent: #fdba74;
+  --nnrp-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  --nnrp-shadow-strong: 0 24px 70px rgba(0, 0, 0, 0.38);
+  --nnrp-hero-bg:
+    radial-gradient(circle at 20% 20%, rgba(45, 212, 191, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(32, 33, 39, 0.98), rgba(42, 36, 31, 0.96) 58%, rgba(25, 33, 48, 0.96));
+  --nnrp-panel-sheen:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 18%),
+    linear-gradient(115deg, transparent 36%, rgba(45, 212, 191, 0.13) 48%, rgba(251, 146, 60, 0.12) 56%, transparent 68%);
+  --nnrp-tone-a: rgba(20, 184, 166, 0.16);
+  --nnrp-tone-b: rgba(251, 146, 60, 0.13);
+  --nnrp-tone-c: rgba(96, 165, 250, 0.14);
+  --nnrp-tone-d: rgba(248, 113, 113, 0.13);
+  --nnrp-tone-e: rgba(167, 139, 250, 0.15);
+  --nnrp-tooltip-bg: #f8fafc;
+  --nnrp-tooltip-text: #0f172a;
 }
 
 .VPLocalNav {
@@ -47,25 +105,23 @@ const customStyle = `
   border: 1px solid var(--nnrp-border);
   border-radius: 24px;
   background: #0f172a;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--nnrp-shadow-strong);
 }
 
 .landing-hero__intro {
   border: 1px solid var(--nnrp-border);
   border-radius: 24px;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--nnrp-shadow-strong);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   padding: 28px 34px;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(15, 118, 110, 0.16), transparent 34%),
-    linear-gradient(135deg, #ffffff, #f5efe5 58%, #e7eef9);
+  background: var(--nnrp-hero-bg);
 }
 
 .landing-hero__eyebrow {
   margin: 0 0 10px;
-  color: #0f766e;
+  color: var(--nnrp-accent-text);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -80,7 +136,7 @@ const customStyle = `
 
 .landing-hero__intro p:not(.landing-hero__eyebrow) {
   margin: 16px 0 0;
-  color: #334155;
+  color: var(--nnrp-text-soft);
   line-height: 1.7;
 }
 
@@ -104,19 +160,19 @@ const customStyle = `
   padding: 0 18px;
   border: 1px solid var(--nnrp-border);
   border-radius: 21px;
-  background: rgba(255, 255, 255, 0.92);
-  color: #0f172a;
+  background: var(--nnrp-chip-bg);
+  color: var(--nnrp-text-strong);
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--nnrp-shadow);
   transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .landing-action.primary {
   border-color: transparent;
-  background: #0f766e;
-  color: #f8fafc;
+  background: var(--nnrp-accent);
+  color: var(--nnrp-accent-inverse);
 }
 
 .vp-doc a.landing-action,
@@ -128,15 +184,15 @@ const customStyle = `
 .vp-doc a.landing-action:hover {
   transform: translateY(-1px);
   border-color: rgba(15, 118, 110, 0.28);
-  color: #0f172a;
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+  color: var(--nnrp-text-strong);
+  box-shadow: var(--nnrp-shadow);
 }
 
 .vp-doc a.landing-action.primary:hover {
   border-color: transparent;
-  background: #115e59;
-  color: #f8fafc;
-  box-shadow: 0 16px 32px rgba(15, 118, 110, 0.24);
+  background: var(--nnrp-accent-hover);
+  color: var(--nnrp-accent-inverse);
+  box-shadow: var(--nnrp-shadow);
 }
 
 .landing-panels {
@@ -157,11 +213,11 @@ const customStyle = `
   border: 1px solid var(--nnrp-border);
   border-radius: 20px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--nnrp-card-bg);
   backdrop-filter: blur(14px);
   color: inherit;
   text-decoration: none;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--nnrp-shadow);
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
 
@@ -171,8 +227,7 @@ const customStyle = `
   z-index: 0;
   content: "";
   background:
-    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.74), transparent 18%),
-    linear-gradient(115deg, transparent 36%, rgba(15, 118, 110, 0.14) 48%, rgba(196, 96, 38, 0.16) 56%, transparent 68%);
+    var(--nnrp-panel-sheen);
   opacity: 0;
   transform: translate3d(-18%, -10%, 0) rotate(8deg);
   transition: opacity 0.22s ease, transform 0.32s ease;
@@ -188,8 +243,8 @@ const customStyle = `
 .vp-doc a.landing-panel:hover {
   transform: translateY(-3px);
   border-color: rgba(15, 118, 110, 0.28);
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 22px 44px rgba(15, 23, 42, 0.13);
+  background: var(--nnrp-card-bg-hover);
+  box-shadow: var(--nnrp-shadow-strong);
 }
 
 .vp-doc a.landing-panel:hover::before {
@@ -202,7 +257,7 @@ const customStyle = `
   z-index: 1;
   display: block;
   margin-bottom: 10px;
-  color: #c46026;
+  color: var(--nnrp-warm-accent);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -263,7 +318,7 @@ const customStyle = `
   padding: 14px 16px;
   border: 1px solid var(--nnrp-border);
   border-radius: 16px;
-  background: var(--nnrp-surface);
+  background: var(--nnrp-card-bg);
   text-decoration: none;
   color: inherit;
 }
@@ -284,8 +339,8 @@ const customStyle = `
   padding: 16px;
   border: 1px solid var(--nnrp-border);
   border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.06);
+  background: var(--nnrp-card-bg);
+  box-shadow: var(--nnrp-shadow);
 }
 
 .doc-card h3 {
@@ -331,11 +386,11 @@ const customStyle = `
   filter: saturate(1.05);
 }
 
-.tone-a { background: #dff4f1; }
-.tone-b { background: #f5efe5; }
-.tone-c { background: #e7eef9; }
-.tone-d { background: #f8e5e1; }
-.tone-e { background: #ece8f7; }
+.tone-a { background: var(--nnrp-tone-a); }
+.tone-b { background: var(--nnrp-tone-b); }
+.tone-c { background: var(--nnrp-tone-c); }
+.tone-d { background: var(--nnrp-tone-d); }
+.tone-e { background: var(--nnrp-tone-e); }
 
 .field-offset {
   font-size: 11px;
@@ -363,8 +418,8 @@ const customStyle = `
   width: min(280px, 72vw);
   padding: 10px 12px;
   border-radius: 12px;
-  background: #0f172a;
-  color: #f8fafc;
+  background: var(--nnrp-tooltip-bg);
+  color: var(--nnrp-tooltip-text);
   font-size: 12px;
   line-height: 1.5;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
@@ -396,9 +451,9 @@ const customStyle = `
 .page-note {
   margin: 14px 0 22px;
   padding: 14px 16px;
-  border-left: 4px solid #0f766e;
+  border-left: 4px solid var(--nnrp-accent);
   border-radius: 0 14px 14px 0;
-  background: rgba(15, 118, 110, 0.08);
+  background: var(--nnrp-soft-bg);
   color: var(--nnrp-text-soft);
 }
 
@@ -419,8 +474,8 @@ const customStyle = `
   padding: 16px;
   border: 1px solid var(--nnrp-border);
   border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.06);
+  background: var(--nnrp-card-bg);
+  box-shadow: var(--nnrp-shadow);
   text-decoration: none;
   color: inherit;
 }

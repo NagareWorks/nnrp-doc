@@ -23,24 +23,24 @@
   align-items: center;
   width: 100%;
   min-width: 156px;
-  border: 1px solid rgba(19, 68, 84, 0.16);
+  border: 1px solid var(--nnrp-border);
   border-radius: 999px;
   background:
-    linear-gradient(135deg, rgba(10, 58, 66, 0.05), rgba(196, 96, 38, 0.08)),
+    var(--nnrp-surface),
     var(--vp-c-bg-soft);
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--nnrp-shadow);
   transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .sdk-language-switch__control:hover {
-  border-color: rgba(19, 68, 84, 0.28);
+  border-color: var(--nnrp-border-strong);
   transform: translateY(-1px);
 }
 
 .sdk-language-switch__control:focus-within,
 .sdk-language-switch__button.is-open {
-  border-color: rgba(15, 118, 110, 0.45);
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14), 0 10px 24px rgba(15, 23, 42, 0.08);
+  border-color: var(--nnrp-border-strong);
+  box-shadow: 0 0 0 3px var(--nnrp-soft-bg), var(--nnrp-shadow);
 }
 
 .sdk-language-switch__button {
@@ -87,7 +87,7 @@
 
 .sdk-language-switch__button.is-open .sdk-language-switch__icon {
   transform: translateY(1px) rotate(225deg);
-  border-color: #0f766e;
+  border-color: var(--nnrp-accent);
 }
 
 .sdk-language-switch__menu {
@@ -101,11 +101,11 @@
   min-width: max(100%, 220px);
   max-width: min(320px, calc(100vw - 24px));
   padding: 10px;
-  border: 1px solid rgba(19, 68, 84, 0.16);
+  border: 1px solid var(--nnrp-border);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--nnrp-elevated-bg);
   backdrop-filter: blur(14px);
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--nnrp-shadow-strong);
 }
 
 .sdk-language-switch__option {
@@ -126,14 +126,14 @@
 
 .sdk-language-switch__option:hover {
   transform: translateY(-1px);
-  border-color: rgba(15, 118, 110, 0.22);
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.06), rgba(196, 96, 38, 0.08));
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+  border-color: var(--nnrp-border-strong);
+  background: var(--nnrp-surface);
+  box-shadow: var(--nnrp-shadow);
 }
 
 .sdk-language-switch__option.is-active {
-  border-color: rgba(15, 118, 110, 0.26);
-  background: linear-gradient(135deg, rgba(10, 58, 66, 0.08), rgba(196, 96, 38, 0.12));
+  border-color: var(--nnrp-border-strong);
+  background: var(--nnrp-surface);
 }
 
 .sdk-language-switch__option-title {
@@ -151,8 +151,8 @@
   align-self: start;
   padding: 3px 8px;
   border-radius: 999px;
-  background: rgba(15, 118, 110, 0.12);
-  color: #0f766e;
+  background: var(--nnrp-soft-bg);
+  color: var(--nnrp-accent-text);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
