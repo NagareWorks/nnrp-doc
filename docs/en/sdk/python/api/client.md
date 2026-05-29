@@ -2,6 +2,8 @@
 
 Client API is defined in the `nnrp.client` package.
 
+For host-runtime integrations, prefer the high-level client/session API and the native runtime facades exported from `nnrp.native`. The low-level packet builders shown on this page remain public because they are useful for tests, diagnostics, and custom transport experiments.
+
 ## Import
 
 ```python

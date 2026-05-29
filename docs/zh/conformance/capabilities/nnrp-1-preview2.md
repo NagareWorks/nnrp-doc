@@ -65,7 +65,7 @@ Preview2 当前有一个无 token 的 mandatory 基座能力：`header.fixed_sha
 
 ### `payload.typed`
 
-它覆盖非 tensor 的 typed payload descriptor 与 region 打包。Preview2 里它既有 mandatory 的 L0 描述符 golden vector，也有 optional 的 L1 region / frame 保真检查，因此适合那些已经支持 token/audio/video/event 等热路径扩展的实现逐步声明。
+它覆盖非 tensor 的 typed payload descriptor 与 region 打包。Preview2 里它既有 mandatory 的 L0 描述符 canonical vector，也有 optional 的 L1 region / frame 保真检查，因此适合那些已经支持 token/audio/video/event 等热路径扩展的实现逐步声明。
 
 ### `result_hint`
 

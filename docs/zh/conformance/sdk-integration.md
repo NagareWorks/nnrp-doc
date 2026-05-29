@@ -22,6 +22,7 @@ suite 负责 baseline 选择、canonical vector 生成、execution plan 创建�
 | capability selection | 决定当前实现会被选择哪些公共 case | capability manifest、conformance report |
 | canonical vectors | 从可读 recipe 生成确定性的字节级 fixture | suite 生成的 vector manifest |
 | adapter execution | 执行选中的动态行为用例并返回机器可读结果 | execution plan、adapter command、case-result report |
+| benchmark execution | 测量选中的延迟与吞吐场景 | benchmark plan、benchmark command、benchmark result report |
 
 ---
 
@@ -63,7 +64,7 @@ suite 负责 baseline 选择、canonical vector 生成、execution plan 创建�
 </div>
 
 ::: tip 关于组合选择
-有些 case 不是由单个 token 触发，而是要求多个 token 同时声明。例如 Preview2 的主结果返回路径同时依赖 `result_push.partial`、`result_push.stale_reuse` 和 `payload.tensor`。具体组合关系请直接看对应版本页。
+有些 case 不是由单个 token 触发，而是要求多个 token 同时声明。例如 inline tensor 路径会同时依赖 `frame_submit.tensor.inline` 和 `result_push.basic`。具体组合关系请直接看对应版本页。
 :::
 
 ### Capability manifest 示例
@@ -182,6 +183,18 @@ cargo run \
   validate-adapter-results \
   --plan /tmp/adapter-plan.json \
   --results /tmp/adapter-results.json
+```
+
+### SDK benchmark command
+
+当启用 suite-owned benchmark plan 时，SDK 命令会读取 `NNRP_CONFORMANCE_BENCHMARK_PLAN` 或 `--plan`，并写入 `NNRP_CONFORMANCE_BENCHMARK_RESULTS` 或 `--output`。
+
+Python:
+
+```bash
+python -m nnrp.tools.benchmark \
+  --plan /tmp/benchmark-plan.json \
+  --output /tmp/benchmark-results.json
 ```
 
 ---

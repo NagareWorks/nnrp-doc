@@ -1,36 +1,50 @@
-# Python — 冻结 API
+# Python API
 
-Python SDK（`nnrp-py`）的公开 API 分为以下几组。点击各组标题查看详细参考。
+Python SDK（`nnrp-py`）的公开 API 分为协议基础类型、客户端/服务端 host helper、传输适配器和 native runtime facade。
 
 | 分组 | 说明 | 状态 |
 |---|---|---|
-| [枚举与常量](./api/enums) | `MessageType`、`HeaderFlags`、`ErrorCode` 等所有枚举定义 | ✅ 已冻结 |
-| [包头与数据包](./api/packet) | `NnrpHeader`、`NnrpPacket`、`TensorSectionData` 及序列化工具 | ✅ 已冻结 |
-| [消息类型](./api/messages) | 各消息的 metadata 类与构造函数 | ✅ 已冻结 |
-| [客户端](./api/client) | `ClientProfile`、`ClientSession`、传输建立与迁移 | ✅ 已冻结 |
-| [服务端](./api/server) | `ServerProfile`、`ServerSession`、帧接收与结果推送 | ✅ 已冻结 |
-| [传输适配器](./api/transport) | TCP / QUIC 连接工厂与配置 | ✅ 已冻结 |
+| [枚举与常量](./api/enums) | 消息类型、flag、payload kind、状态枚举和常量 | 稳定 |
+| [包头与数据包](./api/packet) | `NnrpHeader`、`NnrpPacket`、tensor section 与序列化工具 | 稳定 |
+| [消息类型](./api/messages) | 控制面/数据面消息的 metadata 类与构造函数 | 稳定 |
+| [客户端](./api/client) | Client profile、session lifecycle、submit/result helper、迁移与路由 | 稳定 |
+| [服务端](./api/server) | Server profile、session accept、frame receive 与 result push helper | 稳定 |
+| [传输适配器](./api/transport) | TCP / QUIC 连接工厂与配置类型 | 稳定 |
 
 ## 包信息
 
 | 属性 | 值 |
 |---|---|
-| 包名 | `nnrp` |
-| 版本 | `0.1.0` |
+| Distribution | `nnrp-py` |
+| 导入包名 | `nnrp` |
+| 当前预览包 | `1.0.0rc3` |
 | 最低 Python | `3.11` |
-| 运行时依赖 | `aioquic >= 1.2.0` |
+| 运行时依赖 | `aioquic >= 1.2.0`、`cffi >= 2.0.0` |
 
-```python
-pip install nnrp
+```bash
+pip install "nnrp-py==1.0.0rc3"
 ```
 
-## 版本与线路格式
+## Native Runtime Facade
 
-当前仅支持 `WireFormat.CURRENT = 0`（NNRP/1）。每个包头的 `wire_format` 字段须与此值匹配，否则解析器将抛出 `ValueError`。
-5. 稳定的错误层级与取消接口。
+顶层 `nnrp` 包也导出了 native runtime helper，例如 `load_native_runtime`、`load_native_client`、`probe_native_artifact`、`NativeRuntimeBackend`、`NativeRuntimeClient`、`NativeRuntimeConnection`、`NativeRuntimeSession`、`NativeSchemaCodec`、`NativeRecoveryCodec`，以及缓存、session 和诊断相关类型。
 
-## Python 侧约束
+默认 binding 模式为 `auto`，会优先使用已打包的 cffi API 快路径；如果快路径不可用，则回退到 `ctypes`。本地开发需要免编译路径时设置 `NNRP_NATIVE_BINDING_MODE=ctypes`；需要强制快路径并在不可用时失败时设置 `NNRP_NATIVE_BINDING_MODE=cffi_api`。
 
-1. 异步方法应作为主契约。
-2. 同步封装可以存在，但只是同一控制面语义的便捷层。
-3. 公开方法名、参数分组和返回状态对象不应在未升级 SDK 版本的情况下漂移。
+## 工具入口
+
+| 命令 | 用途 |
+|---|---|
+| `python -m nnrp.tools.adapter_conformance` | 消费 suite-owned adapter execution plan，并输出 adapter case results。 |
+| `python -m nnrp.tools.benchmark` | 消费 benchmark execution plan，并输出 benchmark results。 |
+| `nnrp-run-benchmark` | Benchmark runner 的 console-script 别名。 |
+
+## Wire Format
+
+当前只支持 NNRP/1 wire format `0`。所有 packet header 的 `wire_format` 字段都必须匹配该值，否则 parser 会抛出 `ValueError`。
+
+## Python 侧约定
+
+1. Async-first 方法是主要 host API 合约。
+2. 同步 helper 只是同一协议语义上的便利包装。
+3. 公开方法名、参数分组和返回状态对象不应在没有正式 SDK 版本变更的情况下漂移。

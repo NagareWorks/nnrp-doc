@@ -22,6 +22,7 @@ The suite owns baseline selection, canonical vector generation, execution-plan c
 | capability selection | Decide which public cases are selected for this implementation | capability manifest, conformance report |
 | canonical vectors | Produce deterministic byte-level fixtures from readable recipes | suite-generated vector manifest |
 | adapter execution | Execute selected dynamic behavior cases and return machine-readable results | execution plan, adapter command, case-result report |
+| benchmark execution | Measure selected latency and throughput scenarios | benchmark plan, benchmark command, benchmark result report |
 
 ---
 
@@ -60,7 +61,7 @@ Capability tokens are now documented in the versioned capability catalog instead
 </div>
 
 ::: tip Combination rules matter
-Some cases are selected only when multiple tokens are claimed together. For example, the preview2 primary result path depends on `result_push.partial`, `result_push.stale_reuse`, and `payload.tensor` at the same time. Check the version page directly before editing `supports`.
+Some cases are selected only when multiple tokens are claimed together. For example, the inline tensor path is selected with `frame_submit.tensor.inline` and `result_push.basic`. Check the version page directly before editing `supports`.
 :::
 
 ### Example capability manifest
@@ -179,6 +180,18 @@ cargo run \
   validate-adapter-results \
   --plan /tmp/adapter-plan.json \
   --results /tmp/adapter-results.json
+```
+
+### SDK benchmark command
+
+When a suite-owned benchmark plan is enabled, the SDK command consumes `NNRP_CONFORMANCE_BENCHMARK_PLAN` or `--plan` and writes `NNRP_CONFORMANCE_BENCHMARK_RESULTS` or `--output`.
+
+Python:
+
+```bash
+python -m nnrp.tools.benchmark \
+  --plan /tmp/benchmark-plan.json \
+  --output /tmp/benchmark-results.json
 ```
 
 ---

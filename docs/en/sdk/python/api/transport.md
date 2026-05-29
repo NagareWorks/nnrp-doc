@@ -2,6 +2,8 @@
 
 Transport adapters wrap the underlying QUIC and TCP connections. All types are exported from `nnrp.adapters` and also accessible via the top-level `nnrp` namespace.
 
+QUIC is provided as a transport slot through `aioquic`; it is not required for every deployment. TCP remains the recommended local development path when certificate handling or QUIC support is unavailable.
+
 ## Import
 
 ```python
