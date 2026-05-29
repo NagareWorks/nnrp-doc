@@ -6,6 +6,7 @@
 2. `NNRP/1-preview2`
 3. `NNRP/1-preview3`
 4. `NNRP 协议一致性测试套件设计`
+5. `NNRP OpenAI 兼容 Profile 草案`
 
 这些文档按版本保存，用于回溯协议边界、冻结记录与实现背景。
 
@@ -15,3 +16,4 @@
 2. `v1-preview2` 主要记录 preview2 阶段在 typed payload、多传输绑定和 richer data plane 上的设计冻结；其中代码层发包身份冻结为 `NNRP/1.0`。
 3. `v1-preview3` 主要记录 profile-neutral 公共层与多 session 模型。
 4. `conformance-suite` 记录跨版本协议一致性测试套件的定位、版本策略、分层结构和实现边界。
+5. `openai-compatible-profile` 记录如何在 NNRP session、submit、result stream、cancel 和 diagnostics 上承载 OpenAI 兼容 AI API 语义。

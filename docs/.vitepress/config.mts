@@ -769,7 +769,8 @@ const zhSidebar = {
         { text: "v1-preview1", link: "/zh/design/v1-preview1" },
         { text: "v1-preview2", link: "/zh/design/v1-preview2" },
         { text: "v1-preview3", link: "/zh/design/v1-preview3" },
-        { text: "一致性测试套件设计", link: "/zh/design/conformance-suite" }
+        { text: "一致性测试套件设计", link: "/zh/design/conformance-suite" },
+        { text: "OpenAI 兼容 Profile 草案", link: "/zh/design/openai-compatible-profile" }
       ]
     }
   ]
@@ -876,7 +877,8 @@ const enSidebar = {
         { text: "v1-preview1", link: "/en/design/v1-preview1" },
         { text: "v1-preview2", link: "/en/design/v1-preview2" },
         { text: "v1-preview3", link: "/en/design/v1-preview3" },
-        { text: "Conformance Suite Design", link: "/en/design/conformance-suite" }
+        { text: "Conformance Suite Design", link: "/en/design/conformance-suite" },
+        { text: "OpenAI-Compatible Profile Draft", link: "/en/design/openai-compatible-profile" }
       ]
     }
   ]
