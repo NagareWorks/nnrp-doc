@@ -1,17 +1,61 @@
-# JavaScript/TypeScript — Native Backend API
+# JavaScript/TypeScript — Native Runtime API
 
-`@nnrp/native` targets Node.js and Deno backend services. It loads `nnrp-rs` native artifacts, opens
-backend runtimes, and exposes both client and server surfaces. This page freezes the public contract
-without presenting interface blocks as the primary documentation.
+`@nnrp/native` targets Node.js and Deno applications that need the `nnrp-rs` native runtime. It is
+the right package for CLI tools, coding agents, backend services, and adapter processes such as an
+opencode integration. It loads native artifacts lazily and exposes both client-first and server
+surfaces.
 
-## Backend Workflow
+## Native Client Workflow
+
+Use this path when the JavaScript application consumes an NNRP service, for example a coding agent,
+operator agent, desktop helper, or CLI.
+
+1. Call [`openNativeClient`](#opennativeclient).
+2. Open a session with [`client.openSession`](#nnrpclient-opensession).
+3. Submit work with [`session.submit`](#nnrpclientsession-submit) or
+   [`session.submitNoWait`](#nnrpclientsession-submitnowait).
+4. Receive runtime events with [`session.nextEvent`](#nnrpclientsession-nextevent) when using
+   non-blocking submits.
+
+## Native Server Workflow
+
+Use this path when JavaScript hosts an NNRP service or adapter.
 
 1. Call [`openBackendRuntime`](#openbackendruntime).
-2. Use [`runtime.connect`](#nnrpbackendruntime-connect) for client mode or
-   [`runtime.listen`](#nnrpbackendruntime-listen) for server mode.
-3. Open sessions with [`client.openSession`](#nnrpclient-opensession) or
-   [`server.accept`](#nnrpserver-accept).
-4. Submit, receive, send results, and close through session methods.
+2. Start a listener with [`runtime.listen`](#nnrpbackendruntime-listen).
+3. Accept sessions with [`server.accept`](#nnrpserver-accept).
+4. Receive submits and send results through server session methods.
+
+## `openNativeClient`
+
+Loads the native artifact, connects to a remote NNRP endpoint, and returns a ready client. This is
+the recommended entrypoint for Node/Deno applications that only need the client role.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `options` | [`NnrpNativeClientOptions`](#nnrpnativeclientoptions) | Yes | Native artifact and endpoint options | Runtime loading plus remote connect options. |
+
+| Returns | Throws |
+|---|---|
+| `Promise<NnrpClient>` | [`NnrpNativeBindingUnavailableError`](#nnrpnativebindingunavailableerror), native, transport, handshake, or capability errors. |
+
+```ts
+import { openNativeClient } from "@nnrp/native";
+
+const client = await openNativeClient({
+  endpoint: "127.0.0.1:4433",
+  nativeLibrary: { artifactDir: "./native" },
+  transportPolicy: "score",
+});
+
+const session = await client.openSession({ inputProfile: "tensor" });
+const result = await session.submit({
+  frameId: 1,
+  payload: new Uint8Array([1, 2, 3]),
+  inputProfile: "tensor",
+  submitMode: "inline",
+});
+```
 
 ## `openBackendRuntime`
 
@@ -34,7 +78,8 @@ const runtime = await openBackendRuntime({
 
 ## `NnrpBackendRuntime.connect`
 
-Connects to a remote NNRP backend as a client.
+Connects to a remote NNRP endpoint as a client. Use this when the application already has a runtime
+because it also needs server APIs or explicit runtime lifecycle control.
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
@@ -186,6 +231,15 @@ await serverSession.sendResult(result);
 
 ## Core Types
 
+### `NnrpNativeClientOptions`
+
+| Property | Type | Required | Description |
+|---|---|---:|---|
+| `endpoint` | `string \| URL` | Yes | Remote NNRP endpoint. |
+| `nativeLibrary` | [`NnrpNativeLibraryOptions`](#nnrpnativelibraryoptions) | No | Native artifact discovery options. |
+| `transportPolicy` | [`NnrpTransportPolicy`](./core#transport-selection) | No | Client transport policy. |
+| `sessionDefaults` | [`NnrpSessionOptions`](#nnrpsessionoptions) | No | Defaults applied when sessions omit matching fields. |
+
 ### `NnrpBackendRuntimeOptions`
 
 | Property | Type | Required | Description |
@@ -249,7 +303,8 @@ selection.
 ## Common Pitfalls
 
 ::: warning
-1. Do not load native artifacts during module import; only `openBackendRuntime` may load them.
-2. Backend native packages must not include browser-only transport code or DOM dependencies.
+1. Do not load native artifacts during module import; only `openNativeClient` and `openBackendRuntime` may load them.
+2. Client-only Node/Deno apps should prefer `openNativeClient` instead of creating a runtime only to call `connect`.
 3. Explicit policies such as `quic-only` must fail when unavailable; do not silently downgrade.
+4. Native packages must not include browser-only transport code or DOM dependencies.
 :::

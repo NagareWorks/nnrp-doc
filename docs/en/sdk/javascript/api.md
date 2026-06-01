@@ -1,23 +1,23 @@
 # JavaScript/TypeScript API
 
-The JavaScript/TypeScript SDK public API is organized into core types, backend native runtime, and
+The JavaScript/TypeScript SDK public API is organized into core types, Node/Deno native runtime, and
 browser WASM runtime. This page freezes the cross-package boundary. Implementation in `nnrp-js`
 should converge on these names before package publication.
 
-Start with [Native Backend](./api/native) for Node.js/Deno services or
+Start with [Native Runtime](./api/native) for Node.js/Deno clients, CLI tools, agent runtimes, and services or
 [WASM Browser Client](./api/wasm) for browser and edge clients. [Core Types](./api/core) is the
 shared type reference linked from method parameter tables.
 
 | Group | Package | Description | Contract |
 |---|---|---|---|
 | [Core Types](./api/core) | `@nnrp/core` | Constants, capability manifests, diagnostics, payload ownership, transport selection, request/result types | Frozen target |
-| [Native Backend](./api/native) | `@nnrp/native` | Native artifact resolver, backend runtime, client/server/session APIs | Frozen target |
+| [Native Runtime](./api/native) | `@nnrp/native` | Native artifact resolver, Node/Deno client, backend runtime, server/session APIs | Frozen target |
 | [WASM Browser Client](./api/wasm) | `@nnrp/wasm` | WASM loader, browser runtime, client/session APIs, browser transport slots | Frozen target |
 
 ## Package Boundary Rules
 
 1. `@nnrp/core` is dependency-light and runtime-neutral.
-2. `@nnrp/native` may import Node-compatible filesystem/process/native-loading helpers and may expose server APIs.
+2. `@nnrp/native` may import Node-compatible filesystem/process/native-loading helpers and may expose both client and server APIs.
 3. `@nnrp/wasm` may import browser and WebAssembly APIs and must expose client APIs only.
 4. Every public binary payload parameter accepts `Uint8Array` or `ArrayBufferView`; retained payloads are copied unless
    an API explicitly states ownership transfer.

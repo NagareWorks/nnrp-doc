@@ -1,14 +1,58 @@
-# JavaScript/TypeScript — Native Backend API
+# JavaScript/TypeScript — Native Runtime API
 
-`@nnrp/native` 面向 Node.js 和 Deno 后端服务。它加载 `nnrp-rs` native artifact，打开 backend runtime，并暴露 client 和 server surface。
+`@nnrp/native` 面向需要 `nnrp-rs` native runtime 的 Node.js 和 Deno 应用。CLI、coding agent、
+运维 agent、后端服务以及 opencode 这类 adapter 集成，都应该走这个包。它延迟加载 native artifact，
+并同时暴露 client-first 和 server surface。
 
-## Backend 使用流程
+## Native Client 使用流程
+
+当 JavaScript 应用要消费 NNRP 服务时走这条路径，例如 coding agent、operator agent、桌面 helper 或 CLI。
+
+1. 调用 [`openNativeClient`](#opennativeclient)。
+2. 用 [`client.openSession`](#nnrpclient-opensession) 打开 session。
+3. 用 [`session.submit`](#nnrpclientsession-submit) 或
+   [`session.submitNoWait`](#nnrpclientsession-submitnowait) 提交工作。
+4. 使用 non-blocking submit 时，用 [`session.nextEvent`](#nnrpclientsession-nextevent) 接收 runtime event。
+
+## Native Server 使用流程
+
+当 JavaScript 承载 NNRP 服务或 adapter 时走这条路径。
 
 1. 调用 [`openBackendRuntime`](#openbackendruntime)。
-2. client 模式使用 [`runtime.connect`](#nnrpbackendruntime-connect)，server 模式使用
-   [`runtime.listen`](#nnrpbackendruntime-listen)。
-3. 使用 [`client.openSession`](#nnrpclient-opensession) 或 [`server.accept`](#nnrpserver-accept) 打开 session。
-4. 通过 session 方法 submit、receive、send result、close。
+2. 用 [`runtime.listen`](#nnrpbackendruntime-listen) 启动 listener。
+3. 用 [`server.accept`](#nnrpserver-accept) 接受 session。
+4. 通过 server session 接收 submit 并发送 result。
+
+## `openNativeClient`
+
+加载 native artifact，连接远端 NNRP endpoint，并返回可直接使用的 client。只需要 client role 的 Node/Deno
+应用应该优先使用这个入口。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `options` | [`NnrpNativeClientOptions`](#nnrpnativeclientoptions) | 是 | native artifact 与 endpoint 选项 | runtime loading 加远端连接选项。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<NnrpClient>` | [`NnrpNativeBindingUnavailableError`](#nnrpnativebindingunavailableerror)、native、transport、握手或 capability 错误。 |
+
+```ts
+import { openNativeClient } from "@nnrp/native";
+
+const client = await openNativeClient({
+  endpoint: "127.0.0.1:4433",
+  nativeLibrary: { artifactDir: "./native" },
+  transportPolicy: "score",
+});
+
+const session = await client.openSession({ inputProfile: "tensor" });
+const result = await session.submit({
+  frameId: 1,
+  payload: new Uint8Array([1, 2, 3]),
+  inputProfile: "tensor",
+  submitMode: "inline",
+});
+```
 
 ## `openBackendRuntime`
 
@@ -31,7 +75,8 @@ const runtime = await openBackendRuntime({
 
 ## `NnrpBackendRuntime.connect`
 
-作为 client 连接远端 NNRP backend。
+作为 client 连接远端 NNRP endpoint。应用已经持有 runtime，或者同时需要 server API / 显式 runtime
+lifecycle control 时使用这个入口。
 
 | 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
 |---|---|---:|---|---|
@@ -135,6 +180,15 @@ const result = await session.submit({
 
 ## 核心类型
 
+### `NnrpNativeClientOptions`
+
+| 属性 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `endpoint` | `string \| URL` | 是 | 远端 NNRP endpoint。 |
+| `nativeLibrary` | [`NnrpNativeLibraryOptions`](#nnrpnativelibraryoptions) | 否 | native artifact 发现选项。 |
+| `transportPolicy` | [`NnrpTransportPolicy`](./core#transport-selection) | 否 | client transport 策略。 |
+| `sessionDefaults` | [`NnrpSessionOptions`](#nnrpsessionoptions) | 否 | session 未显式提供字段时使用的默认值。 |
+
 ### `NnrpBackendRuntimeOptions`
 
 | 属性 | 类型 | 必填 | 说明 |
@@ -180,7 +234,8 @@ deno task benchmark:backend
 ## 常见坑
 
 ::: warning
-1. 不要在模块 import 时加载 native artifact；只有 `openBackendRuntime` 可以加载。
-2. backend native 包不得包含浏览器专用 transport 或 DOM 依赖。
+1. 不要在模块 import 时加载 native artifact；只有 `openNativeClient` 和 `openBackendRuntime` 可以加载。
+2. 只需要 client 的 Node/Deno 应用应该优先用 `openNativeClient`，不要为了 connect 手动创建 runtime。
 3. `quic-only` 这类显式策略不可用时必须失败，不能静默降级。
+4. native 包不得包含浏览器专用 transport 或 DOM 依赖。
 :::
