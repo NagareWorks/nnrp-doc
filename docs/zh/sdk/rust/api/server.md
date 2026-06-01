@@ -1,178 +1,143 @@
-# Rust — 服务端（Preview3）
+# Rust — Server API
 
-`nnrp-runtime` 已经暴露 Preview3 TCP 服务端 API。服务端负责监听、接收 `SESSION_OPEN`、执行 profile/schema/resume 校验，随后在 session 上接收 submit、返回 result/drop/flow update，并处理 patch、migrate、close。
+Rust server API 负责接受 runtime session、接收 submit、发送 result/drop/flow update、处理 session 控制消息并显式关闭。
 
-## `NnrpServerConfig`
+## Server 使用流程
 
-```rust
-pub struct NnrpServerConfig {
-    pub transport: RuntimeTransportKind,
-    pub supported_profiles: Vec<u16>,
-    pub supported_cache_objects: Vec<CacheObjectKind>,
-    pub max_cache_objects: usize,
-    pub max_cache_object_bytes: u32,
-    pub schema_registry: SchemaRegistry,
-    pub resume_token_bytes: u32,
-    pub max_in_flight_operations: u16,
-    pub granted_operation_credit: u16,
-    pub lease_ttl_ms: u32,
-    pub resume_window_ms: u32,
-    pub application_policy: Arc<dyn NnrpServerPolicy>,
-}
-```
+1. 构造 [`NnrpServerConfig`](#nnrpserverconfig)。
+2. 使用 [`NnrpServer::bind_tcp`](#nnrpserver-bind-tcp)、QUIC provider 或自定义
+   [`FramedListener`](#framedlistener) 绑定。
+3. 调用 [`accept`](#nnrpserver-accept) 接收 session。
+4. 循环调用 [`receive_submit`](#nnrpserversession-receive-submit)。
+5. 发送 [`send_result`](#nnrpserversession-send-result)、[`send_result_drop`](#nnrpserversession-send-result-drop)
+   或 [`send_flow_update`](#nnrpserversession-send-flow-update)。
+6. 处理 close 并调用 [`close`](#nnrpserversession-close)。
 
-Builder 方法：
+## `NnrpServer::bind_tcp`
 
-| 方法 | 说明 |
+使用 runtime TCP transport 绑定 listener。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `addr` | `impl tokio::net::ToSocketAddrs` | 是 | socket 地址 | 本地监听地址。 |
+| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | 是 | `transport` 应为 `Tcp` | server runtime 配置。 |
+
+| 返回 | 错误 |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | 选择 TCP 或 QUIC provider 对应的 runtime slot |
-| `with_supported_profiles(impl Into<Vec<u16>>)` | 设置允许的 profile |
-| `with_supported_cache_objects(impl Into<Vec<CacheObjectKind>>)` | 设置允许的缓存对象 kind |
-| `with_cache_limits(usize, u32)` | 设置缓存对象数量和单对象大小上限 |
-| `with_schema_registry(SchemaRegistry)` | 替换 schema registry |
-| `with_resume_token_bytes(u32)` | 设置恢复 token 字节数 |
-| `with_application_policy(P)` | 接入应用层 session open 校验 |
-
-默认配置使用 TCP、标准 token profile、Preview3 标准 schema registry、`max_in_flight_operations = 4`、`granted_operation_credit = 2`、`lease_ttl_ms = 30000`、`resume_window_ms = 120000`。
-
-## 应用层策略
+| `Result<NnrpServer, RuntimeError>` | bind、listener 或配置不匹配错误。 |
 
 ```rust
-pub trait NnrpServerPolicy: Send + Sync {
-    fn validate_session_open(&self, open: &SessionOpenMetadata) -> Result<(), u32>;
-}
-
-pub struct AllowAllServerPolicy;
+let server = NnrpServer::bind_tcp("127.0.0.1:4433", NnrpServerConfig::default()).await?;
 ```
 
-策略返回 `Err(session_error_code)` 时，服务端会拒绝 `SESSION_OPEN`。
+## QUIC Provider Bind
 
-## `NnrpServer`
+默认 QUIC listener 位于 `nnrp-transport-quic`。
 
-```rust
-impl NnrpServer {
-    pub async fn bind_tcp(
-        addr: impl tokio::net::ToSocketAddrs,
-        config: NnrpServerConfig,
-    ) -> Result<Self, RuntimeError>;
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `endpoint_config` | `QuicServerEndpointConfig` | 是 | 证书、私钥、ALPN | QUIC server endpoint 配置。 |
+| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | 是 | `transport = Quic` | runtime 配置。 |
 
-    pub async fn bind_quic(
-        endpoint: &str,
-        config: NnrpServerConfig,
-    ) -> Result<Self, RuntimeError>;
-
-    pub fn from_listener<L>(
-        listener: L,
-        config: NnrpServerConfig,
-    ) -> Result<Self, RuntimeError>
-    where
-        L: FramedListener + 'static;
-
-    pub fn from_boxed_listener(
-        listener: BoxedFramedListener,
-        config: NnrpServerConfig,
-    ) -> Result<Self, RuntimeError>;
-
-    pub fn local_addr(&self) -> Result<std::net::SocketAddr, RuntimeError>;
-    pub fn session_count(&self) -> Result<usize, RuntimeError>;
-    pub async fn accept(&self) -> Result<NnrpServerSession, RuntimeError>;
-}
-```
-
-`bind_tcp` 使用 runtime 内置的 `TcpFramedListener`。`nnrp-runtime::NnrpServer::bind_quic` 仍只保留抽象 API 位置；开箱 QUIC listener 由独立包 `nnrp-transport-quic` 提供。
+| 返回 | 错误 |
+|---|---|
+| `Result<NnrpServer, RuntimeError>` | 证书、bind、ALPN 或配置不匹配错误。 |
 
 ```rust
-use nnrp_runtime::{NnrpServerConfig, RuntimeTransportKind};
-use nnrp_transport_quic::{QuicProvider, QuicServerEndpointConfig};
-
-let bind_addr = "127.0.0.1:4433".parse()?;
-let (endpoint_config, certificate) =
-    QuicServerEndpointConfig::self_signed_localhost(bind_addr)?;
 let config = NnrpServerConfig::default().with_transport(RuntimeTransportKind::Quic);
 let server = QuicProvider::bind(endpoint_config, config).await?;
 ```
 
-生产环境通常传入正式证书链和 PKCS#8 私钥；测试或本地 bring-up 可使用 `self_signed_localhost` 并把返回的 `certificate.certificate_der` 配给客户端信任根。平台 QUIC、native addon 或 WASM-facing 后端仍可实现 `FramedListener`，再通过 `from_listener` / `from_boxed_listener` 注入。
+## `NnrpServer::accept`
 
-## Listener slot
+接受一个 peer 并完成 session open。
 
-```rust
-pub trait FramedListener: Send + Sync {
-    fn transport_kind(&self) -> RuntimeTransportKind;
-    fn local_addr(&self) -> Result<std::net::SocketAddr, RuntimeError>;
-    async fn accept(&self) -> Result<BoxedFramedTransport, RuntimeError>;
-}
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| 无 | - | - | - | 使用已绑定 listener。 |
 
-pub type BoxedFramedListener = Box<dyn FramedListener>;
-
-pub struct TcpFramedListener { /* private */ }
-```
-
-`from_listener` 会校验 `listener.transport_kind()` 必须等于 `NnrpServerConfig.transport`。`accept` 返回 boxed `FramedTransport`，所以 server session 不再绑定具体 TCP 类型。
-
-## `NnrpServerSession`
+| 返回 | 错误 |
+|---|---|
+| `Result<NnrpServerSession, RuntimeError>` | accept、session-open 拒绝或 transport 错误。 |
 
 ```rust
-impl NnrpServerSession {
-    pub fn session_id(&self) -> u32;
-    pub fn client_open(&self) -> &SessionOpenMetadata;
-    pub fn lifecycle(&self) -> &ConnectionLifecycle;
-    pub fn operations(&self) -> &OperationRegistry;
-    pub fn cache_object_count(&self) -> usize;
-
-    pub async fn receive_submit(&mut self) -> Result<NnrpSubmit, RuntimeError>;
-    pub async fn send_result(
-        &mut self,
-        frame_id: u32,
-        metadata: ResultPushMetadata,
-        body: Vec<u8>,
-    ) -> Result<(), RuntimeError>;
-    pub async fn send_result_drop(&mut self, frame_id: u32) -> Result<(), RuntimeError>;
-    pub async fn receive_cancel(&mut self) -> Result<NnrpCancel, RuntimeError>;
-    pub fn track_cache_object(&mut self, object_id: CacheObjectId) -> Result<(), RuntimeError>;
-    pub async fn receive_patch(&mut self) -> Result<SessionPatchMetadata, RuntimeError>;
-    pub async fn send_patch_ack(&mut self, ack: SessionPatchAckMetadata) -> Result<(), RuntimeError>;
-    pub async fn send_flow_update(&mut self, metadata: FlowUpdateMetadata) -> Result<(), RuntimeError>;
-    pub async fn receive_migrate(&mut self) -> Result<NnrpMigration, RuntimeError>;
-    pub async fn send_migrate_ack(
-        &mut self,
-        request: &SessionMigrateMetadata,
-        ack: SessionMigrateAckMetadata,
-    ) -> Result<(), RuntimeError>;
-    pub async fn receive_close(&mut self) -> Result<SessionCloseMetadata, RuntimeError>;
-    pub async fn ack_close(&mut self, close: &SessionCloseMetadata) -> Result<(), RuntimeError>;
-    pub async fn close(self) -> Result<(), RuntimeError>;
-}
+let mut session = server.accept().await?;
 ```
 
-## 数据结构
+## `NnrpServerSession::receive_submit`
+
+接收一帧 submit。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| 无 | - | - | - | 读取下一条 runtime packet。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<NnrpSubmit, RuntimeError>` | transport、解析、生命周期或 unexpected-message 错误。 |
 
 ```rust
-pub struct NnrpSubmit {
-    pub frame_id: u32,
-    pub metadata: FrameSubmitMetadata,
-    pub body: Vec<u8>,
-}
-
-pub struct NnrpCancel {
-    pub frame_id: u32,
-}
-
-pub struct NnrpMigration {
-    pub metadata: SessionMigrateMetadata,
-}
+let submit = session.receive_submit().await?;
 ```
 
-`RuntimeSessionRecord` 记录服务端 runtime 中的 session 状态：`session_id`、profile/schema、resume 状态、token 字节数和最后 operation id。
+## `NnrpServerSession::send_result`
+
+发送 `RESULT_PUSH`。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `frame_id` | `u32` | 是 | 已提交 frame id | 结果关联的 frame。 |
+| `metadata` | `ResultPushMetadata` | 是 | 有效 result metadata | 结果状态和耗时信息。 |
+| `body` | `Vec<u8>` | 是 | 结果 body 字节 | 序列化后的结果负载。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<(), RuntimeError>` | 生命周期、序列化或 transport 错误。 |
+
+```rust
+session
+    .send_result(submit.frame_id, ResultPushMetadata::default(), output)
+    .await?;
+```
+
+## `NnrpServerSession::send_result_drop`
+
+发送 frame drop。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `frame_id` | `u32` | 是 | 已提交 frame id | 被 drop 的 frame。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<(), RuntimeError>` | 生命周期或 transport 错误。 |
+
+## 核心类型
+
+### `NnrpServerConfig`
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `transport` | `RuntimeTransportKind` | `Tcp` | runtime transport slot。 |
+| `supported_profiles` | `Vec<u16>` | 标准 token profile | 接受的 profiles。 |
+| `supported_cache_objects` | `Vec<CacheObjectKind>` | 空 | 接受的 cache object kinds。 |
+| `schema_registry` | `SchemaRegistry` | 标准 registry | 接受的 schemas。 |
+| `max_in_flight_operations` | `u16` | `4` | in-flight operation 限制。 |
+| `granted_operation_credit` | `u16` | `2` | 初始 operation credit。 |
+| `lease_ttl_ms` | `u32` | `30000` | lease TTL。 |
+| `resume_window_ms` | `u32` | `120000` | resume 窗口。 |
+
+### `NnrpSubmit`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `frame_id` | `u32` | 提交 frame id。 |
+| `metadata` | `FrameSubmitMetadata` | submit metadata。 |
+| `body` | `Vec<u8>` | submit body。 |
 
 ## 示例
 
 ```rust
-use nnrp_core::ResultPushMetadata;
-use nnrp_runtime::{NnrpServer, NnrpServerConfig};
-
-let server = NnrpServer::bind_tcp("127.0.0.1:4433", NnrpServerConfig::default()).await?;
-
 loop {
     let mut session = server.accept().await?;
     tokio::spawn(async move {
@@ -181,18 +146,15 @@ loop {
         session
             .send_result(submit.frame_id, ResultPushMetadata::default(), output)
             .await?;
-
-        let close = session.receive_close().await?;
-        session.ack_close(&close).await?;
         session.close().await
     });
 }
 ```
 
-## 常见坑点
+## 常见坑
 
 ::: warning
-1. **超时帧必须发送 `send_result_drop`。** 默默跳过会让客户端等待结果时卡住。
-2. **`receive_*` 是顺序读取。** 如果你的应用需要同时处理 cancel、patch、migrate 和 submit，需要在上层设计明确的事件循环。
-3. **同步推理不要直接阻塞 tokio runtime。** CPU/GPU 阻塞式调用应放到专用线程池或 `spawn_blocking`。
+1. 超时 frame 需要 `send_result_drop`，不要静默跳过。
+2. `receive_*` 是顺序读取；submit/cancel/patch/migrate 可交错时要自己建事件循环。
+3. CPU/GPU 阻塞工作应放到专用线程池或 `spawn_blocking`。
 :::

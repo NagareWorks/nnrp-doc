@@ -2,6 +2,8 @@
 
 Rust SDK（`nnrp-rs`）工作区包含协议核心、runtime、transport provider、FFI/native packaging、WASM primitives 和一致性测试 crate。Preview3 当前已经具备协议核心、异步 TCP client/server runtime、默认 QUIC provider、一致性 fixtures，以及跨语言绑定所需的 FFI ABI / WASM primitive 表面。
 
+应用代码优先从 [客户端](./api/client) 或 [服务端](./api/server) 开始阅读。核心类型、FFI 和 WASM 页面作为参数和打包细节的参考资料。
+
 | 分组 | Crate | 说明 | 状态 |
 |---|---|---|---|
 | [核心类型](./api/core) | `nnrp-core` | Wire codec、校验、生命周期、缓存/Schema、恢复、一致性基线 | ✅ Preview3 core 已实现 |
@@ -54,3 +56,4 @@ Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。
 1. 所有权和借用规则需要在公开类型里表达清楚。
 2. 异步接收流程保持显式：客户端通过 `await_event` / `await_result`，服务端通过 `receive_*`。
 3. 公开 crate、feature flag 和结果类型在 Preview3 集成窗口内应保持稳定。
+4. 代码块只展示用例；方法细节放在方法级参数表中。

@@ -1,6 +1,6 @@
-# Rust — 客户端（Preview3）
+# Rust — Client API
 
-`nnrp-runtime` 已经暴露 Preview3 TCP 客户端 API。客户端负责建立 transport、发送 `SESSION_OPEN`、提交 operation、接收 result / drop / flow update，并显式关闭 session。
+Rust runtime client 负责 transport 建立、session open、submit/cancel/patch/migrate、事件接收和优雅关闭。本文先写应用入口方法，metadata 类型细节放到 [核心类型](./core)。
 
 ## 依赖
 
@@ -12,237 +12,191 @@ nnrp-transport-quic = "1.0.0-preview.3.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 
-## `NnrpClientConfig`
+## Client 使用流程
 
-```rust
-pub struct NnrpClientConfig {
-    pub transport: RuntimeTransportKind,
-    pub requested_session_id: u32,
-    pub profile_id: u16,
-    pub schema_id: u32,
-    pub schema_version: u32,
-    pub priority_class: SessionPriorityClass,
-    pub default_deadline_ms: u32,
-    pub max_in_flight_operations: u16,
-    pub lease_ttl_hint_ms: u32,
-    pub allow_resume: bool,
-    pub resume_token_bytes: u32,
-    pub cache_hints: Vec<CacheObjectKind>,
-}
-```
+1. 构造 [`NnrpClientConfig`](#nnrpclientconfig)。
+2. 使用 [`NnrpClient::connect_tcp`](#nnrpclient-connect-tcp)、QUIC provider 或自定义
+   [`FramedTransport`](#framedtransport) 连接。
+3. 调用 [`open_session`](#nnrpclient-open-session)。
+4. 用 [`NnrpClientSession::submit`](#nnrpclientsession-submit) 提交。
+5. 用 [`await_event`](#nnrpclientsession-await-event) 或 [`await_result`](#nnrpclientsession-await-result) 接收输出。
+6. 用 [`close`](#nnrpclientsession-close) 关闭。
 
-Builder 方法：
+## `NnrpClient::connect_tcp`
 
-| 方法 | 说明 |
+通过 runtime TCP transport 连接。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `addr` | `impl tokio::net::ToSocketAddrs` | 是 | socket 地址 | 目标 NNRP endpoint。 |
+| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | 是 | `transport` 应为 `Tcp` | client runtime 配置。 |
+
+| 返回 | 错误 |
 |---|---|
-| `with_transport(RuntimeTransportKind)` | 选择 TCP 或 QUIC provider 对应的 runtime slot |
-| `with_cache_hints(impl Into<Vec<CacheObjectKind>>)` | 声明客户端希望使用的缓存对象 kind |
-| `with_resume(u32)` | 打开恢复语义并设置 resume token 字节数 |
-
-默认值使用 TCP、标准 token profile/schema、`Balanced` priority、`default_deadline_ms = 500`、`max_in_flight_operations = 4`、`lease_ttl_hint_ms = 30000`。
-
-## `NnrpClient`
+| `Result<NnrpClient, RuntimeError>` | DNS、connect、transport 或配置不匹配错误。 |
 
 ```rust
-impl NnrpClient {
-    pub async fn connect_tcp(
-        addr: impl tokio::net::ToSocketAddrs,
-        config: NnrpClientConfig,
-    ) -> Result<Self, RuntimeError>;
-
-    pub async fn connect_quic(
-        endpoint: &str,
-        config: NnrpClientConfig,
-    ) -> Result<Self, RuntimeError>;
-
-    pub fn from_transport<T>(
-        transport: T,
-        config: NnrpClientConfig,
-    ) -> Result<Self, RuntimeError>
-    where
-        T: FramedTransport + 'static;
-
-    pub fn from_boxed_transport(
-        transport: BoxedFramedTransport,
-        config: NnrpClientConfig,
-    ) -> Result<Self, RuntimeError>;
-
-    pub async fn open_session(self) -> Result<NnrpClientSession, RuntimeError>;
-}
+let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 ```
 
-`connect_tcp` 使用 runtime 内置的 `TcpTransport`。`nnrp-runtime::NnrpClient::connect_quic` 仍只保留抽象 API 位置；开箱 QUIC 连接由独立包 `nnrp-transport-quic` 提供，以避免把 Quinn/Rustls 依赖塞进 transport-neutral runtime。
+## QUIC Provider Connect
+
+默认 QUIC 实现在 `nnrp-transport-quic` 中，避免 transport-neutral runtime 强依赖 Quinn/Rustls。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `endpoint` | provider endpoint type | 是 | QUIC endpoint | 目标 endpoint。 |
+| `endpoint_config` | `QuicClientEndpointConfig` | 是 | 证书和 ALPN 配置 | QUIC client 配置。 |
+| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | 是 | `transport = Quic` | runtime 配置。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<NnrpClient, RuntimeError>` | 证书、connect、ALPN 或配置不匹配错误。 |
 
 ```rust
-use nnrp_runtime::{NnrpClientConfig, RuntimeTransportKind};
-use nnrp_transport_quic::{QuicClientEndpointConfig, QuicProvider};
-
-let endpoint_config =
-    QuicClientEndpointConfig::localhost_with_root_certificate(server_certificate_der);
 let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Quic);
 let client = QuicProvider::connect("127.0.0.1:4433", endpoint_config, config).await?;
 ```
 
-如果部署方需要平台 QUIC、native addon 或 WASM-facing 后端，仍可实现 `FramedTransport` 并通过 `from_transport` / `from_boxed_transport` 注入。
+## `NnrpClient::from_transport`
 
-## Transport slot
+接入自定义 framed transport。
 
-```rust
-pub enum RuntimeTransportKind {
-    Tcp,
-    Quic,
-}
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `transport` | `T: FramedTransport + 'static` | 是 | 任意 runtime transport | 自定义 TCP、QUIC、native 或测试 transport。 |
+| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | 是 | 必须匹配 transport kind | client runtime 配置。 |
 
-pub trait FramedTransport: Send {
-    fn transport_kind(&self) -> RuntimeTransportKind;
-    async fn read_packet(&mut self) -> Result<RuntimePacket, RuntimeError>;
-    async fn write_packet(&mut self, packet: &RuntimePacket) -> Result<(), RuntimeError>;
-    async fn close(&mut self) -> Result<(), RuntimeError>;
-}
+| 返回 | 错误 |
+|---|---|
+| `Result<NnrpClient, RuntimeError>` | transport kind 不匹配或配置无效。 |
 
-pub type BoxedFramedTransport = Box<dyn FramedTransport>;
-```
+## `NnrpClient::open_session`
 
-`from_transport` 会校验 `transport.transport_kind()` 必须等于 `NnrpClientConfig.transport`，避免 TCP/QUIC slot 被错误绑定。
+消耗已连接 client 并打开 runtime session。
 
-## Provider registry
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| 无 | - | - | - | 使用 connect 时捕获的配置。 |
 
-```rust
-use nnrp_core::TransportId;
-use nnrp_transport_provider::{
-    ProbeSample, RemoteTransportSupport, TransportPolicy, TransportProviderRegistry,
-};
-use nnrp_transport_quic::QuicProvider;
-use nnrp_transport_tcp::TcpProvider;
-
-let registry = TransportProviderRegistry::new()
-    .with_provider(TcpProvider::descriptor())
-    .with_provider(QuicProvider::descriptor());
-let remote = RemoteTransportSupport::new([TransportId::Tcp, TransportId::Quic]);
-let candidates = registry.select(&remote, TransportPolicy::PreferQuic)?;
-assert_eq!(candidates.selected.transport_id, TransportId::Quic);
-```
-
-`registry.select` 只做本地 provider、远端能力和本地 policy 的候选过滤；它适合 `force_*` 策略、诊断可用性，或在没有探测结果时给出 fallback 候选。生产选路不要把“QUIC 可用”直接等同于“最终走 QUIC”。需要比较多条可用路径时，应把实际探测结果交给评分选择器：
+| 返回 | 错误 |
+|---|---|
+| `Result<NnrpClientSession, RuntimeError>` | session open 拒绝或 transport 错误。 |
 
 ```rust
-use nnrp_transport_provider::select_transport_with_probe;
-
-let samples = [
-    ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 4_800, 1024, 1024),
-    ProbeSample::success(TransportId::Tcp, TcpProvider::NAME, 20_000, 5_100, 1024, 1024),
-    ProbeSample::success(TransportId::Quic, QuicProvider::NAME, 20_000, 15_000, 1024, 1024),
-    ProbeSample::failure(TransportId::Quic, QuicProvider::NAME, 20_000, true),
-];
-let probed = select_transport_with_probe(
-    registry.providers(),
-    &remote,
-    TransportPolicy::PreferQuic,
-    &samples,
-)?;
-assert_eq!(probed.selected.transport_id, TransportId::Tcp);
-```
-
-`nnrp-transport-provider` 负责本地 provider 列表、native library 探测、策略选择、probe 样本评分和被拒候选诊断。评分会综合 RTT、超时/失败率、有效吞吐和本地 policy；缺少样本或全部失败的 provider 会以结构化原因出现在 rejected candidates 中。`nnrp-transport-tcp` 是独立 TCP provider 包；`nnrp-transport-quic` 默认提供 Quinn/Rustls QUIC provider、证书配置 helper 和注入 helper。自定义 QUIC 后端可继续用 `QuicProvider::backend_descriptor` 暴露为独立 provider。
-
-`nnrp-transport-provider` 还暴露 `tcp`、`quic`、`native-loader`、`wasm` feature flags，并可通过 `compile_time_provider_features()` 查看当前编译产物启用了哪些 provider family。
-
-## `NnrpClientSession`
-
-```rust
-impl NnrpClientSession {
-    pub fn session_id(&self) -> u32;
-    pub fn lifecycle(&self) -> &ConnectionLifecycle;
-
-    pub async fn submit(
-        &mut self,
-        metadata: FrameSubmitMetadata,
-        body: Vec<u8>,
-    ) -> Result<u32, RuntimeError>;
-
-    pub async fn submit_nowait(
-        &mut self,
-        metadata: FrameSubmitMetadata,
-        body: Vec<u8>,
-    ) -> Result<u32, RuntimeError>;
-
-    pub async fn await_result(&mut self) -> Result<NnrpResult, RuntimeError>;
-    pub async fn await_event(&mut self) -> Result<NnrpClientEvent, RuntimeError>;
-    pub async fn cancel_frame(&mut self, frame_id: u32) -> Result<(), RuntimeError>;
-    pub async fn patch_session(
-        &mut self,
-        patch: SessionPatchMetadata,
-    ) -> Result<SessionPatchAckMetadata, RuntimeError>;
-    pub async fn migrate_transport(
-        &mut self,
-        request: SessionMigrateMetadata,
-    ) -> Result<SessionMigrateAckMetadata, RuntimeError>;
-    pub fn build_migration_request(
-        &self,
-        new_transport_id: TransportId,
-        last_result_frame_id: u64,
-        client_migrate_ts_us: u64,
-    ) -> SessionMigrateMetadata;
-    pub async fn close(self) -> Result<(), RuntimeError>;
-    pub async fn close_with(
-        &mut self,
-        close: SessionCloseMetadata,
-    ) -> Result<SessionCloseAckMetadata, RuntimeError>;
-    pub async fn close_transport(self) -> Result<(), RuntimeError>;
-}
-```
-
-## 结果与事件
-
-```rust
-pub struct NnrpResult {
-    pub frame_id: u32,
-    pub metadata: ResultPushMetadata,
-    pub body: Vec<u8>,
-}
-
-pub enum NnrpClientEvent {
-    Result(NnrpResult),
-    ResultDrop { frame_id: u32 },
-    FlowUpdate(FlowUpdateMetadata),
-}
-```
-
-`await_result` 只接受 `RESULT_PUSH`；如果服务端返回 `RESULT_DROP` 或 `FLOW_UPDATE`，会报 `UnexpectedMessage`。需要完整事件循环时使用 `await_event`。
-
-## 示例
-
-```rust
-use nnrp_core::FrameSubmitMetadata;
-use nnrp_runtime::{NnrpClient, NnrpClientConfig, RuntimeTransportKind};
-
-let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
-let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 let mut session = client.open_session().await?;
+```
 
+## `NnrpClientSession::submit`
+
+提交一个 operation，返回已接受的 frame id，不等待结果。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `metadata` | `FrameSubmitMetadata` | 是 | 有效 frame metadata | 来自 `nnrp-core` 的提交 metadata。 |
+| `body` | `Vec<u8>` | 是 | 可为空 | 序列化后的请求 body。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<u32, RuntimeError>` | 序列化、流控、生命周期或 transport 错误。 |
+
+```rust
 let frame_id = session
     .submit(FrameSubmitMetadata::default(), b"delta".to_vec())
     .await?;
+```
 
+## `NnrpClientSession::await_event`
+
+接收下一条 session event。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| 无 | - | - | - | 读取下一条 runtime packet。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<NnrpClientEvent, RuntimeError>` | transport、解析或生命周期错误。 |
+
+```rust
 match session.await_event().await? {
-    nnrp_runtime::NnrpClientEvent::Result(result) => {
-        assert_eq!(result.frame_id, frame_id);
-    }
-    nnrp_runtime::NnrpClientEvent::ResultDrop { frame_id } => {
-        eprintln!("frame dropped: {frame_id}");
-    }
-    nnrp_runtime::NnrpClientEvent::FlowUpdate(update) => {
-        eprintln!("flow update: {:?}", update);
-    }
+    NnrpClientEvent::Result(result) => handle_result(result),
+    NnrpClientEvent::ResultDrop { frame_id } => handle_drop(frame_id),
+    NnrpClientEvent::FlowUpdate(update) => apply_flow_update(update),
 }
+```
 
+## `NnrpClientSession::await_result`
+
+只接收下一条 `RESULT_PUSH`。如果 drop 或 flow update 是合法路径，应使用 [`await_event`](#nnrpclientsession-await-event)。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| 无 | - | - | - | 读取下一条 packet。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<NnrpResult, RuntimeError>` | drop/flow-update 会返回 `UnexpectedMessage`，也可能有 transport 或解析错误。 |
+
+## `NnrpClientSession::patch_session`
+
+发送 session patch 并等待 ack。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `patch` | `SessionPatchMetadata` | 是 | 有效 patch metadata | runtime session 参数更新。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<SessionPatchAckMetadata, RuntimeError>` | 拒绝、ack 格式错误或 transport 错误。 |
+
+## `NnrpClientSession::close`
+
+优雅关闭 session 和 transport。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| 无 | - | - | - | 消耗 session。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<(), RuntimeError>` | close 或 transport 错误。 |
+
+```rust
 session.close().await?;
 ```
 
-## 常见坑点
+## 核心类型
+
+### `NnrpClientConfig`
+
+| 字段 | 类型 | 默认值 | 说明 |
+|---|---|---|---|
+| `transport` | `RuntimeTransportKind` | `Tcp` | runtime transport slot。 |
+| `requested_session_id` | `u32` | `0` | 请求的 session id。 |
+| `profile_id` | `u16` | 标准 token profile | 请求的 profile。 |
+| `schema_id` / `schema_version` | `u32` | 标准 registry 值 | schema 身份。 |
+| `priority_class` | `SessionPriorityClass` | `Balanced` | 调度优先级。 |
+| `default_deadline_ms` | `u32` | `500` | 默认 operation deadline。 |
+| `max_in_flight_operations` | `u16` | `4` | 本地 in-flight 限制。 |
+| `lease_ttl_hint_ms` | `u32` | `30000` | lease TTL hint。 |
+| `allow_resume` | `bool` | `false` | 是否启用恢复语义。 |
+| `cache_hints` | `Vec<CacheObjectKind>` | 空 | 预期使用的 cache object kind。 |
+
+### `NnrpClientEvent`
+
+| Variant | 数据 | 说明 |
+|---|---|---|
+| `Result` | [`NnrpResult`](#nnrpresult) | 服务端返回结果。 |
+| `ResultDrop` | `frame_id` | 服务端 drop frame。 |
+| `FlowUpdate` | `FlowUpdateMetadata` | 服务端发送 credit 或 backpressure 信息。 |
+
+## 常见坑
 
 ::: warning
-1. **`open_session(self)` 会消费 client。** Preview3 runtime 当前是一条 transport 绑定一个 session 的最小模型。
-2. **`submit` 不会自动等待结果。** 它返回分配出的 `frame_id`，结果需要通过 `await_result` 或 `await_event` 消费。
-3. **关闭时优先使用 `close()`。** 只有在异常路径或测试场景中才直接调用 `close_transport()`。
+1. `open_session(self)` 会消耗 client；当前 runtime 是一个 transport 绑定一个 session。
+2. `submit` 返回 frame id，不会自动等待输出。
+3. drop 或 flow update 是合法路径时用 `await_event`，不要用 `await_result`。
+4. 正常关闭优先用 `close()`。
 :::

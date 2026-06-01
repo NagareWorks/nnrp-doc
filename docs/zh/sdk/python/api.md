@@ -2,6 +2,8 @@
 
 Python SDK（`nnrp-py`）的公开 API 分为协议基础类型、客户端/服务端 host helper、传输适配器和 native runtime facade。
 
+优先从 [客户端](./api/client) 或 [服务端](./api/server) 开始阅读。枚举、packet、message 和 transport 页面是参数表链接过去的参考资料。
+
 | 分组 | 说明 | 状态 |
 |---|---|---|
 | [枚举与常量](./api/enums) | 消息类型、flag、payload kind、状态枚举和常量 | 稳定 |
@@ -48,3 +50,4 @@ pip install "nnrp-py==1.0.0rc3"
 1. Async-first 方法是主要 host API 合约。
 2. 同步 helper 只是同一协议语义上的便利包装。
 3. 公开方法名、参数分组和返回状态对象不应在没有正式 SDK 版本变更的情况下漂移。
+4. 代码块只展示用例；方法签名和参数说明应放在方法级参数表中。

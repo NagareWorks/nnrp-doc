@@ -1,34 +1,41 @@
-# C# — Frozen API
+# C# API
 
-The C# SDK (`Nnrp.Core`) public API is organized into the following groups.
+Start with the host-facing client and server pages. Protocol, message, enum, and transport pages are
+reference material for parameters linked from those entrypoint pages.
 
-| Group | Description | Status |
-|---|---|---|
-| [Enums](./api/enums) | All `enum` definitions in `Nnrp.Core` namespace | ✅ Frozen |
-| [Protocol Types](./api/protocol) | Header, framed message, state machine, cache store | ✅ Frozen |
-| [Message Types](./api/messages) | All message classes and extension types | ✅ Frozen |
-| [Client](./api/client) | `NnrpClient`, `ClientProfile`, submit and result | ✅ Frozen |
-| [Server](./api/server) | `INnrpServerSession`, `ServerProfile`, frame receive and result | ✅ Frozen |
-| [Transport](./api/transport) | `INnrpMessageTransport`, TCP implementation | ✅ Frozen |
+| Read this first | Purpose |
+|---|---|
+| [Client](./api/client) | Connect, submit, receive results/events, and close. |
+| [Server](./api/server) | Accept sessions, receive submits, send results/drops, and close. |
+
+| Reference | Purpose |
+|---|---|
+| [Enums](./api/enums) | `enum` values used by client, server, messages, and transports. |
+| [Protocol Types](./api/protocol) | Headers, framed messages, state machine, and cache store. |
+| [Message Types](./api/messages) | Control-plane and data-plane message objects. |
+| [Transport](./api/transport) | Framed transport contracts and TCP/native bridge integration notes. |
 
 ## Package Info
 
 | Property | Value |
 |---|---|
-| Package | `Nnrp.Core` |
-| Version | `1.0.0` |
+| Packages | `Nnrp.Core`, `Nnrp.Client`, `Nnrp.Server`, `Nnrp.Transport.Tcp`, `Nnrp.NativeBridge` |
+| Version target | `1.0.0` |
 | Target framework | `netstandard2.1` |
-| External deps | none |
 
 ```xml
 <PackageReference Include="Nnrp.Core" Version="1.0.0" />
 ```
-3. Operation submission, receive, and cancel entry points.
-4. Cache and schema lifecycle methods.
-5. Stable exception categories and cancellation behavior.
 
-## C#-specific expectations
+## Documentation Pattern
 
-1. Async methods should be first-class and Task-based.
+Application methods are documented one method at a time. Each method section gives parameters,
+requiredness, accepted values, return type, error behavior, and then a short usage example. Code
+blocks are examples, not duplicated interface listings.
+
+## C#-specific Expectations
+
+1. Async methods are the primary API shape.
 2. Disposable lifetimes and shutdown behavior must be explicit.
-3. Public namespaces, interfaces, and result objects should remain stable across the Preview3 integration window.
+3. Public namespaces, interfaces, and result objects should remain stable unless the SDK version
+   changes.

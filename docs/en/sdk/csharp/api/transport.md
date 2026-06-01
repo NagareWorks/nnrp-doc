@@ -1,185 +1,120 @@
-# C# — Transport
+# C# — Transport API
 
-Transport types are in the `Nnrp.Transport` namespace. The current stable implementation provides TCP framed transport; QUIC support is planned for Preview3.
+Transport APIs live in `Nnrp.Core`, `Nnrp.Transport.Tcp`, and `Nnrp.NativeBridge`. Application code
+usually picks one of two paths:
 
-## Import
+1. Use `NnrpTcpMessageTransport` directly when the app already knows it wants TCP.
+2. Use `NnrpAutoTransportClient` from the native bridge when the app wants QUIC/TCP probing and
+   fallback.
+
+## Imports
 
 ```csharp
-using Nnrp.Transport;
 using Nnrp.Core;
+using Nnrp.Transport.Tcp;
+using Nnrp.NativeBridge;
 ```
 
----
+## `NnrpTcpMessageTransport.ConnectAsync`
 
-## Transport Interfaces
+Opens a TCP connection and returns a framed NNRP transport.
 
-### `INnrpMessageTransport`
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `host` | `string` | Yes | Non-empty hostname or IP | Remote host. |
+| `port` | `int` | Yes | `1..65535` | Remote TCP port. |
+| `cancellationToken` | `CancellationToken` | No | Defaults to `default` | Cancels connect. |
 
-Unified transport interface for both client and server.
+| Returns | Throws |
+|---|---|
+| `ValueTask<NnrpTcpMessageTransport>` | Argument, connect, or cancellation errors. |
 
 ```csharp
-public interface INnrpMessageTransport : IAsyncDisposable
-{
-    TransportId TransportId { get; }
-    bool IsConnected { get; }
-    Task<NnrpFramedMessage> ReceiveAsync(CancellationToken ct = default);
-    Task SendAsync(NnrpFramedMessage message, CancellationToken ct = default);
-    Task CloseAsync(CancellationToken ct = default);
-}
+await using var transport = await NnrpTcpMessageTransport.ConnectAsync("127.0.0.1", 4433, ct);
 ```
+
+## `INnrpMessageTransport.SendAsync`
+
+Sends one framed message.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `message` | [`NnrpFramedMessage`](./protocol#nnrpframedmessage) | Yes | Valid framed message | Message to write. |
+| `cancellationToken` | `CancellationToken` | Yes | Any token | Cancels write. |
+
+| Returns | Throws |
+|---|---|
+| `ValueTask` | Transport, disposal, or cancellation errors. |
+
+```csharp
+await transport.SendAsync(message, ct);
+```
+
+## `INnrpMessageTransport.ReceiveAsync`
+
+Receives one framed message.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `cancellationToken` | `CancellationToken` | Yes | Any token | Cancels receive. |
+
+| Returns | Throws |
+|---|---|
+| `ValueTask<NnrpFramedMessage>` | Transport, malformed header, disposal, or cancellation errors. |
+
+```csharp
+var message = await transport.ReceiveAsync(ct);
+```
+
+## `NnrpAutoTransportClient`
+
+The native bridge client probes QUIC and TCP, selects a transport according to `ClientProfile`, and
+then exposes submit, ping, cancel, migrate, and hint receive helpers. See [Client](./client#auto-transport-bridge).
+
+| Type | Purpose |
+|---|---|
+| `NnrpAutoTransportClientOptions` | Host, ports, TLS name, requested model, certificate verification. |
+| `NnrpAutoTransportClient` | Connects, probes, submits, receives flow updates/result hints, migrates, closes. |
+| `NnrpTransportProbeOptions` | Probe sample count, payload size, timeout, and scoring inputs. |
+
+### `NnrpTransportProbeOptions`
+
+| Property | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `WarmupProbeCount` | `int` | No | `>= 0`, default `1` | Probe samples ignored by scoring so the selected transport is not biased by first-use setup. |
+| `ScoredProbeCount` | `int` | No | `> 0`, default `3` | Probe samples included in transport scoring. |
+| `PayloadBytes` | `int` | No | `>= 0`, default `16384` | Payload size used by probe messages. |
+| `ProbeTimeout` | `TimeSpan` | No | `>= TimeSpan.Zero`, default `2s` | Timeout for each probe attempt. |
+
+## Core Transport Types
 
 ### `INnrpMessageSender`
 
-Write-only view of a transport (for sending only).
-
-```csharp
-public interface INnrpMessageSender
-{
-    Task SendAsync(NnrpFramedMessage message, CancellationToken ct = default);
-}
-```
+| Method | Parameter | Returns | Description |
+|---|---|---|---|
+| `SendAsync` | [`NnrpFramedMessage`](./protocol#nnrpframedmessage), `CancellationToken` | `ValueTask` | Writes one framed message. |
 
 ### `INnrpMessageReceiver`
 
-Read-only view of a transport (for receiving only).
-
-```csharp
-public interface INnrpMessageReceiver
-{
-    Task<NnrpFramedMessage> ReceiveAsync(CancellationToken ct = default);
-}
-```
-
----
-
-## TCP Transport
-
-`NnrpTcpMessageTransport` implements `INnrpMessageTransport` over a `System.Net.Sockets.TcpClient` or `TcpListener`. Uses length-prefixed framing (4-byte big-endian frame length prefix).
-
-### Bind Server
-
-```csharp
-public static Task<NnrpTcpMessageTransport> BindServerAsync(
-    string host,
-    int port,
-    NnrpTcpServerOptions? options = null,
-    CancellationToken ct = default);
-```
-
-### Connect Client
-
-```csharp
-public static Task<NnrpTcpMessageTransport> ConnectClientAsync(
-    string host,
-    int port,
-    NnrpTcpClientOptions? options = null,
-    CancellationToken ct = default);
-```
-
----
-
-## TCP Configuration
-
-### `NnrpTcpClientOptions`
-
-| Property | Type | Default | Description |
+| Method | Parameter | Returns | Description |
 |---|---|---|---|
-| `ConnectTimeoutMs` | `int` | `10000` | Connection timeout (ms) |
-| `IdleTimeoutMs` | `int` | `30000` | Idle timeout (ms) |
-| `MaxFrameBytes` | `int` | `33554432` | Max frame size (32 MB) |
-| `SendBufferSize` | `int` | `65536` | TCP send buffer size |
-| `ReceiveBufferSize` | `int` | `65536` | TCP receive buffer size |
+| `ReceiveAsync` | `CancellationToken` | `ValueTask<NnrpFramedMessage>` | Reads one framed message. |
 
-### `NnrpTcpServerOptions`
+### `INnrpMessageTransport`
 
-| Property | Type | Default | Description |
-|---|---|---|---|
-| `IdleTimeoutMs` | `int` | `30000` | Idle timeout (ms) |
-| `MaxFrameBytes` | `int` | `33554432` | Max frame size (32 MB) |
-| `SendBufferSize` | `int` | `65536` | TCP send buffer size |
-| `ReceiveBufferSize` | `int` | `65536` | TCP receive buffer size |
-| `Backlog` | `int` | `128` | Connection backlog |
+Combines `INnrpMessageSender` and `INnrpMessageReceiver`.
 
----
+### `INnrpTransportIdentity`
 
-## QUIC Transport (Preview3)
-
-> **Note:** QUIC transport support is planned for Preview3. The interface will match `INnrpMessageTransport` exactly; existing code will require only a transport factory change.
-
----
-
-## Custom Transport
-
-Implement `INnrpMessageTransport` to plug in any custom transport layer:
-
-```csharp
-public class MyCustomTransport : INnrpMessageTransport
-{
-    public TransportId TransportId => TransportId.Unspecified;
-    public bool IsConnected { get; private set; }
-
-    public async Task<NnrpFramedMessage> ReceiveAsync(CancellationToken ct)
-    {
-        // Your receive logic here
-    }
-
-    public async Task SendAsync(NnrpFramedMessage message, CancellationToken ct)
-    {
-        // Your send logic here
-    }
-
-    public Task CloseAsync(CancellationToken ct)
-    {
-        IsConnected = false;
-        return Task.CompletedTask;
-    }
-
-    public ValueTask DisposeAsync()
-    {
-        // Cleanup
-        return ValueTask.CompletedTask;
-    }
-}
-```
-
----
-
-## Typical Use Cases
-
-### QUIC Client
-
-```csharp
-var quicConfig = new NnrpQuicClientConfiguration
-{
-    CertificateAuthority = X509Certificate2.CreateFromPemFile("ca.pem"),
-    IdleTimeout          = TimeSpan.FromSeconds(30),
-};
-var transport = new NnrpQuicTransport(quicConfig);
-await using var client = await NnrpClient.ConnectAsync(host, port, profile,
-                                                         transport: transport);
-```
-
-### TCP Fallback
-
-```csharp
-var tcpConfig = new NnrpTcpClientConfiguration
-{
-    ConnectTimeout = TimeSpan.FromSeconds(5),
-    IdleTimeout    = TimeSpan.FromSeconds(60),
-};
-var transport = new NnrpTcpTransport(tcpConfig);
-```
-
----
+| Property | Type | Description |
+|---|---|---|
+| `TransportId` | [`TransportId`](./enums#transportid) | Active NNRP transport binding. |
 
 ## Common Pitfalls
 
 ::: warning
-1. **QUIC requires the correct ALPN.** Use `NnrpQuicClientConfiguration.DefaultAlpn`; do not hardcode the string.
-
-2. **`SkipCertificateValidation = true` is for local dev only.** CI/staging must use a CA certificate.
-
-3. **TCP does not support Datagram operations** (e.g., transport probes). These throw `NnrpUnsupportedOperationException`.
-
-4. **`await using var transport`** — `NnrpQuicTransport` / `NnrpTcpTransport` implement `IAsyncDisposable`. Forgetting to dispose leaks the underlying socket.
+1. `NnrpTcpMessageTransport` uses NNRP header lengths for framing; do not add an extra length prefix.
+2. `SendAsync` and `ReceiveAsync` have separate internal gates, but application-level request ordering is still your responsibility.
+3. Dispose transports with `await using` or `DisposeAsync`.
+4. Use the native bridge path for QUIC/TCP auto-selection instead of hand-writing probe orchestration in application code.
 :::

@@ -4,6 +4,10 @@ The JavaScript/TypeScript SDK public API is organized into core types, backend n
 browser WASM runtime. This page freezes the cross-package boundary. Implementation in `nnrp-js`
 should converge on these names before package publication.
 
+Start with [Native Backend](./api/native) for Node.js/Deno services or
+[WASM Browser Client](./api/wasm) for browser and edge clients. [Core Types](./api/core) is the
+shared type reference linked from method parameter tables.
+
 | Group | Package | Description | Contract |
 |---|---|---|---|
 | [Core Types](./api/core) | `@nnrp/core` | Constants, capability manifests, diagnostics, payload ownership, transport selection, request/result types | Frozen target |
@@ -38,3 +42,8 @@ browser-only transports unless a browser adapter is actually active in that runt
 The frozen public surface uses the `Nnrp` prefix for exported interfaces and classes. Existing
 repository skeleton names without the prefix are implementation placeholders and should either become
 aliases or be replaced before publication.
+
+## Documentation Pattern
+
+Code blocks show usage examples. Method shape, requiredness, accepted values, returns, and error
+behavior belong in method-level tables so implementation and user docs stay aligned.

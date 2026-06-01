@@ -2,6 +2,9 @@
 
 The Rust SDK (`nnrp-rs`) workspace contains the protocol core, runtime, transport providers, FFI/native packaging, WASM primitives, and conformance crates. Preview3 now includes the protocol core, async TCP client/server runtime, the default QUIC provider, conformance fixtures, and the FFI ABI / WASM primitive surface for cross-language bindings.
 
+Start with [Client](./api/client) or [Server](./api/server) for application code. Core, FFI, and
+WASM pages are reference material for linked parameter and packaging details.
+
 | Group | Crate | Description | Status |
 |---|---|---|---|
 | [Core Types](./api/core) | `nnrp-core` | Wire codecs, validation, lifecycle, cache/schema, recovery, conformance baseline | ✅ Preview3 core implemented |
@@ -54,3 +57,4 @@ Native link libraries fit C#/Python/Unity and Node.js backend native-addon scena
 1. Ownership and borrowing rules must be reflected clearly in public types.
 2. Async receive flow stays explicit: clients use `await_event` / `await_result`; servers use `receive_*`.
 3. Public crates, feature flags, and result types should remain stable during the Preview3 integration window.
+4. Code blocks should be usage examples; method details belong in method-level parameter tables.

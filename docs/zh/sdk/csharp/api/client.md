@@ -1,311 +1,218 @@
-# C# — 客户端
+# C# — Client API
 
-客户端 API 定义在 `Nnrp.Client` 命名空间中（`Nnrp.Core` 包内）。
+C# client API 以 `NnrpClient` 为入口：连接、提交、接收事件、迁移、关闭。低层协议对象保留，但应用代码应优先从这些方法开始。
 
 ## 导入
 
 ```csharp
-using Nnrp.Core;
 using Nnrp.Client;
+using Nnrp.Core;
 ```
 
----
+## Client 使用流程
 
-## `ClientProfile`
-
-客户端配置（`sealed class`，可读写属性）。
-
-```csharp
-public sealed class ClientProfile
-{
-    public byte MaxViews { get; set; } = 1;
-    public bool EnableCache { get; set; } = true;
-    public int MaxCacheEntries { get; set; } = 256;
-    public long MaxCacheBytes { get; set; } = 8 * 1024 * 1024;
-    public TransportPolicy TransportPolicy { get; set; } = TransportPolicy.Auto;
-    public LossTolerance LossTolerance { get; set; } = LossTolerance.BestEffort;
-    public PayloadKind SupportedPayloadKinds { get; set; } = PayloadKind.Tensor;
-
-    // 将 Profile 转换为 ClientHello 的 Extensions 列表
-    public IReadOnlyList<ControlExtensionEntry> BuildExtensions();
-
-    // 验证配置合法性
-    public bool TryValidate(out string? error);
-}
-```
-
----
+1. 构造 [`ClientProfile`](#clientprofile)。
+2. 创建 `INnrpMessageTransport`，或交给 bridge/bootstrap helper 选择。
+3. 构造 [`NnrpClient`](#nnrpclient)，调用 [`ConnectAsync`](#nnrpclient-connectasync)。
+4. 简单请求用 [`SubmitAsync`](#nnrpclient-submitasync)；多帧并发用
+   [`SendSubmitAsync`](#nnrpclient-sendsubmitasync) + [`ReceiveResultAsync`](#nnrpclient-receiveresultasync)。
+5. 需要 flow update / result hint 时调用 [`ReceiveNextEventAsync`](#nnrpclient-receivenexteventasync)。
+6. 用 [`CloseAsync`](#nnrpclient-closeasync) 关闭。
 
 ## `NnrpClient`
 
-顶层客户端类，管理连接与会话生命周期。
+### 构造函数
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `profile` | [`ClientProfile`](#clientprofile) | 是 | 非空 | 客户端 capability 和偏好。 |
+| `transport` | [`INnrpMessageTransport`](./transport#innrpmessagetransport) | 是 | 已连接 transport | TCP、QUIC bridge 或自定义 framed transport。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `NnrpClient` | `ArgumentNullException`。 |
 
 ```csharp
-public sealed class NnrpClient : IAsyncDisposable
+var client = new NnrpClient(profile, transport);
+```
+
+### `NnrpClient.ConnectAsync`
+
+发送 `CLIENT_HELLO`，校验 `SERVER_HELLO_ACK`，激活 session state。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `requestedSessionId` | `uint` | 否 | `0` 表示服务端分配 | 请求的 session id。 |
+| `traceId` | `ulong` | 否 | 任意 trace id | 追踪关联值。 |
+| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消 transport I/O。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| [`NnrpClientConnectResult`](#nnrpclientconnectresult) | transport 异常；部分握手错误会体现在失败结果里。 |
+
+```csharp
+var connect = await client.ConnectAsync(requestedSessionId: 1, cancellationToken: ct);
+if (!connect.IsConnected)
 {
-    public NnrpClient(INnrpMessageTransport transport, ClientProfile profile);
-
-    // 建立连接并完成握手，返回客户端会话
-    public Task<INnrpClientSession> ConnectAsync(
-        string host,
-        int port,
-        CancellationToken cancellationToken = default);
-
-    // 建立连接（已有 transport 实例时使用）
-    public Task<INnrpClientSession> OpenSessionAsync(
-        INnrpMessageTransport transport,
-        CancellationToken cancellationToken = default);
-
-    public ValueTask DisposeAsync();
+    throw new InvalidOperationException(connect.Failure.ToString());
 }
 ```
 
----
+### `NnrpClient.SubmitAsync`
 
-## `INnrpClientSession`
+提交一帧并等待匹配的 `RESULT_PUSH`。
 
-客户端会话接口。
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `submitRequest` | [`NnrpSubmitRequest`](#nnrpsubmitrequest) | 是 | `FrameId` 在 in-flight 中唯一 | 结构化 inline tensor 请求。 |
+| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消发送或接收。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| [`NnrpSubmitResult`](#nnrpsubmitresult) | transport、drop 或关联错误。 |
 
 ```csharp
-public interface INnrpClientSession : IAsyncDisposable
-{
-    uint SessionId { get; }
-    TransportId TransportId { get; }
-    NnrpCapabilitySelection Capabilities { get; }
-    bool IsConnected { get; }
-
-    // 提交帧并等待结果
-    Task<NnrpSubmitResult> SubmitAsync(
-        NnrpSubmitRequest request,
-        CancellationToken cancellationToken = default);
-
-    // 提交帧（不等待结果）
-    Task<NnrpInFlightFrame> SubmitAndForgetAsync(
-        NnrpSubmitRequest request,
-        CancellationToken cancellationToken = default);
-
-    // 等待特定帧的结果
-    Task<NnrpSubmitResult> AwaitResultAsync(
-        uint frameId,
-        CancellationToken cancellationToken = default);
-
-    // 取消帧
-    Task CancelFrameAsync(
-        uint frameId,
-        CancellationToken cancellationToken = default);
-
-    // 发送会话补丁
-    Task<SessionPatchAckMessage> PatchSessionAsync(
-        SessionPatchMessage patch,
-        CancellationToken cancellationToken = default);
-
-    // 上传缓存对象
-    Task<CacheAckMessage> PutCacheAsync(
-        CachePutMessage put,
-        CancellationToken cancellationToken = default);
-
-    // 失效缓存
-    Task InvalidateCacheAsync(
-        CacheInvalidateMessage invalidate,
-        CancellationToken cancellationToken = default);
-
-    // 关闭会话
-    Task CloseAsync(CancellationToken cancellationToken = default);
-}
+var result = await client.SubmitAsync(request, ct);
 ```
 
-**方法参数说明**
+### `NnrpClient.SendSubmitAsync`
 
-| 方法 | 参数 | 返回值 | 说明 |
+只发送，不等待结果。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `submitRequest` | [`NnrpSubmitRequest`](#nnrpsubmitrequest) | 是 | `FrameId` 在 in-flight 中唯一 | 要序列化并发送的请求。 |
+| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消发送。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| [`NnrpSubmittedFrame`](#nnrpsubmittedframe) | 序列化、transport 或重复 frame 错误。 |
+
+```csharp
+var submitted = await client.SendSubmitAsync(request, ct);
+```
+
+### `NnrpClient.ReceiveResultAsync`
+
+等待之前提交帧的结果。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `expectedFrameId` | `uint` | 是 | 已 in-flight 的 frame | 目标 frame id。 |
+| `expectedViewId` | `ushort` | 否 | 默认 `0` | 目标 view id。 |
+| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消接收。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `ResultPushMessage` | drop、包格式错误、session mismatch 或关联错误。 |
+
+```csharp
+var resultMessage = await client.ReceiveResultAsync(submitted.FrameId, submitted.ViewId, ct);
+```
+
+### `NnrpClient.ReceiveNextEventAsync`
+
+接收下一条 session event，包括 result、drop、flow update、result hint。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消接收。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| [`NnrpSessionEvent`](#nnrpsessionevent) | transport 或解析错误。 |
+
+```csharp
+var sessionEvent = await client.ReceiveNextEventAsync(ct);
+```
+
+### `NnrpClient.CloseAsync`
+
+发送 `CLOSE` 并清理本地 in-flight 状态。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `reason` | `string` | 否 | 默认 `""` | 关闭原因。 |
+| `traceId` | `ulong` | 否 | 任意 trace id | 追踪关联值。 |
+| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消发送。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| [`NnrpProtocolFailure`](./protocol#nnrpprotocolfailure) | transport 错误。 |
+
+```csharp
+await client.CloseAsync("shutdown", cancellationToken: ct);
+```
+
+## 核心类型
+
+### `ClientProfile`
+
+| 属性 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `SubmitAsync` | `request`: [`NnrpSubmitRequest`](#nnrpsubmitrequest)（必填 `FrameId`）；`cancellationToken` | `NnrpSubmitResult` | 提交帧并阻塞等待结果；结果丢弃时抛出 `NnrpResultDroppedException` |
-| `SubmitAndForgetAsync` | `request`: [`NnrpSubmitRequest`](#nnrpsubmitrequest) | `NnrpInFlightFrame` | 立即返回句柄，通过 `.ResultTask` 异步等待结果，可并行提交多帧 |
-| `AwaitResultAsync` | `frameId`: 之前用 `SubmitAndForgetAsync` 提交的帧 ID | `NnrpSubmitResult` | 单独等待指定帧的结果，需与 `SubmitAndForgetAsync` 配合使用 |
-| `CancelFrameAsync` | `frameId`: 要取消的帧 ID | `Task` | 向服务端发送 `FRAME_CANCEL`；若帧已处理完毕则为 no-op |
-| `PatchSessionAsync` | `patch`: `SessionPatchMessage`，包含 `Fields`（[`SessionPatchField`](/zh/sdk/csharp/api/enums#会话补丁枚举) 位标志）及各字段新值 | `SessionPatchAckMessage` | 动态调整帧率 (`TargetCadence`)、质量档位 (`QualityTier`)、活跃通道等会话参数 |
-| `PutCacheAsync` | `put`: `CachePutMessage`，包含 `Key`（[`NnrpCacheKey`](/zh/sdk/csharp/api/protocol#nnrpcachekey)）、`Data`（字节数据）、`Flags`（[`CachePutFlags`](/zh/sdk/csharp/api/enums#缓存枚举)） | `CacheAckMessage` | 上传缓存对象到服务端；成功后可在 `SubmitMode.Reference` 中以 `Key` 引用，避免重复传输 |
-| `InvalidateCacheAsync` | `invalidate`: `CacheInvalidateMessage`，含 `Key` 或 `Scope` | `Task` | 通知服务端使指定缓存失效；可按 key 或按 [`CacheInvalidateScope`](/zh/sdk/csharp/api/enums#缓存枚举) 批量失效 |
-| `CloseAsync` | — | `Task` | 发送 `CLOSE` 并优雅关闭连接；`DisposeAsync()` 会自动调用此方法 |
-
-> **`NnrpSubmitRequest` 字段**：`FrameId`（必填）、`TileIds`（变化瓦片 ID）、`Sections`（Tensor 分区数据，见 [`NnrpTensorSection`](#nnrptensorsection)）、`InputProfile`（输入数据格式，见 [`InputProfile`](/zh/sdk/csharp/api/enums#帧与输入)）、`SubmitMode`（`Inline` 传输数据 / `Reference` 引用缓存）、`BudgetPolicy`（降质策略位标志，见 [`BudgetPolicy`](/zh/sdk/csharp/api/enums#结果枚举)）、`InferenceBudgetMs`（推理预算毫秒数）。
-
----
-
-## 数据类型
+| `TransportPolicy` | [`TransportPolicy`](./enums#transport-policy) | 仓库默认值 | transport 偏好。 |
+| `SessionLossTolerance` | [`LossTolerance`](./enums#loss-tolerance) | 仓库默认值 | 可接受 loss 策略。 |
+| `MaxViews` | `int` | `1` | 最大并发 view。 |
+| `EnableCache` | `bool` | `true` | 是否请求 cache。 |
+| `MaxCacheEntries` | `int` | `256` | 请求的 cache 条目数。 |
+| `SupportedCodecs` | `CodecId[]` | 标准集合 | codec capability。 |
+| `SupportedDTypes` | `DTypeId[]` | 标准集合 | dtype capability。 |
+| `SupportedTensorLayouts` | `TensorLayoutId[]` | 标准集合 | layout capability。 |
 
 ### `NnrpSubmitRequest`
 
-帧提交请求（`record`）。
-
-```csharp
-public sealed record NnrpSubmitRequest
-{
-    public required uint FrameId { get; init; }
-    public ReadOnlyMemory<ushort> TileIds { get; init; } = default;
-    public IReadOnlyList<NnrpTensorSection> Sections { get; init; } = Array.Empty<NnrpTensorSection>();
-    public IReadOnlyList<NnrpTypedPayload> TypedPayloads { get; init; } = Array.Empty<NnrpTypedPayload>();
-    public InputProfile InputProfile { get; init; } = InputProfile.Unspecified;
-    public SubmitMode SubmitMode { get; init; } = SubmitMode.Inline;
-    public BudgetPolicy BudgetPolicy { get; init; } = BudgetPolicy.None;
-    public uint InferenceBudgetMs { get; init; } = 0;
-    public uint DeadlineMs { get; init; } = 0;
-    public uint ViewId { get; init; } = 0;
-}
-```
-
-### `NnrpTensorSection`
-
-单个 Tensor 分区数据（`record`）。
-
-```csharp
-public sealed record NnrpTensorSection
-{
-    public required byte RoleId { get; init; }
-    public required DTypeId DType { get; init; }
-    public TensorLayoutId Layout { get; init; } = TensorLayoutId.Nhwc;
-    public ScalePolicy ScalePolicy { get; init; } = ScalePolicy.None;
-    public required IReadOnlyList<ReadOnlyMemory<byte>> TilePayloads { get; init; }
-    public IReadOnlyList<byte>? CodecIds { get; init; }
-    public byte DefaultCodecId { get; init; } = 0;
-}
-```
-
-### `NnrpTypedPayload`
-
-非 Tensor 类型载荷。
-
-```csharp
-public sealed record NnrpTypedPayload
-{
-    public required PayloadKind Kind { get; init; }
-    public required ReadOnlyMemory<byte> Data { get; init; }
-}
-```
+| 属性 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `FrameId` | `uint` | 是 | in-flight 内唯一。 |
+| `SourceWidth` / `SourceHeight` | `ushort` | 是 | 源尺寸。 |
+| `TileWidth` / `TileHeight` | `ushort` | 是 | tile 尺寸。 |
+| `CameraBlock` | `ReadOnlyMemory<byte>` | 是 | camera metadata。 |
+| `TileIds` | `ReadOnlyMemory<ushort>` | 是 | tile id。 |
+| `Sections` | `ReadOnlyMemory<TensorSectionBlock>` | 是 | tensor sections。 |
+| `ViewId` | `ushort` | 否 | 默认 `0`。 |
+| `TraceId` | `ulong` | 否 | 默认 `0`。 |
+| `FrameClass` | [`FrameClass`](./enums#frame-classification) | 否 | 默认 `Keyframe`。 |
+| `InputProfile` | [`InputProfile`](./enums#frame-classification) | 否 | 默认 `DenseLumaFrame`。 |
+| `TileIndexMode` | [`TileIndexMode`](./enums#data-plane-enums) | 否 | 默认 `RawUInt16`。 |
+| `LatencyBudgetMilliseconds` | `ushort` | 否 | 默认 `16`。 |
 
 ### `NnrpSubmitResult`
 
-帧提交结果。
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `SessionId` | `uint` | 协商后的 session id。 |
+| `FrameId` | `uint` | 结果 frame id。 |
+| `ViewId` | `ushort` | 结果 view id。 |
+| `StatusCode` | `ResultStatusCode` | 结果状态。 |
+| `ResultClass` | [`ResultClass`](./enums#data-plane-enums) | 完整性分类。 |
+| `ResultFlags` | [`ResultFlags`](./enums#data-plane-enums) | 结果 flags。 |
+| `InferenceMilliseconds` | `ushort` | 推理耗时。 |
+| `TileIds` | `ReadOnlyMemory<ushort>` | 结果 tile id。 |
+| `Sections` | `ReadOnlyMemory<TensorSectionBlock>` | 结果 tensor sections。 |
 
-```csharp
-public sealed class NnrpSubmitResult
-{
-    public uint FrameId { get; }
-    public ResultClass ResultClass { get; }
-    public ResultFlags ResultFlags { get; }
-    public BudgetPolicy AppliedBudgetPolicy { get; }
-    public uint InferenceMs { get; }
-    public uint QueueMs { get; }
-    public uint ServerTotalMs { get; }
-    public ushort StatusCode { get; }
-    public IReadOnlyList<NnrpTensorSection> Sections { get; }
-    public IReadOnlyList<NnrpTypedPayload> TypedPayloads { get; }
-    public bool IsSuccess => ResultClass is ResultClass.Complete or ResultClass.Partial;
-}
-```
+### `NnrpClientConnectResult`
 
-### `NnrpInFlightFrame`
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `IsConnected` | `bool` | capability negotiation 成功时为 `true`。 |
+| `NegotiationResult` | `NnrpCapabilityNegotiationResult` | capability negotiation 细节。 |
+| `Failure` | [`NnrpProtocolFailure`](./protocol#nnrpprotocolfailure) | 未连接时的失败信息。 |
 
-异步提交后的在途帧句柄。
+### `NnrpSubmittedFrame`
 
-```csharp
-public sealed class NnrpInFlightFrame : IDisposable
-{
-    public uint FrameId { get; }
-    public Task<NnrpSubmitResult> ResultTask { get; }
-    public void Cancel(); // 发送 FRAME_CANCEL 并取消等待
-    public void Dispose();
-}
-```
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `SessionId` | `uint` | submit 使用的 session id。 |
+| `FrameId` | `uint` | 已提交 frame id。 |
+| `ViewId` | `ushort` | view id。 |
+| `TraceId` | `ulong` | trace id。 |
+| `WireFormat` | `byte` | 当前 NNRP wire format。 |
 
----
-
-## 完整客户端示例
-
-```csharp
-using Nnrp.Client;
-using Nnrp.Transport;
-
-var transport = new NnrpTcpMessageTransport();
-var profile = new ClientProfile
-{
-    EnableCache = true,
-    TransportPolicy = TransportPolicy.Auto,
-};
-
-var client = new NnrpClient(transport, profile);
-await using var session = await client.ConnectAsync("127.0.0.1", 4433);
-
-var result = await session.SubmitAsync(new NnrpSubmitRequest
-{
-    FrameId = 1,
-    Sections = new[] { myTensorSection },
-    BudgetPolicy = BudgetPolicy.AllowPartial,
-    InferenceBudgetMs = 50,
-});
-
-Console.WriteLine($"Result: {result.ResultClass}, InferenceMs: {result.InferenceMs}");
-```
-
----
-
-## 典型使用场景
-
-### 完整连接与渲染循环
-
-```csharp
-var transport = new NnrpQuicTransport(quicConfig);
-var profile   = new NnrpClientProfile
-{
-    TransportPolicy   = TransportPolicy.PreferQuic,
-    LossTolerance     = LossTolerance.LowLatency,
-    InferenceBudgetMs = 8,
-};
-
-var client = new NnrpClient(transport, profile);
-await using var session = await client.ConnectAsync("render.example.com", 4433);
-
-for (int frameId = 0; ; frameId++)
-{
-    var (tiles, tensor) = CaptureChangedTiles();
-    var result = await session.SubmitAsync(new NnrpSubmitRequest
-    {
-        FrameId           = frameId,
-        TileIds           = tiles,
-        Sections          = new[] { tensor },
-        InputProfile      = InputProfile.ChangedTilesLuma,
-        BudgetPolicy      = BudgetPolicy.AllowPartial,
-        InferenceBudgetMs = 8,
-    });
-    if (result.ResultClass == ResultClass.Complete)
-        Display(result.Sections);
-}
-```
-
-### 响应背压信号
-
-```csharp
-session.OnResultHint += hint =>
-{
-    if (hint.CongestionState == ResultHintCongestionState.Saturated)
-        _paused = true;
-    else if (hint.CongestionState == ResultHintCongestionState.None)
-        _paused = false;
-};
-
-// 发送循环中
-if (_paused) { await Task.Delay(16); continue; }
-```
-
----
-
-## 常见坑点
+## 常见坑
 
 ::: warning
-1. **`await using var session`**：`NnrpClientSession` 实现 `IAsyncDisposable`，必须确保 `DisposeAsync` 被调用；直接 `await client.ConnectAsync(...)` 而不用 `await using` 会在连接异常时泄漏底层 QUIC/TCP 资源。
-
-2. **不要跨线程并发调用 `SubmitAsync`**：发送路径非线程安全，多线程并发写会导致包交错。若需并发，应使用 `Channel<T>` 将请求序列化后发送。
-
-3. **`SubmitAsync` 超时后帧 ID 槽仍然占用**：调用 `session.DiscardFrame(frameId)` 释放，否则内部路由表持续增长。
-
-4. **`InferenceBudgetMs` 是默认预算**，每次 `NnrpSubmitRequest` 可单独覆盖；`DeadlineMs` 是绝对截止时间戳（毫秒级 Unix 时间），两者语义不同，混用会导致服务端判定超时。
+1. `NnrpClient` 不负责创建任意 transport；先选择或构造 transport。
+2. `FrameId` + `ViewId` 在 in-flight 内必须唯一。
+3. 服务端可能插入 flow update / result hint 时，使用 `ReceiveNextEventAsync`。
+4. 关闭 client 后也要释放底层 transport 或 bridge。
 :::

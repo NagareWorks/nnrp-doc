@@ -1,129 +1,186 @@
-# JavaScript/TypeScript — Native 后端 API
+# JavaScript/TypeScript — Native Backend API
 
-`@nnrp/native` 面向 Node.js 与 Deno 后端服务。它消费 `nnrp-rs` native FFI 产物，可以暴露 client 与 server API。
+`@nnrp/native` 面向 Node.js 和 Deno 后端服务。它加载 `nnrp-rs` native artifact，打开 backend runtime，并暴露 client 和 server surface。
 
-## Native Artifact Resolver
+## Backend 使用流程
 
-```ts
-export interface NnrpNativeLibraryOptions {
-  readonly path?: string;
-  readonly artifactDir?: string;
-  readonly requiredSymbols?: readonly string[];
-}
+1. 调用 [`openBackendRuntime`](#openbackendruntime)。
+2. client 模式使用 [`runtime.connect`](#nnrpbackendruntime-connect)，server 模式使用
+   [`runtime.listen`](#nnrpbackendruntime-listen)。
+3. 使用 [`client.openSession`](#nnrpclient-opensession) 或 [`server.accept`](#nnrpserver-accept) 打开 session。
+4. 通过 session 方法 submit、receive、send result、close。
 
-export interface NnrpNativeArtifact {
-  readonly platform: string;
-  readonly arch: string;
-  readonly libraryPath: string;
-  readonly manifestPath: string;
-  readonly symbols: readonly string[];
-  readonly abiVersion: string;
-}
+## `openBackendRuntime`
 
-export class NnrpNativeBindingUnavailableError extends Error {
-  readonly diagnostic?: NnrpDiagnostic;
-}
+加载并校验 native artifact。包级 import 不得加载 native library。
 
-export function resolveNativeArtifact(
-  options?: NnrpNativeLibraryOptions,
-): Promise<NnrpNativeArtifact>;
-```
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `options` | [`NnrpBackendRuntimeOptions`](#nnrpbackendruntimeoptions) | 否 | 默认自动发现 | native artifact 与 transport policy 选项。 |
 
-Resolver 必须先读取并校验 `manifest.json`，再加载 native library。缺少 required symbol、ABI 不匹配或平台不匹配时，必须抛出 `NnrpNativeBindingUnavailableError` 并携带结构化诊断。
-
-## Backend Runtime
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<NnrpBackendRuntime>` | [`NnrpNativeBindingUnavailableError`](#nnrpnativebindingunavailableerror)、manifest 校验错误。 |
 
 ```ts
-export interface NnrpBackendRuntimeOptions {
-  readonly nativeLibrary?: NnrpNativeLibraryOptions;
-  readonly transportPolicy?: NnrpTransportPolicy;
-}
-
-export interface NnrpBackendRuntime {
-  readonly artifact: NnrpNativeArtifact;
-  readonly manifest: NnrpCapabilityManifest;
-  connect(options: NnrpConnectOptions): Promise<NnrpClient>;
-  listen(options: NnrpListenOptions): Promise<NnrpServer>;
-  close(): Promise<void>;
-}
-
-export function openBackendRuntime(
-  options?: NnrpBackendRuntimeOptions,
-): Promise<NnrpBackendRuntime>;
+const runtime = await openBackendRuntime({
+  nativeLibrary: { artifactDir: "./native" },
+  transportPolicy: "score",
+});
 ```
 
-`openBackendRuntime` 是唯一允许加载 native library 的公开入口。包级副作用不得加载 native artifact。
+## `NnrpBackendRuntime.connect`
 
-## Client 与 Server
+作为 client 连接远端 NNRP backend。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `options` | [`NnrpConnectOptions`](#nnrpconnectoptions) | 是 | endpoint 和可选策略 | 远端连接选项。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<NnrpClient>` | native、transport、握手或 capability 错误。 |
 
 ```ts
-export interface NnrpConnectOptions {
-  readonly endpoint: string | URL;
-  readonly transportPolicy?: NnrpTransportPolicy;
-}
-
-export interface NnrpListenOptions {
-  readonly endpoint: string | URL;
-  readonly transportPolicy?: NnrpTransportPolicy;
-}
-
-export interface NnrpSessionOptions {
-  readonly inputProfile?: NnrpInputProfile;
-  readonly targetCadence?: number;
-  readonly qualityTier?: number;
-  readonly metadata?: Readonly<Record<string, string>>;
-}
-
-export interface NnrpClient {
-  openSession(options?: NnrpSessionOptions): Promise<NnrpClientSession>;
-  close(): Promise<void>;
-}
-
-export interface NnrpServer {
-  accept(): Promise<NnrpServerSession>;
-  close(): Promise<void>;
-}
+const client = await runtime.connect({
+  endpoint: "127.0.0.1:4433",
+  transportPolicy: "score",
+});
 ```
 
-Backend transport selection 综合本地 provider、远端 capability、RTT、失败率和有效吞吐评分。显式策略（例如 `quic-only`）不能被静默降级。
+## `NnrpBackendRuntime.listen`
 
-## Session
+启动 server listener。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `options` | [`NnrpListenOptions`](#nnrplistenoptions) | 是 | endpoint 和可选策略 | 本地监听选项。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<NnrpServer>` | native、bind 或 transport 错误。 |
+
+## `NnrpClient.openSession`
+
+打开 client session。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `options` | [`NnrpSessionOptions`](#nnrpsessionoptions) | 否 | 默认 runtime profile | session profile 和 metadata。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<NnrpClientSession>` | session-open 拒绝或 transport 错误。 |
 
 ```ts
-export interface NnrpClientSession {
-  readonly sessionId: number;
-  submit(request: NnrpSubmitRequest): Promise<NnrpResult>;
-  submitNoWait(request: NnrpSubmitRequest): Promise<bigint>;
-  cancel(operationId: bigint): Promise<void>;
-  patch(options: Partial<NnrpSessionOptions>): Promise<void>;
-  nextEvent(): Promise<NnrpRuntimeEvent>;
-  close(): Promise<void>;
-}
-
-export interface NnrpFlowUpdate {
-  readonly credit: number;
-  readonly retryAfterMs?: number;
-  readonly reason?: string;
-}
-
-export interface NnrpServerSession {
-  readonly sessionId: number;
-  receive(): Promise<NnrpRuntimeEvent>;
-  sendResult(result: NnrpResult): Promise<void>;
-  sendFlowUpdate(update: NnrpFlowUpdate): Promise<void>;
-  close(): Promise<void>;
-}
+const session = await client.openSession({ inputProfile: "tensor" });
 ```
 
-Native backend 包不得包含浏览器专用 transport 实现或 DOM 依赖。它可以暴露 server surface，因为后端宿主能够 listen、accept 和 push result。
+## `NnrpClientSession.submit`
+
+提交一个请求并等待匹配结果。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `request` | [`NnrpSubmitRequest`](./core#nnrpsubmitrequest) | 是 | `frameId` 在 in-flight 中唯一 | 结构化提交请求。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<NnrpResult>` | native、transport、timeout、drop 或关联错误。 |
+
+```ts
+const result = await session.submit({
+  frameId: 1,
+  payload: new Uint8Array([1, 2, 3]),
+  inputProfile: "tensor",
+  submitMode: "inline",
+});
+```
+
+## `NnrpClientSession.submitNoWait`
+
+提交请求并返回 native operation id。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `request` | [`NnrpSubmitRequest`](./core#nnrpsubmitrequest) | 是 | `frameId` 在 in-flight 中唯一 | 结构化提交请求。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<bigint>` | native、transport 或本地校验错误。 |
+
+## `NnrpServer.accept`
+
+接受 server session。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| 无 | - | - | - | 使用 `runtime.listen` 创建的 listener。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<NnrpServerSession>` | accept、session-open 或 transport 错误。 |
+
+## `NnrpServerSession.sendResult`
+
+向 client 发送结果。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `result` | [`NnrpResult`](./core#nnrpresult) | 是 | 必须匹配已提交 frame/operation | 结果 payload 和诊断信息。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `Promise<void>` | native、序列化、生命周期或 transport 错误。 |
+
+## 核心类型
+
+### `NnrpBackendRuntimeOptions`
+
+| 属性 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `nativeLibrary` | [`NnrpNativeLibraryOptions`](#nnrpnativelibraryoptions) | 否 | native artifact 发现选项。 |
+| `transportPolicy` | [`NnrpTransportPolicy`](./core#transport-selection) | 否 | runtime transport 策略。 |
+
+### `NnrpNativeLibraryOptions`
+
+| 属性 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `path` | `string` | 否 | 显式 native library 路径。 |
+| `artifactDir` | `string` | 否 | native artifact 目录。 |
+| `requiredSymbols` | `readonly string[]` | 否 | runtime 创建前必须存在的 ABI symbols。 |
+
+### `NnrpNativeArtifact`
+
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `platform` | `string` | artifact platform tag。 |
+| `arch` | `string` | artifact architecture tag。 |
+| `libraryPath` | `string` | native library 路径。 |
+| `manifestPath` | `string` | artifact manifest 路径。 |
+| `symbols` | `readonly string[]` | 导出的 ABI symbols。 |
+| `abiVersion` | `string` | native ABI version。 |
+
+### `NnrpSessionOptions`
+
+| 属性 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `inputProfile` | [`NnrpInputProfile`](./core#payloads-and-submit-requests) | 否 | 默认 session input profile。 |
+| `targetCadence` | `number` | 否 | 目标 cadence 或 FPS。 |
+| `qualityTier` | `number` | 否 | 应用质量档位。 |
+| `metadata` | `Readonly<Record<string, string>>` | 否 | 应用 metadata。 |
 
 ## Conformance 与 Benchmark 入口
-
-Backend 包发布前应通过仓库 task 暴露 adapter 与 benchmark 命令：
 
 ```bash
 deno task conformance:backend
 deno task benchmark:backend
 ```
 
-报告必须包含当前 native artifact platform、ABI version 与 transport selection。
+## 常见坑
+
+::: warning
+1. 不要在模块 import 时加载 native artifact；只有 `openBackendRuntime` 可以加载。
+2. backend native 包不得包含浏览器专用 transport 或 DOM 依赖。
+3. `quic-only` 这类显式策略不可用时必须失败，不能静默降级。
+:::

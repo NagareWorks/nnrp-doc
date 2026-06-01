@@ -1,245 +1,225 @@
-# C# — Server
+# C# — Server API
 
-Server API is in the `Nnrp.Server` namespace.
+The C# server API is session-oriented: accept the handshake, receive submits, send results or drops,
+and close. This page documents the application-facing methods first and keeps message types as
+linked references.
 
-## Import
+## Imports
 
 ```csharp
 using Nnrp.Server;
 using Nnrp.Core;
 ```
 
----
+## Server Workflow
 
-## `ServerProfile`
-
-Server configuration (mutable class).
-
-| Property | Type | Default | Description |
-|---|---|---|---|
-| `MaxConcurrentFrames` | `int` | `1` | Max in-flight frames |
-| `EnableCache` | `bool` | `true` | Enable cache negotiation |
-| `MaxSections` | `int` | `16` | Max tensor sections per frame |
-| `MaxBodyBytes` | `int` | `33554432` | Max body bytes (32 MB) |
-| `ModelName` | `string` | `""` | Model name (sent in `SERVER_HELLO_ACK`) |
-
-```csharp
-public NnrpCapabilitySelection ToCapabilities();
-public ServerHelloAckMessage CreateServerHelloAck(ClientHelloMessage hello, uint sessionId);
-public bool TryValidate(ClientHelloMessage hello, out NnrpProtocolFailure? failure);
-```
-
----
-
-## `INnrpServerSession`
-
-Server session interface for receiving frames and pushing results.
-
-```csharp
-public interface INnrpServerSession : IAsyncDisposable
-{
-    uint SessionId { get; }
-    TransportId ActiveTransportId { get; }
-    ClientHelloMessage ClientHello { get; }
-    NnrpCapabilitySelection Capabilities { get; }
-
-    Task<NnrpFrameSubmit> ReceiveSubmitAsync(CancellationToken ct = default);
-    Task SendResultAsync(NnrpResult result, CancellationToken ct = default);
-    Task SendResultDropAsync(uint frameId, CancellationToken ct = default);
-    Task SendFlowUpdateAsync(FlowUpdateMessage update, CancellationToken ct = default);
-    Task CloseAsync(CancellationToken ct = default);
-}
-```
-
-**Method Parameter Reference**
-
-| Method | Parameters | Returns | Description |
-|---|---|---|---|
-| `ReceiveSubmitAsync` | `ct` | `NnrpFrameSubmit` | Block until the next `FRAME_SUBMIT` arrives; throws `NnrpConnectionClosedException` on disconnect |
-| `SendResultAsync` | `result`: [`NnrpResult`](#nnrpresult) (requires `FrameId`, `ResultClass`); `ct` | `Task` | Push inference result back to the client; populate either `Sections` or `TypedPayloads` |
-| `SendResultDropAsync` | `frameId`: frame to drop; `ct` | `Task` | Notify the client this frame won't return a result. **Must be called** when dropping a frame or `SubmitAsync` on the client side will block forever |
-| `SendFlowUpdateAsync` | `update`: `FlowUpdateMessage` with `Flags` ([`FlowUpdateFlags`](/en/sdk/csharp/api/enums#flow-control-enums)), `Credit` (allowed in-flight count), `RetryAfterMs` | `Task` | Send backpressure signal; `Credit=0` pauses the client |
-| `CloseAsync` | — | `Task` | Send `CLOSE` and gracefully terminate the connection |
-
-> **`NnrpResult` key fields**: `FrameId` (required), `ResultClass` ([`ResultClass`](/en/sdk/csharp/api/enums#data-plane-enums), required), `Sections` (output tensor sections), `InferenceMs` (inference latency), `AppliedBudgetPolicy` (actual policy used — required when `Partial` or `Degraded`).
-
----
+1. Create a [`ServerProfile`](#serverprofile).
+2. Create an `INnrpMessageTransport` for an accepted connection.
+3. Construct [`NnrpServerSession`](#nnrpserversession) and call
+   [`AcceptAsync`](#nnrpserversession-acceptasync).
+4. Loop on [`ReceiveSubmitAsync`](#nnrpserversession-receivesubmitasync).
+5. Respond with [`SendResultAsync`](#nnrpserversession-sendresultasync) or
+   [`SendResultDropAsync`](#nnrpserversession-sendresultdropasync).
+6. Close with [`CloseAsync`](#nnrpserversession-closeasync).
 
 ## `NnrpServerSession`
 
-Default implementation of `INnrpServerSession` (`sealed class`).
+Default server session implementation.
 
-Obtained via `NnrpServer.AcceptAsync()`.
+### Constructor
 
----
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `profile` | [`ServerProfile`](#serverprofile) | Yes | Non-null | Server capabilities and limits. |
+| `transport` | [`INnrpMessageTransport`](./transport#innrpmessagetransport) | Yes | Accepted connection | Framed transport for this peer. |
+| `sessionIdAllocator` | `Func<uint, uint>?` | No | Defaults to echo-or-one | Maps requested ids to server session ids. |
+| `cacheStore` | [`NnrpCacheStore`](./protocol#nnrpcachestore)`?` | No | Optional | Enables cache message handling. |
 
-## Data Types
-
-### `NnrpFrameSubmit`
-
-Received and parsed frame submission.
-
-| Property | Type | Description |
-|---|---|---|
-| `FrameId` | `uint` | Frame ID |
-| `SessionId` | `uint` | Session ID |
-| `InputProfile` | `InputProfile` | Input data format |
-| `BudgetPolicy` | `BudgetPolicy` | Allowed degradation |
-| `InferenceBudgetMs` | `int` | Client budget (ms) |
-| `DeadlineMs` | `long` | Deadline |
-| `Sections` | `IReadOnlyList<NnrpTensorSection>` | Tensor sections |
-| `TypedPayloads` | `IReadOnlyList<NnrpTypedPayload>` | Non-tensor payloads |
-
-### `NnrpResult`
-
-Result to push to client.
-
-| Property | Type | Description |
-|---|---|---|
-| `FrameId` | `uint` | Frame ID |
-| `ResultClass` | `ResultClass` | Result completeness class |
-| `ResultFlags` | `ResultFlags` | Result flags |
-| `AppliedBudgetPolicy` | `BudgetPolicy` | Actual degradation applied |
-| `InferenceMs` | `int` | Inference time (ms) |
-| `QueueMs` | `int` | Queue wait time (ms) |
-| `ServerTotalMs` | `int` | Total server time (ms) |
-| `StatusCode` | `int` | Status code |
-| `Sections` | `IReadOnlyList<NnrpTensorSection>` | Result tensor sections |
-| `TypedPayloads` | `IReadOnlyList<NnrpTypedPayload>` | Non-tensor payload frames |
-
----
-
-## `NnrpServer`
-
-Top-level server that accepts connections.
+| Returns | Raises |
+|---|---|
+| `NnrpServerSession` | `ArgumentNullException` for required arguments. |
 
 ```csharp
-public sealed class NnrpServer : IAsyncDisposable
+var session = new NnrpServerSession(profile, transport);
+```
+
+### `NnrpServerSession.AcceptAsync`
+
+Receives `CLIENT_HELLO`, negotiates capabilities, sends `SERVER_HELLO_ACK`, and activates the
+session.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `cancellationToken` | `CancellationToken` | Yes | Any token | Cancels receive or send. |
+
+| Returns | Raises |
+|---|---|
+| [`NnrpProtocolFailure`](./protocol#nnrpprotocolfailure) | Transport exceptions; negotiation failures are returned. |
+
+```csharp
+var failure = await session.AcceptAsync(ct);
+if (failure.IsFailure)
 {
-    public static Task<NnrpServer> BindAsync(
-        string host, int port,
-        ServerProfile profile,
-        NnrpServerOptions? options = null,
-        CancellationToken ct = default);
-
-    public Task<INnrpServerSession> AcceptAsync(
-        CancellationToken ct = default);
-
-    public Task<INnrpServerSession> AcceptWithAuthAsync(
-        Func<ClientHelloMessage, bool> authValidator,
-        CancellationToken ct = default);
-
-    public ValueTask DisposeAsync();
+    return;
 }
 ```
 
-### `NnrpServerOptions`
+### `NnrpServerSession.ReceiveSubmitAsync`
+
+Receives and parses the next frame submission.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `cancellationToken` | `CancellationToken` | Yes | Any token | Cancels receive. |
+
+| Returns | Raises |
+|---|---|
+| [`NnrpFrameSubmit`](#nnrpframesubmit) | Close, malformed submit, session mismatch, lifecycle errors. |
+
+```csharp
+var submit = await session.ReceiveSubmitAsync(ct);
+```
+
+### `NnrpServerSession.SendResultAsync`
+
+Sends a result for a submitted frame.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `result` | [`NnrpResult`](#nnrpresult) | Yes | `FrameId` must match a submitted frame | Structured result to serialize as `RESULT_PUSH`. |
+| `cancellationToken` | `CancellationToken` | Yes | Any token | Cancels send. |
+
+| Returns | Raises |
+|---|---|
+| `ValueTask` | Lifecycle, correlation, serialization, or transport errors. |
+
+```csharp
+await session.SendResultAsync(new NnrpResult(
+    frameId: submit.FrameId,
+    viewId: submit.ViewId,
+    traceId: submit.TraceId,
+    tileIds: submit.TileIds,
+    sections: outputSections), ct);
+```
+
+### `NnrpServerSession.SendResultDropAsync`
+
+Sends `RESULT_DROP` for a frame that will not produce a result.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `dropMessage` | `ResultDropMessage` | Yes | Must match the active session | Drop message to send. |
+| `cancellationToken` | `CancellationToken` | Yes | Any token | Cancels send. |
+
+| Returns | Raises |
+|---|---|
+| `ValueTask` | Lifecycle, correlation, or transport errors. |
+
+```csharp
+await session.SendResultDropAsync(ResultDropMessage.Create(session.SessionId, submit.FrameId), ct);
+```
+
+### `NnrpServerSession.CloseAsync`
+
+Gracefully closes an active session.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `reason` | `string` | Yes | Empty string allowed | Close reason. |
+| `traceId` | `ulong` | Yes | Any trace id | Trace correlation value. |
+| `cancellationToken` | `CancellationToken` | Yes | Any token | Cancels send. |
+
+| Returns | Raises |
+|---|---|
+| [`NnrpProtocolFailure`](./protocol#nnrpprotocolfailure) | Transport errors. |
+
+```csharp
+await session.CloseAsync("shutdown", traceId: 0, ct);
+```
+
+## Core Types
+
+### `ServerProfile`
+
+Server capability and limit configuration.
 
 | Property | Type | Default | Description |
 |---|---|---|---|
-| `UseQuic` | `bool` | `false` | Use QUIC instead of TCP (Preview3) |
-| `CertificatePath` | `string?` | `null` | TLS certificate path (for QUIC) |
-| `PrivateKeyPath` | `string?` | `null` | TLS private key path |
+| `MaxConcurrentFrames` | `int` | `1` | Advertised in-flight frame limit. |
+| `EnableCache` | `bool` | `true` | Enables cache negotiation. |
+| `MaxSections` | `int` | `16` | Maximum sections per frame. |
+| `MaxBodyBytes` | `int` | `33554432` | Maximum request body size. |
+| `ModelName` | `string` | `""` | Model name returned in the handshake when configured. |
 
----
+### `NnrpFrameSubmit`
+
+Structured frame submission returned by `ReceiveSubmitAsync`.
+
+| Property | Type | Description |
+|---|---|---|
+| `SessionId` | `uint` | Session id. |
+| `FrameId` | `uint` | Submitted frame id. |
+| `ViewId` | `ushort` | Submitted view id. |
+| `TraceId` | `ulong` | Trace id. |
+| `SourceWidth` / `SourceHeight` | `ushort` | Source dimensions. |
+| `TileWidth` / `TileHeight` | `ushort` | Tile dimensions. |
+| `CameraBlock` | `ReadOnlyMemory<byte>` | Camera metadata block. |
+| `TileIds` | `ReadOnlyMemory<ushort>` | Submitted tile ids. |
+| `Sections` | `ReadOnlyMemory<TensorSectionBlock>` | Tensor sections. |
+| `FrameClass` | [`FrameClass`](./enums#frame-classification) | Frame class. |
+| `InputProfile` | [`InputProfile`](./enums#frame-classification) | Input profile. |
+
+### `NnrpResult`
+
+Structured result accepted by `SendResultAsync`.
+
+| Property | Type | Required | Description |
+|---|---|---:|---|
+| `FrameId` | `uint` | Yes | Frame id being answered. |
+| `ViewId` | `ushort` | Yes | View id being answered. |
+| `TraceId` | `ulong` | No | Trace id. |
+| `TileIds` | `ReadOnlyMemory<ushort>` | No | Result tile ids. |
+| `Sections` | `ReadOnlyMemory<TensorSectionBlock>` | No | Result tensor sections. |
+| `ResultClass` | [`ResultClass`](./enums#data-plane-enums) | No | Completeness class. |
+| `ResultFlags` | [`ResultFlags`](./enums#data-plane-enums) | No | Result flags. |
+| `AppliedBudgetPolicy` | [`BudgetPolicy`](./enums#data-plane-enums) | No | Degradation actually used. |
+| `InferenceMilliseconds` | `ushort` | No | Model execution time. |
+| `QueueMilliseconds` | `ushort` | No | Queue wait time. |
+| `ServerTotalMilliseconds` | `ushort` | No | Total server-side time. |
 
 ## Example
 
 ```csharp
-using Nnrp.Server;
-using Nnrp.Core;
-
-var profile = new ServerProfile { MaxConcurrentFrames = 4 };
-await using var server = await NnrpServer.BindAsync("0.0.0.0", 4433, profile);
-
-while (true)
+async Task HandleAsync(INnrpMessageTransport transport, CancellationToken ct)
 {
-    var session = await server.AcceptWithAuthAsync(hello =>
-        ValidateAuthBlock(hello.AuthBlock.Span));
-
-    _ = Task.Run(async () =>
+    var session = new NnrpServerSession(new ServerProfile { MaxConcurrentFrames = 4 }, transport);
+    var failure = await session.AcceptAsync(ct);
+    if (failure.IsFailure)
     {
-        try
-        {
-            while (true)
-            {
-                var submit = await session.ReceiveSubmitAsync();
-                var output = RunInference(submit);
-                await session.SendResultAsync(new NnrpResult
-                {
-                    FrameId = submit.FrameId,
-                    ResultClass = ResultClass.Complete,
-                    InferenceMs = output.InferenceMs,
-                    Sections = output.Sections,
-                });
-            }
-        }
-        finally
-        {
-            await session.DisposeAsync();
-        }
-    });
-}
-```
+        return;
+    }
 
----
-
-## Typical Use Cases
-
-### Authentication
-
-```csharp
-var serverProfile = new NnrpServerProfile
-{
-    MaxConcurrentFrames = 8,
-    AuthValidator = authBlock =>
+    try
     {
-        if (authBlock.Length < 32) return false;
-        var expected = Hmac.Sha256(SECRET_KEY, authBlock[32..]);
-        return CryptographicOperations.FixedTimeEquals(
-            authBlock[..32], expected);
-    },
-};
-```
-
-### Backpressure and Degradation
-
-```csharp
-async Task HandleAsync(INnrpServerSession session)
-{
-    while (true)
-    {
-        var submit = await session.ReceiveSubmitAsync();
-        if (_queue > MaxQueue)
+        while (true)
         {
-            await session.SendResultDropAsync(submit.FrameId);
-            await session.SendResultHintAsync(new NnrpResultHint
-            {
-                CongestionState = ResultHintCongestionState.Saturated,
-            });
-            continue;
+            var submit = await session.ReceiveSubmitAsync(ct);
+            var output = await RunInferenceAsync(submit, ct);
+            await session.SendResultAsync(output, ct);
         }
-        var sections = await RunInferenceAsync(submit.Sections);
-        await session.SendResultAsync(new NnrpResult
-        {
-            FrameId     = submit.FrameId,
-            Sections    = sections,
-            ResultClass = ResultClass.Complete,
-        });
+    }
+    finally
+    {
+        await session.CloseAsync("server shutdown", 0, ct);
     }
 }
 ```
 
----
-
 ## Common Pitfalls
 
 ::: warning
-1. **Never block inside `await ReceiveSubmitAsync()`.** Wrap synchronous inference in `Task.Run`; blocking the I/O thread causes PING/PONG timeouts.
-
-2. **Timed-out frames must get `SendResultDropAsync`.** Silently skipping them leaves the client's `SubmitAsync` hanging forever.
-
-3. **`AuthValidator` is a synchronous delegate.** For async auth (database lookup), either cache tokens in memory or use `AsyncAuthValidator` overload.
-
-4. **`MaxConcurrentFrames` is a soft limit.** Implement `SemaphoreSlim`-based concurrency control at the application layer.
+1. Every received frame needs `SendResultAsync` or `SendResultDropAsync`.
+2. Do not block the I/O loop while running inference; move CPU/GPU work out of the receive path.
+3. `AcceptAsync` returns protocol rejection information; check it before entering the submit loop.
+4. Cache helpers require a configured `NnrpCacheStore`.
 :::

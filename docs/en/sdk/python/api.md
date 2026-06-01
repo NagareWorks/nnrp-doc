@@ -2,6 +2,9 @@
 
 The Python SDK (`nnrp-py`) public API is organized into protocol primitives, host-facing client/server helpers, transport adapters, and native runtime facades.
 
+Start with [Client](./api/client) or [Server](./api/server). Enum, packet, message, and transport
+pages are reference material linked from method parameter tables.
+
 | Group | Description | Status |
 |---|---|---|
 | [Enums & Constants](./api/enums) | Message types, flags, payload kinds, status enums, and constants | Stable |
@@ -48,3 +51,4 @@ Only NNRP/1 wire format `0` is supported. Every packet header's `wire_format` fi
 1. Async-first methods are the primary host API contract.
 2. Sync helpers are convenience wrappers over the same protocol semantics.
 3. Public method names, parameter groups, and returned state objects should not drift without a formal SDK version change.
+4. Code blocks should show usage examples; method signatures belong in method-level parameter tables.

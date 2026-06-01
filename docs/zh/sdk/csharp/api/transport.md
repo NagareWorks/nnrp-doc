@@ -1,229 +1,109 @@
-# C# — 传输层
+# C# — Transport API
 
-传输层接口定义在 `Nnrp.Transport` 命名空间，`Nnrp.Core` 包内附带 TCP 传输实现。
+Transport API 分布在 `Nnrp.Core`、`Nnrp.Transport.Tcp` 和 `Nnrp.NativeBridge`。应用通常有两条路：
+
+1. 明确使用 TCP 时，直接用 `NnrpTcpMessageTransport`。
+2. 需要 QUIC/TCP 探测和 fallback 时，用 native bridge 的 `NnrpAutoTransportClient`。
 
 ## 导入
 
 ```csharp
-using Nnrp.Transport;
+using Nnrp.Core;
+using Nnrp.Transport.Tcp;
+using Nnrp.NativeBridge;
 ```
 
----
+## `NnrpTcpMessageTransport.ConnectAsync`
 
-## 传输接口
+打开 TCP 连接并返回 framed NNRP transport。
 
-### `INnrpMessageTransport`
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `host` | `string` | 是 | 非空 hostname 或 IP | 远端 host。 |
+| `port` | `int` | 是 | `1..65535` | 远端 TCP 端口。 |
+| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消连接。 |
 
-传输层顶级接口，抽象 NNRP 消息的发送与接收。
+| 返回 | 可能抛出 |
+|---|---|
+| `ValueTask<NnrpTcpMessageTransport>` | 参数、连接或取消错误。 |
 
 ```csharp
-public interface INnrpMessageTransport : IAsyncDisposable
-{
-    bool IsConnected { get; }
-
-    // 发送一个完整消息帧
-    ValueTask SendAsync(
-        NnrpFramedMessage message,
-        CancellationToken cancellationToken = default);
-
-    // 接收下一个完整消息帧
-    ValueTask<NnrpFramedMessage> ReceiveAsync(
-        CancellationToken cancellationToken = default);
-
-    // 关闭连接（发送 CLOSE 并等待对端确认）
-    Task CloseAsync(CancellationToken cancellationToken = default);
-}
+await using var transport = await NnrpTcpMessageTransport.ConnectAsync("127.0.0.1", 4433, ct);
 ```
+
+## `INnrpMessageTransport.SendAsync`
+
+发送一条 framed message。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `message` | [`NnrpFramedMessage`](./protocol#nnrpframedmessage) | 是 | 有效 framed message | 要写出的消息。 |
+| `cancellationToken` | `CancellationToken` | 是 | 任意 token | 取消写入。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `ValueTask` | transport、disposed 或取消错误。 |
+
+## `INnrpMessageTransport.ReceiveAsync`
+
+接收一条 framed message。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `cancellationToken` | `CancellationToken` | 是 | 任意 token | 取消接收。 |
+
+| 返回 | 可能抛出 |
+|---|---|
+| `ValueTask<NnrpFramedMessage>` | transport、header 格式错误、disposed 或取消错误。 |
+
+## `NnrpAutoTransportClient`
+
+Native bridge client 会探测 QUIC 和 TCP，并根据 `ClientProfile` 选择 transport，然后暴露 submit、ping、cancel、migrate、hint receive helper。见 [Client](./client#auto-transport-bridge)。
+
+| 类型 | 用途 |
+|---|---|
+| `NnrpAutoTransportClientOptions` | host、port、TLS name、requested model、证书校验。 |
+| `NnrpAutoTransportClient` | connect、probe、submit、receive flow update/result hint、migrate、close。 |
+| `NnrpTransportProbeOptions` | probe sample 数量、payload 大小、timeout 和评分输入。 |
+
+### `NnrpTransportProbeOptions`
+
+| 属性 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `WarmupProbeCount` | `int` | 否 | `>= 0`，默认 `1` | 不参与评分的预热 probe 数量，避免首次初始化成本影响选择。 |
+| `ScoredProbeCount` | `int` | 否 | `> 0`，默认 `3` | 参与 transport 评分的 probe 数量。 |
+| `PayloadBytes` | `int` | 否 | `>= 0`，默认 `16384` | probe message 使用的 payload 大小。 |
+| `ProbeTimeout` | `TimeSpan` | 否 | `>= TimeSpan.Zero`，默认 `2s` | 每次 probe 尝试的 timeout。 |
+
+## 核心 Transport 类型
 
 ### `INnrpMessageSender`
 
-仅发送方向的接口（用于只写场景）。
-
-```csharp
-public interface INnrpMessageSender
-{
-    ValueTask SendAsync(
-        NnrpFramedMessage message,
-        CancellationToken cancellationToken = default);
-}
-```
+| 方法 | 参数 | 返回 | 说明 |
+|---|---|---|---|
+| `SendAsync` | [`NnrpFramedMessage`](./protocol#nnrpframedmessage), `CancellationToken` | `ValueTask` | 写出一条 framed message。 |
 
 ### `INnrpMessageReceiver`
 
-仅接收方向的接口（用于只读场景）。
+| 方法 | 参数 | 返回 | 说明 |
+|---|---|---|---|
+| `ReceiveAsync` | `CancellationToken` | `ValueTask<NnrpFramedMessage>` | 读取一条 framed message。 |
 
-```csharp
-public interface INnrpMessageReceiver
-{
-    ValueTask<NnrpFramedMessage> ReceiveAsync(
-        CancellationToken cancellationToken = default);
-}
-```
+### `INnrpMessageTransport`
 
----
+组合 `INnrpMessageSender` 和 `INnrpMessageReceiver`。
 
-## TCP 传输实现
+### `INnrpTransportIdentity`
 
-### `NnrpTcpMessageTransport`
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `TransportId` | [`TransportId`](./enums#transportid) | 当前 active NNRP transport binding。 |
 
-基于 `System.Net.Sockets` 的 TCP 传输实现（`sealed class`）。
-
-使用长度前缀帧（4 字节小端 uint32 总帧长 + 40 字节 NNRP 包头 + 元数据 + 包体）提供可靠有序传输。
-
-```csharp
-public sealed class NnrpTcpMessageTransport : INnrpMessageTransport
-{
-    // 服务端：绑定并监听指定端口
-    public NnrpTcpMessageTransport(int port, NnrpTcpServerOptions? options = null);
-
-    // 客户端：连接到远端
-    public static Task<NnrpTcpMessageTransport> ConnectAsync(
-        string host,
-        int port,
-        NnrpTcpClientOptions? options = null,
-        CancellationToken cancellationToken = default);
-
-    // 接受下一个入连接（服务端模式）
-    public Task<NnrpTcpMessageTransport> AcceptAsync(
-        CancellationToken cancellationToken = default);
-
-    public bool IsConnected { get; }
-
-    public ValueTask SendAsync(NnrpFramedMessage message, CancellationToken cancellationToken = default);
-    public ValueTask<NnrpFramedMessage> ReceiveAsync(CancellationToken cancellationToken = default);
-    public Task CloseAsync(CancellationToken cancellationToken = default);
-    public ValueTask DisposeAsync();
-}
-```
-
-### `NnrpTcpClientOptions`
-
-TCP 客户端连接选项。
-
-```csharp
-public sealed class NnrpTcpClientOptions
-{
-    public TimeSpan ConnectTimeout { get; set; } = TimeSpan.FromSeconds(10);
-    public TimeSpan IdleTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    public int MaxFrameSize { get; set; } = 32 * 1024 * 1024;
-    public bool NoDelay { get; set; } = true;
-}
-```
-
-### `NnrpTcpServerOptions`
-
-TCP 服务端监听选项。
-
-```csharp
-public sealed class NnrpTcpServerOptions
-{
-    public int Backlog { get; set; } = 128;
-    public TimeSpan IdleTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    public int MaxFrameSize { get; set; } = 32 * 1024 * 1024;
-    public bool NoDelay { get; set; } = true;
-}
-```
-
----
-
-## QUIC 传输（Preview3）
-
-QUIC 传输实现计划在 Preview3 发布，将作为独立包 `Nnrp.Transport.Quic` 提供，依赖 `System.Net.Quic`（.NET 7+）。
-
-```csharp
-// Preview3 计划接口（尚未发布）
-// using Nnrp.Transport.Quic;
-//
-// var transport = await NnrpQuicMessageTransport.ConnectAsync(
-//     host: "127.0.0.1",
-//     port: 4433,
-//     options: new NnrpQuicClientOptions { AlpnProtocol = "nnrp/1" });
-```
-
----
-
-## 自定义传输
-
-实现 `INnrpMessageTransport` 接口即可接入自定义传输层（如 WebSocket、共享内存等）：
-
-```csharp
-public sealed class MyCustomTransport : INnrpMessageTransport
-{
-    public bool IsConnected { get; private set; } = true;
-
-    public async ValueTask SendAsync(NnrpFramedMessage message, CancellationToken ct)
-    {
-        // 自定义发送逻辑
-        var bytes = SerializeFrame(message);
-        await _stream.WriteAsync(bytes, ct);
-    }
-
-    public async ValueTask<NnrpFramedMessage> ReceiveAsync(CancellationToken ct)
-    {
-        // 自定义接收逻辑
-        var bytes = await _stream.ReadFrameAsync(ct);
-        return DeserializeFrame(bytes);
-    }
-
-    public async Task CloseAsync(CancellationToken ct) { /* ... */ }
-    public async ValueTask DisposeAsync() { /* ... */ }
-}
-```
-
----
-
-## 典型使用场景
-
-### QUIC 客户端接入
-
-```csharp
-var quicConfig = new NnrpQuicClientConfiguration
-{
-    CertificateAuthority = X509Certificate2.CreateFromPemFile("ca.pem"),
-    IdleTimeout          = TimeSpan.FromSeconds(30),
-};
-var transport = new NnrpQuicTransport(quicConfig);
-var client = new NnrpClient(transport, profile);
-await using var session = await client.ConnectAsync("render.example.com", 4433);
-```
-
-### TCP 备用传输
-
-```csharp
-var tcpConfig = new NnrpTcpClientConfiguration
-{
-    ConnectTimeout = TimeSpan.FromSeconds(5),
-    IdleTimeout    = TimeSpan.FromSeconds(60),
-};
-var transport = new NnrpTcpTransport(tcpConfig);
-```
-
-### 自定义传输适配器（实现 `INnrpTransport`）
-
-```csharp
-public class MyWebSocketTransport : INnrpTransport
-{
-    public async Task SendAsync(ReadOnlyMemory<byte> frame, CancellationToken ct)
-        => await _ws.SendAsync(frame, WebSocketMessageType.Binary, true, ct);
-
-    public async Task<ReadOnlyMemory<byte>> ReceiveAsync(CancellationToken ct)
-    {
-        var result = await _ws.ReceiveAsync(_buffer, ct);
-        return _buffer.AsMemory(0, result.Count);
-    }
-}
-```
-
----
-
-## 常见坑点
+## 常见坑
 
 ::: warning
-1. **QUIC 需要正确的 ALPN**：默认为 `nnrp/1`。不要硬编码字符串，使用 `NnrpQuicClientConfiguration.DefaultAlpn`。
-
-2. **`NnrpQuicClientConfiguration.SkipCertificateValidation = true` 只用于本地开发**；生产和 CI 环境必须配置 CA 证书。
-
-3. **TCP 不支持 Datagram 操作**（如路径探测）；调用这些方法会抛出 `NnrpUnsupportedOperationException`。
-
-4. **`await using var transport`**：`NnrpQuicTransport` / `NnrpTcpTransport` 实现 `IAsyncDisposable`，忘记 dispose 会泄漏底层套接字。
+1. `NnrpTcpMessageTransport` 使用 NNRP header length 做 framing，不要再加一层 length prefix。
+2. 发送和接收各自有 gate，但请求顺序仍然由应用层负责。
+3. transport 要用 `await using` 或 `DisposeAsync` 释放。
+4. QUIC/TCP 自动选择优先用 native bridge，不要在业务代码里手写 probe orchestration。
 :::
