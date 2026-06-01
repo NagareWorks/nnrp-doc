@@ -1,7 +1,7 @@
-# JS/TS Quick Start
+# JavaScript/TypeScript Quick Start
 
-The Preview3 JS/TS SDK is currently in the skeleton and API-freeze stage. The repository validates
-and builds with Deno, while future npm packages still emit Node.js-compatible ESM.
+The `nnrp-js` repository is in the API-freeze and implementation rollout stage. These examples are
+the public shapes that implementation must preserve before packages are published.
 
 ## Repository Validation
 
@@ -11,54 +11,93 @@ deno task test
 deno task build
 ```
 
-`deno task lint` also runs the runtime policy check, which rejects Bun files, adaptation paths, or
-CI configuration.
+`deno task lint` includes the runtime policy check. It rejects Bun-specific runtime paths, examples,
+CI axes, package exports, and lockfiles.
 
-## Backend Mode (Node.js / Deno Services)
+## Package Names
 
-Backend mode consumes `nnrp-rs` native FFI artifacts. The frozen shape is expected to look like
-this:
+| Package | Import path | Runtime |
+|---|---|---|
+| Core | `@nnrp/core` | Any JS runtime |
+| Backend native | `@nnrp/native` | Node.js and Deno backend hosts |
+| Browser WASM | `@nnrp/wasm` | Browser and edge clients |
+
+Registry publication is deferred until the package artifacts and native/WASM distribution shape are
+verified. Implementation work should still use these package names.
+
+## Backend Native Mode
 
 ```ts
 import { openBackendRuntime } from "@nnrp/native";
 
 const runtime = await openBackendRuntime({
   nativeLibrary: {
-    path: process.env.NNRP_NATIVE_LIBRARY,
+    artifactDir: "./native",
   },
+  transportPolicy: "score",
 });
 
 const client = await runtime.connect({
   endpoint: "127.0.0.1:4433",
-  transportPolicy: "score",
 });
 
-const session = await client.openSession();
-const result = await session.submit({
-  payload: new Uint8Array([1, 2, 3]),
+const session = await client.openSession({
+  inputProfile: "tensor",
 });
+
+const result = await session.submit({
+  frameId: 1,
+  payload: new Uint8Array([1, 2, 3]),
+  inputProfile: "tensor",
+  submitMode: "inline",
+});
+
+await session.close();
+await client.close();
+await runtime.close();
 ```
 
-The backend package may expose client and server APIs, but must not carry browser client-only
-transport implementations.
+Backend mode may expose client and server APIs. It must validate the native artifact manifest before
+loading a library and must report missing ABI symbols as structured diagnostics.
 
-## Browser Client Mode
-
-Browser mode consumes `nnrp-rs` WASM primitive artifacts. The frozen shape is expected to look like
-this:
+## Browser WASM Mode
 
 ```ts
 import { openBrowserRuntime } from "@nnrp/wasm";
 
 const runtime = await openBrowserRuntime({
   wasmUrl: new URL("/assets/nnrp_wasm_bg.wasm", location.href),
+  manifestUrl: new URL("/assets/nnrp_wasm_manifest.json", location.href),
 });
 
 const client = await runtime.connect({
-  endpoint: "wss://example.test/nnrp",
+  endpoint: new URL("wss://example.test/nnrp"),
   transportPolicy: "score",
+});
+
+const session = await client.openSession({
+  inputProfile: "tensor",
+});
+
+await session.submitNoWait({
+  frameId: 1,
+  payload: new Uint8Array([1, 2, 3]),
+  inputProfile: "tensor",
+  submitMode: "inline",
 });
 ```
 
-The browser package exposes client APIs only. It does not expose server listen/accept/send-result
-APIs and does not load `.dll` / `.so` / `.dylib` libraries.
+Browser mode exposes client APIs only. It must not expose `listen`, `accept`, server sessions, Node
+built-ins, or native library loaders.
+
+## Conformance Adapter Shape
+
+The JS/TS SDK should provide build-mode-specific adapter commands:
+
+```bash
+deno task conformance:backend -- --manifest ./artifacts/backend-manifest.json
+deno task conformance:browser -- --manifest ./artifacts/browser-manifest.json
+```
+
+Capability claims must match the active build mode. Backend native mode and browser WASM mode must
+not claim identical transport or server capabilities.

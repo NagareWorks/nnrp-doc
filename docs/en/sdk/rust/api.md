@@ -47,7 +47,7 @@ nnrp-ffi = "1.0.0-preview.3.1"
 
 The FFI layer exposes client/server handles, sessions, operations, and event ABI. It is the low-level control surface for bindings and does not expose Rust async objects or socket pointers directly.
 
-Native link libraries fit C#/Python/Unity and Node.js backend native-addon scenarios. `nnrp-rs` publishes multi-platform native artifacts, WASM primitives, and the `include/nnrp/nnrp.h` C ABI entrypoint; future `nnrp-js` should probe native link libraries first in Node.js and fall back to WASM when native loading is unavailable. Browsers cannot load `.dll` / `.so` / `.dylib`, so the future JS/TS browser SDK must use the `nnrp-wasm` primitive package plus WebSocket/WebTransport transport adapters.
+Native link libraries fit C#/Python/Unity and Node.js backend native-addon scenarios. `nnrp-rs` publishes multi-platform native artifacts, WASM primitives, and the `include/nnrp/nnrp.h` C ABI entrypoint; `nnrp-js` should probe native link libraries first in Node.js and fall back to WASM when native loading is unavailable. Browsers cannot load `.dll` / `.so` / `.dylib`, so the JavaScript/TypeScript browser SDK must use the `nnrp-wasm` primitive package plus WebSocket/WebTransport transport adapters.
 
 ## Rust-specific expectations
 

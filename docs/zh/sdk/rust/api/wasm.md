@@ -1,7 +1,7 @@
 # Rust — WASM Primitives（Preview3）
 
 ::: tip 已实现的边界
-`nnrp-rs` 当前提供 `nnrp-wasm` primitive crate：它通过 `wasm-bindgen` 暴露协议版本、transport probe scoring 和 transport selection 的低层 JSON 接口，并产出 `.wasm`、`.d.ts` 与 manifest。完整 JS/TS SDK、npm 包布局、Node native loader、浏览器 WebSocket/WebTransport adapter 由后续 `nnrp-js` 仓库负责。
+`nnrp-rs` 当前提供 `nnrp-wasm` primitive crate：它通过 `wasm-bindgen` 暴露协议版本、transport probe scoring 和 transport selection 的低层 JSON 接口，并产出 `.wasm`、`.d.ts` 与 manifest。完整 JavaScript/TypeScript SDK、npm 包布局、Node native loader、浏览器 WebSocket/WebTransport adapter 由 `nnrp-js` 仓库负责。
 :::
 
 ## 产物边界

@@ -5,7 +5,7 @@ The SDK view is separate from protocol design on purpose.
 1. Protocol pages define the wire contract, packet shapes, descriptors, state machines, and version
    boundaries.
 2. SDK pages define the frozen control-plane surface that applications call in Python, C#, Rust, and
-   JS/TS.
+   JavaScript/TypeScript.
 3. Language-specific deployment and packaging guidance stays here instead of leaking back into
    protocol pages.
 
@@ -36,7 +36,7 @@ The Preview3 entry point should expose one shared control-plane contract across 
     <p>Frozen Rust API surface and deployment path.</p>
   </a>
   <a class="sdk-link-card" href="/nnrp-doc/en/sdk/javascript/">
-    <strong>JS/TS</strong>
-    <p>Deno-first, Node-compatible, and browser WASM SDK API surface.</p>
+    <strong>JavaScript/TypeScript</strong>
+    <p>Deno-authored, Node-compatible backend, and browser WASM SDK API surface.</p>
   </a>
 </div>

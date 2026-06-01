@@ -1,7 +1,7 @@
 # Rust — WASM Primitives (Preview3)
 
 ::: tip Implemented Boundary
-`nnrp-rs` now provides the `nnrp-wasm` primitive crate. It exposes protocol version, transport probe scoring, and transport selection through a low-level `wasm-bindgen` JSON interface, then packages `.wasm`, `.d.ts`, and manifest outputs. The full JS/TS SDK, npm layout, Node native loader, and browser WebSocket/WebTransport adapters belong in the future `nnrp-js` repository.
+`nnrp-rs` now provides the `nnrp-wasm` primitive crate. It exposes protocol version, transport probe scoring, and transport selection through a low-level `wasm-bindgen` JSON interface, then packages `.wasm`, `.d.ts`, and manifest outputs. The full JavaScript/TypeScript SDK, npm layout, Node native loader, and browser WebSocket/WebTransport adapters belong in the `nnrp-js` repository.
 :::
 
 ## Package Boundary

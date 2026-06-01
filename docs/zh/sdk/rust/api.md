@@ -47,7 +47,7 @@ nnrp-ffi = "1.0.0-preview.3.1"
 
 FFI 层已经暴露 client/server handle、session、operation 和 event ABI；它是跨语言绑定的底层控制面，不直接把 Rust 异步对象或 socket 指针暴露给调用方。
 
-Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。`nnrp-rs` 发布多平台 native artifact、WASM primitives 和 `include/nnrp/nnrp.h` C ABI 入口；未来 `nnrp-js` 在 Node.js 中应优先探测 native link library，并在不可用时回退到 WASM。浏览器不能加载 `.dll` / `.so` / `.dylib`，后续 JS/TS 浏览器 SDK 必须走 `nnrp-wasm` primitive 包和 WebSocket/WebTransport transport adapter。
+Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。`nnrp-rs` 发布多平台 native artifact、WASM primitives 和 `include/nnrp/nnrp.h` C ABI 入口；`nnrp-js` 在 Node.js 中应优先探测 native link library，并在不可用时回退到 WASM。浏览器不能加载 `.dll` / `.so` / `.dylib`，JavaScript/TypeScript 浏览器 SDK 必须走 `nnrp-wasm` primitive 包和 WebSocket/WebTransport transport adapter。
 
 ## Rust 侧约束
 

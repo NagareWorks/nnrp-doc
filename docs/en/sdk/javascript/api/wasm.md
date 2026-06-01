@@ -1,7 +1,7 @@
-# JS/TS — WASM Browser Client API
+# JavaScript/TypeScript — WASM Browser Client API
 
-`@nnrp/wasm` targets browser and edge clients. It consumes `nnrp-rs` WASM primitive artifacts and
-exposes client APIs only.
+`@nnrp/wasm` targets browser and edge clients. It consumes `nnrp-rs` WASM artifacts and exposes
+client APIs only.
 
 ## WASM Loader
 
@@ -10,6 +10,7 @@ export interface NnrpWasmOptions {
   readonly wasmUrl?: string | URL;
   readonly wasmModule?: WebAssembly.Module;
   readonly manifestUrl?: string | URL;
+  readonly fetch?: typeof globalThis.fetch;
 }
 
 export interface NnrpBrowserRuntime {
@@ -23,15 +24,18 @@ export function openBrowserRuntime(
 ): Promise<NnrpBrowserRuntime>;
 ```
 
-The WASM loader must validate the manifest and protocol version. The browser package must never load
-a native link library.
+The loader validates the manifest and protocol version before exposing a runtime. Browser packages
+must never load native link libraries or import Node built-ins.
 
 ## Browser Client
 
 ```ts
 export interface NnrpBrowserConnectOptions {
   readonly endpoint: string | URL;
-  readonly transportPolicy?: "score" | "websocket-only" | "webtransport-only";
+  readonly transportPolicy?: Extract<
+    NnrpTransportPolicy,
+    "score" | "websocket-only" | "webtransport-only"
+  >;
 }
 
 export interface NnrpBrowserClient {
@@ -40,17 +44,27 @@ export interface NnrpBrowserClient {
 }
 
 export interface NnrpBrowserSession {
+  readonly sessionId: number;
   submit(request: NnrpSubmitRequest): Promise<NnrpResult>;
   submitNoWait(request: NnrpSubmitRequest): Promise<bigint>;
   cancel(operationId: bigint): Promise<void>;
+  patch(options: Partial<NnrpSessionOptions>): Promise<void>;
   nextEvent(): Promise<NnrpRuntimeEvent>;
   close(): Promise<void>;
 }
 ```
 
-## Transport Adapter Slot
+Browser mode does not expose server sessions, `listen`, `accept`, or native artifact resolvers.
+
+## Browser Transport Adapter Slot
 
 ```ts
+export interface NnrpBrowserTransport {
+  send(payload: Uint8Array): Promise<void>;
+  receive(): Promise<Uint8Array>;
+  close(): Promise<void>;
+}
+
 export interface NnrpBrowserTransportProvider {
   readonly kind: "websocket" | "webtransport";
   probe(endpoint: string | URL): Promise<NnrpTransportCandidate>;
@@ -58,5 +72,17 @@ export interface NnrpBrowserTransportProvider {
 }
 ```
 
-WebSocket and WebTransport are browser transport adapters, not protocol semantics. The browser
-package must not expose `listen`, `accept`, server sessions, or native FFI loaders.
+WebSocket and WebTransport are transport adapters, not protocol semantics. The scoring policy is
+shared with `@nnrp/core`, but browser mode can only select browser-available transports.
+
+## Conformance and Benchmark Entrypoints
+
+The browser package should expose headless adapter and benchmark tasks once the WASM runtime can be
+loaded in CI:
+
+```bash
+deno task conformance:browser
+deno task benchmark:browser
+```
+
+Reports must identify browser WASM mode separately from backend native mode.

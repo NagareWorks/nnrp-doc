@@ -23,7 +23,8 @@ const SDK_LANGUAGE_STORAGE_KEY = "nnrp-sdk-language";
 const sdkLanguages: SDKLanguage[] = [
   { value: "python", label: "Python" },
   { value: "csharp", label: "C#" },
-  { value: "rust", label: "Rust" }
+  { value: "rust", label: "Rust" },
+  { value: "javascript", label: "JavaScript/TypeScript" }
 ];
 const localeMessages: Record<string, LocaleMessage> = {
   root: {

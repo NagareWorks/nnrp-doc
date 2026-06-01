@@ -3,7 +3,7 @@
 SDK 视图和协议设计页刻意分开。
 
 1. 协议页定义线上的报文契约、描述符、状态机与版本边界。
-2. SDK 页定义应用真正调用的冻结控制面，覆盖 Python、C#、Rust 和 JS/TS。
+2. SDK 页定义应用真正调用的冻结控制面，覆盖 Python、C#、Rust 和 JavaScript/TypeScript。
 3. 语言相关的部署、打包和宿主接入说明只放在这里，不回流到协议页叙事。
 
 ## 冻结范围
@@ -33,7 +33,7 @@ SDK 视图和协议设计页刻意分开。
     <p>查看 Rust 的冻结 API 面和部署接入说明。</p>
   </a>
   <a class="sdk-link-card" href="/nnrp-doc/zh/sdk/javascript/">
-    <strong>JS/TS</strong>
-    <p>查看 Deno-first、Node-compatible 与浏览器 WASM SDK 的冻结 API 面。</p>
+    <strong>JavaScript/TypeScript</strong>
+    <p>查看 Deno 编写、Node-compatible 后端与浏览器 WASM SDK 的冻结 API 面。</p>
   </a>
 </div>

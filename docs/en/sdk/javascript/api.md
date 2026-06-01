@@ -1,19 +1,40 @@
-# JS/TS — Frozen API
+# JavaScript/TypeScript API
 
-The Preview3 JS/TS SDK API has three groups: core types, native backend runtime, and WASM browser
-client runtime.
+The JavaScript/TypeScript SDK public API is organized into core types, backend native runtime, and
+browser WASM runtime. This page freezes the cross-package boundary. Implementation in `nnrp-js`
+should converge on these names before package publication.
 
-| Group                             | Package        | Description                                                                                      | Status      |
-| --------------------------------- | -------------- | ------------------------------------------------------------------------------------------------ | ----------- |
-| [Core Types](./api/core)          | `@nnrp/core`   | Shared data structures, capability manifest, transport candidates, diagnostics, and result model | 🚧 Freezing |
-| [Native Backend](./api/native)    | `@nnrp/native` | Node.js/Deno backend native FFI loader, client/server/session APIs                               | 🚧 Freezing |
-| [WASM Browser Client](./api/wasm) | `@nnrp/wasm`   | Browser/edge WASM loader, client/session APIs, browser transport adapter slots                   | 🚧 Freezing |
+| Group | Package | Description | Contract |
+|---|---|---|---|
+| [Core Types](./api/core) | `@nnrp/core` | Constants, capability manifests, diagnostics, payload ownership, transport selection, request/result types | Frozen target |
+| [Native Backend](./api/native) | `@nnrp/native` | Native artifact resolver, backend runtime, client/server/session APIs | Frozen target |
+| [WASM Browser Client](./api/wasm) | `@nnrp/wasm` | WASM loader, browser runtime, client/session APIs, browser transport slots | Frozen target |
 
-## Global Constraints
+## Package Boundary Rules
 
-1. Deno is the development and build toolchain, not a runtime API dependency.
-2. Published packages must remain Node.js-compatible ESM with `.d.ts`.
-3. `@nnrp/core` must not depend on native, WASM, DOM, or Node built-ins.
-4. `@nnrp/native` uses native FFI artifacts and may expose client/server APIs.
-5. `@nnrp/wasm` uses WASM artifacts and exposes browser client APIs only.
-6. Bun is outside the supported surface.
+1. `@nnrp/core` is dependency-light and runtime-neutral.
+2. `@nnrp/native` may import Node-compatible filesystem/process/native-loading helpers and may expose server APIs.
+3. `@nnrp/wasm` may import browser and WebAssembly APIs and must expose client APIs only.
+4. Every public binary payload parameter accepts `Uint8Array` or `ArrayBufferView`; retained payloads are copied unless
+   an API explicitly states ownership transfer.
+5. `bigint` is used for operation identifiers that can exceed JavaScript's safe integer range.
+6. Runtime errors must preserve structured diagnostics rather than flattening native or WASM status into strings.
+
+## Version and Capability Contract
+
+```ts
+export const NNRP_PROTOCOL_NAME: "NNRP";
+export const NNRP_PROTOCOL_VERSION: string;
+
+export type NnrpBuildMode = "backend-native" | "browser-wasm";
+```
+
+The JS/TS SDK must emit capability manifests per build mode. A browser WASM manifest must not claim
+server capabilities or native transport capabilities. A backend native manifest must not claim
+browser-only transports unless a browser adapter is actually active in that runtime.
+
+## Naming Rules
+
+The frozen public surface uses the `Nnrp` prefix for exported interfaces and classes. Existing
+repository skeleton names without the prefix are implementation placeholders and should either become
+aliases or be replaced before publication.
