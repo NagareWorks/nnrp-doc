@@ -1,149 +1,138 @@
-# JavaScript/TypeScript — WASM Browser Client API
+# JavaScript/TypeScript WASM 浏览器 API
 
-`@nnrp/wasm` 面向浏览器和 edge client。它加载 WASM artifact，暴露 client session，并通过 WebSocket/WebTransport 这类浏览器 transport adapter 工作。
-
-## Browser 使用流程
-
-1. 调用 [`openBrowserRuntime`](#openbrowserruntime)。
-2. 用 [`runtime.connect`](#nnrpbrowserruntime-connect) 连接。
-3. 用 [`client.openSession`](#nnrpbrowserclient-opensession) 打开 session。
-4. 用 [`session.submit`](#nnrpbrowsersession-submit) 或 [`submitNoWait`](#nnrpbrowsersession-submitnowait) 提交。
-5. 用 [`nextEvent`](#nnrpbrowsersession-nextevent) 读取事件。
-6. 关闭 session、client 和 runtime。
+`@nnrp/wasm` 面向浏览器和 edge client。它校验 `nnrp-rs` WASM primitive manifest， 解析 WASM asset
+URL，并暴露 browser client session。
 
 ## `openBrowserRuntime`
 
-加载 WASM module 并校验 manifest。
+创建 browser runtime。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `options` | [`NnrpWasmOptions`](#nnrpwasmoptions) | 否 | URL、module、manifest、fetch 选项 | WASM loader 配置。 |
+| 参数      | 类型                     | 必填 | 说明                                                                                           |
+| --------- | ------------------------ | ---: | ---------------------------------------------------------------------------------------------- |
+| `options` | `NnrpWasmRuntimeOptions` |   否 | Module URL、预编译 module、artifact manifest、transport policy 与 browser transport provider。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpBrowserRuntime>` | manifest、fetch、compile 或版本校验错误。 |
+| 返回                          |
+| ----------------------------- |
+| `Promise<NnrpBrowserRuntime>` |
 
 ```ts
+import { openBrowserRuntime } from "@nnrp/wasm";
+
 const runtime = await openBrowserRuntime({
-  wasmUrl: new URL("/assets/nnrp_wasm_bg.wasm", location.href),
-  manifestUrl: new URL("/assets/nnrp_wasm_manifest.json", location.href),
+  moduleUrl: "/assets/nnrp_wasm.wasm",
 });
 ```
 
 ## `NnrpBrowserRuntime.connect`
 
-连接浏览器可用 transport endpoint。
+创建 browser client。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `options` | [`NnrpBrowserConnectOptions`](#nnrpbrowserconnectoptions) | 是 | endpoint 和浏览器 transport 策略 | browser client 连接选项。 |
+| 参数      | 类型                        | 必填 | 说明                                                     |
+| --------- | --------------------------- | ---: | -------------------------------------------------------- |
+| `options` | `NnrpBrowserConnectOptions` |   是 | Endpoint、可选 transport policy、可选 session defaults。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpBrowserClient>` | 浏览器 transport、策略或握手错误。 |
+| 返回                |
+| ------------------- |
+| `NnrpBrowserClient` |
 
-```ts
-const client = await runtime.connect({
-  endpoint: new URL("wss://example.test/nnrp"),
-  transportPolicy: "score",
-});
-```
+## `NnrpBrowserRuntime.selectTransport`
+
+根据 peer manifest 和本地 provider slot 选择 browser transport。
+
+| 参数      | 类型                                   | 必填 | 说明                              |
+| --------- | -------------------------------------- | ---: | --------------------------------- |
+| `options` | `NnrpBrowserTransportSelectionOptions` |   是 | Peer manifest 与可选 score 覆盖。 |
+
+| 返回                            |
+| ------------------------------- |
+| `NnrpTransportSelectionSummary` |
 
 ## `NnrpBrowserClient.openSession`
 
 打开 browser client session。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `options` | [`NnrpSessionOptions`](./native#nnrpsessionoptions) | 否 | 默认 runtime profile | session 选项。 |
+| 参数      | 类型                        | 必填 | 说明                                               |
+| --------- | --------------------------- | ---: | -------------------------------------------------- |
+| `options` | `NnrpBrowserSessionOptions` |   否 | Input profile、cadence、quality tier 和 metadata。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpBrowserSession>` | session-open 拒绝或 transport 错误。 |
+| 返回                       |
+| -------------------------- |
+| `NnrpBrowserClientSession` |
 
-## `NnrpBrowserSession.submit`
+## `NnrpBrowserClientSession.submit`
 
-提交一个请求并等待匹配结果。
+在 WASM/transport 实现接入后提交请求并等待 result。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `request` | [`NnrpSubmitRequest`](./core#nnrpsubmitrequest) | 是 | `frameId` 在 in-flight 中唯一 | 结构化提交请求。 |
+| 参数      | 类型                                   | 必填 | 说明             |
+| --------- | -------------------------------------- | ---: | ---------------- |
+| `request` | [`NnrpSubmitRequest`](./core#数据类型) |   是 | Submit request。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpResult>` | WASM、transport、timeout、drop 或关联错误。 |
+| 返回                  |
+| --------------------- |
+| `Promise<NnrpResult>` |
 
-```ts
-const result = await session.submit({
-  frameId: 1,
-  payload: new Uint8Array([1, 2, 3]),
-  inputProfile: "tensor",
-  submitMode: "inline",
-});
-```
+## `NnrpBrowserClientSession.cancel`
 
-## `NnrpBrowserSession.submitNoWait`
+取消 operation。
 
-提交请求并返回 operation id。
+| 参数        | 类型                | 必填 | 说明                 |
+| ----------- | ------------------- | ---: | -------------------- |
+| `operation` | `bigint \| number`  |   是 | Operation id。       |
+| `options`   | `NnrpCancelOptions` |   否 | Reason 和 metadata。 |
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `request` | [`NnrpSubmitRequest`](./core#nnrpsubmitrequest) | 是 | `frameId` 在 in-flight 中唯一 | 结构化提交请求。 |
+| 返回            |
+| --------------- |
+| `Promise<void>` |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<bigint>` | WASM、transport 或校验错误。 |
+## `NnrpBrowserClientSession.nextEvent`
 
-## `NnrpBrowserSession.nextEvent`
+读取下一条 browser runtime event。
 
-接收下一条 browser runtime event。
+| 参数      | 类型                   | 必填 | 说明                 |
+| --------- | ---------------------- | ---: | -------------------- |
+| `options` | `NnrpEventPollOptions` |   否 | Event polling 选项。 |
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| 无 | - | - | - | 读取下一条 runtime event。 |
+| 返回                        |
+| --------------------------- |
+| `Promise<NnrpRuntimeEvent>` |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpRuntimeEvent>` | WASM 或 transport 错误。 |
+## WASM Artifact Helper
 
-## Browser Transport Provider
+| API                                                        | 说明                                                                                           |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `createWasmRuntimeBinding(options?)`                       | 创建 browser manifest、module URL、可选 module、可选 artifact 和 browser transport providers。 |
+| `resolveWasmArtifact(options)`                             | 校验 artifact manifest 并解析 WASM/types URL。                                                 |
+| `validateWasmArtifactManifest(manifest, requiredExports?)` | 校验 `nnrp-wasm` primitive manifest 和必需 exports。                                           |
+| `createBrowserTransportProvider(kind, options?)`           | 创建 `websocket` 或 `webtransport` browser transport provider slot。                           |
 
-Browser transport 是 adapter slot，不是协议语义本身。
+## 选项类型
 
-| 方法 | 参数 | 返回 | 说明 |
-|---|---|---|---|
-| `probe` | `string \| URL` | `Promise<NnrpTransportCandidate>` | 探测 endpoint。 |
-| `connect` | `string \| URL` | `Promise<NnrpBrowserTransport>` | 连接 endpoint。 |
+### `NnrpWasmRuntimeOptions`
 
-## 核心类型
+| 属性                 | 类型                                      | 必填 | 说明                                                |
+| -------------------- | ----------------------------------------- | ---: | --------------------------------------------------- |
+| `moduleUrl`          | `string \| URL`                           |   否 | 显式 WASM module URL。                              |
+| `module`             | `WebAssembly.Module`                      |   否 | 预编译 module。                                     |
+| `artifact`           | `NnrpWasmArtifactOptions`                 |   否 | `nnrp-rs` WASM primitive manifest 与可选 base URL。 |
+| `transportPolicy`    | `NnrpTransportPolicy`                     |   否 | Browser transport selection policy。                |
+| `transportProviders` | `readonly NnrpBrowserTransportProvider[]` |   否 | 本地 browser transport 可用性和 score 插槽。        |
 
-### `NnrpWasmOptions`
+### `NnrpWasmArtifactManifest`
 
-| 属性 | 类型 | 必填 | 说明 |
-|---|---|---:|---|
-| `wasmUrl` | `string \| URL` | 否 | WASM artifact URL。 |
-| `wasmModule` | `WebAssembly.Module` | 否 | 预编译 WASM module。 |
-| `manifestUrl` | `string \| URL` | 否 | WASM manifest URL。 |
-| `fetch` | `typeof globalThis.fetch` | 否 | fetch 实现覆盖。 |
+| 属性                 | 类型                | 必填 | 说明                                    |
+| -------------------- | ------------------- | ---: | --------------------------------------- |
+| `package`            | `"nnrp-wasm"`       |   是 | Artifact package kind。                 |
+| `wasm`               | `string`            |   是 | Artifact package 内的 WASM 文件路径。   |
+| `types`              | `string`            |   是 | Artifact package 内的类型声明文件路径。 |
+| `owner`              | `string`            |   否 | 产物来源仓库或 owner。                  |
+| `downstream_wrapper` | `string`            |   否 | 下游 wrapper package。                  |
+| `exports`            | `readonly string[]` |   是 | 导出的 WASM primitive 名称。            |
 
-### `NnrpBrowserConnectOptions`
+### `NnrpBrowserTransportProvider`
 
-| 属性 | 类型 | 必填 | 说明 |
-|---|---|---:|---|
-| `endpoint` | `string \| URL` | 是 | 远端浏览器 transport endpoint。 |
-| `transportPolicy` | `"score" \| "websocket-only" \| "webtransport-only"` | 否 | 浏览器 transport 策略。 |
-
-## Conformance 与 Benchmark 入口
-
-```bash
-deno task conformance:browser
-deno task benchmark:browser
-```
-
-## 常见坑
-
-::: warning
-1. Browser mode 不暴露 `listen`、`accept`、server session 或 native artifact resolver。
-2. 浏览器包不得导入 Node built-in。
-3. WebSocket / WebTransport 是 adapter；transport scoring 仍由 `@nnrp/core` 提供。
-:::
+| 属性         | 类型                            | 必填 | 说明                            |
+| ------------ | ------------------------------- | ---: | ------------------------------- |
+| `kind`       | `"websocket" \| "webtransport"` |   是 | Browser transport kind。        |
+| `available`  | `boolean`                       |   否 | 本地可用性覆盖。                |
+| `score`      | `number`                        |   否 | 本地 score 覆盖。               |
+| `diagnostic` | `NnrpDiagnostic`                |   否 | 本地不可用或降级 score 的原因。 |

@@ -1,205 +1,138 @@
-# JavaScript/TypeScript — WASM Browser Client API
+# JavaScript/TypeScript WASM Browser API
 
-`@nnrp/wasm` targets browser and edge clients. It loads WASM artifacts, exposes client sessions, and
-uses browser transport adapters such as WebSocket or WebTransport. It must not expose server APIs or
-load native link libraries.
-
-## Browser Workflow
-
-1. Call [`openBrowserRuntime`](#openbrowserruntime).
-2. Connect with [`runtime.connect`](#nnrpbrowserruntime-connect).
-3. Open a session with [`client.openSession`](#nnrpbrowserclient-opensession).
-4. Submit with [`session.submit`](#nnrpbrowsersession-submit) or
-   [`submitNoWait`](#nnrpbrowsersession-submitnowait).
-5. Read events with [`nextEvent`](#nnrpbrowsersession-nextevent).
-6. Close the session, client, and runtime.
+`@nnrp/wasm` is for browser and edge clients. It validates `nnrp-rs` WASM primitive manifests,
+resolves WASM asset URLs, and exposes browser client sessions.
 
 ## `openBrowserRuntime`
 
-Loads the WASM module and validates its manifest.
+Creates a browser runtime.
 
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| `options` | [`NnrpWasmOptions`](#nnrpwasmoptions) | No | URL, module, manifest, and fetch options | WASM loader options. |
+| Parameter | Type                     | Required | Description                                                                                           |
+| --------- | ------------------------ | -------: | ----------------------------------------------------------------------------------------------------- |
+| `options` | `NnrpWasmRuntimeOptions` |       No | Module URL, precompiled module, artifact manifest, transport policy, and browser transport providers. |
 
-| Returns | Throws |
-|---|---|
-| `Promise<NnrpBrowserRuntime>` | Manifest, fetch, compile, or version validation errors. |
+| Returns                       |
+| ----------------------------- |
+| `Promise<NnrpBrowserRuntime>` |
 
 ```ts
+import { openBrowserRuntime } from "@nnrp/wasm";
+
 const runtime = await openBrowserRuntime({
-  wasmUrl: new URL("/assets/nnrp_wasm_bg.wasm", location.href),
-  manifestUrl: new URL("/assets/nnrp_wasm_manifest.json", location.href),
+  moduleUrl: "/assets/nnrp_wasm.wasm",
 });
 ```
 
 ## `NnrpBrowserRuntime.connect`
 
-Connects to a browser-compatible transport endpoint.
+Creates a browser client.
 
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| `options` | [`NnrpBrowserConnectOptions`](#nnrpbrowserconnectoptions) | Yes | Endpoint and browser transport policy | Browser client connection options. |
+| Parameter | Type                        | Required | Description                                                     |
+| --------- | --------------------------- | -------: | --------------------------------------------------------------- |
+| `options` | `NnrpBrowserConnectOptions` |      Yes | Endpoint, optional transport policy, optional session defaults. |
 
-| Returns | Throws |
-|---|---|
-| `Promise<NnrpBrowserClient>` | Browser transport, policy, or handshake errors. |
+| Returns             |
+| ------------------- |
+| `NnrpBrowserClient` |
 
-```ts
-const client = await runtime.connect({
-  endpoint: new URL("wss://example.test/nnrp"),
-  transportPolicy: "score",
-});
-```
+## `NnrpBrowserRuntime.selectTransport`
+
+Selects a browser transport against a peer manifest and local provider slots.
+
+| Parameter | Type                                   | Required | Description                                 |
+| --------- | -------------------------------------- | -------: | ------------------------------------------- |
+| `options` | `NnrpBrowserTransportSelectionOptions` |      Yes | Peer manifest and optional score overrides. |
+
+| Returns                         |
+| ------------------------------- |
+| `NnrpTransportSelectionSummary` |
 
 ## `NnrpBrowserClient.openSession`
 
 Opens a browser client session.
 
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| `options` | [`NnrpSessionOptions`](./native#nnrpsessionoptions) | No | Defaults to runtime profile | Session options. |
+| Parameter | Type                        | Required | Description                                         |
+| --------- | --------------------------- | -------: | --------------------------------------------------- |
+| `options` | `NnrpBrowserSessionOptions` |       No | Input profile, cadence, quality tier, and metadata. |
 
-| Returns | Throws |
-|---|---|
-| `Promise<NnrpBrowserSession>` | Session-open rejection or transport errors. |
+| Returns                    |
+| -------------------------- |
+| `NnrpBrowserClientSession` |
 
-```ts
-const session = await client.openSession({ inputProfile: "tensor" });
-```
+## `NnrpBrowserClientSession.submit`
 
-## `NnrpBrowserSession.submit`
+Submits a request and waits for a result when a WASM/transport implementation is connected.
 
-Submits one request and waits for the matching result.
+| Parameter | Type                                     | Required | Description     |
+| --------- | ---------------------------------------- | -------: | --------------- |
+| `request` | [`NnrpSubmitRequest`](./core#data-types) |      Yes | Submit request. |
 
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| `request` | [`NnrpSubmitRequest`](./core#nnrpsubmitrequest) | Yes | `frameId` must be unique while in flight | Structured submit request. |
+| Returns               |
+| --------------------- |
+| `Promise<NnrpResult>` |
 
-| Returns | Throws |
-|---|---|
-| `Promise<NnrpResult>` | WASM, transport, timeout, drop, or correlation errors. |
+## `NnrpBrowserClientSession.cancel`
 
-```ts
-const result = await session.submit({
-  frameId: 1,
-  payload: new Uint8Array([1, 2, 3]),
-  inputProfile: "tensor",
-  submitMode: "inline",
-});
-```
+Cancels an operation.
 
-## `NnrpBrowserSession.submitNoWait`
+| Parameter   | Type                | Required | Description          |
+| ----------- | ------------------- | -------: | -------------------- |
+| `operation` | `bigint \| number`  |      Yes | Operation id.        |
+| `options`   | `NnrpCancelOptions` |       No | Reason and metadata. |
 
-Submits one request and returns the operation id.
+| Returns         |
+| --------------- |
+| `Promise<void>` |
 
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| `request` | [`NnrpSubmitRequest`](./core#nnrpsubmitrequest) | Yes | `frameId` must be unique while in flight | Structured submit request. |
+## `NnrpBrowserClientSession.nextEvent`
 
-| Returns | Throws |
-|---|---|
-| `Promise<bigint>` | WASM, transport, or validation errors. |
+Reads the next browser runtime event.
 
-```ts
-const operationId = await session.submitNoWait(request);
-```
+| Parameter | Type                   | Required | Description            |
+| --------- | ---------------------- | -------: | ---------------------- |
+| `options` | `NnrpEventPollOptions` |       No | Event polling options. |
 
-## `NnrpBrowserSession.nextEvent`
+| Returns                     |
+| --------------------------- |
+| `Promise<NnrpRuntimeEvent>` |
 
-Receives the next browser runtime event.
+## WASM Artifact Helpers
 
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| None | - | - | - | Reads the next runtime event. |
+| API                                                        | Description                                                                                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `createWasmRuntimeBinding(options?)`                       | Creates a browser manifest, module URL, optional module, optional artifact, and browser transport providers. |
+| `resolveWasmArtifact(options)`                             | Validates an artifact manifest and resolves WASM/types URLs.                                                 |
+| `validateWasmArtifactManifest(manifest, requiredExports?)` | Validates the `nnrp-wasm` primitive manifest and required exports.                                           |
+| `createBrowserTransportProvider(kind, options?)`           | Creates a browser transport provider slot for `websocket` or `webtransport`.                                 |
 
-| Returns | Throws |
-|---|---|
-| `Promise<NnrpRuntimeEvent>` | WASM or transport errors. |
+## Option Types
 
-```ts
-const event = await session.nextEvent();
-```
+### `NnrpWasmRuntimeOptions`
 
-## `NnrpBrowserSession.close`
+| Property             | Type                                      | Required | Description                                               |
+| -------------------- | ----------------------------------------- | -------: | --------------------------------------------------------- |
+| `moduleUrl`          | `string \| URL`                           |       No | Explicit WASM module URL.                                 |
+| `module`             | `WebAssembly.Module`                      |       No | Precompiled module.                                       |
+| `artifact`           | `NnrpWasmArtifactOptions`                 |       No | `nnrp-rs` WASM primitive manifest plus optional base URL. |
+| `transportPolicy`    | `NnrpTransportPolicy`                     |       No | Browser transport selection policy.                       |
+| `transportProviders` | `readonly NnrpBrowserTransportProvider[]` |       No | Local browser transport availability and score slots.     |
 
-Closes the browser session.
+### `NnrpWasmArtifactManifest`
 
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| None | - | - | - | No parameters. |
+| Property             | Type                | Required | Description                                         |
+| -------------------- | ------------------- | -------: | --------------------------------------------------- |
+| `package`            | `"nnrp-wasm"`       |      Yes | Artifact package kind.                              |
+| `wasm`               | `string`            |      Yes | WASM file path in the artifact package.             |
+| `types`              | `string`            |      Yes | Type declaration file path in the artifact package. |
+| `owner`              | `string`            |       No | Producing repository or owner.                      |
+| `downstream_wrapper` | `string`            |       No | Downstream wrapper package.                         |
+| `exports`            | `readonly string[]` |      Yes | Exported WASM primitive names.                      |
 
-| Returns | Throws |
-|---|---|
-| `Promise<void>` | Transport close errors. |
+### `NnrpBrowserTransportProvider`
 
-```ts
-await session.close();
-```
-
-## Browser Transport Provider
-
-Browser transports are adapter slots, not protocol semantics.
-
-### `NnrpBrowserTransportProvider.probe`
-
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| `endpoint` | `string \| URL` | Yes | WebSocket or WebTransport endpoint | Endpoint to probe. |
-
-| Returns | Throws |
-|---|---|
-| `Promise<NnrpTransportCandidate>` | Browser network errors. |
-
-### `NnrpBrowserTransportProvider.connect`
-
-| Parameter | Type | Required | Values / Range | Description |
-|---|---|---:|---|---|
-| `endpoint` | `string \| URL` | Yes | WebSocket or WebTransport endpoint | Endpoint to connect. |
-
-| Returns | Throws |
-|---|---|
-| `Promise<NnrpBrowserTransport>` | Browser network errors. |
-
-## Core Types
-
-### `NnrpWasmOptions`
-
-| Property | Type | Required | Description |
-|---|---|---:|---|
-| `wasmUrl` | `string \| URL` | No | URL for the WASM artifact. |
-| `wasmModule` | `WebAssembly.Module` | No | Precompiled WASM module. |
-| `manifestUrl` | `string \| URL` | No | URL for the WASM manifest. |
-| `fetch` | `typeof globalThis.fetch` | No | Fetch implementation override. |
-
-### `NnrpBrowserConnectOptions`
-
-| Property | Type | Required | Description |
-|---|---|---:|---|
-| `endpoint` | `string \| URL` | Yes | Remote browser transport endpoint. |
-| `transportPolicy` | `"score" \| "websocket-only" \| "webtransport-only"` | No | Browser transport policy. |
-
-### `NnrpBrowserTransport`
-
-| Method | Parameter | Returns | Description |
-|---|---|---|---|
-| `send` | `Uint8Array` | `Promise<void>` | Sends one framed payload. |
-| `receive` | None | `Promise<Uint8Array>` | Receives one framed payload. |
-| `close` | None | `Promise<void>` | Closes the adapter. |
-
-## Conformance and Benchmark Entrypoints
-
-```bash
-deno task conformance:browser
-deno task benchmark:browser
-```
-
-Reports must identify browser WASM mode separately from backend native mode.
-
-## Common Pitfalls
-
-::: warning
-1. Browser mode must not expose `listen`, `accept`, server sessions, or native artifact resolvers.
-2. Browser packages must not import Node built-ins.
-3. WebSocket and WebTransport are adapters; transport scoring still comes from `@nnrp/core`.
-:::
+| Property     | Type                            | Required | Description                                        |
+| ------------ | ------------------------------- | -------: | -------------------------------------------------- |
+| `kind`       | `"websocket" \| "webtransport"` |      Yes | Browser transport kind.                            |
+| `available`  | `boolean`                       |       No | Local availability override.                       |
+| `score`      | `number`                        |       No | Local score override.                              |
+| `diagnostic` | `NnrpDiagnostic`                |       No | Reason for local unavailability or degraded score. |

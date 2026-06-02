@@ -1,40 +1,19 @@
-# JavaScript/TypeScript — Native Runtime API
+# JavaScript/TypeScript Native 后端 API
 
-`@nnrp/native` 面向需要 `nnrp-rs` native runtime 的 Node.js 和 Deno 应用。CLI、coding agent、
-运维 agent、后端服务以及 opencode 这类 adapter 集成，都应该走这个包。它延迟加载 native artifact，
-并同时暴露 client-first 和 server surface。
-
-## Native Client 使用流程
-
-当 JavaScript 应用要消费 NNRP 服务时走这条路径，例如 coding agent、operator agent、桌面 helper 或 CLI。
-
-1. 调用 [`openNativeClient`](#opennativeclient)。
-2. 用 [`client.openSession`](#nnrpclient-opensession) 打开 session。
-3. 用 [`session.submit`](#nnrpclientsession-submit) 或
-   [`session.submitNoWait`](#nnrpclientsession-submitnowait) 提交工作。
-4. 使用 non-blocking submit 时，用 [`session.nextEvent`](#nnrpclientsession-nextevent) 接收 runtime event。
-
-## Native Server 使用流程
-
-当 JavaScript 承载 NNRP 服务或 adapter 时走这条路径。
-
-1. 调用 [`openBackendRuntime`](#openbackendruntime)。
-2. 用 [`runtime.listen`](#nnrpbackendruntime-listen) 启动 listener。
-3. 用 [`server.accept`](#nnrpserver-accept) 接受 session。
-4. 通过 server session 接收 submit 并发送 result。
+`@nnrp/native` 面向 Node.js 与 Deno 后端宿主。它校验 `nnrp-rs` native artifact manifest， 检查必需
+ABI symbol，探测 runtime capabilities，并暴露 client/server runtime 对象。
 
 ## `openNativeClient`
 
-加载 native artifact，连接远端 NNRP endpoint，并返回可直接使用的 client。只需要 client role 的 Node/Deno
-应用应该优先使用这个入口。
+打开 backend runtime 并连接 client endpoint。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `options` | [`NnrpNativeClientOptions`](#nnrpnativeclientoptions) | 是 | native artifact 与 endpoint 选项 | runtime loading 加远端连接选项。 |
+| 参数      | 类型                      | 必填 | 说明                                                                                           |
+| --------- | ------------------------- | ---: | ---------------------------------------------------------------------------------------------- |
+| `options` | `NnrpNativeClientOptions` |   是 | Endpoint、native artifact 选项、transport policy、session defaults、可选 test/loader binding。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpClient>` | [`NnrpNativeBindingUnavailableError`](#nnrpnativebindingunavailableerror)、native、transport、握手或 capability 错误。 |
+| 返回                  | 可能抛出                                                       |
+| --------------------- | -------------------------------------------------------------- |
+| `Promise<NnrpClient>` | `NnrpCapabilityError` 或 `NnrpNativeBindingUnavailableError`。 |
 
 ```ts
 import { openNativeClient } from "@nnrp/native";
@@ -42,200 +21,159 @@ import { openNativeClient } from "@nnrp/native";
 const client = await openNativeClient({
   endpoint: "127.0.0.1:4433",
   nativeLibrary: { artifactDir: "./native" },
-  transportPolicy: "score",
-});
-
-const session = await client.openSession({ inputProfile: "tensor" });
-const result = await session.submit({
-  frameId: 1,
-  payload: new Uint8Array([1, 2, 3]),
-  inputProfile: "tensor",
-  submitMode: "inline",
 });
 ```
 
 ## `openBackendRuntime`
 
-加载并校验 native artifact。包级 import 不得加载 native library。
+创建 backend runtime，但不立即连接 client。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `options` | [`NnrpBackendRuntimeOptions`](#nnrpbackendruntimeoptions) | 否 | 默认自动发现 | native artifact 与 transport policy 选项。 |
+| 参数      | 类型                        | 必填 | 说明                                                                           |
+| --------- | --------------------------- | ---: | ------------------------------------------------------------------------------ |
+| `options` | `NnrpBackendRuntimeOptions` |   否 | Native artifact 选项、transport policy、环境/platform 覆盖、可选 FFI binding。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpBackendRuntime>` | [`NnrpNativeBindingUnavailableError`](#nnrpnativebindingunavailableerror)、manifest 校验错误。 |
-
-```ts
-const runtime = await openBackendRuntime({
-  nativeLibrary: { artifactDir: "./native" },
-  transportPolicy: "score",
-});
-```
+| 返回                          |
+| ----------------------------- |
+| `Promise<NnrpBackendRuntime>` |
 
 ## `NnrpBackendRuntime.connect`
 
-作为 client 连接远端 NNRP endpoint。应用已经持有 runtime，或者同时需要 server API / 显式 runtime
-lifecycle control 时使用这个入口。
+从已有 runtime 创建 client。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `options` | [`NnrpConnectOptions`](#nnrpconnectoptions) | 是 | endpoint 和可选策略 | 远端连接选项。 |
+| 参数      | 类型                 | 必填 | 说明                                                     |
+| --------- | -------------------- | ---: | -------------------------------------------------------- |
+| `options` | `NnrpConnectOptions` |   是 | Endpoint、可选 transport policy、可选 session defaults。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpClient>` | native、transport、握手或 capability 错误。 |
-
-```ts
-const client = await runtime.connect({
-  endpoint: "127.0.0.1:4433",
-  transportPolicy: "score",
-});
-```
+| 返回         |
+| ------------ |
+| `NnrpClient` |
 
 ## `NnrpBackendRuntime.listen`
 
-启动 server listener。
+创建 backend server listener。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `options` | [`NnrpListenOptions`](#nnrplistenoptions) | 是 | endpoint 和可选策略 | 本地监听选项。 |
+| 参数      | 类型                | 必填 | 说明                                    |
+| --------- | ------------------- | ---: | --------------------------------------- |
+| `options` | `NnrpListenOptions` |   是 | 本地 endpoint 和可选 transport policy。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpServer>` | native、bind 或 transport 错误。 |
+| 返回         |
+| ------------ |
+| `NnrpServer` |
+
+## `NnrpBackendRuntime.selectTransport`
+
+针对 peer manifest 选择 transport。
+
+| 参数      | 类型                            | 必填 | 说明                              |
+| --------- | ------------------------------- | ---: | --------------------------------- |
+| `options` | `NnrpTransportSelectionOptions` |   是 | Peer manifest 和可选 score 覆盖。 |
+
+| 返回                            |
+| ------------------------------- |
+| `NnrpTransportSelectionSummary` |
 
 ## `NnrpClient.openSession`
 
 打开 client session。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `options` | [`NnrpSessionOptions`](#nnrpsessionoptions) | 否 | 默认 runtime profile | session profile 和 metadata。 |
+| 参数      | 类型                 | 必填 | 说明                                               |
+| --------- | -------------------- | ---: | -------------------------------------------------- |
+| `options` | `NnrpSessionOptions` |   否 | Input profile、cadence、quality tier 和 metadata。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpClientSession>` | session-open 拒绝或 transport 错误。 |
-
-```ts
-const session = await client.openSession({ inputProfile: "tensor" });
-```
+| 返回                |
+| ------------------- |
+| `NnrpClientSession` |
 
 ## `NnrpClientSession.submit`
 
-提交一个请求并等待匹配结果。
+通过粗粒度 native submit/result binding 提交请求并等待 result。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `request` | [`NnrpSubmitRequest`](./core#nnrpsubmitrequest) | 是 | `frameId` 在 in-flight 中唯一 | 结构化提交请求。 |
+| 参数      | 类型                                   | 必填 | 说明                                                        |
+| --------- | -------------------------------------- | ---: | ----------------------------------------------------------- |
+| `request` | [`NnrpSubmitRequest`](./core#数据类型) |   是 | Frame id、payload/tensors、profile、cache/schema metadata。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpResult>` | native、transport、timeout、drop 或关联错误。 |
-
-```ts
-const result = await session.submit({
-  frameId: 1,
-  payload: new Uint8Array([1, 2, 3]),
-  inputProfile: "tensor",
-  submitMode: "inline",
-});
-```
+| 返回                  |
+| --------------------- |
+| `Promise<NnrpResult>` |
 
 ## `NnrpClientSession.submitNoWait`
 
 提交请求并返回 native operation id。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `request` | [`NnrpSubmitRequest`](./core#nnrpsubmitrequest) | 是 | `frameId` 在 in-flight 中唯一 | 结构化提交请求。 |
+| 参数      | 类型                                   | 必填 | 说明             |
+| --------- | -------------------------------------- | ---: | ---------------- |
+| `request` | [`NnrpSubmitRequest`](./core#数据类型) |   是 | Submit request。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<bigint>` | native、transport 或本地校验错误。 |
+| 返回              |
+| ----------------- |
+| `Promise<bigint>` |
 
-## `NnrpServer.accept`
+## `NnrpClientSession.cancel`
 
-接受 server session。
+取消 operation。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| 无 | - | - | - | 使用 `runtime.listen` 创建的 listener。 |
+| 参数        | 类型                | 必填 | 说明                 |
+| ----------- | ------------------- | ---: | -------------------- |
+| `operation` | `bigint \| number`  |   是 | Operation id。       |
+| `options`   | `NnrpCancelOptions` |   否 | Reason 和 metadata。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<NnrpServerSession>` | accept、session-open 或 transport 错误。 |
+| 返回            |
+| --------------- |
+| `Promise<void>` |
 
-## `NnrpServerSession.sendResult`
+## `NnrpClientSession.nextEvent`
 
-向 client 发送结果。
+通过粗粒度 native batch event binding 读取下一条 runtime event。
 
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `result` | [`NnrpResult`](./core#nnrpresult) | 是 | 必须匹配已提交 frame/operation | 结果 payload 和诊断信息。 |
+| 参数      | 类型                   | 必填 | 说明                 |
+| --------- | ---------------------- | ---: | -------------------- |
+| `options` | `NnrpEventPollOptions` |   否 | Event polling 选项。 |
 
-| 返回 | 可能抛出 |
-|---|---|
-| `Promise<void>` | native、序列化、生命周期或 transport 错误。 |
+| 返回                        |
+| --------------------------- |
+| `Promise<NnrpRuntimeEvent>` |
 
-## 核心类型
+## Native Artifact Helper
 
-### `NnrpNativeClientOptions`
+| API                                                  | 说明                                                                                                 |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `resolveNativeLibraryPath(options?)`                 | 解析显式路径、环境变量路径、manifest-backed artifact 路径或平台默认路径。                            |
+| `resolveNativeArtifact(options)`                     | 读取并校验 packaged native artifact manifest 和 library path。                                       |
+| `readNativeArtifactManifest(path)`                   | 读取 `manifest.json`。                                                                               |
+| `validateNativeArtifactManifest(manifest, options?)` | 校验 package、OS、架构、dynamic library kind 和必需 exports。                                        |
+| `validateNativeRuntimeCapabilities(capabilities)`    | 校验 ABI version、protocol version、必需 feature bits 和 TCP transport support。                     |
+| `createNativeRuntimeBinding(options?)`               | 创建 manifest、library path、required symbol list、artifact metadata 和可选 FFI binding descriptor。 |
 
-| 属性 | 类型 | 必填 | 说明 |
-|---|---|---:|---|
-| `endpoint` | `string \| URL` | 是 | 远端 NNRP endpoint。 |
-| `nativeLibrary` | [`NnrpNativeLibraryOptions`](#nnrpnativelibraryoptions) | 否 | native artifact 发现选项。 |
-| `transportPolicy` | [`NnrpTransportPolicy`](./core#transport-selection) | 否 | client transport 策略。 |
-| `sessionDefaults` | [`NnrpSessionOptions`](#nnrpsessionoptions) | 否 | session 未显式提供字段时使用的默认值。 |
-
-### `NnrpBackendRuntimeOptions`
-
-| 属性 | 类型 | 必填 | 说明 |
-|---|---|---:|---|
-| `nativeLibrary` | [`NnrpNativeLibraryOptions`](#nnrpnativelibraryoptions) | 否 | native artifact 发现选项。 |
-| `transportPolicy` | [`NnrpTransportPolicy`](./core#transport-selection) | 否 | runtime transport 策略。 |
+## 选项类型
 
 ### `NnrpNativeLibraryOptions`
 
-| 属性 | 类型 | 必填 | 说明 |
-|---|---|---:|---|
-| `path` | `string` | 否 | 显式 native library 路径。 |
-| `artifactDir` | `string` | 否 | native artifact 目录。 |
-| `requiredSymbols` | `readonly string[]` | 否 | runtime 创建前必须存在的 ABI symbols。 |
+| 属性              | 类型                | 必填 | 说明                                           |
+| ----------------- | ------------------- | ---: | ---------------------------------------------- |
+| `path`            | `string`            |   否 | 显式 native library 路径。                     |
+| `artifactDir`     | `string`            |   否 | 包含平台 artifact 文件夹的目录。               |
+| `manifestPath`    | `string`            |   否 | 显式 artifact manifest 路径。                  |
+| `packageName`     | `string`            |   否 | 平台 package 文件夹覆盖，例如 `linux-x86_64`。 |
+| `requiredSymbols` | `readonly string[]` |   否 | SDK 默认值之外的额外必需 symbols。             |
 
-### `NnrpNativeArtifact`
+### `NnrpNativeFfiBinding`
 
-| 属性 | 类型 | 说明 |
-|---|---|---|
-| `platform` | `string` | artifact platform tag。 |
-| `arch` | `string` | artifact architecture tag。 |
-| `libraryPath` | `string` | native library 路径。 |
-| `manifestPath` | `string` | artifact manifest 路径。 |
-| `symbols` | `readonly string[]` | 导出的 ABI symbols。 |
-| `abiVersion` | `string` | native ABI version。 |
+| 属性                  | 类型                                                   | 必填 | 说明                                   |
+| --------------------- | ------------------------------------------------------ | ---: | -------------------------------------- |
+| `mode`                | `"native-addon" \| "node-ffi" \| "nano-ffi" \| "test"` |   否 | Binding 实现标签。                     |
+| `runtimeCapabilities` | function                                               |   否 | 返回 native runtime capability probe。 |
+| `submitResultCompact` | function                                               |   否 | 粗粒度 submit/result hot path。        |
+| `submitNoWait`        | function                                               |   否 | 粗粒度 no-wait submit path。           |
+| `cancel`              | function                                               |   否 | 粗粒度 cancel path。                   |
+| `awaitEvents`         | function                                               |   否 | 粗粒度 batch event polling path。      |
+| `close`               | function                                               |   否 | Binding cleanup hook。                 |
 
-### `NnrpSessionOptions`
+### `NnrpNativeRuntimeCapabilities`
 
-| 属性 | 类型 | 必填 | 说明 |
-|---|---|---:|---|
-| `inputProfile` | [`NnrpInputProfile`](./core#payloads-and-submit-requests) | 否 | 默认 session input profile。 |
-| `targetCadence` | `number` | 否 | 目标 cadence 或 FPS。 |
-| `qualityTier` | `number` | 否 | 应用质量档位。 |
-| `metadata` | `Readonly<Record<string, string>>` | 否 | 应用 metadata。 |
-
-## Conformance 与 Benchmark 入口
-
-```bash
-deno task conformance:backend
-deno task benchmark:backend
-```
-
-## 常见坑
-
-::: warning
-1. 不要在模块 import 时加载 native artifact；只有 `openNativeClient` 和 `openBackendRuntime` 可以加载。
-2. 只需要 client 的 Node/Deno 应用应该优先用 `openNativeClient`，不要为了 connect 手动创建 runtime。
-3. `quic-only` 这类显式策略不可用时必须失败，不能静默降级。
-4. native 包不得包含浏览器专用 transport 或 DOM 依赖。
-:::
+| 属性                                                            | 类型     | 说明                              |
+| --------------------------------------------------------------- | -------- | --------------------------------- |
+| `abiMajor`, `abiMinor`, `abiPatch`                              | `number` | Native ABI version。              |
+| `protocolMajor`, `protocolWireFormat`                           | `number` | Protocol compatibility probe。    |
+| `sdkMajor`, `sdkMinor`, `sdkPatch`, `sdkChannel`, `sdkRevision` | `number` | Native SDK version metadata。     |
+| `transportSlots`                                                | `number` | Native transport support bitset。 |
+| `featureFlags`                                                  | `bigint` | Runtime feature bitset。          |

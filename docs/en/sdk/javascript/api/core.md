@@ -1,159 +1,180 @@
-# JavaScript/TypeScript — Core Types
+# JavaScript/TypeScript Core API
 
-`@nnrp/core` freezes shared data structures. It must not import `@nnrp/native`, `@nnrp/wasm`, DOM
-APIs, Node built-ins, or native/WASM loader code.
+`@nnrp/core` contains runtime-neutral types and helpers shared by native and WASM packages.
 
 ## Constants
 
-```ts
-export const NNRP_PROTOCOL_NAME: "NNRP";
-export const NNRP_PROTOCOL_VERSION: string;
-```
+| Name                           | Type           | Value                                                |
+| ------------------------------ | -------------- | ---------------------------------------------------- |
+| `NNRP_PROTOCOL_NAME`           | `"NNRP"`       | Protocol name.                                       |
+| `NNRP_PROTOCOL_VERSION`        | `"1.0.0"`      | Protocol version.                                    |
+| `NNRP_STANDARD_INPUT_PROFILES` | readonly tuple | `tensor`, `token`, `structured_event`, `tool_delta`. |
 
-## Capability Manifest
+## `createCapabilityManifest`
 
-```ts
-export type NnrpBuildMode = "backend-native" | "browser-wasm";
+Creates a build-mode-specific capability manifest.
 
-export interface NnrpCapabilityManifest {
-  readonly protocol: "NNRP";
-  readonly protocolVersion: string;
-  readonly implementationName: string;
-  readonly implementationVersion: string;
-  readonly buildMode: NnrpBuildMode;
-  readonly transports: readonly NnrpTransportKind[];
-  readonly supports: readonly string[];
-}
+| Parameter | Type                            | Required | Description                                    |
+| --------- | ------------------------------- | -------: | ---------------------------------------------- |
+| `options` | `NnrpCapabilityManifestOptions` |      Yes | Build mode, transports, and capability claims. |
 
-export function createCapabilityManifest(
-  input: Omit<NnrpCapabilityManifest, "protocol" | "protocolVersion">,
-): NnrpCapabilityManifest;
-```
-
-`buildMode` is mandatory. Backend native and browser WASM modes must emit different manifests when
-their available transports or server capabilities differ.
-
-## Transport Selection
+| Returns                  |
+| ------------------------ |
+| `NnrpCapabilityManifest` |
 
 ```ts
-export type NnrpTransportKind =
-  | "tcp"
-  | "quic"
-  | "websocket"
-  | "webtransport";
+import { createCapabilityManifest } from "@nnrp/core";
 
-export type NnrpTransportPolicy =
-  | "score"
-  | "tcp-only"
-  | "quic-only"
-  | "websocket-only"
-  | "webtransport-only";
-
-export interface NnrpTransportCandidate {
-  readonly kind: NnrpTransportKind;
-  readonly peerSupported: boolean;
-  readonly localAvailable: boolean;
-  readonly score: number;
-  readonly rttMs?: number;
-  readonly failureRate?: number;
-  readonly effectiveThroughputBps?: number;
-  readonly rejectedReason?: string;
-}
-
-export interface NnrpTransportSelection {
-  readonly selected: NnrpTransportCandidate | null;
-  readonly candidates: readonly NnrpTransportCandidate[];
-}
-
-export function selectTransport(
-  candidates: readonly NnrpTransportCandidate[],
-  policy?: NnrpTransportPolicy,
-): NnrpTransportSelection;
+const manifest = createCapabilityManifest({
+  buildMode: "backend-native",
+  transports: ["tcp", "quic"],
+  capabilities: ["client.session"],
+});
 ```
 
-Selection chooses the highest-scored candidate that is both peer-supported and locally available.
-The `score` policy must not hard-code "choose QUIC whenever QUIC is reachable".
+## `createBackendNativeManifest`
 
-## Payloads and Submit Requests
+Creates the default backend native capability manifest.
 
-```ts
-export type NnrpInputProfile = "tensor" | "token" | string;
-export type NnrpSubmitMode = "inline" | "reference";
-export type NnrpResultClass = "complete" | "partial" | "degraded" | "rejected";
+| Parameter      | Type                        | Required | Description              |
+| -------------- | --------------------------- | -------: | ------------------------ |
+| `capabilities` | `readonly NnrpCapability[]` |       No | Extra capability claims. |
 
-export interface NnrpCacheKey {
-  readonly namespace: string;
-  readonly key: string;
-  readonly version?: string;
-}
+| Returns                  |
+| ------------------------ |
+| `NnrpCapabilityManifest` |
 
-export interface NnrpTensorSection {
-  readonly sectionId: number;
-  readonly payload: Uint8Array;
-  readonly descriptor?: Uint8Array;
-}
+## `createBrowserWasmManifest`
 
-export interface NnrpSubmitRequest {
-  readonly frameId: number;
-  readonly payload?: Uint8Array;
-  readonly sections?: readonly NnrpTensorSection[];
-  readonly cacheKey?: NnrpCacheKey;
-  readonly inputProfile: NnrpInputProfile;
-  readonly submitMode: NnrpSubmitMode;
-  readonly inferenceBudgetMs?: number;
-  readonly metadata?: Readonly<Record<string, string>>;
-}
-```
+Creates the default browser WASM capability manifest.
 
-An API that retains binary data must copy it or explicitly document ownership transfer. Public
-objects must not expose long-lived views into temporary native or WASM memory.
+| Parameter      | Type                        | Required | Description              |
+| -------------- | --------------------------- | -------: | ------------------------ |
+| `capabilities` | `readonly NnrpCapability[]` |       No | Extra capability claims. |
 
-## Diagnostics, Events, and Results
+| Returns                  |
+| ------------------------ |
+| `NnrpCapabilityManifest` |
 
-```ts
-export type NnrpDiagnosticStatus =
-  | "ok"
-  | "retry-later"
-  | "rejected"
-  | "protocol-error"
-  | "transport-error"
-  | "native-error";
+## `selectTransport`
 
-export interface NnrpDiagnostic {
-  readonly status: NnrpDiagnosticStatus;
-  readonly errorFamily?: string;
-  readonly protocolErrorCode?: number;
-  readonly detailCode?: number;
-  readonly message?: string;
-}
+Selects the highest-scored eligible transport candidate under a policy.
 
-export interface NnrpResult {
-  readonly sessionId: number;
-  readonly operationId: bigint;
-  readonly frameId: number;
-  readonly resultClass: NnrpResultClass;
-  readonly payload?: Uint8Array;
-  readonly sections?: readonly NnrpTensorSection[];
-  readonly diagnostic: NnrpDiagnostic;
-}
+| Parameter    | Type                                | Required | Description                          |
+| ------------ | ----------------------------------- | -------: | ------------------------------------ |
+| `candidates` | `readonly NnrpTransportCandidate[]` |      Yes | Candidate transports.                |
+| `policy`     | `NnrpTransportPolicy`               |       No | `score`, `tcp-only`, or `quic-only`. |
 
-export type NnrpRuntimeEventKind =
-  | "session-opened"
-  | "session-closed"
-  | "operation-accepted"
-  | "operation-result"
-  | "flow-update"
-  | "diagnostic";
+| Returns                  |
+| ------------------------ |
+| `NnrpTransportSelection` |
 
-export interface NnrpRuntimeEvent {
-  readonly kind: NnrpRuntimeEventKind;
-  readonly sessionId?: number;
-  readonly operationId?: bigint;
-  readonly frameId?: number;
-  readonly result?: NnrpResult;
-  readonly diagnostic?: NnrpDiagnostic;
-}
-```
+## `createTransportCandidates`
 
-Runtime wrappers must preserve native/WASM status, error family, protocol error code, detail code,
-and related operation identifiers.
+Builds transport candidates from local and peer manifests.
+
+| Parameter | Type                            | Required | Description                                         |
+| --------- | ------------------------------- | -------: | --------------------------------------------------- |
+| `options` | `NnrpTransportCandidateOptions` |      Yes | Local manifest, peer manifest, and optional scores. |
+
+| Returns                             |
+| ----------------------------------- |
+| `readonly NnrpTransportCandidate[]` |
+
+## `createTransportSelectionSummary`
+
+Creates a compact selection summary for diagnostics, conformance, and benchmarks.
+
+| Parameter   | Type                     | Required | Description            |
+| ----------- | ------------------------ | -------: | ---------------------- |
+| `selection` | `NnrpTransportSelection` |      Yes | Full selection object. |
+
+| Returns                         |
+| ------------------------------- |
+| `NnrpTransportSelectionSummary` |
+
+## `normalizeSubmitRequest`
+
+Validates and normalizes submit payloads.
+
+| Parameter | Type                            | Required | Description                              |
+| --------- | ------------------------------- | -------: | ---------------------------------------- |
+| `request` | `NnrpSubmitRequest`             |      Yes | Submit request.                          |
+| `options` | `NormalizeSubmitRequestOptions` |       No | Payload copy and strict profile options. |
+
+| Returns                       | Throws                                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------- |
+| `NnrpNormalizedSubmitRequest` | `NnrpProtocolError` for invalid frame, payload, cache, schema, or profile fields. |
+
+## `normalizeOperationRef`
+
+Normalizes an operation id.
+
+| Parameter   | Type               | Required | Description   |
+| ----------- | ------------------ | -------: | ------------- |
+| `operation` | `bigint \| number` |      Yes | Operation id. |
+
+| Returns  | Throws                                          |
+| -------- | ----------------------------------------------- |
+| `bigint` | `NnrpProtocolError` for negative or unsafe ids. |
+
+## `normalizeCancelRequest`
+
+Normalizes a cancel request.
+
+| Parameter   | Type                | Required | Description          |
+| ----------- | ------------------- | -------: | -------------------- |
+| `operation` | `bigint \| number`  |      Yes | Operation id.        |
+| `options`   | `NnrpCancelOptions` |       No | Reason and metadata. |
+
+| Returns             |
+| ------------------- |
+| `NnrpCancelRequest` |
+
+## `validateEventPollOptions`
+
+Validates event polling options.
+
+| Parameter | Type                   | Required | Description      |
+| --------- | ---------------------- | -------: | ---------------- |
+| `options` | `NnrpEventPollOptions` |       No | Timeout options. |
+
+| Returns | Throws                                          |
+| ------- | ----------------------------------------------- |
+| `void`  | `NnrpProtocolError` for invalid timeout values. |
+
+## Data Types
+
+### Capability and Transport
+
+| Type                            | Description                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`.                                                                                          |
+| `NnrpTransportKind`             | `"tcp" \| "quic" \| "webtransport" \| "websocket"`.                                                                            |
+| `NnrpTransportPolicy`           | `"score" \| "tcp-only" \| "quic-only"`.                                                                                        |
+| `NnrpCapability`                | Capability claim such as `client.session`, `server.session`, `native.loader`, `wasm.loader`, `cache`, `schema`, or `recovery`. |
+| `NnrpCapabilityManifest`        | Protocol name/version, build mode, transports, and capabilities.                                                               |
+| `NnrpTransportCandidate`        | Candidate transport, availability, score, rejection reason, and diagnostic.                                                    |
+| `NnrpTransportSelectionSummary` | Selected transport plus rejected candidates.                                                                                   |
+
+### Submit, Result, and Events
+
+| Type                   | Description                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| `NnrpInputProfile`     | One of the standard profiles: `tensor`, `token`, `structured_event`, or `tool_delta`.       |
+| `NnrpSubmitMode`       | `"inline" \| "object-reference"`.                                                           |
+| `NnrpSubmitRequest`    | Frame id, payload/tensors, input profile, submit mode, cache key, descriptor, and metadata. |
+| `NnrpResult`           | Frame id, optional payload, optional diagnostic, and metadata.                              |
+| `NnrpRuntimeEvent`     | Result, flow update, result hint, drop, close, or diagnostic event.                         |
+| `NnrpCancelOptions`    | Cancel reason and metadata.                                                                 |
+| `NnrpEventPollOptions` | Optional `timeoutMillis`.                                                                   |
+
+### Errors
+
+| Class                 | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `NnrpError`           | Base error with structured `diagnostic`.            |
+| `NnrpCapabilityError` | Capability, manifest, or unsupported runtime error. |
+| `NnrpTransportError`  | Transport error.                                    |
+| `NnrpTimeoutError`    | Timeout error.                                      |
+| `NnrpProtocolError`   | Request shape or protocol validation error.         |

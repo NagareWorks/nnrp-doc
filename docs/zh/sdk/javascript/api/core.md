@@ -1,154 +1,170 @@
-# JavaScript/TypeScript — 核心类型
+# JavaScript/TypeScript 核心 API
 
-`@nnrp/core` 冻结共享数据结构。它不能导入 `@nnrp/native`、`@nnrp/wasm`、DOM API、Node built-in 或 native/WASM loader 代码。
+`@nnrp/core` 包含 native 与 WASM 包共享的运行时无关类型和 helper。
 
 ## 常量
 
-```ts
-export const NNRP_PROTOCOL_NAME: "NNRP";
-export const NNRP_PROTOCOL_VERSION: string;
-```
+| 名称                           | 类型           | 值                                                    |
+| ------------------------------ | -------------- | ----------------------------------------------------- |
+| `NNRP_PROTOCOL_NAME`           | `"NNRP"`       | 协议名。                                              |
+| `NNRP_PROTOCOL_VERSION`        | `"1.0.0"`      | 协议版本。                                            |
+| `NNRP_STANDARD_INPUT_PROFILES` | readonly tuple | `tensor`、`token`、`structured_event`、`tool_delta`。 |
 
-## Capability Manifest
+## `createCapabilityManifest`
 
-```ts
-export type NnrpBuildMode = "backend-native" | "browser-wasm";
+创建按 build mode 区分的 capability manifest。
 
-export interface NnrpCapabilityManifest {
-  readonly protocol: "NNRP";
-  readonly protocolVersion: string;
-  readonly implementationName: string;
-  readonly implementationVersion: string;
-  readonly buildMode: NnrpBuildMode;
-  readonly transports: readonly NnrpTransportKind[];
-  readonly supports: readonly string[];
-}
+| 参数      | 类型                            | 必填 | 说明                                        |
+| --------- | ------------------------------- | ---: | ------------------------------------------- |
+| `options` | `NnrpCapabilityManifestOptions` |   是 | Build mode、transport 和 capability claim。 |
 
-export function createCapabilityManifest(
-  input: Omit<NnrpCapabilityManifest, "protocol" | "protocolVersion">,
-): NnrpCapabilityManifest;
-```
+| 返回                     |
+| ------------------------ |
+| `NnrpCapabilityManifest` |
 
-`buildMode` 是必填字段。Backend native 与 browser WASM 的可用 transport 或 server capability 不同时，必须输出不同 manifest。
+## `createBackendNativeManifest`
 
-## Transport Selection
+创建默认 backend native capability manifest。
 
-```ts
-export type NnrpTransportKind =
-  | "tcp"
-  | "quic"
-  | "websocket"
-  | "webtransport";
+| 参数           | 类型                        | 必填 | 说明                    |
+| -------------- | --------------------------- | ---: | ----------------------- |
+| `capabilities` | `readonly NnrpCapability[]` |   否 | 额外 capability claim。 |
 
-export type NnrpTransportPolicy =
-  | "score"
-  | "tcp-only"
-  | "quic-only"
-  | "websocket-only"
-  | "webtransport-only";
+| 返回                     |
+| ------------------------ |
+| `NnrpCapabilityManifest` |
 
-export interface NnrpTransportCandidate {
-  readonly kind: NnrpTransportKind;
-  readonly peerSupported: boolean;
-  readonly localAvailable: boolean;
-  readonly score: number;
-  readonly rttMs?: number;
-  readonly failureRate?: number;
-  readonly effectiveThroughputBps?: number;
-  readonly rejectedReason?: string;
-}
+## `createBrowserWasmManifest`
 
-export interface NnrpTransportSelection {
-  readonly selected: NnrpTransportCandidate | null;
-  readonly candidates: readonly NnrpTransportCandidate[];
-}
+创建默认 browser WASM capability manifest。
 
-export function selectTransport(
-  candidates: readonly NnrpTransportCandidate[],
-  policy?: NnrpTransportPolicy,
-): NnrpTransportSelection;
-```
+| 参数           | 类型                        | 必填 | 说明                    |
+| -------------- | --------------------------- | ---: | ----------------------- |
+| `capabilities` | `readonly NnrpCapability[]` |   否 | 额外 capability claim。 |
 
-选择策略应选择 peer-supported 且 local-available 中评分最高的 candidate。`score` 策略不能写死成“QUIC 可达就选 QUIC”。
+| 返回                     |
+| ------------------------ |
+| `NnrpCapabilityManifest` |
 
-## Payload 与 Submit Request
+## `selectTransport`
 
-```ts
-export type NnrpInputProfile = "tensor" | "token" | string;
-export type NnrpSubmitMode = "inline" | "reference";
-export type NnrpResultClass = "complete" | "partial" | "degraded" | "rejected";
+按策略选择评分最高的可用 transport candidate。
 
-export interface NnrpCacheKey {
-  readonly namespace: string;
-  readonly key: string;
-  readonly version?: string;
-}
+| 参数         | 类型                                | 必填 | 说明                                 |
+| ------------ | ----------------------------------- | ---: | ------------------------------------ |
+| `candidates` | `readonly NnrpTransportCandidate[]` |   是 | 候选 transport。                     |
+| `policy`     | `NnrpTransportPolicy`               |   否 | `score`、`tcp-only` 或 `quic-only`。 |
 
-export interface NnrpTensorSection {
-  readonly sectionId: number;
-  readonly payload: Uint8Array;
-  readonly descriptor?: Uint8Array;
-}
+| 返回                     |
+| ------------------------ |
+| `NnrpTransportSelection` |
 
-export interface NnrpSubmitRequest {
-  readonly frameId: number;
-  readonly payload?: Uint8Array;
-  readonly sections?: readonly NnrpTensorSection[];
-  readonly cacheKey?: NnrpCacheKey;
-  readonly inputProfile: NnrpInputProfile;
-  readonly submitMode: NnrpSubmitMode;
-  readonly inferenceBudgetMs?: number;
-  readonly metadata?: Readonly<Record<string, string>>;
-}
-```
+## `createTransportCandidates`
 
-任何保留二进制数据的 API 必须复制数据，或明确声明所有权转移。公开对象不得暴露长期指向临时 native 或 WASM 内存的 view。
+根据本地和 peer manifest 创建 transport candidates。
 
-## 诊断、事件与结果
+| 参数      | 类型                            | 必填 | 说明                                        |
+| --------- | ------------------------------- | ---: | ------------------------------------------- |
+| `options` | `NnrpTransportCandidateOptions` |   是 | 本地 manifest、peer manifest 和可选 score。 |
 
-```ts
-export type NnrpDiagnosticStatus =
-  | "ok"
-  | "retry-later"
-  | "rejected"
-  | "protocol-error"
-  | "transport-error"
-  | "native-error";
+| 返回                                |
+| ----------------------------------- |
+| `readonly NnrpTransportCandidate[]` |
 
-export interface NnrpDiagnostic {
-  readonly status: NnrpDiagnosticStatus;
-  readonly errorFamily?: string;
-  readonly protocolErrorCode?: number;
-  readonly detailCode?: number;
-  readonly message?: string;
-}
+## `createTransportSelectionSummary`
 
-export interface NnrpResult {
-  readonly sessionId: number;
-  readonly operationId: bigint;
-  readonly frameId: number;
-  readonly resultClass: NnrpResultClass;
-  readonly payload?: Uint8Array;
-  readonly sections?: readonly NnrpTensorSection[];
-  readonly diagnostic: NnrpDiagnostic;
-}
+创建供诊断、conformance 和 benchmark 使用的精简 selection summary。
 
-export type NnrpRuntimeEventKind =
-  | "session-opened"
-  | "session-closed"
-  | "operation-accepted"
-  | "operation-result"
-  | "flow-update"
-  | "diagnostic";
+| 参数        | 类型                     | 必填 | 说明                  |
+| ----------- | ------------------------ | ---: | --------------------- |
+| `selection` | `NnrpTransportSelection` |   是 | 完整 selection 对象。 |
 
-export interface NnrpRuntimeEvent {
-  readonly kind: NnrpRuntimeEventKind;
-  readonly sessionId?: number;
-  readonly operationId?: bigint;
-  readonly frameId?: number;
-  readonly result?: NnrpResult;
-  readonly diagnostic?: NnrpDiagnostic;
-}
-```
+| 返回                            |
+| ------------------------------- |
+| `NnrpTransportSelectionSummary` |
 
-Runtime wrapper 必须保留 native/WASM status、error family、protocol error code、detail code 和关联 operation id。
+## `normalizeSubmitRequest`
+
+校验并规范化 submit payload。
+
+| 参数      | 类型                            | 必填 | 说明                                  |
+| --------- | ------------------------------- | ---: | ------------------------------------- |
+| `request` | `NnrpSubmitRequest`             |   是 | Submit request。                      |
+| `options` | `NormalizeSubmitRequestOptions` |   否 | Payload copy 和 strict profile 选项。 |
+
+| 返回                          | 可能抛出              |
+| ----------------------------- | --------------------- |
+| `NnrpNormalizedSubmitRequest` | `NnrpProtocolError`。 |
+
+## `normalizeOperationRef`
+
+规范化 operation id。
+
+| 参数        | 类型               | 必填 | 说明           |
+| ----------- | ------------------ | ---: | -------------- |
+| `operation` | `bigint \| number` |   是 | Operation id。 |
+
+| 返回     | 可能抛出                                      |
+| -------- | --------------------------------------------- |
+| `bigint` | 负数或 unsafe id 会抛出 `NnrpProtocolError`。 |
+
+## `normalizeCancelRequest`
+
+规范化 cancel request。
+
+| 参数        | 类型                | 必填 | 说明                 |
+| ----------- | ------------------- | ---: | -------------------- |
+| `operation` | `bigint \| number`  |   是 | Operation id。       |
+| `options`   | `NnrpCancelOptions` |   否 | Reason 和 metadata。 |
+
+| 返回                |
+| ------------------- |
+| `NnrpCancelRequest` |
+
+## `validateEventPollOptions`
+
+校验事件轮询选项。
+
+| 参数      | 类型                   | 必填 | 说明           |
+| --------- | ---------------------- | ---: | -------------- |
+| `options` | `NnrpEventPollOptions` |   否 | Timeout 选项。 |
+
+| 返回   | 可能抛出                                 |
+| ------ | ---------------------------------------- |
+| `void` | timeout 非法时抛出 `NnrpProtocolError`。 |
+
+## 数据类型
+
+### Capability 与 Transport
+
+| 类型                            | 说明                                                                                                           |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`。                                                                         |
+| `NnrpTransportKind`             | `"tcp" \| "quic" \| "webtransport" \| "websocket"`。                                                           |
+| `NnrpTransportPolicy`           | `"score" \| "tcp-only" \| "quic-only"`。                                                                       |
+| `NnrpCapability`                | `client.session`、`server.session`、`native.loader`、`wasm.loader`、`cache`、`schema`、`recovery` 等能力声明。 |
+| `NnrpCapabilityManifest`        | 协议名/版本、build mode、transports 和 capabilities。                                                          |
+| `NnrpTransportCandidate`        | 候选 transport、可用性、score、拒绝原因和诊断。                                                                |
+| `NnrpTransportSelectionSummary` | 被选中的 transport 和 rejected candidates。                                                                    |
+
+### Submit、Result 与 Event
+
+| 类型                   | 说明                                                                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| `NnrpInputProfile`     | 标准 profile：`tensor`、`token`、`structured_event`、`tool_delta`。                        |
+| `NnrpSubmitMode`       | `"inline" \| "object-reference"`。                                                         |
+| `NnrpSubmitRequest`    | Frame id、payload/tensors、input profile、submit mode、cache key、descriptor 和 metadata。 |
+| `NnrpResult`           | Frame id、可选 payload、可选 diagnostic 和 metadata。                                      |
+| `NnrpRuntimeEvent`     | Result、flow update、result hint、drop、close 或 diagnostic event。                        |
+| `NnrpCancelOptions`    | Cancel reason 和 metadata。                                                                |
+| `NnrpEventPollOptions` | 可选 `timeoutMillis`。                                                                     |
+
+### 错误
+
+| Class                 | 说明                                               |
+| --------------------- | -------------------------------------------------- |
+| `NnrpError`           | 带结构化 `diagnostic` 的基础错误。                 |
+| `NnrpCapabilityError` | Capability、manifest 或 unsupported runtime 错误。 |
+| `NnrpTransportError`  | Transport 错误。                                   |
+| `NnrpTimeoutError`    | Timeout 错误。                                     |
+| `NnrpProtocolError`   | 请求形态或协议校验错误。                           |
