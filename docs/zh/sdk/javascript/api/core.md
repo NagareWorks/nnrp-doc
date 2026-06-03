@@ -1,6 +1,6 @@
 # JavaScript/TypeScript 核心 API
 
-`@nnrp/core` 包含 native 与 WASM 包共享的运行时无关类型和 helper。
+`@nnrp/core` 包含 JavaScript role package 与 transport package 共享的运行时无关类型和 helper。
 
 ## 常量
 
@@ -137,15 +137,15 @@
 
 ### Capability 与 Transport
 
-| 类型                            | 说明                                                                                                           |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`。                                                                         |
-| `NnrpTransportKind`             | `"tcp" \| "quic" \| "webtransport" \| "websocket"`。                                                           |
-| `NnrpTransportPolicy`           | `"score" \| "tcp-only" \| "quic-only"`。                                                                       |
-| `NnrpCapability`                | `client.session`、`server.session`、`native.loader`、`wasm.loader`、`cache`、`schema`、`recovery` 等能力声明。 |
-| `NnrpCapabilityManifest`        | 协议名/版本、build mode、transports 和 capabilities。                                                          |
-| `NnrpTransportCandidate`        | 候选 transport、可用性、score、拒绝原因和诊断。                                                                |
-| `NnrpTransportSelectionSummary` | 被选中的 transport 和 rejected candidates。                                                                    |
+| 类型                            | 说明                                                                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`。                                                                                |
+| `NnrpTransportKind`             | `"tcp" \| "quic" \| "webtransport" \| "websocket"`；preview3 已发布的 transport package 覆盖 TCP、QUIC 与 WebSocket。 |
+| `NnrpTransportPolicy`           | `"score" \| "tcp-only" \| "quic-only"`。                                                                              |
+| `NnrpCapability`                | `client.session`、`server.session`、`native.loader`、`wasm.loader`、`cache`、`schema`、`recovery` 等能力声明。        |
+| `NnrpCapabilityManifest`        | 协议名/版本、build mode、transports 和 capabilities。                                                                 |
+| `NnrpTransportCandidate`        | 候选 transport、可用性、score、拒绝原因和诊断。                                                                       |
+| `NnrpTransportSelectionSummary` | 被选中的 transport 和 rejected candidates。                                                                           |
 
 ### Submit、Result 与 Event
 

@@ -1,26 +1,54 @@
 # JavaScript/TypeScript 快速使用
 
-## 安装形态
+## 从 npm 安装
 
-包名如下：
+Node.js 或 Deno 后端 client，允许 TCP/QUIC 自动探测：
 
-| 包                     | Import         |
-| ---------------------- | -------------- |
-| Core                   | `@nnrp/core`   |
-| Backend native runtime | `@nnrp/native` |
-| Browser WASM runtime   | `@nnrp/wasm`   |
+```bash
+npm install @nnrp/native-client @nnrp/transport-tcp @nnrp/transport-quic
+```
+
+后端 server：
+
+```bash
+npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic
+```
+
+默认浏览器 WebSocket 路径：
+
+```bash
+npm install @nnrp/browser-client @nnrp/transport-websocket
+```
+
+如果 browser 或 edge host 暴露 TCP/QUIC-capable WASM transport bridge：
+
+```bash
+npm install @nnrp/browser-client @nnrp/transport-tcp @nnrp/transport-quic @nnrp/transport-websocket
+```
+
+如果要精确固定当前 preview：
+
+```bash
+npm install @nnrp/native-client@1.0.0-preview.3.3 @nnrp/transport-tcp@1.0.0-preview.3.3 @nnrp/transport-quic@1.0.0-preview.3.3
+```
 
 ## Backend Native Client
 
-Node.js/Deno CLI、agent runtime、后端服务和 adapter 进程使用 `@nnrp/native`。
+Node.js/Deno CLI、agent runtime、后端服务和 adapter 进程使用 `@nnrp/native-client`。安装一个或多个
+transport 包；runtime 会探测已安装 provider 并根据策略选择 active transport。
 
 ```ts
-import { openNativeClient } from "@nnrp/native";
+import { openNativeClient } from "@nnrp/native-client";
+import { createTcpTransportProvider } from "@nnrp/transport-tcp";
+import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
   endpoint: "127.0.0.1:4433",
-  nativeLibrary: { artifactDir: "./native" },
   transportPolicy: "score",
+  transports: [
+    createQuicTransportProvider(),
+    createTcpTransportProvider(),
+  ],
 });
 
 const session = client.openSession({ inputProfile: "tensor" });
@@ -36,49 +64,39 @@ await session.close();
 await client.close();
 ```
 
-## Backend Native Runtime
+## Backend Native Server
 
-应用需要显式 runtime 生命周期或 server API 时使用 `openBackendRuntime`。
+应用需要暴露 NNRP endpoint 时使用 `@nnrp/native-server`。
 
 ```ts
-import { openBackendRuntime } from "@nnrp/native";
+import { openBackendRuntime } from "@nnrp/native-server";
+import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 
 const runtime = await openBackendRuntime({
-  nativeLibrary: { artifactDir: "./native" },
-  transportPolicy: "score",
+  transportPolicy: "tcp-only",
+  transports: [createTcpTransportProvider()],
 });
 
 const server = runtime.listen({ endpoint: "0.0.0.0:4433" });
-const client = runtime.connect({ endpoint: "127.0.0.1:4433" });
 
-await client.close();
+// 在 server adapter 中 accept 并处理 session。
+
 await server.close();
 await runtime.close();
 ```
 
-## Browser WASM Client
+## Browser Client
 
-浏览器和 edge client 使用 `@nnrp/wasm`。Runtime 支持显式 module URL、预编译
-`WebAssembly.Module`，或者 `nnrp-rs` WASM primitive manifest。
+浏览器与 edge client 使用 `@nnrp/browser-client`。Browser client 包带浏览器 WASM primitives。
+WebSocket 是默认浏览器原生 transport；`@nnrp/transport-tcp` 与 `@nnrp/transport-quic` 携带 WASM
+transport primitives，用于宿主提供对应 network bridge 的 browser/edge runtime。
 
 ```ts
-import { openBrowserRuntime } from "@nnrp/wasm";
+import { openBrowserRuntime } from "@nnrp/browser-client";
+import { createWebSocketTransportProvider } from "@nnrp/transport-websocket";
 
 const runtime = await openBrowserRuntime({
-  artifact: {
-    baseUrl: "/assets/nnrp",
-    manifest: {
-      package: "nnrp-wasm",
-      wasm: "nnrp_wasm.wasm",
-      types: "nnrp_wasm.d.ts",
-      exports: [
-        "nnrp_wasm_protocol_major",
-        "nnrp_wasm_wire_format",
-        "selectTransportWithProbeJson",
-        "scoreProviderProbeJson",
-      ],
-    },
-  },
+  transportProviders: [createWebSocketTransportProvider()],
 });
 
 const client = runtime.connect({
@@ -89,14 +107,28 @@ const client = runtime.connect({
 const session = client.openSession({ inputProfile: "token" });
 ```
 
-## 验证命令
+如果宿主能把 TCP/QUIC transport capability 暴露给 WASM，也可以同时传入这些 provider：
 
-```bash
-deno task lint
-deno task test
-deno task package-smoke
-deno task release-dry-run
+```ts
+import { createTcpTransportProvider } from "@nnrp/transport-tcp";
+import { createQuicTransportProvider } from "@nnrp/transport-quic";
+
+const runtime = await openBrowserRuntime({
+  transportProviders: [
+    createQuicTransportProvider(),
+    createTcpTransportProvider(),
+    createWebSocketTransportProvider(),
+  ],
+});
 ```
 
-`release-dry-run` 会生成 capability、conformance、benchmark 和 package pack JSON
-产物，供发布前审查。
+## 包边界清单
+
+1. `@nnrp/native-client` 与 `@nnrp/native-server` 是 role package，不捆绑 `.dll`、`.so`、`.dylib` 或
+   transport WASM artifact。
+2. `@nnrp/transport-tcp` 与 `@nnrp/transport-quic` 携带完整 native/WASM transport 产物，包括
+   browser/edge WASM transport primitives。
+3. `@nnrp/transport-websocket` 使用宿主 WebSocket implementation，不依赖 Rust WebSocket transport
+   artifact。
+4. 安装哪个 transport 就允许哪个 transport 参与探测；同时安装多个时由 runtime probing 与 policy 选择
+   active path。

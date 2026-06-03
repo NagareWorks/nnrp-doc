@@ -601,8 +601,11 @@ const zhSdkJavascriptItems = [
     collapsed: false,
     items: [
       { text: "核心类型", link: "/zh/sdk/javascript/api/core" },
-      { text: "Native 后端", link: "/zh/sdk/javascript/api/native" },
-      { text: "WASM 浏览器客户端", link: "/zh/sdk/javascript/api/wasm" },
+      { text: "Client", link: "/zh/sdk/javascript/api/client" },
+      { text: "Server", link: "/zh/sdk/javascript/api/server" },
+      { text: "Transport Provider", link: "/zh/sdk/javascript/api/transport" },
+      { text: "Native Runtime 说明", link: "/zh/sdk/javascript/api/native" },
+      { text: "Browser Runtime 说明", link: "/zh/sdk/javascript/api/wasm" },
     ],
   },
 ];
@@ -693,8 +696,11 @@ const enSdkJavascriptItems = [
     collapsed: false,
     items: [
       { text: "Core Types", link: "/en/sdk/javascript/api/core" },
-      { text: "Native Backend", link: "/en/sdk/javascript/api/native" },
-      { text: "WASM Browser Client", link: "/en/sdk/javascript/api/wasm" },
+      { text: "Client", link: "/en/sdk/javascript/api/client" },
+      { text: "Server", link: "/en/sdk/javascript/api/server" },
+      { text: "Transport Providers", link: "/en/sdk/javascript/api/transport" },
+      { text: "Native Runtime Notes", link: "/en/sdk/javascript/api/native" },
+      { text: "Browser Runtime Notes", link: "/en/sdk/javascript/api/wasm" },
     ],
   },
 ];

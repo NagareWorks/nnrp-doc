@@ -1,27 +1,55 @@
 # JavaScript/TypeScript Quick Start
 
-## Install Shape
+## Install From npm
 
-The package names are:
+For a Node.js or Deno backend client using automatic TCP/QUIC probing:
 
-| Package                | Import         |
-| ---------------------- | -------------- |
-| Core                   | `@nnrp/core`   |
-| Backend native runtime | `@nnrp/native` |
-| Browser WASM runtime   | `@nnrp/wasm`   |
+```bash
+npm install @nnrp/native-client @nnrp/transport-tcp @nnrp/transport-quic
+```
+
+For a backend server:
+
+```bash
+npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic
+```
+
+For the default browser WebSocket path:
+
+```bash
+npm install @nnrp/browser-client @nnrp/transport-websocket
+```
+
+For browser or edge hosts that expose TCP/QUIC-capable WASM transport bridges:
+
+```bash
+npm install @nnrp/browser-client @nnrp/transport-tcp @nnrp/transport-quic @nnrp/transport-websocket
+```
+
+To pin the current preview exactly:
+
+```bash
+npm install @nnrp/native-client@1.0.0-preview.3.3 @nnrp/transport-tcp@1.0.0-preview.3.3 @nnrp/transport-quic@1.0.0-preview.3.3
+```
 
 ## Backend Native Client
 
-Use `@nnrp/native` for Node.js/Deno CLI tools, agent runtimes, backend services, and adapter
-processes.
+Use `@nnrp/native-client` for Node.js/Deno CLI tools, agent runtimes, backend services, and adapter
+processes. Install one or more transport packages; the runtime probes installed providers and
+applies the selected transport policy.
 
 ```ts
-import { openNativeClient } from "@nnrp/native";
+import { openNativeClient } from "@nnrp/native-client";
+import { createTcpTransportProvider } from "@nnrp/transport-tcp";
+import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
   endpoint: "127.0.0.1:4433",
-  nativeLibrary: { artifactDir: "./native" },
   transportPolicy: "score",
+  transports: [
+    createQuicTransportProvider(),
+    createTcpTransportProvider(),
+  ],
 });
 
 const session = client.openSession({ inputProfile: "tensor" });
@@ -37,50 +65,40 @@ await session.close();
 await client.close();
 ```
 
-## Backend Native Runtime
+## Backend Native Server
 
-Use `openBackendRuntime` when the application needs explicit runtime lifecycle control or server
-APIs.
+Use `@nnrp/native-server` when the application exposes an NNRP endpoint.
 
 ```ts
-import { openBackendRuntime } from "@nnrp/native";
+import { openBackendRuntime } from "@nnrp/native-server";
+import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 
 const runtime = await openBackendRuntime({
-  nativeLibrary: { artifactDir: "./native" },
-  transportPolicy: "score",
+  transportPolicy: "tcp-only",
+  transports: [createTcpTransportProvider()],
 });
 
 const server = runtime.listen({ endpoint: "0.0.0.0:4433" });
-const client = runtime.connect({ endpoint: "127.0.0.1:4433" });
 
-await client.close();
+// Accept and handle sessions in the server adapter.
+
 await server.close();
 await runtime.close();
 ```
 
-## Browser WASM Client
+## Browser Client
 
-Use `@nnrp/wasm` for browser and edge clients. The runtime accepts either an explicit module URL, a
-precompiled `WebAssembly.Module`, or an `nnrp-rs` WASM primitive manifest.
+Use `@nnrp/browser-client` for browser and edge clients. The browser client package carries browser
+WASM primitives. WebSocket is the default browser-native transport. `@nnrp/transport-tcp` and
+`@nnrp/transport-quic` carry WASM transport primitives for browser/edge hosts that provide the
+required network bridge.
 
 ```ts
-import { openBrowserRuntime } from "@nnrp/wasm";
+import { openBrowserRuntime } from "@nnrp/browser-client";
+import { createWebSocketTransportProvider } from "@nnrp/transport-websocket";
 
 const runtime = await openBrowserRuntime({
-  artifact: {
-    baseUrl: "/assets/nnrp",
-    manifest: {
-      package: "nnrp-wasm",
-      wasm: "nnrp_wasm.wasm",
-      types: "nnrp_wasm.d.ts",
-      exports: [
-        "nnrp_wasm_protocol_major",
-        "nnrp_wasm_wire_format",
-        "selectTransportWithProbeJson",
-        "scoreProviderProbeJson",
-      ],
-    },
-  },
+  transportProviders: [createWebSocketTransportProvider()],
 });
 
 const client = runtime.connect({
@@ -91,14 +109,28 @@ const client = runtime.connect({
 const session = client.openSession({ inputProfile: "token" });
 ```
 
-## Validation Commands
+When the host can provide TCP/QUIC transport capability to WASM, pass those providers too:
 
-```bash
-deno task lint
-deno task test
-deno task package-smoke
-deno task release-dry-run
+```ts
+import { createTcpTransportProvider } from "@nnrp/transport-tcp";
+import { createQuicTransportProvider } from "@nnrp/transport-quic";
+
+const runtime = await openBrowserRuntime({
+  transportProviders: [
+    createQuicTransportProvider(),
+    createTcpTransportProvider(),
+    createWebSocketTransportProvider(),
+  ],
+});
 ```
 
-`release-dry-run` generates capability, conformance, benchmark, and package pack JSON artifacts for
-review before registry publication.
+## Package Boundary Checklist
+
+1. `@nnrp/native-client` and `@nnrp/native-server` are role packages; they do not bundle `.dll`,
+   `.so`, `.dylib`, or transport WASM artifacts.
+2. `@nnrp/transport-tcp` and `@nnrp/transport-quic` carry the full native/WASM transport payloads,
+   including browser/edge WASM transport primitives.
+3. `@nnrp/transport-websocket` uses the host WebSocket implementation and does not depend on Rust
+   WebSocket transport artifacts.
+4. Install the transports you want to allow; if several are installed, runtime probing and policy
+   choose the active path.

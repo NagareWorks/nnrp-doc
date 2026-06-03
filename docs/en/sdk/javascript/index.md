@@ -1,39 +1,51 @@
 # JavaScript/TypeScript SDK Overview
 
 `nnrp-js` provides the JavaScript and TypeScript SDK packages for NNRP applications. The workspace
-is authored with Deno, while package output is ESM with `.d.ts` declarations for Node.js,
-Deno-compatible backend hosts, browser clients, and edge clients.
+uses Deno for development, while npm packages are ESM with `.d.ts` declarations for Node.js, Deno,
+browser, and edge consumers.
 
-The SDK has three packages:
+## Package Shape
 
-| Package        | Runtime                        | Primary use                                                                                                                            |
-| -------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `@nnrp/core`   | Runtime-neutral                | Shared protocol constants, diagnostics, submit/result shapes, capability manifests, and transport selection helpers.                   |
-| `@nnrp/native` | Node.js and Deno backend hosts | Native artifact manifest validation, backend runtime lifecycle, client sessions, server sessions, and coarse native FFI binding slots. |
-| `@nnrp/wasm`   | Browser and edge clients       | WASM primitive manifest validation, browser client runtime lifecycle, browser session APIs, and browser transport provider slots.      |
+| Package                     | Runtime                                | Purpose                                                                                                                                                      |
+| --------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@nnrp/core`                | Runtime-neutral                        | Shared protocol types, diagnostics, capability manifests, submit/result helpers, and transport selection.                                                    |
+| `@nnrp/native-client`       | Node.js and Deno backend hosts         | Native client/session entrypoint. It does not bundle transport artifacts.                                                                                    |
+| `@nnrp/native-server`       | Node.js and Deno backend hosts         | Native server/listen/session entrypoint. It does not bundle transport artifacts.                                                                             |
+| `@nnrp/browser-client`      | Browser and edge clients               | Browser client/session entrypoint with packaged browser WASM primitives.                                                                                     |
+| `@nnrp/transport-tcp`       | Native and WASM-capable transport slot | TCP transport provider package with full-platform native artifacts and WASM primitives.                                                                      |
+| `@nnrp/transport-quic`      | Native and WASM-capable transport slot | QUIC transport provider package with full-platform native artifacts and WASM primitives.                                                                     |
+| `@nnrp/transport-websocket` | Host WebSocket transport slot          | WebSocket transport provider for browsers, edge runtimes, or backend hosts with a WebSocket implementation; it does not depend on a Rust WebSocket artifact. |
+
+Install a role package for the surface you call, then install the transport packages that should be
+available for probing. TCP and QUIC artifacts live in their transport packages, not in the native
+client/server role packages.
 
 ## Runtime Modes
 
-| Mode           | Package        | Capabilities                                                                                   |
-| -------------- | -------------- | ---------------------------------------------------------------------------------------------- |
-| Backend native | `@nnrp/native` | Client sessions, server listeners, TCP/QUIC capability claims, native artifact diagnostics.    |
-| Browser WASM   | `@nnrp/wasm`   | Browser client sessions, WebSocket/WebTransport capability claims, WASM primitive diagnostics. |
-| Core           | `@nnrp/core`   | Shared types and helpers only.                                                                 |
+| Mode                      | Role package           | Transport packages                                                                                                                            |
+| ------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend native client     | `@nnrp/native-client`  | `@nnrp/transport-tcp`, `@nnrp/transport-quic`                                                                                                 |
+| Backend native server     | `@nnrp/native-server`  | `@nnrp/transport-tcp`, `@nnrp/transport-quic`                                                                                                 |
+| Browser client            | `@nnrp/browser-client` | `@nnrp/transport-websocket`; add `@nnrp/transport-tcp` / `@nnrp/transport-quic` when the host exposes TCP/QUIC-capable WASM transport bridges |
+| Shared validation/helpers | `@nnrp/core`           | None                                                                                                                                          |
 
-`@nnrp/core` must not import native loaders, WASM loaders, Node built-ins, or DOM APIs.
-`@nnrp/native` must not ship browser-only code. `@nnrp/wasm` must not import `node:*` modules or
-expose server APIs.
+`@nnrp/core` must stay runtime-neutral. Native role packages must not carry browser-only transports
+or transport artifacts. Transport packages own transport behavior and the artifacts needed for that
+transport.
 
 ## Current Package State
 
-The SDK packages already expose package export maps, declaration output, package smoke checks,
-runtime policy checks, conformance commands, benchmark commands, and a release dry-run workflow.
-Native and WASM artifact loading is manifest-gated before accelerated runtime paths are exposed.
+The published preview packages are available on npm as `1.0.0-preview.3.3` and are also tagged as
+`latest` and `preview`. TCP and QUIC package tarballs include all supported `.dll`, `.so`, `.dylib`,
+manifest, and WASM files, so browser/edge deployments can use those providers when their host
+exposes the required network capability. WebSocket remains a small package that does not depend on a
+Rust WebSocket artifact.
 
 ## Contents
 
 - [Quick Start](./quick-start)
 - [API Overview](./api)
 - [Core Types](./api/core)
-- [Native Backend Runtime](./api/native)
-- [WASM Browser Runtime](./api/wasm)
+- [Client API](./api/client)
+- [Server API](./api/server)
+- [Transport Providers](./api/transport)

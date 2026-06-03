@@ -1,6 +1,7 @@
 # JavaScript/TypeScript Core API
 
-`@nnrp/core` contains runtime-neutral types and helpers shared by native and WASM packages.
+`@nnrp/core` contains runtime-neutral types and helpers shared by the JavaScript role and transport
+packages.
 
 ## Constants
 
@@ -150,7 +151,7 @@ Validates event polling options.
 | Type                            | Description                                                                                                                    |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`.                                                                                          |
-| `NnrpTransportKind`             | `"tcp" \| "quic" \| "webtransport" \| "websocket"`.                                                                            |
+| `NnrpTransportKind`             | `"tcp" \| "quic" \| "webtransport" \| "websocket"`; published preview3 transport packages cover TCP, QUIC, and WebSocket.      |
 | `NnrpTransportPolicy`           | `"score" \| "tcp-only" \| "quic-only"`.                                                                                        |
 | `NnrpCapability`                | Capability claim such as `client.session`, `server.session`, `native.loader`, `wasm.loader`, `cache`, `schema`, or `recovery`. |
 | `NnrpCapabilityManifest`        | Protocol name/version, build mode, transports, and capabilities.                                                               |

@@ -1,161 +1,21 @@
-# JavaScript/TypeScript Native Backend API
+# JavaScript/TypeScript Native Runtime Notes
 
-`@nnrp/native` is for Node.js and Deno backend hosts. It validates `nnrp-rs` native artifact
-manifests, checks required ABI symbols, probes runtime capabilities, and exposes client/server
-runtime objects.
+Native backend hosts use role packages:
 
-## `openNativeClient`
+| Role   | Package               | Main API               |
+| ------ | --------------------- | ---------------------- |
+| Client | `@nnrp/native-client` | [Client API](./client) |
+| Server | `@nnrp/native-server` | [Server API](./server) |
 
-Opens a backend runtime and connects a client endpoint.
+TCP and QUIC are not hidden inside the role packages. Install
+[`@nnrp/transport-tcp`](./transport#createtcptransportprovider) and
+[`@nnrp/transport-quic`](./transport#createquictransportprovider) when those transports should be
+available for probing.
 
-| Parameter | Type                      | Required | Description                                                                                          |
-| --------- | ------------------------- | -------: | ---------------------------------------------------------------------------------------------------- |
-| `options` | `NnrpNativeClientOptions` |      Yes | Endpoint, native artifact options, transport policy, session defaults, optional test/loader binding. |
+## Native FFI Binding
 
-| Returns               | Throws                                                        |
-| --------------------- | ------------------------------------------------------------- |
-| `Promise<NnrpClient>` | `NnrpCapabilityError` or `NnrpNativeBindingUnavailableError`. |
-
-```ts
-import { openNativeClient } from "@nnrp/native";
-
-const client = await openNativeClient({
-  endpoint: "127.0.0.1:4433",
-  nativeLibrary: { artifactDir: "./native" },
-});
-```
-
-## `openBackendRuntime`
-
-Creates a backend runtime without immediately connecting a client.
-
-| Parameter | Type                        | Required | Description                                                                                      |
-| --------- | --------------------------- | -------: | ------------------------------------------------------------------------------------------------ |
-| `options` | `NnrpBackendRuntimeOptions` |       No | Native artifact options, transport policy, environment/platform overrides, optional FFI binding. |
-
-| Returns                       |
-| ----------------------------- |
-| `Promise<NnrpBackendRuntime>` |
-
-## `NnrpBackendRuntime.connect`
-
-Creates a client from an existing runtime.
-
-| Parameter | Type                 | Required | Description                                                     |
-| --------- | -------------------- | -------: | --------------------------------------------------------------- |
-| `options` | `NnrpConnectOptions` |      Yes | Endpoint, optional transport policy, optional session defaults. |
-
-| Returns      |
-| ------------ |
-| `NnrpClient` |
-
-## `NnrpBackendRuntime.listen`
-
-Creates a backend server listener.
-
-| Parameter | Type                | Required | Description                                   |
-| --------- | ------------------- | -------: | --------------------------------------------- |
-| `options` | `NnrpListenOptions` |      Yes | Local endpoint and optional transport policy. |
-
-| Returns      |
-| ------------ |
-| `NnrpServer` |
-
-## `NnrpBackendRuntime.selectTransport`
-
-Selects a transport against a peer manifest.
-
-| Parameter | Type                            | Required | Description                                 |
-| --------- | ------------------------------- | -------: | ------------------------------------------- |
-| `options` | `NnrpTransportSelectionOptions` |      Yes | Peer manifest and optional score overrides. |
-
-| Returns                         |
-| ------------------------------- |
-| `NnrpTransportSelectionSummary` |
-
-## `NnrpClient.openSession`
-
-Opens a client session.
-
-| Parameter | Type                 | Required | Description                                         |
-| --------- | -------------------- | -------: | --------------------------------------------------- |
-| `options` | `NnrpSessionOptions` |       No | Input profile, cadence, quality tier, and metadata. |
-
-| Returns             |
-| ------------------- |
-| `NnrpClientSession` |
-
-## `NnrpClientSession.submit`
-
-Submits a request and waits for a result through the coarse native submit/result binding.
-
-| Parameter | Type                                     | Required | Description                                                |
-| --------- | ---------------------------------------- | -------: | ---------------------------------------------------------- |
-| `request` | [`NnrpSubmitRequest`](./core#data-types) |      Yes | Frame id, payload/tensors, profile, cache/schema metadata. |
-
-| Returns               |
-| --------------------- |
-| `Promise<NnrpResult>` |
-
-## `NnrpClientSession.submitNoWait`
-
-Submits a request and returns the native operation id.
-
-| Parameter | Type                                     | Required | Description     |
-| --------- | ---------------------------------------- | -------: | --------------- |
-| `request` | [`NnrpSubmitRequest`](./core#data-types) |      Yes | Submit request. |
-
-| Returns           |
-| ----------------- |
-| `Promise<bigint>` |
-
-## `NnrpClientSession.cancel`
-
-Cancels an operation.
-
-| Parameter   | Type                | Required | Description          |
-| ----------- | ------------------- | -------: | -------------------- |
-| `operation` | `bigint \| number`  |      Yes | Operation id.        |
-| `options`   | `NnrpCancelOptions` |       No | Reason and metadata. |
-
-| Returns         |
-| --------------- |
-| `Promise<void>` |
-
-## `NnrpClientSession.nextEvent`
-
-Reads the next runtime event through the coarse native batch event binding.
-
-| Parameter | Type                   | Required | Description            |
-| --------- | ---------------------- | -------: | ---------------------- |
-| `options` | `NnrpEventPollOptions` |       No | Event polling options. |
-
-| Returns                     |
-| --------------------------- |
-| `Promise<NnrpRuntimeEvent>` |
-
-## Native Artifact Helpers
-
-| API                                                  | Description                                                                                                       |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `resolveNativeLibraryPath(options?)`                 | Resolves explicit path, environment path, manifest-backed artifact path, or platform default path.                |
-| `resolveNativeArtifact(options)`                     | Reads and validates a packaged native artifact manifest and library path.                                         |
-| `readNativeArtifactManifest(path)`                   | Reads `manifest.json`.                                                                                            |
-| `validateNativeArtifactManifest(manifest, options?)` | Validates package, OS, architecture, dynamic library kind, and required exports.                                  |
-| `validateNativeRuntimeCapabilities(capabilities)`    | Validates ABI version, protocol version, required feature bits, and TCP transport support.                        |
-| `createNativeRuntimeBinding(options?)`               | Creates the manifest, library path, required symbol list, artifact metadata, and optional FFI binding descriptor. |
-
-## Option Types
-
-### `NnrpNativeLibraryOptions`
-
-| Property          | Type                | Required | Description                                               |
-| ----------------- | ------------------- | -------: | --------------------------------------------------------- |
-| `path`            | `string`            |       No | Explicit native library path.                             |
-| `artifactDir`     | `string`            |       No | Directory containing platform artifact folders.           |
-| `manifestPath`    | `string`            |       No | Explicit artifact manifest path.                          |
-| `packageName`     | `string`            |       No | Platform package folder override, such as `linux-x86_64`. |
-| `requiredSymbols` | `readonly string[]` |       No | Additional required symbols beyond SDK defaults.          |
+Role packages accept explicit FFI bindings for controlled deployments and tests. Packaged TCP/QUIC
+artifacts are owned by the transport packages.
 
 ### `NnrpNativeFfiBinding`
 
@@ -169,12 +29,11 @@ Reads the next runtime event through the coarse native batch event binding.
 | `awaitEvents`         | function                                               |       No | Coarse batch event polling path.              |
 | `close`               | function                                               |       No | Binding cleanup hook.                         |
 
-### `NnrpNativeRuntimeCapabilities`
+## Artifact Boundary
 
-| Property                                                        | Type     | Description                      |
-| --------------------------------------------------------------- | -------- | -------------------------------- |
-| `abiMajor`, `abiMinor`, `abiPatch`                              | `number` | Native ABI version.              |
-| `protocolMajor`, `protocolWireFormat`                           | `number` | Protocol compatibility probe.    |
-| `sdkMajor`, `sdkMinor`, `sdkPatch`, `sdkChannel`, `sdkRevision` | `number` | Native SDK version metadata.     |
-| `transportSlots`                                                | `number` | Native transport support bitset. |
-| `featureFlags`                                                  | `bigint` | Runtime feature bitset.          |
+| Package                | Native artifact ownership             |
+| ---------------------- | ------------------------------------- |
+| `@nnrp/native-client`  | None; client role only.               |
+| `@nnrp/native-server`  | None; server role only.               |
+| `@nnrp/transport-tcp`  | TCP native/WASM transport artifacts.  |
+| `@nnrp/transport-quic` | QUIC native/WASM transport artifacts. |
