@@ -1,2 +1,2 @@
 export * from "./capabilityManifestShared";
-export { capabilityVersionPresets } from "./capabilityManifestPresets.generated";
+export { apiProfilePresets, capabilityVersionPresets } from "./capabilityManifestPresets.generated";

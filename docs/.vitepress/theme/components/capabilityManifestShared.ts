@@ -20,6 +20,34 @@ export type CapabilityVersionPreset = {
   capabilities: CapabilityOption[];
 };
 
+export type ApiProfileRecipePreset = {
+  id: string;
+  operation: string;
+  status: CapabilityCategory;
+  requiredCapabilities: string[];
+  summary: LocalizedText;
+};
+
+export type ApiProfileOperationPreset = {
+  name: string;
+  streaming: boolean;
+  nonStreaming: boolean;
+  toolCalls: boolean;
+  cancellation: boolean;
+};
+
+export type ApiProfilePreset = {
+  profile: string;
+  schemaVersion: string;
+  level: number;
+  title: LocalizedText;
+  note: LocalizedText;
+  recommendedPath: string;
+  protocolBaselines: string[];
+  operations: ApiProfileOperationPreset[];
+  recipes: ApiProfileRecipePreset[];
+};
+
 export type CapabilityOptionOverride = {
   description?: LocalizedText;
   combination?: LocalizedText;
@@ -32,3 +60,5 @@ export type CapabilityVersionPresetOverride = {
 };
 
 export const capabilityManifestSchemaPath = "../../schemas/capability-manifest.schema.json";
+export const apiProfileCapabilityManifestSchemaPath =
+  "../../schemas/api-profile-capabilities.schema.json";

@@ -1,12 +1,13 @@
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  capabilityManifestPresetOverrides
+  capabilityManifestPresetOverrides,
 } from "../docs/.vitepress/theme/components/capabilityManifestPresetOverrides.ts";
 import type {
+  ApiProfilePreset,
   CapabilityCategory,
   CapabilityVersionPreset,
-  LocalizedText
+  LocalizedText,
 } from "../docs/.vitepress/theme/components/capabilityManifestShared.ts";
 
 type ProtocolManifest = {
@@ -25,6 +26,29 @@ type CaseDefinition = {
 type CaseManifest = {
   manifest_name: string;
   cases: CaseDefinition[];
+};
+
+type ApiProfileSuiteManifest = {
+  profile: string;
+  schema_version: string;
+  level: number;
+  protocol_baselines: string[];
+  recipe_manifests: string[];
+};
+
+type ApiProfileRecipe = {
+  id: string;
+  operation: string;
+  required_capabilities?: string[];
+  status?: CapabilityCategory;
+  expect?: {
+    terminal?: string;
+    events?: Array<{
+      type: string;
+      min_count?: number;
+      optional?: boolean;
+    }>;
+  };
 };
 
 type TokenAggregate = {
@@ -55,33 +79,35 @@ const outputFile = join(
   ".vitepress",
   "theme",
   "components",
-  "capabilityManifestPresets.generated.ts"
+  "capabilityManifestPresets.generated.ts",
 );
 const jsonOutputFile = join(
   repoRoot,
   "docs",
   "public",
   "conformance",
-  "capability-manifest-presets.json"
+  "capability-manifest-presets.json",
 );
 const siblingConformanceRoot = normalize(join(repoRoot, "..", "nnrp-conformance"));
 const configuredConformanceRoot = Deno.env.get("NNRP_CONFORMANCE_REPO")?.trim();
-const conformanceGithubRepo = Deno.env.get("NNRP_CONFORMANCE_GITHUB_REPO")?.trim() || "NagareWorks/nnrp-conformance";
+const conformanceGithubRepo = Deno.env.get("NNRP_CONFORMANCE_GITHUB_REPO")?.trim() ||
+  "NagareWorks/nnrp-conformance";
 const conformanceGithubRef = Deno.env.get("NNRP_CONFORMANCE_GITHUB_REF")?.trim() || "main";
-const conformanceGithubToken = Deno.env.get("NNRP_CONFORMANCE_GITHUB_TOKEN")?.trim() || Deno.env.get("GITHUB_TOKEN")?.trim();
+const conformanceGithubToken = Deno.env.get("NNRP_CONFORMANCE_GITHUB_TOKEN")?.trim() ||
+  Deno.env.get("GITHUB_TOKEN")?.trim();
 
 const layerOrder = new Map([
   ["L0", 0],
   ["L1", 1],
   ["L2", 2],
   ["L3", 3],
-  ["L4", 4]
+  ["L4", 4],
 ]);
 const categoryOrder = new Map<CapabilityCategory, number>([
   ["mandatory", 0],
   ["optional", 1],
   ["experimental", 2],
-  ["deprecated", 3]
+  ["deprecated", 3],
 ]);
 
 async function pathExists(path: string): Promise<boolean> {
@@ -112,7 +138,7 @@ function joinRepoPath(...segments: string[]): string {
 function buildGitHubHeaders(accept: string): Headers {
   const headers = new Headers({
     Accept: accept,
-    "User-Agent": "nnrp-doc capability preset generator"
+    "User-Agent": "nnrp-doc capability preset generator",
   });
 
   if (conformanceGithubToken) {
@@ -130,11 +156,13 @@ function buildGitHubContentsUrl(path: string): string {
 
 async function fetchGitHubDirectory(path: string): Promise<GitHubDirectoryEntry[]> {
   const response = await fetch(buildGitHubContentsUrl(path), {
-    headers: buildGitHubHeaders("application/vnd.github+json")
+    headers: buildGitHubHeaders("application/vnd.github+json"),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to list ${path} from ${conformanceGithubRepo}@${conformanceGithubRef}: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Failed to list ${path} from ${conformanceGithubRepo}@${conformanceGithubRef}: ${response.status} ${response.statusText}`,
+    );
   }
 
   return await response.json() as GitHubDirectoryEntry[];
@@ -142,11 +170,13 @@ async function fetchGitHubDirectory(path: string): Promise<GitHubDirectoryEntry[
 
 async function fetchGitHubJsonFile<T>(path: string): Promise<T> {
   const response = await fetch(buildGitHubContentsUrl(path), {
-    headers: buildGitHubHeaders("application/vnd.github.raw+json")
+    headers: buildGitHubHeaders("application/vnd.github.raw+json"),
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch ${path} from ${conformanceGithubRepo}@${conformanceGithubRef}: ${response.status} ${response.statusText}`);
+    throw new Error(
+      `Failed to fetch ${path} from ${conformanceGithubRepo}@${conformanceGithubRef}: ${response.status} ${response.statusText}`,
+    );
   }
 
   return JSON.parse(await response.text()) as T;
@@ -154,12 +184,16 @@ async function fetchGitHubJsonFile<T>(path: string): Promise<T> {
 
 async function createConformanceSource(): Promise<ConformanceSource> {
   const localConformanceRoot = configuredConformanceRoot ||
-    ((await pathExists(join(siblingConformanceRoot, "protocol"))) ? siblingConformanceRoot : undefined);
+    ((await pathExists(join(siblingConformanceRoot, "protocol")))
+      ? siblingConformanceRoot
+      : undefined);
 
   if (localConformanceRoot) {
     const localProtocolRoot = join(localConformanceRoot, "protocol");
     if (!(await pathExists(localProtocolRoot))) {
-      throw new Error(`NNRP_CONFORMANCE_REPO is set to ${localConformanceRoot}, but ${localProtocolRoot} does not exist.`);
+      throw new Error(
+        `NNRP_CONFORMANCE_REPO is set to ${localConformanceRoot}, but ${localProtocolRoot} does not exist.`,
+      );
     }
 
     return {
@@ -178,7 +212,7 @@ async function createConformanceSource(): Promise<ConformanceSource> {
       readJson: async <T>(path: string) => {
         const absolutePath = join(localConformanceRoot, ...splitRepoPath(path));
         return await readJsonFile<T>(absolutePath);
-      }
+      },
     };
   }
 
@@ -188,7 +222,7 @@ async function createConformanceSource(): Promise<ConformanceSource> {
       const entries = await fetchGitHubDirectory("protocol");
       return entries.filter((entry) => entry.type === "dir").map((entry) => entry.name).sort();
     },
-    readJson: async <T>(path: string) => await fetchGitHubJsonFile<T>(path)
+    readJson: async <T>(path: string) => await fetchGitHubJsonFile<T>(path),
   };
 }
 
@@ -196,10 +230,16 @@ function fallbackText(text: string): LocalizedText {
   return { zh: text, en: text };
 }
 
-function buildFallbackNote(version: string, status: string, capabilityCount: number): LocalizedText {
+function buildFallbackNote(
+  version: string,
+  status: string,
+  capabilityCount: number,
+): LocalizedText {
   return {
-    zh: `自动从 nnrp-conformance 的 ${status} baseline 派生，当前共有 ${capabilityCount} 个 capability token。`,
-    en: `Derived automatically from the ${status} nnrp-conformance baseline. ${capabilityCount} capability tokens are currently exposed.`
+    zh:
+      `自动从 nnrp-conformance 的 ${status} baseline 派生，当前共有 ${capabilityCount} 个 capability token。`,
+    en:
+      `Derived automatically from the ${status} nnrp-conformance baseline. ${capabilityCount} capability tokens are currently exposed.`,
   };
 }
 
@@ -221,11 +261,55 @@ function buildFallbackCombination(combinations: string[]): LocalizedText | undef
   return fallbackText(english);
 }
 
+function apiProfileTitle(profile: string, level: number): LocalizedText {
+  return {
+    zh: `${profile} Level ${level}`,
+    en: `${profile} Level ${level}`,
+  };
+}
+
+function apiProfileNote(recipeCount: number, baselines: string[]): LocalizedText {
+  return {
+    zh: `从 OpenAI NNRP API profile recipes 派生，覆盖 ${recipeCount} 个声明式用例，适用于 ${
+      baselines.join(", ")
+    }。`,
+    en:
+      `Derived from OpenAI NNRP API profile recipes. Covers ${recipeCount} declarative cases for ${
+        baselines.join(", ")
+      }.`,
+  };
+}
+
+function recipeSummary(recipe: ApiProfileRecipe): LocalizedText {
+  const terminal = recipe.expect?.terminal ?? "unspecified";
+  const eventTypes = recipe.expect?.events?.map((event) => event.type).join(", ") ||
+    "no expected events";
+  const text = `${recipe.operation}: ${terminal}; expects ${eventTypes}.`;
+  return {
+    zh: text,
+    en: text,
+  };
+}
+
+function deriveOperationPreset(operation: string, recipes: ApiProfileRecipe[]) {
+  const capabilitySet = new Set(recipes.flatMap((recipe) => recipe.required_capabilities ?? []));
+
+  return {
+    name: operation,
+    streaming: capabilitySet.has("api.streaming"),
+    nonStreaming: capabilitySet.has("api.non_streaming"),
+    toolCalls: capabilitySet.has("api.tool_calls"),
+    cancellation: capabilitySet.has("api.cancellation"),
+  };
+}
+
 async function readJsonFile<T>(path: string): Promise<T> {
   return JSON.parse(await Deno.readTextFile(path)) as T;
 }
 
-async function collectVersionPresets(source: ConformanceSource): Promise<CapabilityVersionPreset[]> {
+async function collectVersionPresets(
+  source: ConformanceSource,
+): Promise<CapabilityVersionPreset[]> {
   const presets: CapabilityVersionPreset[] = [];
 
   for (const versionName of await source.listVersionNames()) {
@@ -258,7 +342,7 @@ async function collectVersionPresets(source: ConformanceSource): Promise<Capabil
               layers: new Set<string>(),
               categories: new Set<CapabilityCategory>(),
               descriptions: [],
-              combinations: []
+              combinations: [],
             });
             order += 1;
           }
@@ -282,64 +366,124 @@ async function collectVersionPresets(source: ConformanceSource): Promise<Capabil
       .map(([token, aggregate]) => {
         const tokenOverride = overrides?.capabilityOverrides?.[token];
         const categories = Array.from(aggregate.categories).sort(
-          (left, right) => (categoryOrder.get(left) ?? 99) - (categoryOrder.get(right) ?? 99)
+          (left, right) => (categoryOrder.get(left) ?? 99) - (categoryOrder.get(right) ?? 99),
         );
         const layers = Array.from(aggregate.layers).sort(
-          (left, right) => (layerOrder.get(left) ?? 99) - (layerOrder.get(right) ?? 99)
+          (left, right) => (layerOrder.get(left) ?? 99) - (layerOrder.get(right) ?? 99),
         );
 
         return {
           token,
           layers: layers.join(" / "),
           categories,
-          description: tokenOverride?.description ?? buildFallbackDescription(aggregate.descriptions),
-          combination: tokenOverride?.combination ?? buildFallbackCombination(aggregate.combinations)
+          description: tokenOverride?.description ??
+            buildFallbackDescription(aggregate.descriptions),
+          combination: tokenOverride?.combination ??
+            buildFallbackCombination(aggregate.combinations),
         };
       });
 
     presets.push({
       version: manifest.protocol_version,
       title: overrides?.title ?? fallbackText(manifest.protocol_version),
-      note: overrides?.note ?? buildFallbackNote(manifest.protocol_version, manifest.status, capabilities.length),
+      note: overrides?.note ??
+        buildFallbackNote(manifest.protocol_version, manifest.status, capabilities.length),
       recommendedPath: `conformance/${manifest.protocol_version}.capabilities.json`,
-      capabilities
+      capabilities,
     });
   }
 
   return presets.sort((left, right) => left.version.localeCompare(right.version));
 }
 
+async function collectApiProfilePresets(source: ConformanceSource): Promise<ApiProfilePreset[]> {
+  const suitePath = joinRepoPath("profiles", "openai-compatible", "1", "manifest.json");
+  let suite: ApiProfileSuiteManifest;
+
+  try {
+    suite = await source.readJson<ApiProfileSuiteManifest>(suitePath);
+  } catch {
+    return [];
+  }
+
+  const recipes: ApiProfileRecipe[] = [];
+  for (const relativeRecipePath of suite.recipe_manifests) {
+    recipes.push(
+      await source.readJson<ApiProfileRecipe>(
+        joinRepoPath("profiles", "openai-compatible", "1", relativeRecipePath),
+      ),
+    );
+  }
+
+  const operationNames = dedupe(recipes.map((recipe) => recipe.operation));
+
+  return [
+    {
+      profile: suite.profile,
+      schemaVersion: suite.schema_version,
+      level: suite.level,
+      title: apiProfileTitle(suite.profile, suite.level),
+      note: apiProfileNote(recipes.length, suite.protocol_baselines),
+      recommendedPath: `conformance/${suite.profile}-${suite.level}.api-capabilities.json`,
+      protocolBaselines: suite.protocol_baselines,
+      operations: operationNames.map((operation) =>
+        deriveOperationPreset(operation, recipes.filter((recipe) => recipe.operation === operation))
+      ),
+      recipes: recipes.map((recipe) => ({
+        id: recipe.id,
+        operation: recipe.operation,
+        status: recipe.status ?? "mandatory",
+        requiredCapabilities: recipe.required_capabilities ?? [],
+        summary: recipeSummary(recipe),
+      })),
+    },
+  ];
+}
+
 async function main(): Promise<void> {
   const source = await createConformanceSource();
   let presets: CapabilityVersionPreset[];
+  let apiProfilePresets: ApiProfilePreset[];
 
   try {
     presets = await collectVersionPresets(source);
+    apiProfilePresets = await collectApiProfilePresets(source);
   } catch (error) {
-    if (configuredConformanceRoot || source.description !== `${conformanceGithubRepo}@${conformanceGithubRef}`) {
+    if (
+      configuredConformanceRoot ||
+      source.description !== `${conformanceGithubRepo}@${conformanceGithubRef}`
+    ) {
       throw error;
     }
 
     if ((await pathExists(outputFile)) && (await pathExists(jsonOutputFile))) {
       console.warn(
-        `Failed to refresh capability presets from ${source.description}; using checked-in generated presets. ${error}`
+        `Failed to refresh capability presets from ${source.description}; using checked-in generated presets. ${error}`,
       );
       return;
     }
 
     throw error;
   }
-  const output = `import type { CapabilityVersionPreset } from "./capabilityManifestShared";\n\n// This file is auto-generated by scripts/generate-capability-manifest-presets.ts.\n// Do not edit it manually.\nexport const capabilityVersionPresets = ${JSON.stringify(presets, null, 2)} satisfies CapabilityVersionPreset[];\n`;
+  const output =
+    `import type { ApiProfilePreset, CapabilityVersionPreset } from "./capabilityManifestShared";\n\n// This file is auto-generated by scripts/generate-capability-manifest-presets.ts.\n// Do not edit it manually.\nexport const capabilityVersionPresets = ${
+      JSON.stringify(presets, null, 2)
+    } satisfies CapabilityVersionPreset[];\n\nexport const apiProfilePresets = ${
+      JSON.stringify(apiProfilePresets, null, 2)
+    } satisfies ApiProfilePreset[];\n`;
   const jsonOutput = {
     generated_at: new Date().toISOString(),
     source: source.description,
-    presets
+    presets,
+    api_profiles: apiProfilePresets,
   };
 
   await Deno.mkdir(dirname(jsonOutputFile), { recursive: true });
   await Deno.writeTextFile(outputFile, output);
   await Deno.writeTextFile(jsonOutputFile, `${JSON.stringify(jsonOutput, null, 2)}\n`);
-  console.log(`Generated ${presets.length} capability preset versions from ${source.description} into ${outputFile} and ${jsonOutputFile}`);
+  console.log(
+    `Generated ${presets.length} protocol capability preset versions and ${apiProfilePresets.length} API profile presets from ${source.description} into ${outputFile} and ${jsonOutputFile}`,
+  );
 }
 
 await main();
