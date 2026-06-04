@@ -21,4 +21,5 @@
 5. `openai-compatible-profile` 记录如何在 NNRP session、submit、result stream、cancel 和 diagnostics
    上承载 OpenAI 兼容 AI API 语义。
 6. `vllm-nnrp-adapter` 记录首个 vLLM adapter 架构，包括 `openai-compatible/1` Profile
-   的实现边界、API Profile conformance 和 benchmark gate。
+   的实现边界、API Profile conformance 和 benchmark gate；它的定位是 NNRP compatibility
+   infrastructure，而不是 vLLM 性能加速器。

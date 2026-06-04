@@ -7,6 +7,12 @@ vLLM NNRP adapter 是冻结后的 `openai-compatible/1` API Profile 的第一个
 这个 adapter 不创建另一个 OpenAI HTTP server。它把 vLLM 的 OpenAI 兼容 serving surface 绑定到 NNRP
 session、frame submit、result stream、cancel、diagnostics 和 profile-level conformance 上。
 
+它的定位不是提升 vLLM token generation 性能。对普通 chat completion 流量来说，端到端耗时主要由
+vLLM 生成阶段主导，adapter 首先要证明的是 compatibility、conformance 和 operational parity。它的战略意义
+是避免后续业务在使用 NNRP 解决 heavy transport 场景时，被“推理引擎服务端不支持 NNRP”这件事卡住；这些场景
+包括 AI Coding subagent、tool orchestration、多模态 payload 交换、大张量或大数据传输，以及
+scheduler-to-runtime 协调。
+
 Adapter 必须保留三条边界：
 
 1. **NNRP runtime 边界**：NNRP 负责 session lifecycle、flow control、cancellation、result push、
@@ -297,7 +303,9 @@ Level 1 conformance 应覆盖：
 
 ## 11. Benchmark 策略
 
-Benchmark 必须把 adapter overhead 与模型生成耗时拆开。
+Benchmark 必须把 adapter overhead 与模型生成耗时拆开，也不能把 Level 1 包装成 vLLM 原始性能优化。
+Long-context chat completion 测试是 release-readiness baseline：它证明 adapter 在真实 vLLM 负载下保留
+OpenAI 兼容 streaming behavior、cancellation、diagnostics，并与 HTTP/SSE 路径保持可接受 parity。
 
 | Benchmark                 | 用途                                                            |
 | ------------------------- | --------------------------------------------------------------- |
@@ -306,7 +314,10 @@ Benchmark 必须把 adapter overhead 与模型生成耗时拆开。
 | Cancellation latency      | 测量 cancellation request 到 adapter stop-emitting 的 latency。 |
 | End-to-end vLLM smoke     | 确认真实 vLLM 集成仍然输出 Profile event sequence。             |
 
-首版发布前必须记录 baseline 结果。
+首版发布前必须记录 baseline 结果。如果 HTTP/SSE 路径在 token streaming 上更快或大致持平，这本身不代表
+NNRP 叙事失败；它代表 benchmark 主要被模型执行耗时主导，而不是 transport 主导。真正的 heavy-transport
+NNRP 性能叙事应落到后续 Profile 与 preview4 协议工作，包括显式 control frame、typed/binary payload path，
+以及减少 token-profile JSON 形态开销。
 
 ## 12. Release Gate
 

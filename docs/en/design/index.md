@@ -21,5 +21,5 @@ Index notes:
 5. `openai-compatible-profile` defines the frozen API profile for carrying OpenAI-compatible AI API
    semantics over NNRP sessions, submissions, result streams, cancellation, and diagnostics.
 6. `vllm-nnrp-adapter` defines the first adapter architecture for implementing the
-   `openai-compatible/1` profile against vLLM, including API profile conformance and benchmark
-   gates.
+   `openai-compatible/1` profile against vLLM, with the adapter positioned as NNRP compatibility
+   infrastructure rather than a vLLM performance accelerator.

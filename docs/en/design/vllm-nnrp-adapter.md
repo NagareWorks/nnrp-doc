@@ -9,6 +9,13 @@ The adapter does not create another OpenAI HTTP server. It binds vLLM's OpenAI-c
 surface to NNRP sessions, frame submissions, result streams, cancellation, diagnostics, and
 profile-level conformance.
 
+This is not positioned as a vLLM token-generation accelerator. For normal chat-completion traffic,
+vLLM generation dominates end-to-end latency and the adapter must first prove compatibility,
+conformance, and operational parity. Its strategic role is to keep vLLM from becoming the missing
+server-side link when NNRP is used for heavier transport scenarios such as AI coding subagents,
+tool orchestration, multimodal payload exchange, tensor/data movement, and scheduler-to-runtime
+coordination.
+
 The adapter must preserve three boundaries:
 
 1. **NNRP runtime boundary**: NNRP owns session lifecycle, flow control, cancellation, result push,
@@ -311,7 +318,10 @@ Level 1 conformance should cover:
 
 ## 11. Benchmark Strategy
 
-Benchmarking must separate adapter overhead from model generation time.
+Benchmarking must separate adapter overhead from model generation time and must not sell Level 1 as
+a raw vLLM performance optimization. Long-context chat-completion tests are release-readiness
+baselines: they prove that the adapter preserves OpenAI-compatible streaming behavior, cancellation,
+diagnostics, and parity with the HTTP/SSE path under real vLLM load.
 
 | Benchmark                 | Purpose                                                                     |
 | ------------------------- | --------------------------------------------------------------------------- |
@@ -320,7 +330,11 @@ Benchmarking must separate adapter overhead from model generation time.
 | Cancellation latency      | Measures cancellation request to adapter stop-emitting latency.             |
 | End-to-end vLLM smoke     | Confirms that real vLLM integration still emits the profile event sequence. |
 
-The first release must record baseline results before publication.
+The first release must record baseline results before publication. If the HTTP/SSE path is faster
+or roughly equivalent for token streaming, that is not a failed NNRP narrative by itself; it means
+the benchmark is dominated by model execution rather than transport. The heavy-transport NNRP
+performance story belongs to follow-up profiles and preview4 protocol work with explicit control
+frames, typed/binary payload paths, and less JSON-shaped token-profile overhead.
 
 ## 12. Release Gate
 
