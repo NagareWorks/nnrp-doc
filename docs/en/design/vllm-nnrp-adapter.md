@@ -19,6 +19,20 @@ The adapter must preserve three boundaries:
 3. **vLLM backend boundary**: vLLM owns model loading, token generation, batching, scheduling, model
    policy, tokenizer behavior, and backend-specific limits.
 
+```mermaid
+flowchart LR
+  client[NNRP client] --> runtime[NNRP server runtime]
+  runtime --> profile[OpenAI NNRP profile adapter]
+  profile --> backend[vLLM backend wrapper]
+  backend --> vllm[vLLM OpenAI-compatible serving stack]
+
+  runtime -. diagnostics .-> obs[Observation records]
+  profile -. diagnostics .-> obs
+  backend -. backend timings/errors .-> obs
+  obs --> nnrp_diag[NNRP diagnostics]
+  obs --> exporter[Optional metrics exporter]
+```
+
 ## 2. Support Line
 
 The first support band is:
@@ -52,19 +66,52 @@ recipes for those operations.
 
 ## 4. Module Design
 
-| Module         | Responsibility                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `profile`      | Frozen profile constants, request envelope validation, event builders, capability document helpers.              |
-| `adapter`      | Async profile-level request handler that maps backend responses into profile events.                             |
-| `vllm_backend` | vLLM serving-object wrapper, method probing, streaming chunk normalization, and backend error mapping.           |
-| `nnrp_server`  | NNRP server/session binding, frame submit handling, result push emission, cancellation, and diagnostics routing. |
-| `conformance`  | Adapter command entry point for suite-owned API profile recipes.                                                 |
-| `benchmark`    | Throughput, latency, cancellation, and backend overhead measurement.                                             |
+| Module          | Responsibility                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `profile`       | Frozen profile constants, request envelope validation, event builders, capability document helpers.              |
+| `adapter`       | Async profile-level request handler that maps backend responses into profile events.                             |
+| `vllm_backend`  | vLLM serving-object wrapper, method probing, streaming chunk normalization, and backend error mapping.           |
+| `nnrp_server`   | NNRP server/session binding, frame submit handling, result push emission, cancellation, and diagnostics routing. |
+| `conformance`   | Adapter command entry point for suite-owned API profile recipes.                                                 |
+| `benchmark`     | Throughput, latency, cancellation, and backend overhead measurement.                                             |
+| `observability` | Shared observation records, diagnostics builders, and optional metrics exporters.                                |
 
 The adapter package should keep vLLM as an optional runtime extra. Normal lint, type check, package
 build, and profile mapping tests must run without installing a GPU-serving environment.
 
-## 5. Request Flow
+## 5. vLLM Integration Mode
+
+The production path is explicit package integration, not automatic process mutation.
+
+```mermaid
+flowchart TD
+  install[pip install vllm-nnrp-adapter[vllm]]
+  config[Adapter config or CLI entrypoint]
+  plugin[vLLM plugin registration when stable]
+  serving[vLLM serving object]
+  adapter[vLLM NNRP adapter]
+
+  install --> config
+  config --> adapter
+  plugin --> adapter
+  adapter --> serving
+```
+
+Integration priority:
+
+1. **Explicit package / CLI / config entrypoint**: the default path. The user installs the adapter
+   and enables NNRP serving intentionally.
+2. **vLLM plugin registration**: supported when the selected vLLM version exposes a stable plugin
+   discovery path.
+3. **Monkeypatch path**: reserved for scheduler-center experiments or emergency compatibility, not
+   the default adapter architecture.
+4. **`.pth` auto-injection**: not a default path. It is too implicit for normal releases and should
+   only be considered for a separately documented deployment mode.
+
+The adapter must be debuggable from Python import state and process configuration. Hidden startup
+mutation is not acceptable for the release path.
+
+## 6. Request Flow
 
 1. An NNRP client submits a frame carrying an `openai-compatible/1` request envelope.
 2. The NNRP server binding validates the envelope and opens an adapter operation context.
@@ -78,7 +125,26 @@ The adapter must not hide NNRP-specific policy inside the OpenAI-compatible `bod
 diagnostics, cache, transport, and cancellation policy stay in the envelope or NNRP runtime
 metadata.
 
-## 6. Streaming Event Mapping
+```mermaid
+sequenceDiagram
+  participant C as NNRP client
+  participant R as NNRP runtime
+  participant A as Profile adapter
+  participant B as vLLM backend
+
+  C->>R: FRAME_SUBMIT(openai-compatible/1 envelope)
+  R->>A: validate envelope and open operation
+  A->>B: create_chat_completion(body)
+  loop streaming chunks
+    B-->>A: OpenAI-compatible chunk
+    A-->>R: Profile event
+    R-->>C: RESULT_PUSH(event)
+  end
+  A-->>R: terminal outcome
+  R-->>C: completion/cancel/error
+```
+
+## 7. Streaming Event Mapping
 
 | vLLM / OpenAI-compatible chunk       | Profile event                |
 | ------------------------------------ | ---------------------------- |
@@ -92,25 +158,59 @@ metadata.
 Adapters may include the original OpenAI-compatible streaming chunk in `openai_chunk`, but consumers
 must not require that field for normal operation.
 
-## 7. Cancellation And Diagnostics
+## 8. Observability And Metrics
+
+The adapter should not open an HTTP `/metrics` endpoint by default. vLLM deployments often already
+run a metrics server, sidecar exporter, or third-party exporter, and the adapter must not silently
+claim another port.
+
+The adapter instead owns observation records and optional exporters.
+
+```mermaid
+flowchart TD
+  op[Adapter operation] --> record[Observation record]
+  record --> diag[NNRP diagnostics payload]
+  record --> prom[Prometheus registry exporter]
+  record --> log[Structured log sink]
+  record --> bench[Benchmark report]
+```
+
+Observation records should include:
+
+1. selected model id
+2. selected operation
+3. NNRP connection, session, operation, and frame identifiers when available
+4. queue delay when available
+5. first event latency
+6. output event count
+7. backend error family
+8. cancellation reason
+9. selected transport
+10. backend timing and token usage when available
+
+Diagnostics are extension-friendly. Unknown diagnostic fields must be ignored by clients unless a
+client opts into an adapter-specific schema.
+
+Metrics export rules:
+
+1. The default package exposes collectors and observation records, not a bound HTTP server.
+2. A Prometheus exporter may register metrics into an existing registry.
+3. A standalone `/metrics` server is opt-in deployment behavior.
+4. NNRP diagnostics and exported metrics should be derived from the same observation record to avoid
+   split-brain reporting.
+5. Conformance may validate diagnostic shape, but metrics are release diagnostics and benchmark
+   material rather than correctness gates.
+
+## 9. Cancellation And Diagnostics
 
 Cancellation maps from NNRP frame cancellation into the active vLLM request path. If vLLM cannot
 abort immediately, the adapter must still stop emitting late result events for the cancelled NNRP
 operation.
 
-Diagnostics should include:
+Cancellation diagnostics should include the cancellation source, reason, operation id, and whether
+the backend accepted the abort.
 
-1. selected model id
-2. selected operation
-3. queue delay when available
-4. backend error family
-5. cancellation reason
-6. selected transport and NNRP session identifiers when available
-
-Diagnostics are extension-friendly. Unknown diagnostic fields must be ignored by clients unless a
-client opts into an adapter-specific schema.
-
-## 8. API Profile Conformance
+## 10. API Profile Conformance
 
 OpenAI-compatible providers often extend or bend the OpenAI HTTP API. The adapter conformance layer
 therefore validates the frozen NNRP API profile semantics, not a full clone of OpenAI HTTP behavior.
@@ -118,7 +218,7 @@ therefore validates the frozen NNRP API profile semantics, not a full clone of O
 The conformance shape mirrors the SDK adapter conformance model: adapters declare capabilities with
 a manifest, and the suite selects readable recipes that match those capabilities.
 
-### 8.1 Capability Manifest
+### 10.1 Capability Manifest
 
 Each adapter provides a manifest:
 
@@ -148,7 +248,7 @@ Each adapter provides a manifest:
 The manifest is optional for repositories that do not implement this profile. It is required for any
 repository that wants the conformance suite to run OpenAI NNRP API tests.
 
-### 8.2 Recipe Source
+### 10.2 Recipe Source
 
 Recipes are parameterized and readable:
 
@@ -181,7 +281,7 @@ Recipes are parameterized and readable:
 The suite may compile recipes into machine-readable execution plans, but the recipe remains the
 source of truth.
 
-### 8.3 Extension Rules
+### 10.3 Extension Rules
 
 Provider-specific fields are allowed when they follow these rules:
 
@@ -194,7 +294,7 @@ Provider-specific fields are allowed when they follow these rules:
 This gives providers room for model-specific policy without letting custom fields corrupt the shared
 profile contract.
 
-### 8.4 Required Level 1 Cases
+### 10.4 Required Level 1 Cases
 
 Level 1 conformance should cover:
 
@@ -209,7 +309,7 @@ Level 1 conformance should cover:
 9. backend error mapping
 10. capability document validation
 
-## 9. Benchmark Strategy
+## 11. Benchmark Strategy
 
 Benchmarking must separate adapter overhead from model generation time.
 
@@ -222,7 +322,7 @@ Benchmarking must separate adapter overhead from model generation time.
 
 The first release must record baseline results before publication.
 
-## 10. Release Gate
+## 12. Release Gate
 
 The adapter is release-ready only when:
 
