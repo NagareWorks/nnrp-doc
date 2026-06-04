@@ -7,6 +7,7 @@ The site keeps the following versioned design documents:
 3. `NNRP/1-preview3`
 4. `NNRP Protocol Conformance Suite Design`
 5. `NNRP OpenAI-Compatible API Profile`
+6. `vLLM NNRP Adapter Design`
 
 Index notes:
 
@@ -19,3 +20,6 @@ Index notes:
    implementation boundary of the cross-version protocol conformance suite.
 5. `openai-compatible-profile` defines the frozen API profile for carrying OpenAI-compatible AI API
    semantics over NNRP sessions, submissions, result streams, cancellation, and diagnostics.
+6. `vllm-nnrp-adapter` defines the first adapter architecture for implementing the
+   `openai-compatible/1` profile against vLLM, including API profile conformance and benchmark
+   gates.

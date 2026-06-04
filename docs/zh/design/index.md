@@ -7,6 +7,7 @@
 3. `NNRP/1-preview3`
 4. `NNRP 协议一致性测试套件设计`
 5. `NNRP OpenAI 兼容 API Profile`
+6. `vLLM NNRP Adapter 设计`
 
 这些文档按版本保存，用于回溯协议边界、冻结记录与实现背景。
 
@@ -19,3 +20,5 @@
 4. `conformance-suite` 记录跨版本协议一致性测试套件的定位、版本策略、分层结构和实现边界。
 5. `openai-compatible-profile` 记录如何在 NNRP session、submit、result stream、cancel 和 diagnostics
    上承载 OpenAI 兼容 AI API 语义。
+6. `vllm-nnrp-adapter` 记录首个 vLLM adapter 架构，包括 `openai-compatible/1` Profile
+   的实现边界、API Profile conformance 和 benchmark gate。
