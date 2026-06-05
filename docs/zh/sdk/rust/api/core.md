@@ -2,13 +2,14 @@
 
 `nnrp-core` crate 是 Preview3 协议语义的 Rust canonical source。它包含 wire codec、固定布局 metadata、枚举/错误基线、生命周期状态机、流控校验、缓存/Schema 语义、恢复校验和操作状态。
 
-它还不包含网络化 client/server runtime。
+这个 crate 按设计保持 host-neutral。网络化 client/server runtime API 位于 `nnrp-runtime`，
+并消费这些 core 类型，而不是重新定义协议行为。
 
 ## Cargo.toml
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3.1"
+nnrp-core = "1.0.0-preview.3.8"
 ```
 
 ## 已实现的 Preview3 表面
@@ -28,7 +29,8 @@ nnrp-core = "1.0.0-preview.3.1"
 
 `nnrp-core` 是 host-neutral 层。它校验协议行为并暴露可复用状态机原语，但不打开 socket、不启动 async task、不 accept client，也不运行 submit/result stream。
 
-可直接使用的 Rust `NnrpClient` / `NnrpServer` API 由 runtime shard 跟踪，应该消费这些 core 类型，而不是重新定义协议行为。
+可直接使用的 Rust `NnrpClient` / `NnrpServer` API 位于 runtime shard，并消费这些 core 类型，
+而不是重新定义协议行为。
 
 ## 常见坑点
 

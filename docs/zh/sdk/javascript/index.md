@@ -32,7 +32,7 @@ Transport 包负责自己的 transport 行为与所需产物。
 
 ## 当前包状态
 
-当前发布的 preview 包版本为 `1.0.0-preview.3.3`，npm 上同时指向 `latest` 和 `preview`。 TCP 与 QUIC
+当前发布的 preview 包版本为 `1.0.0-preview.3.4`，npm 上同时指向 `latest` 和 `preview`。 TCP 与 QUIC
 tarball 包含所有支持平台的 `.dll`、`.so`、`.dylib`、manifest 与 WASM 文件；browser/edge
 部署在宿主提供对应网络能力时也可以启用这些 provider。WebSocket 仍然是不依赖 Rust WebSocket artifact
 的小型包。

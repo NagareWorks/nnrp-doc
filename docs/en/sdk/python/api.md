@@ -20,12 +20,12 @@ pages are reference material linked from method parameter tables.
 |---|---|
 | Distribution | `nnrp-py` |
 | Import package | `nnrp` |
-| Current preview package | `1.0.0rc3` |
+| Current preview package | `1.0.0rc3.post4` |
 | Min Python | `3.11` |
 | Runtime deps | `aioquic >= 1.2.0`, `cffi >= 2.0.0` |
 
 ```bash
-pip install "nnrp-py==1.0.0rc3"
+pip install --pre "nnrp-py==1.0.0rc3.post4"
 ```
 
 ## Native Runtime Facades

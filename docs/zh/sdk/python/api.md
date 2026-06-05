@@ -19,12 +19,12 @@ Python SDK（`nnrp-py`）的公开 API 分为协议基础类型、客户端/服�
 |---|---|
 | Distribution | `nnrp-py` |
 | 导入包名 | `nnrp` |
-| 当前预览包 | `1.0.0rc3` |
+| 当前预览包 | `1.0.0rc3.post4` |
 | 最低 Python | `3.11` |
 | 运行时依赖 | `aioquic >= 1.2.0`、`cffi >= 2.0.0` |
 
 ```bash
-pip install "nnrp-py==1.0.0rc3"
+pip install --pre "nnrp-py==1.0.0rc3.post4"
 ```
 
 ## Native Runtime Facade

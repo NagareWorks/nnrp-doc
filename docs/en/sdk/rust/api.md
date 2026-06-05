@@ -19,21 +19,21 @@ WASM pages are reference material for linked parameter and packaging details.
 | Property | Value |
 |---|---|
 | Workspace | `nnrp-rs` |
-| Version | `1.0.0-preview.3.1` |
+| Version | `1.0.0-preview.3.8` |
 | Min Rust | `1.82` |
 | Runtime deps | `tokio = "1"`, `async-trait = "0.1"` |
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3.1"
-nnrp-runtime = "1.0.0-preview.3.1"
-nnrp-transport-provider = "1.0.0-preview.3.1"
-nnrp-transport-tcp = "1.0.0-preview.3.1"
-nnrp-transport-quic = "1.0.0-preview.3.1"
-nnrp-wasm = "1.0.0-preview.3.1"
+nnrp-core = "1.0.0-preview.3.8"
+nnrp-runtime = "1.0.0-preview.3.8"
+nnrp-transport-provider = "1.0.0-preview.3.8"
+nnrp-transport-tcp = "1.0.0-preview.3.8"
+nnrp-transport-quic = "1.0.0-preview.3.8"
+nnrp-wasm = "1.0.0-preview.3.8"
 
 # FFI integration (C#/Python/Unity callers)
-nnrp-ffi = "1.0.0-preview.3.1"
+nnrp-ffi = "1.0.0-preview.3.8"
 ```
 
 ## Build Targets

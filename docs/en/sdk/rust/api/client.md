@@ -8,9 +8,9 @@ metadata types are linked to [Core Types](./core).
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3.1"
-nnrp-runtime = "1.0.0-preview.3.1"
-nnrp-transport-quic = "1.0.0-preview.3.1"
+nnrp-core = "1.0.0-preview.3.8"
+nnrp-runtime = "1.0.0-preview.3.8"
+nnrp-transport-quic = "1.0.0-preview.3.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 

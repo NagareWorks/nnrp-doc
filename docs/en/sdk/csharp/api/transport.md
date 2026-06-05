@@ -1,17 +1,18 @@
 # C# — Transport API
 
-Transport APIs live in `Nnrp.Core`, `Nnrp.Transport.Tcp`, and `Nnrp.NativeBridge`. Application code
-usually picks one of two paths:
+Transport APIs live in `Nnrp.Core`, `Nnrp.Transport.Tcp`, `Nnrp.Transport.Quic`, and
+`Nnrp.NativeBridge`. Application code usually picks one of two paths:
 
 1. Use `NnrpTcpMessageTransport` directly when the app already knows it wants TCP.
-2. Use `NnrpAutoTransportClient` from the native bridge when the app wants QUIC/TCP probing and
-   fallback.
+2. Use `NnrpAutoTransportClient` from the native bridge when the app wants QUIC/TCP probing,
+   scoring, and fallback.
 
 ## Imports
 
 ```csharp
 using Nnrp.Core;
 using Nnrp.Transport.Tcp;
+using Nnrp.Transport.Quic;
 using Nnrp.NativeBridge;
 ```
 
@@ -116,5 +117,5 @@ Combines `INnrpMessageSender` and `INnrpMessageReceiver`.
 1. `NnrpTcpMessageTransport` uses NNRP header lengths for framing; do not add an extra length prefix.
 2. `SendAsync` and `ReceiveAsync` have separate internal gates, but application-level request ordering is still your responsibility.
 3. Dispose transports with `await using` or `DisposeAsync`.
-4. Use the native bridge path for QUIC/TCP auto-selection instead of hand-writing probe orchestration in application code.
+4. Use the native bridge path for QUIC/TCP scoring and selection instead of hand-writing probe orchestration in application code.
 :::

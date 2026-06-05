@@ -2,13 +2,14 @@
 
 The `nnrp-core` crate is the canonical Rust source for Preview3 protocol semantics. It contains wire codecs, fixed-layout metadata, enum/error baselines, lifecycle state machines, flow-control validation, cache/schema semantics, recovery validation, and operation state.
 
-It does not contain the networked client/server runtime yet.
+The crate stays host-neutral by design. Networked client/server runtime APIs live in
+`nnrp-runtime` and consume these core types instead of redefining protocol behavior.
 
 ## Dependency
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3.1"
+nnrp-core = "1.0.0-preview.3.8"
 ```
 
 ## Implemented Preview3 Surface
@@ -28,7 +29,8 @@ nnrp-core = "1.0.0-preview.3.1"
 
 `nnrp-core` is host-neutral. It validates protocol behavior and exposes reusable state-machine primitives, but it does not open sockets, spawn async tasks, accept clients, or run a submit/result stream.
 
-The usable Rust `NnrpClient` / `NnrpServer` APIs are tracked by the Rust runtime shard and should consume these core types rather than redefining protocol behavior.
+The usable Rust `NnrpClient` / `NnrpServer` APIs live in the Rust runtime shard and consume these
+core types rather than redefining protocol behavior.
 
 ## Common Pitfalls
 

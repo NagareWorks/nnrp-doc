@@ -1,14 +1,29 @@
 # JavaScript/TypeScript Quick Start
 
-## Install From npm
+## Install Packages
 
-For a Node.js or Deno backend client using automatic TCP/QUIC probing:
+The SDK is developed with Deno, but the published packages are standard npm ESM packages with
+`.d.ts` declarations and remain Node.js-compatible.
+
+For a Deno backend client using automatic TCP/QUIC probing:
+
+```bash
+deno add npm:@nnrp/native-client npm:@nnrp/transport-tcp npm:@nnrp/transport-quic
+```
+
+For a Node.js backend client:
 
 ```bash
 npm install @nnrp/native-client @nnrp/transport-tcp @nnrp/transport-quic
 ```
 
-For a backend server:
+For a Deno backend server:
+
+```bash
+deno add npm:@nnrp/native-server npm:@nnrp/transport-tcp npm:@nnrp/transport-quic
+```
+
+For a Node.js backend server:
 
 ```bash
 npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic
@@ -29,7 +44,8 @@ npm install @nnrp/browser-client @nnrp/transport-tcp @nnrp/transport-quic @nnrp/
 To pin the current preview exactly:
 
 ```bash
-npm install @nnrp/native-client@1.0.0-preview.3.3 @nnrp/transport-tcp@1.0.0-preview.3.3 @nnrp/transport-quic@1.0.0-preview.3.3
+deno add npm:@nnrp/native-client@1.0.0-preview.3.4 npm:@nnrp/transport-tcp@1.0.0-preview.3.4 npm:@nnrp/transport-quic@1.0.0-preview.3.4
+npm install @nnrp/native-client@1.0.0-preview.3.4 @nnrp/transport-tcp@1.0.0-preview.3.4 @nnrp/transport-quic@1.0.0-preview.3.4
 ```
 
 ## Backend Native Client

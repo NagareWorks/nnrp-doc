@@ -35,7 +35,7 @@ transport.
 
 ## Current Package State
 
-The published preview packages are available on npm as `1.0.0-preview.3.3` and are also tagged as
+The published preview packages are available on npm as `1.0.0-preview.3.4` and are also tagged as
 `latest` and `preview`. TCP and QUIC package tarballs include all supported `.dll`, `.so`, `.dylib`,
 manifest, and WASM files, so browser/edge deployments can use those providers when their host
 exposes the required network capability. WebSocket remains a small package that does not depend on a

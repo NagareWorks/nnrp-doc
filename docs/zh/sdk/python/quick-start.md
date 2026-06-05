@@ -11,25 +11,25 @@
 
 发布到包仓库的 distribution 名称是 `nnrp-py`。
 
-NNRP 文档按最终稳定线 `1.0.0` 组织。预览开发阶段，安装命令应使用当前已经验证过的预览包；当前公开 Python 预览包是 `1.0.0rc3`。
+NNRP 文档按最终稳定线 `1.0.0` 组织。预览开发阶段，安装命令应使用当前已经验证过的预览包；当前公开 Python 预览包是 `1.0.0rc3.post4`。
 
 使用 `uv`：
 
 ```bash
-uv add nnrp-py
+uv add --prerelease allow nnrp-py
 ```
 
 使用 `pip`：
 
 ```bash
-pip install nnrp-py
+pip install --pre nnrp-py
 ```
 
 如果要显式锁定到一个已经验证过的公开版本，可以直接带版本号安装：
 
 ```bash
-uv add "nnrp-py==1.0.0rc3"
-pip install "nnrp-py==1.0.0rc3"
+uv add --prerelease allow "nnrp-py==1.0.0rc3.post4"
+pip install --pre "nnrp-py==1.0.0rc3.post4"
 ```
 
 ## 安装校验

@@ -7,27 +7,27 @@ The Preview3 Rust runtime can complete a minimal client/server session over TCP 
 For a Rust client/server application using the runtime plus TCP transport:
 
 ```bash
-cargo add nnrp-core@1.0.0-preview.3.1 nnrp-runtime@1.0.0-preview.3.1 nnrp-transport-tcp@1.0.0-preview.3.1
+cargo add nnrp-core@1.0.0-preview.3.8 nnrp-runtime@1.0.0-preview.3.8 nnrp-transport-tcp@1.0.0-preview.3.8
 cargo add tokio --features macros,rt-multi-thread,net,io-util,time
 ```
 
 Add QUIC, FFI, or WASM primitives only when your application needs them:
 
 ```bash
-cargo add nnrp-transport-quic@1.0.0-preview.3.1
-cargo add nnrp-transport-provider@1.0.0-preview.3.1
-cargo add nnrp-ffi@1.0.0-preview.3.1
-cargo add nnrp-wasm@1.0.0-preview.3.1
+cargo add nnrp-transport-quic@1.0.0-preview.3.8
+cargo add nnrp-transport-provider@1.0.0-preview.3.8
+cargo add nnrp-ffi@1.0.0-preview.3.8
+cargo add nnrp-wasm@1.0.0-preview.3.8
 ```
 
 Equivalent `Cargo.toml` form:
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3.1"
-nnrp-runtime = "1.0.0-preview.3.1"
-nnrp-transport-tcp = "1.0.0-preview.3.1"
-nnrp-transport-quic = "1.0.0-preview.3.1"
+nnrp-core = "1.0.0-preview.3.8"
+nnrp-runtime = "1.0.0-preview.3.8"
+nnrp-transport-tcp = "1.0.0-preview.3.8"
+nnrp-transport-quic = "1.0.0-preview.3.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 

@@ -1,14 +1,28 @@
 # JavaScript/TypeScript 快速使用
 
-## 从 npm 安装
+## 安装包
 
-Node.js 或 Deno 后端 client，允许 TCP/QUIC 自动探测：
+SDK 使用 Deno 作为开发工具链，但发布物是标准 npm ESM 包，并带 `.d.ts` 声明，保持 Node.js 兼容。
+
+Deno 后端 client，允许 TCP/QUIC 自动探测：
+
+```bash
+deno add npm:@nnrp/native-client npm:@nnrp/transport-tcp npm:@nnrp/transport-quic
+```
+
+Node.js 后端 client：
 
 ```bash
 npm install @nnrp/native-client @nnrp/transport-tcp @nnrp/transport-quic
 ```
 
-后端 server：
+Deno 后端 server：
+
+```bash
+deno add npm:@nnrp/native-server npm:@nnrp/transport-tcp npm:@nnrp/transport-quic
+```
+
+Node.js 后端 server：
 
 ```bash
 npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic
@@ -29,7 +43,8 @@ npm install @nnrp/browser-client @nnrp/transport-tcp @nnrp/transport-quic @nnrp/
 如果要精确固定当前 preview：
 
 ```bash
-npm install @nnrp/native-client@1.0.0-preview.3.3 @nnrp/transport-tcp@1.0.0-preview.3.3 @nnrp/transport-quic@1.0.0-preview.3.3
+deno add npm:@nnrp/native-client@1.0.0-preview.3.4 npm:@nnrp/transport-tcp@1.0.0-preview.3.4 npm:@nnrp/transport-quic@1.0.0-preview.3.4
+npm install @nnrp/native-client@1.0.0-preview.3.4 @nnrp/transport-tcp@1.0.0-preview.3.4 @nnrp/transport-quic@1.0.0-preview.3.4
 ```
 
 ## Backend Native Client

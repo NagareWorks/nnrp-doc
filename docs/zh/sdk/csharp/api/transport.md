@@ -1,15 +1,17 @@
 # C# — Transport API
 
-Transport API 分布在 `Nnrp.Core`、`Nnrp.Transport.Tcp` 和 `Nnrp.NativeBridge`。应用通常有两条路：
+Transport API 分布在 `Nnrp.Core`、`Nnrp.Transport.Tcp`、`Nnrp.Transport.Quic` 和
+`Nnrp.NativeBridge`。应用通常有两条路：
 
 1. 明确使用 TCP 时，直接用 `NnrpTcpMessageTransport`。
-2. 需要 QUIC/TCP 探测和 fallback 时，用 native bridge 的 `NnrpAutoTransportClient`。
+2. 需要 QUIC/TCP 探测、评分和 fallback 时，用 native bridge 的 `NnrpAutoTransportClient`。
 
 ## 导入
 
 ```csharp
 using Nnrp.Core;
 using Nnrp.Transport.Tcp;
+using Nnrp.Transport.Quic;
 using Nnrp.NativeBridge;
 ```
 
@@ -105,5 +107,5 @@ Native bridge client 会探测 QUIC 和 TCP，并根据 `ClientProfile` 选择 t
 1. `NnrpTcpMessageTransport` 使用 NNRP header length 做 framing，不要再加一层 length prefix。
 2. 发送和接收各自有 gate，但请求顺序仍然由应用层负责。
 3. transport 要用 `await using` 或 `DisposeAsync` 释放。
-4. QUIC/TCP 自动选择优先用 native bridge，不要在业务代码里手写 probe orchestration。
+4. QUIC/TCP 评分与选择优先用 native bridge，不要在业务代码里手写 probe orchestration。
 :::

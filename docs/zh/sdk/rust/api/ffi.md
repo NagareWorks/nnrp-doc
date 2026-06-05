@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-nnrp-ffi = "1.0.0-preview.3.1"
+nnrp-ffi = "1.0.0-preview.3.8"
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]

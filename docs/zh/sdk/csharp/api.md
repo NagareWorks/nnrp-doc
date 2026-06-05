@@ -18,12 +18,14 @@
 
 | 属性 | 值 |
 |---|---|
-| 包 | `Nnrp.Core`、`Nnrp.Client`、`Nnrp.Server`、`Nnrp.Transport.Tcp`、`Nnrp.NativeBridge` |
-| 版本目标 | `1.0.0` |
+| 包 | `Nnrp.Core`、`Nnrp.Client`、`Nnrp.Server`、`Nnrp.NativeBridge`、`Nnrp.Transport.Tcp`、`Nnrp.Transport.Quic` |
+| 版本目标 | Preview3 包线（`1.0.0-preview.3.*`） |
 | 目标框架 | `netstandard2.1` |
 
-```xml
-<PackageReference Include="Nnrp.Core" Version="1.0.0" />
+```powershell
+dotnet add package Nnrp.NativeBridge --prerelease
+dotnet add package Nnrp.Transport.Tcp --prerelease
+dotnet add package Nnrp.Transport.Quic --prerelease
 ```
 
 ## 文档格式

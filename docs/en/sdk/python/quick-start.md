@@ -13,25 +13,25 @@ The published distribution name is `nnrp-py`.
 
 NNRP is documented against the intended stable `1.0.0` API line. During preview
 development, install snippets should use the current verified preview package. The current
-public Python preview package is `1.0.0rc3`.
+public Python preview package is `1.0.0rc3.post4`.
 
 Using `uv`:
 
 ```bash
-uv add nnrp-py
+uv add --prerelease allow nnrp-py
 ```
 
 Using `pip`:
 
 ```bash
-pip install nnrp-py
+pip install --pre nnrp-py
 ```
 
 If you want to lock to one verified public release explicitly, pin the version:
 
 ```bash
-uv add "nnrp-py==1.0.0rc3"
-pip install "nnrp-py==1.0.0rc3"
+uv add --prerelease allow "nnrp-py==1.0.0rc3.post4"
+pip install --pre "nnrp-py==1.0.0rc3.post4"
 ```
 
 ## Verify The Installation

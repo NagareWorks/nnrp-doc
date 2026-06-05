@@ -18,21 +18,21 @@ Rust SDK（`nnrp-rs`）工作区包含协议核心、runtime、transport provide
 | 属性 | 值 |
 |---|---|
 | 工作区 | `nnrp-rs` |
-| 版本 | `1.0.0-preview.3.1` |
+| 版本 | `1.0.0-preview.3.8` |
 | 最低 Rust | `1.82` |
 | Runtime 依赖 | `tokio = "1"`、`async-trait = "0.1"` |
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3.1"
-nnrp-runtime = "1.0.0-preview.3.1"
-nnrp-transport-provider = "1.0.0-preview.3.1"
-nnrp-transport-tcp = "1.0.0-preview.3.1"
-nnrp-transport-quic = "1.0.0-preview.3.1"
-nnrp-wasm = "1.0.0-preview.3.1"
+nnrp-core = "1.0.0-preview.3.8"
+nnrp-runtime = "1.0.0-preview.3.8"
+nnrp-transport-provider = "1.0.0-preview.3.8"
+nnrp-transport-tcp = "1.0.0-preview.3.8"
+nnrp-transport-quic = "1.0.0-preview.3.8"
+nnrp-wasm = "1.0.0-preview.3.8"
 
 # FFI 集成（C#/Python/Unity 调用）
-nnrp-ffi = "1.0.0-preview.3.1"
+nnrp-ffi = "1.0.0-preview.3.8"
 ```
 
 ## 构建目标

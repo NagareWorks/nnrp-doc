@@ -19,12 +19,14 @@ reference material for parameters linked from those entrypoint pages.
 
 | Property | Value |
 |---|---|
-| Packages | `Nnrp.Core`, `Nnrp.Client`, `Nnrp.Server`, `Nnrp.Transport.Tcp`, `Nnrp.NativeBridge` |
-| Version target | `1.0.0` |
+| Packages | `Nnrp.Core`, `Nnrp.Client`, `Nnrp.Server`, `Nnrp.NativeBridge`, `Nnrp.Transport.Tcp`, `Nnrp.Transport.Quic` |
+| Version target | Preview3 train (`1.0.0-preview.3.*`) |
 | Target framework | `netstandard2.1` |
 
-```xml
-<PackageReference Include="Nnrp.Core" Version="1.0.0" />
+```powershell
+dotnet add package Nnrp.NativeBridge --prerelease
+dotnet add package Nnrp.Transport.Tcp --prerelease
+dotnet add package Nnrp.Transport.Quic --prerelease
 ```
 
 ## Documentation Pattern
