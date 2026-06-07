@@ -332,7 +332,7 @@ profile = ServerProfile()
 
 async def accept_loop(listener):
     while True:
-        session = await accept_server_session(listener, profile)
+        session = await accept_server_session(listener, server_profile=profile)
         asyncio.create_task(handle_session(session))
 
 async def main():

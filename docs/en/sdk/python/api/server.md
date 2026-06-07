@@ -9,7 +9,9 @@ send results or drops, then close. Message and packet pages remain the low-level
 from nnrp.server import (
     ServerProfile,
     ServerSession,
+    ServerSessionAcceptResolution,
     ReceivedSubmit,
+    accept_server_connection,
     accept_server_session,
 )
 ```
@@ -18,7 +20,9 @@ from nnrp.server import (
 
 1. Create a [`ServerProfile`](#serverprofile).
 2. Open a listener with a transport adapter, such as `serve_tcp` or `serve_quic`.
-3. Call [`accept_server_session`](#accept-server-session) for each accepted connection.
+3. Call [`accept_server_session`](#accept-server-session) for each listener, or
+   [`accept_server_connection`](#accept-server-connection) when a runtime already accepted the
+   connection or prefetched the first control packet.
 4. Loop on [`ServerSession.receive_submit`](#serversession-receive-submit).
 5. Send one response per frame with [`send_result`](#serversession-send-result) or
    [`send_result_drop`](#serversession-send-result-drop).
@@ -31,11 +35,12 @@ Accepts a connection, validates `CLIENT_HELLO`, sends `SERVER_HELLO_ACK`, and re
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
-| `listener_or_connection` | `ServerListener \| ServerConnection` | Yes | Open transport | Listener or accepted connection from a transport adapter. |
-| `profile` | [`ServerProfile`](#serverprofile) | Yes | Mutable config object | Server capabilities and limits. |
-| `model_name` | `str` | No | Defaults to `""` | Active model name returned in the handshake. |
-| `extra_extensions` | `tuple[ControlExtensionEntry, ...]` | No | Defaults to empty | Extra control extensions attached to `SERVER_HELLO_ACK`. |
-| `auth_validator` | `Callable[[bytes], bool] \| None` | No | Synchronous predicate | Rejects connections when it returns `False`. |
+| `listener` | `ServerListener` | Yes | Open listener | QUIC/TCP listener. |
+| `session_id` | `int \| None` | No | Defaults to the requested id | Server-assigned or overridden session id. |
+| `active_model_name` | `str` | No | Defaults to `""` | Retained on `ServerSession.active_model_name`; not written into the `SERVER_HELLO_ACK` body. |
+| `server_profile` | [`ServerProfile`](#serverprofile) | No | Defaults to `ServerProfile()` | Server capabilities and limits. |
+| `timeout` | `float` | No | Seconds, default `10.0` | Accept and handshake receive timeout. |
+| `session_resolver` | `Callable[[ClientHelloContext], ServerSessionAcceptResolution \| Awaitable[...]] \| None` | No | Defaults to `None` | Resolves the final `session_id` and `active_model_name` after parsing `CLIENT_HELLO`. |
 
 | Returns | Raises |
 |---|---|
@@ -44,9 +49,47 @@ Accepts a connection, validates `CLIENT_HELLO`, sends `SERVER_HELLO_ACK`, and re
 ```python
 session = await accept_server_session(
     listener,
-    ServerProfile(max_concurrent_frames=4),
-    model_name="render-v1",
-    auth_validator=validate_token,
+    server_profile=ServerProfile(max_concurrent_frames=4),
+    active_model_name="render-v1",
+)
+```
+
+## `accept_server_connection`
+
+Runs the server-side handshake on an already accepted transport connection. Use this entrypoint when
+a runtime owns the accept loop, handles `TRANSPORT_PROBE` first, or has already prefetched the first
+control packet.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `connection` | `ServerConnection` | Yes | Accepted connection | QUIC/TCP connection. |
+| `first_packet` | `NnrpPacket \| None` | No | Defaults to `None` | Prefetched `CLIENT_HELLO`; when omitted the SDK reads it. |
+| `session_id` | `int \| None` | No | Defaults to the requested id | Used when `session_resolver` is not provided. |
+| `active_model_name` | `str` | No | Defaults to `""` | Application-visible model name retained on `ServerSession`. |
+| `server_profile` | [`ServerProfile`](#serverprofile) | No | Defaults to `ServerProfile()` | Server capabilities and limits. |
+| `timeout` | `float` | No | Seconds, default `10.0` | Handshake receive timeout. |
+| `session_resolver` | `Callable[[ClientHelloContext], ServerSessionAcceptResolution \| Awaitable[...]] \| None` | No | Defaults to `None` | Resolves the server session from the parsed `CLIENT_HELLO`. |
+
+Both `accept_server_connection` and `accept_server_session` construct `SERVER_HELLO_ACK` inside the
+SDK. The Preview3 SDK writes a `control_extension_block` into the ACK body, including at least the
+transport policy ack extension that declares `active_transport_id`. `control_extension_bytes` must
+match the ACK body length; application model names, runtime session ids, or other business state
+must not be encoded into the ACK body.
+
+```python
+def resolve_session(hello):
+    requested_model = hello.auth_block.decode("utf-8") if hello.auth_block else ""
+    opened = open_runtime_session(requested_model)
+    return ServerSessionAcceptResolution(
+        session_id=opened.wire_session_id,
+        active_model_name=opened.active_model_name,
+    )
+
+session = await accept_server_connection(
+    connection,
+    first_packet=client_hello_packet,
+    server_profile=ServerProfile(max_concurrent_frames=4),
+    session_resolver=resolve_session,
 )
 ```
 
@@ -185,6 +228,15 @@ Handshake context retained on the server session.
 | `auth_block` | `bytes` | Application-defined auth payload. |
 | `control_extensions` | `tuple[ControlExtensionEntry, ...]` | Handshake extensions. |
 
+### `ServerSessionAcceptResolution`
+
+Return value for `session_resolver`.
+
+| Field | Type | Description |
+|---|---|---|
+| `session_id` | `int` | Final wire session id accepted by the server. |
+| `active_model_name` | `str` | Application-visible active model name; it is not encoded into the ACK body. |
+
 ## Example
 
 ```python
@@ -208,5 +260,6 @@ async def handle_session(session: ServerSession) -> None:
 1. Do not run blocking inference inside the receive coroutine; use an executor or worker pool.
 2. Every accepted frame needs a result or a drop. Silent drops leave clients waiting.
 3. `ServerProfile.max_concurrent_frames` is a protocol limit, not a full application scheduler.
-4. `auth_validator` is synchronous; do not perform database or network I/O inside it.
+4. Runtime integrations should not construct `SERVER_HELLO_ACK` manually; use
+   `accept_server_connection(first_packet=...)` when the first packet has already been read.
 :::

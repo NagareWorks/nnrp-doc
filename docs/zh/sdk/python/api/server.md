@@ -8,7 +8,9 @@ Server 文档按使用路径组织：接受 session、接收提交、发送结�
 from nnrp.server import (
     ServerProfile,
     ServerSession,
+    ServerSessionAcceptResolution,
     ReceivedSubmit,
+    accept_server_connection,
     accept_server_session,
 )
 ```
@@ -17,7 +19,7 @@ from nnrp.server import (
 
 1. 构造 [`ServerProfile`](#serverprofile)。
 2. 用 `serve_tcp` 或 `serve_quic` 打开 listener。
-3. 对每个连接调用 [`accept_server_session`](#accept-server-session)。
+3. 对每个 listener 调用 [`accept_server_session`](#accept-server-session)，或在已经预读首包、已经接受 connection 的 runtime 中调用 [`accept_server_connection`](#accept-server-connection)。
 4. 循环调用 [`ServerSession.receive_submit`](#serversession-receive-submit)。
 5. 用 [`send_result`](#serversession-send-result) 或 [`send_result_drop`](#serversession-send-result-drop) 回答每一帧。
 6. 对端断开或应用拒绝继续处理时关闭 session。
@@ -28,11 +30,12 @@ from nnrp.server import (
 
 | 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
 |---|---|---:|---|---|
-| `listener_or_connection` | `ServerListener \| ServerConnection` | 是 | 已打开 transport | listener 或已接受连接。 |
-| `profile` | [`ServerProfile`](#serverprofile) | 是 | 配置对象 | 服务端 capability 和限制。 |
-| `model_name` | `str` | 否 | 默认 `""` | 握手返回的模型名。 |
-| `extra_extensions` | `tuple[ControlExtensionEntry, ...]` | 否 | 默认空 | 额外控制扩展。 |
-| `auth_validator` | `Callable[[bytes], bool] \| None` | 否 | 同步 predicate | 返回 `False` 时拒绝连接。 |
+| `listener` | `ServerListener` | 是 | 已打开 listener | QUIC/TCP listener。 |
+| `session_id` | `int \| None` | 否 | 默认客户端请求值 | 服务端分配或覆盖的 session id。 |
+| `active_model_name` | `str` | 否 | 默认 `""` | SDK 保留在 `ServerSession.active_model_name`，不写入 `SERVER_HELLO_ACK` body。 |
+| `server_profile` | [`ServerProfile`](#serverprofile) | 否 | 默认 `ServerProfile()` | 服务端 capability 和限制。 |
+| `timeout` | `float` | 否 | 秒，默认 `10.0` | accept 与握手读取超时。 |
+| `session_resolver` | `Callable[[ClientHelloContext], ServerSessionAcceptResolution \| Awaitable[...]] \| None` | 否 | 默认 `None` | 在解析 `CLIENT_HELLO` 后决定实际 `session_id` 和 `active_model_name`。 |
 
 | 返回 | 可能抛出 |
 |---|---|
@@ -41,9 +44,45 @@ from nnrp.server import (
 ```python
 session = await accept_server_session(
     listener,
-    ServerProfile(max_concurrent_frames=4),
-    model_name="render-v1",
-    auth_validator=validate_token,
+    server_profile=ServerProfile(max_concurrent_frames=4),
+    active_model_name="render-v1",
+)
+```
+
+## `accept_server_connection`
+
+对已经接受的 transport connection 执行服务端握手。这个入口用于 runtime 已经拿到
+connection，或者为了 `TRANSPORT_PROBE` / 自定义探测流程已经预读了首个 control packet 的场景。
+
+| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
+|---|---|---:|---|---|
+| `connection` | `ServerConnection` | 是 | 已接受连接 | QUIC/TCP connection。 |
+| `first_packet` | `NnrpPacket \| None` | 否 | 默认 `None` | 已预读的 `CLIENT_HELLO`；为空时 SDK 自行读取。 |
+| `session_id` | `int \| None` | 否 | 默认客户端请求值 | 未提供 `session_resolver` 时使用。 |
+| `active_model_name` | `str` | 否 | 默认 `""` | 返回在 `ServerSession` 上供应用观察。 |
+| `server_profile` | [`ServerProfile`](#serverprofile) | 否 | 默认 `ServerProfile()` | 服务端 capability 和限制。 |
+| `timeout` | `float` | 否 | 秒，默认 `10.0` | 读取握手包超时。 |
+| `session_resolver` | `Callable[[ClientHelloContext], ServerSessionAcceptResolution \| Awaitable[...]] \| None` | 否 | 默认 `None` | 根据已解析 `CLIENT_HELLO` 决定服务端 session。 |
+
+`accept_server_connection` 和 `accept_server_session` 都由 SDK 统一构造 `SERVER_HELLO_ACK`。
+Preview3 SDK 会在 ACK body 中写入 `control_extension_block`，至少包含 transport policy ack
+扩展，用来声明 `active_transport_id`。`control_extension_bytes` 必须等于 ACK body 长度；
+应用层模型名、业务 session id 映射等信息不得塞进 ACK body。
+
+```python
+def resolve_session(hello):
+    requested_model = hello.auth_block.decode("utf-8") if hello.auth_block else ""
+    opened = open_runtime_session(requested_model)
+    return ServerSessionAcceptResolution(
+        session_id=opened.wire_session_id,
+        active_model_name=opened.active_model_name,
+    )
+
+session = await accept_server_connection(
+    connection,
+    first_packet=client_hello_packet,
+    server_profile=ServerProfile(max_concurrent_frames=4),
+    session_resolver=resolve_session,
 )
 ```
 
@@ -129,6 +168,26 @@ await session.send_result_drop(frame_id=received.metadata.frame_id)
 | `request` | [`SubmitRequest`](./client#submitrequest) | 结构化提交请求。 |
 | `tensor_body` | `TensorBodyView \| None` | 存在 tensor payload 时的 body view。 |
 
+### `ClientHelloContext`
+
+服务端握手解析结果，保存在 `ServerSession.hello`，也会传给 `session_resolver`。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `packet` | [`NnrpPacket`](./packet#nnrppacket) | 原始 `CLIENT_HELLO`。 |
+| `metadata` | `ClientHelloMetadata` | 解析后的握手 metadata。 |
+| `auth_block` | `bytes` | 应用定义的认证或模型请求载荷。 |
+| `control_extensions` | `tuple[ControlExtensionEntry, ...]` | 已解析握手扩展。 |
+
+### `ServerSessionAcceptResolution`
+
+`session_resolver` 的返回值。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `session_id` | `int` | 服务端最终接受的 wire session id。 |
+| `active_model_name` | `str` | 应用可观测的活动模型名，不进入 ACK body。 |
+
 ## 示例
 
 ```python
@@ -152,5 +211,5 @@ async def handle_session(session: ServerSession) -> None:
 1. 不要在 receive coroutine 里直接跑阻塞推理；用 executor 或 worker pool。
 2. 每个已接受 frame 都需要 result 或 drop。
 3. `max_concurrent_frames` 是协议限制，不是完整调度器。
-4. `auth_validator` 是同步函数，不要在里面做数据库或网络 I/O。
+4. Runtime 不要手工构造 `SERVER_HELLO_ACK`；需要预读首包时使用 `accept_server_connection(first_packet=...)`。
 :::

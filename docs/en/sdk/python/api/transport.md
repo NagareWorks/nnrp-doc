@@ -249,7 +249,7 @@ from nnrp.server import ServerProfile, accept_server_session
 
 async def accept_loop(listener):
     while True:
-        session = await accept_server_session(listener, ServerProfile())
+        session = await accept_server_session(listener, server_profile=ServerProfile())
         asyncio.create_task(handle_session(session))
 
 async def main():
