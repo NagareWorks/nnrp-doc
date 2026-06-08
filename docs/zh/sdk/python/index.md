@@ -13,7 +13,7 @@
 | TCP 传输适配器 | 可用 |
 | QUIC 传输适配器 | 通过 `aioquic` 可用 |
 | 缓存、schema、恢复、诊断与 session lifecycle helper | 通过 native runtime 支撑的 Python facade 可用 |
-| Conformance adapter 命令 | `python -m nnrp.tools.adapter_conformance` |
+| 一致性测试 adapter 命令 | `python -m nnrp.tools.adapter_conformance` |
 | Benchmark 命令 | `python -m nnrp.tools.benchmark` 或 `nnrp-run-benchmark` |
 
 ## 运行时要求

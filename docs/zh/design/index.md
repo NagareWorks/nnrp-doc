@@ -24,5 +24,5 @@
 6. `vllm-nnrp-adapter` 记录首个 vLLM adapter 架构，包括 `openai-compatible/1` Profile
    的实现边界、API Profile conformance 和 benchmark gate；它的定位是 NNRP compatibility
    infrastructure，而不是 vLLM 性能加速器。
-7. `v1-preview4` 记录 runtime object、控制帧与 wire-level conformance 方向，面向调度、部分
+7. `v1-preview4` 记录 runtime object、控制帧与线路级一致性测试方向，面向调度、部分
    artifact、deadline 和重对象传递占主导的协议边界。

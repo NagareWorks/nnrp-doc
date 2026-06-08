@@ -4,7 +4,7 @@
 本页面向维护 conformance 套件的工程师。SDK 作者通常应先阅读 <a href="./sdk-integration">SDK 集成指南</a>。
 </div>
 
-Conformance 套件由一组带 JSON Schema 的机器可读文档构成，schema 位于 `nnrp-conformance/schemas/`
+一致性测试套件由一组带 JSON Schema 的机器可读文档构成，schema 位于 `nnrp-conformance/schemas/`
 目录。人工维护的文件应保持可读、参数化；字节级产物应由工具生成，而不是手写维护。
 
 ## 文档类型
@@ -16,7 +16,7 @@ Conformance 套件由一组带 JSON Schema 的机器可读文档构成，schema 
 | Capability manifest             | `capability-manifest.schema.json`        | SDK           | 声明实现名、目标协议版本线和支持能力 token。                      |
 | Semantic vector recipes         | `semantic-vector-recipes.schema.json`    | Suite         | Canonical vector 的人可读来源。                                   |
 | Generated vector manifest       | `vector-manifest.schema.json`            | Suite tooling | SDK 测试消费的已生成字节产物。                                    |
-| Conformance report              | `report.schema.json`                     | Runner        | 针对某份 capability manifest 的 case 选择报告。                   |
+| 一致性测试报告                  | `report.schema.json`                     | Runner        | 针对某份 capability manifest 的 case 选择报告。                   |
 | Adapter execution plan          | `adapter-execution-plan.schema.json`     | Runner/action | 传给 SDK adapter command 的动态行为用例。                         |
 | Adapter case results            | `adapter-case-results.schema.json`       | SDK adapter   | Adapter plan 的机器可读 pass/fail/skip 结果。                     |
 | Benchmark execution plan        | `benchmark-execution-plan.schema.json`   | Runner/action | 传给 SDK benchmark command 的 benchmark 场景。                    |
@@ -135,9 +135,9 @@ nnrp-conformance-runner generate-vectors \
 
 使用 `verify-vectors` 校验生成字节是否保持确定性。
 
-## Capability Manifest
+## 能力声明（Capability Manifest）
 
-Capability manifest 是实现方维护的输入，只包含身份、协议版本和能力 token。
+能力声明是实现方维护的输入，只包含身份、协议版本和能力 token。
 
 ```json
 {
@@ -211,7 +211,7 @@ API profile recipe 是可读的请求与期望文件。它不维护硬编码字�
 }
 ```
 
-## API Profile Capability Manifest
+## API Profile 能力声明
 
 Adapter 提供 API profile capability manifest，用来声明自己支持的 profile level 和 operation
 特性。本站低代码生成器可以从 profile suite manifest 与 recipe 目录生成这种结构。

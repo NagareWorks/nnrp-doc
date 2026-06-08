@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-08T03:32:37.058Z",
+  "generated_at": "2026-06-08T04:07:28.559Z",
   "source": "local nnrp-conformance checkout",
   "presets": [
     {
@@ -424,6 +424,275 @@
           }
         }
       ]
+    },
+    {
+      "version": "nnrp-1-preview4",
+      "title": {
+        "zh": "nnrp-1-preview4",
+        "en": "nnrp-1-preview4"
+      },
+      "note": {
+        "zh": "自动从 nnrp-conformance 的 frozen 基线派生，当前共有 18 个能力 token。",
+        "en": "Derived automatically from the frozen nnrp-conformance baseline. 18 capability tokens are currently exposed."
+      },
+      "recommendedPath": "conformance/nnrp-1-preview4.capabilities.json",
+      "capabilities": [
+        {
+          "token": "control.cancel_abort",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Cancel or abort an operation by id and emit a typed terminal state with trace context.",
+            "en": "Cancel or abort an operation by id and emit a typed terminal state with trace context."
+          },
+          "combination": {
+            "zh": "Also selected with control.result_drop_reason, control.trace_context.",
+            "en": "Also selected with control.result_drop_reason, control.trace_context."
+          }
+        },
+        {
+          "token": "control.result_drop_reason",
+          "layers": "L1",
+          "categories": [
+            "mandatory",
+            "experimental"
+          ],
+          "description": {
+            "zh": "Derived from 3 cases. Cancel or abort an operation by id and emit a typed terminal state with trace context. Apply priority updates and deadline expiry without completing stale work late. Replace an obsolete operation while preserving trace continuity and marking late results droppable.",
+            "en": "Derived from 3 cases. Cancel or abort an operation by id and emit a typed terminal state with trace context. Apply priority updates and deadline expiry without completing stale work late. Replace an obsolete operation while preserving trace continuity and marking late results droppable."
+          },
+          "combination": {
+            "zh": "Appears in multiple combined selections: control.cancel_abort, control.trace_context; control.priority_update, control.deadline_expire; control.supersede.",
+            "en": "Appears in multiple combined selections: control.cancel_abort, control.trace_context; control.priority_update, control.deadline_expire; control.supersede."
+          }
+        },
+        {
+          "token": "control.trace_context",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Cancel or abort an operation by id and emit a typed terminal state with trace context.",
+            "en": "Cancel or abort an operation by id and emit a typed terminal state with trace context."
+          },
+          "combination": {
+            "zh": "Also selected with control.cancel_abort, control.result_drop_reason.",
+            "en": "Also selected with control.cancel_abort, control.result_drop_reason."
+          }
+        },
+        {
+          "token": "control.priority_update",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Apply priority updates and deadline expiry without completing stale work late.",
+            "en": "Apply priority updates and deadline expiry without completing stale work late."
+          },
+          "combination": {
+            "zh": "Also selected with control.deadline_expire, control.result_drop_reason.",
+            "en": "Also selected with control.deadline_expire, control.result_drop_reason."
+          }
+        },
+        {
+          "token": "control.deadline_expire",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Apply priority updates and deadline expiry without completing stale work late.",
+            "en": "Apply priority updates and deadline expiry without completing stale work late."
+          },
+          "combination": {
+            "zh": "Also selected with control.priority_update, control.result_drop_reason.",
+            "en": "Also selected with control.priority_update, control.result_drop_reason."
+          }
+        },
+        {
+          "token": "control.progress_partial",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Emit progress and partial results while respecting credit updates and backpressure.",
+            "en": "Emit progress and partial results while respecting credit updates and backpressure."
+          },
+          "combination": {
+            "zh": "Also selected with control.credit_backpressure.",
+            "en": "Also selected with control.credit_backpressure."
+          }
+        },
+        {
+          "token": "control.credit_backpressure",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Emit progress and partial results while respecting credit updates and backpressure.",
+            "en": "Emit progress and partial results while respecting credit updates and backpressure."
+          },
+          "combination": {
+            "zh": "Also selected with control.progress_partial.",
+            "en": "Also selected with control.progress_partial."
+          }
+        },
+        {
+          "token": "control.capability_costs",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Negotiate capabilities with cost, preference, limit, and downgrade metadata.",
+            "en": "Negotiate capabilities with cost, preference, limit, and downgrade metadata."
+          }
+        },
+        {
+          "token": "object.lifecycle",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Derived from 2 cases. Declare runtime objects, reference them in operations, and release ownership explicitly. Send object patches or deltas without resending the full runtime object.",
+            "en": "Derived from 2 cases. Declare runtime objects, reference them in operations, and release ownership explicitly. Send object patches or deltas without resending the full runtime object."
+          },
+          "combination": {
+            "zh": "Appears in multiple combined selections: object.cost, object.ownership; object.delta.",
+            "en": "Appears in multiple combined selections: object.cost, object.ownership; object.delta."
+          }
+        },
+        {
+          "token": "object.cost",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Declare runtime objects, reference them in operations, and release ownership explicitly.",
+            "en": "Declare runtime objects, reference them in operations, and release ownership explicitly."
+          },
+          "combination": {
+            "zh": "Also selected with object.lifecycle, object.ownership.",
+            "en": "Also selected with object.lifecycle, object.ownership."
+          }
+        },
+        {
+          "token": "object.ownership",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Declare runtime objects, reference them in operations, and release ownership explicitly.",
+            "en": "Declare runtime objects, reference them in operations, and release ownership explicitly."
+          },
+          "combination": {
+            "zh": "Also selected with object.lifecycle, object.cost.",
+            "en": "Also selected with object.lifecycle, object.cost."
+          }
+        },
+        {
+          "token": "object.delta",
+          "layers": "L1",
+          "categories": [
+            "mandatory"
+          ],
+          "description": {
+            "zh": "Send object patches or deltas without resending the full runtime object.",
+            "en": "Send object patches or deltas without resending the full runtime object."
+          },
+          "combination": {
+            "zh": "Also selected with object.lifecycle.",
+            "en": "Also selected with object.lifecycle."
+          }
+        },
+        {
+          "token": "control.route_execution_hint",
+          "layers": "L1",
+          "categories": [
+            "optional"
+          ],
+          "description": {
+            "zh": "Carry route and execution hints for runtime scheduling without JSON or protobuf wrappers.",
+            "en": "Carry route and execution hints for runtime scheduling without JSON or protobuf wrappers."
+          }
+        },
+        {
+          "token": "control.cache_reference",
+          "layers": "L1",
+          "categories": [
+            "optional"
+          ],
+          "description": {
+            "zh": "Use cache references, misses, and invalidation only where identity and invalidation are well-defined.",
+            "en": "Use cache references, misses, and invalidation only where identity and invalidation are well-defined."
+          }
+        },
+        {
+          "token": "control.degrade_profile",
+          "layers": "L1",
+          "categories": [
+            "optional"
+          ],
+          "description": {
+            "zh": "Negotiate a cheaper profile and update compute, token, memory, or bandwidth budgets during a session.",
+            "en": "Negotiate a cheaper profile and update compute, token, memory, or bandwidth budgets during a session."
+          },
+          "combination": {
+            "zh": "Also selected with control.budget_update.",
+            "en": "Also selected with control.budget_update."
+          }
+        },
+        {
+          "token": "control.budget_update",
+          "layers": "L1",
+          "categories": [
+            "optional"
+          ],
+          "description": {
+            "zh": "Negotiate a cheaper profile and update compute, token, memory, or bandwidth budgets during a session.",
+            "en": "Negotiate a cheaper profile and update compute, token, memory, or bandwidth budgets during a session."
+          },
+          "combination": {
+            "zh": "Also selected with control.degrade_profile.",
+            "en": "Also selected with control.degrade_profile."
+          }
+        },
+        {
+          "token": "control.supersede",
+          "layers": "L1",
+          "categories": [
+            "experimental"
+          ],
+          "description": {
+            "zh": "Replace an obsolete operation while preserving trace continuity and marking late results droppable.",
+            "en": "Replace an obsolete operation while preserving trace continuity and marking late results droppable."
+          },
+          "combination": {
+            "zh": "Also selected with control.result_drop_reason.",
+            "en": "Also selected with control.result_drop_reason."
+          }
+        },
+        {
+          "token": "control.retry_after",
+          "layers": "L1",
+          "categories": [
+            "experimental"
+          ],
+          "description": {
+            "zh": "Distinguish retryable pressure from terminal failure and provide retry-after timing.",
+            "en": "Distinguish retryable pressure from terminal failure and provide retry-after timing."
+          }
+        }
+      ]
     }
   ],
   "api_profiles": [
@@ -436,7 +705,7 @@
         "en": "openai-compatible Level 1"
       },
       "note": {
-        "zh": "从 OpenAI NNRP API profile recipes 派生，覆盖 8 个声明式用例，适用于 nnrp-1-preview3。",
+        "zh": "从 OpenAI NNRP API Profile 的声明式 recipe 派生，覆盖 8 个用例，适用于 nnrp-1-preview3。",
         "en": "Derived from OpenAI NNRP API profile recipes. Covers 8 declarative cases for nnrp-1-preview3."
       },
       "recommendedPath": "conformance/openai-compatible-1.api-capabilities.json",
@@ -578,11 +847,11 @@
       "protocolVersion": "nnrp-1-preview4",
       "suiteVersion": "0.1.0",
       "title": {
-        "zh": "nnrp-1-preview4 Wire 级一致性测试",
+        "zh": "nnrp-1-preview4 线路级一致性测试",
         "en": "nnrp-1-preview4 Wire-level Conformance"
       },
       "note": {
-        "zh": "从 wire-level conformance scenario manifests 派生，覆盖 4 个 runner 直接扮演 client/server/proxy 的协议级场景。",
+        "zh": "从线路级测试场景声明派生，覆盖 4 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
         "en": "Derived from wire-level conformance scenario manifests. Covers 4 protocol scenarios where the runner directly acts as client, server, or proxy."
       },
       "recommendedPath": "conformance/nnrp-1-preview4.wire-target.json",
@@ -607,7 +876,7 @@
             "control.trace_context"
           ],
           "summary": {
-            "zh": "Runner submits an operation, sends CANCEL, and verifies cooperative termination or a typed drop reason over the wire.",
+            "zh": "提交操作后发送取消帧，并验证对端通过协作终止或结构化丢弃原因完成收敛。",
             "en": "Runner submits an operation, sends CANCEL, and verifies cooperative termination or a typed drop reason over the wire."
           }
         },
@@ -620,7 +889,7 @@
             "control.result_drop_reason"
           ],
           "summary": {
-            "zh": "Runner proxies an admitted operation, injects a priority update and deadline expiry, and verifies stale work is dropped instead of completed late.",
+            "zh": "在代理路径注入优先级更新和过期时间，验证过期任务会被显式丢弃而不是迟到完成。",
             "en": "Runner proxies an admitted operation, injects a priority update and deadline expiry, and verifies stale work is dropped instead of completed late."
           }
         },
@@ -633,7 +902,7 @@
             "object.lifecycle"
           ],
           "summary": {
-            "zh": "Runner accepts a client request, emits PROGRESS and PARTIAL_RESULT, constrains credits, and verifies the client respects backpressure.",
+            "zh": "由测试套件扮演服务端，发送进度、部分结果和信用更新，验证客户端遵守背压。",
             "en": "Runner accepts a client request, emits PROGRESS and PARTIAL_RESULT, constrains credits, and verifies the client respects backpressure."
           }
         },
@@ -648,7 +917,7 @@
             "control.budget_update"
           ],
           "summary": {
-            "zh": "Runner negotiates costs, sends route and execution hints, references cache state, and verifies downgrade or cache miss behavior is explicit.",
+            "zh": "协商能力成本并发送路由、执行和缓存提示，验证降级或缓存未命中会被显式返回。",
             "en": "Runner negotiates costs, sends route and execution hints, references cache state, and verifies downgrade or cache miss behavior is explicit."
           }
         }

@@ -13,7 +13,7 @@ layout: home
     </p>
     <div class="landing-actions">
       <a class="landing-action primary" href="overview">协议</a>
-      <a class="landing-action" href="conformance/">Conformance</a>
+      <a class="landing-action" href="conformance/">一致性测试</a>
       <a class="landing-action" href="sdk/">SDK</a>
     </div>
   </div>
@@ -26,7 +26,7 @@ layout: home
     <p>从背景、边界、核心对象和版本入口开始读。</p>
   </a>
   <a class="landing-panel" href="conformance/">
-    <span>Conformance</span>
+    <span>测试套件</span>
     <strong>公共测试桩</strong>
     <p>查看能力 manifest、CI 接入和版本选择规则。</p>
   </a>

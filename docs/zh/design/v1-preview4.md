@@ -2,7 +2,7 @@
 
 NNRP/1-preview3 证明了 SDK 可以共享 Rust 侧协议产物，并发出一致的 preview 包。但它没有证明所有场景都能通过替换
 HTTP 或 SSE 获得收益。因此 preview4 的重心从“替换传输层”转向“运行时对象效率”：避免大型或快速变化的运行时状态反复退化为
-JSON 解析，把调度决策显式化，并让一致性测试套件能在 wire 层验证协议语义。
+JSON 解析，把调度决策显式化，并让一致性测试套件能在线路层验证协议语义。
 
 ## 定位
 
@@ -25,7 +25,7 @@ flowchart LR
   Control --> Wire
   Wire --> Peer[Peer Runtime]
   Wire --> Trace[Trace and Result Diagnostics]
-  Suite[Wire-level Test Runner] -. client/server/proxy .-> Wire
+  Suite[线路级测试 Runner] -. 客户端/服务端/代理 .-> Wire
 ```
 
 Preview4 保留 preview3 建立的粗粒度 FFI 与运行时边界。新增的是这些边界之上的协议语义，而不是把边界调用拆成更多细碎字段级调用。
@@ -78,15 +78,15 @@ Preview4 应先补 profile 族，而不是把所有场景塞进 token stream pro
 - `render.runtime`：帧 deadline、局部区域结果、drop reason 与 trace stage。
 - `cache.reference`：适合复用的场景下的 cache reference、miss、invalidate 与 lease。
 
-## Wire 级一致性测试
+## 线路级一致性测试
 
-Preview4 的一致性测试必须引入主动 Wire 级 runner。SDK adapter 测试仍然有价值，但 adapter 由实现自己维护，容易把语义漂移藏在本地调用里。
+Preview4 的一致性测试必须引入主动线路级 runner。SDK adapter 测试仍然有价值，但 adapter 由实现自己维护，容易把语义漂移藏在本地调用里。
 
-Wire runner 可以：
+线路级 runner 可以：
 
-- 扮演 NNRP client，连接到实现侧 server；
-- 扮演 NNRP server，接受实现侧 client；
-- 扮演 proxy，注入帧顺序、超时、背压与关闭行为；
+- 扮演 NNRP 客户端，连接到实现侧服务端；
+- 扮演 NNRP 服务端，接受实现侧客户端；
+- 扮演代理，注入帧顺序、超时、背压与关闭行为；
 - 断言帧级事件、终止状态、trace 传播与 drop reason。
 
 这样可以在上层 SDK 或 adapter 掩盖问题之前，直接观察语义兼容性。
@@ -101,6 +101,6 @@ Wire runner 可以：
 ## 退出标准
 
 - 协议文档中存在 runtime control 与 runtime object profile 基线。
-- Wire 级一致性测试的 schema、target manifest、execution plan 与 result report 都存在。
+- 线路级一致性测试的 schema、target manifest、execution plan 与 result report 都存在。
 - 低代码一致性测试生成器能生成 wire target manifest。
 - 至少一个 SDK/runtime 可以被 wire runner 测试，而不是用自己的 adapter 充当语义 oracle。

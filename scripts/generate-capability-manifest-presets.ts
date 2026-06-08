@@ -259,8 +259,7 @@ function buildFallbackNote(
   capabilityCount: number,
 ): LocalizedText {
   return {
-    zh:
-      `自动从 nnrp-conformance 的 ${status} baseline 派生，当前共有 ${capabilityCount} 个 capability token。`,
+    zh: `自动从 nnrp-conformance 的 ${status} 基线派生，当前共有 ${capabilityCount} 个能力 token。`,
     en:
       `Derived automatically from the ${status} nnrp-conformance baseline. ${capabilityCount} capability tokens are currently exposed.`,
   };
@@ -293,7 +292,7 @@ function apiProfileTitle(profile: string, level: number): LocalizedText {
 
 function apiProfileNote(recipeCount: number, baselines: string[]): LocalizedText {
   return {
-    zh: `从 OpenAI NNRP API profile recipes 派生，覆盖 ${recipeCount} 个声明式用例，适用于 ${
+    zh: `从 OpenAI NNRP API Profile 的声明式 recipe 派生，覆盖 ${recipeCount} 个用例，适用于 ${
       baselines.join(", ")
     }。`,
     en:
@@ -316,7 +315,7 @@ function recipeSummary(recipe: ApiProfileRecipe): LocalizedText {
 
 function wireConformanceTitle(protocolVersion: string): LocalizedText {
   return {
-    zh: `${protocolVersion} Wire 级一致性测试`,
+    zh: `${protocolVersion} 线路级一致性测试`,
     en: `${protocolVersion} Wire-level Conformance`,
   };
 }
@@ -324,9 +323,28 @@ function wireConformanceTitle(protocolVersion: string): LocalizedText {
 function wireConformanceNote(scenarioCount: number): LocalizedText {
   return {
     zh:
-      `从 wire-level conformance scenario manifests 派生，覆盖 ${scenarioCount} 个 runner 直接扮演 client/server/proxy 的协议级场景。`,
+      `从线路级测试场景声明派生，覆盖 ${scenarioCount} 个由测试套件直接扮演客户端、服务端或代理的协议级场景。`,
     en:
       `Derived from wire-level conformance scenario manifests. Covers ${scenarioCount} protocol scenarios where the runner directly acts as client, server, or proxy.`,
+  };
+}
+
+function wireScenarioSummary(scenario: WireConformanceScenario): LocalizedText {
+  const zhByFeature: Record<string, string> = {
+    "control.cancel_abort":
+      "提交操作后发送取消帧，并验证对端通过协作终止或结构化丢弃原因完成收敛。",
+    "control.priority_deadline":
+      "在代理路径注入优先级更新和过期时间，验证过期任务会被显式丢弃而不是迟到完成。",
+    "control.progress_backpressure":
+      "由测试套件扮演服务端，发送进度、部分结果和信用更新，验证客户端遵守背压。",
+    "control.capability_route_cache":
+      "协商能力成本并发送路由、执行和缓存提示，验证降级或缓存未命中会被显式返回。",
+  };
+
+  return {
+    zh: zhByFeature[scenario.feature] ??
+      "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+    en: scenario.description,
   };
 }
 
@@ -512,7 +530,7 @@ async function collectWireConformancePresets(
         id: scenario.id,
         status: scenario.status ?? "experimental",
         requiredCapabilities: scenario.required_capabilities ?? [],
-        summary: fallbackText(scenario.description),
+        summary: wireScenarioSummary(scenario),
       })),
     },
   ];

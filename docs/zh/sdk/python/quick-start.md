@@ -58,7 +58,7 @@ NNRP_NATIVE_BINDING_MODE=ctypes python -m pytest
 
 只有在希望强制使用 cffi API 快路径，并在不可用时直接失败时，才设置 `NNRP_NATIVE_BINDING_MODE=cffi_api`。
 
-## Conformance 与 Benchmark 入口
+## 一致性测试与 Benchmark 入口
 
 SDK 暴露了 suite-owned 集成命令：
 

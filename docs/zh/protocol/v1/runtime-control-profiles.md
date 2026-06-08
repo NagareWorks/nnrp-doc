@@ -1,6 +1,6 @@
 # Runtime Control Profiles（Preview4 基线）
 
-本页记录 preview4 的协议扩展基线，使 NNRP 不再只有 token profile。下面的 capability token、帧族名称、runner mode、transport enum 和 target manifest 字段属于 SDK bring-up 可以直接依赖的冻结表面；后续 canonical vector 只补齐字节样例和互操作断言。
+本页记录 preview4 的协议扩展基线，使 NNRP 不再只有 token profile。下面的 capability token、帧族名称、runner mode、transport enum 和 target manifest 字段属于 SDK 接入可以直接依赖的冻结表面；后续 canonical vector 只补齐字节样例和互操作断言。
 
 ## Profile 族
 
@@ -43,4 +43,4 @@
 
 ## 一致性测试影响
 
-Preview4 的 Wire 级一致性测试必须通过直接交换帧来测试这些 profile。Adapter 声明仍然有价值，但不足以证明不同 SDK 通过 wire 通信时的 client/server 语义一致。
+Preview4 的线路级一致性测试必须通过直接交换帧来测试这些 profile。Adapter 声明仍然有价值，但不足以证明不同 SDK 在线路通信时的客户端/服务端语义一致。

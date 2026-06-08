@@ -263,11 +263,11 @@ Adapter 使用可读 JSON capability document 声明 Profile 支持能力：
 }
 ```
 
-Capability document 必须作为 conformance selection 和 SDK feature probe 的事实源。
+Capability document 必须作为一致性测试选择和 SDK feature probe 的事实源。
 
-## 14. Conformance 策略
+## 14. 一致性测试策略
 
-Conformance case 使用可读 recipe，而不是硬编码 hex fixture。
+一致性测试 case 使用可读 recipe，而不是硬编码 hex fixture。
 
 每个 recipe 描述：
 
@@ -279,7 +279,7 @@ Conformance case 使用可读 recipe，而不是硬编码 hex fixture。
 6. 可选 negative case，例如 invalid body、unsupported model、cancellation 和 malformed stream
    order。
 
-Conformance suite 仍然可以产出机器可读 vector，但源头应保持参数化且可 review。
+一致性测试套件仍然可以产出机器可读 vector，但源头应保持参数化且可 review。
 
 ## 15. 第一阶段实现切片
 

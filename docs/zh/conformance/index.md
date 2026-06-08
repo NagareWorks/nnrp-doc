@@ -74,7 +74,7 @@ mandatory 核心集，支持以下能力"，而不只是说"我实现了 NNRP"�
   </div>
   <div class="doc-card">
     <h3><a href="./capability-manifest-generator">能力声明生成器</a></h3>
-    <p>生成协议能力声明、OpenAI API Profile adapter 声明和 Wire 级测试目标声明，减少手写 JSON 的摩擦。</p>
+    <p>生成协议能力声明、OpenAI API Profile adapter 声明和线路级测试目标声明，减少手写 JSON 的摩擦。</p>
   </div>
   <div class="doc-card">
     <h3><a href="./capabilities/">能力列表</a></h3>

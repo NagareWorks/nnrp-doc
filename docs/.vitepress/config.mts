@@ -520,9 +520,9 @@ const zhSdkOverviewItems = [
 ];
 
 const zhConformanceItems = [
-  { text: "Conformance 总览", link: "/zh/conformance/" },
+  { text: "一致性测试总览", link: "/zh/conformance/" },
   { text: "快速开始", link: "/zh/conformance/quick-start" },
-  { text: "Capability Manifest 生成器", link: "/zh/conformance/capability-manifest-generator" },
+  { text: "能力声明生成器", link: "/zh/conformance/capability-manifest-generator" },
   {
     text: "能力列表",
     collapsed: false,
@@ -708,7 +708,7 @@ const enSdkJavascriptItems = [
 const zhSidebar = {
   "/zh/conformance/": [
     {
-      text: "Conformance",
+      text: "一致性测试",
       items: zhConformanceItems,
     },
   ],
@@ -972,7 +972,7 @@ export default withMermaid(defineConfig({
       themeConfig: {
         nav: [
           { text: "协议", link: "/zh/overview" },
-          { text: "Conformance", link: "/zh/conformance/" },
+          { text: "一致性测试", link: "/zh/conformance/" },
           { text: "SDK", link: "/zh/sdk/" },
         ],
         sidebar: zhSidebar,

@@ -4,7 +4,7 @@
 
 本文定义 NNRP 协议一致性测试套件的公共设计边界。
 
-它的作用不是替代协议设计文档，也不是替代各 SDK 仓库自己的单元测试，而是提供一套跨实现、跨语言、跨版本线复用的公共 conformance 基线，使 NNRP 的任意实现都能回答同一个问题：
+它的作用不是替代协议设计文档，也不是替代各 SDK 仓库自己的单元测试，而是提供一套跨实现、跨语言、跨版本线复用的公共一致性测试基线，使 NNRP 的任意实现都能回答同一个问题：
 
 “这个实现是否真的符合当前协议版本，而不是只在自己仓库里自洽？”
 
@@ -20,7 +20,7 @@
 
 1. 一致性测试验证的是协议公共语义，不是某个宿主语言的 API 习惯。
 2. 未来实现者可能不是 `nnrp-cs`、`nnrp-py` 或 `nnrp-rs` 的维护者，但仍然需要一套可依赖的协议级验证入口。
-3. 如果 conformance 只在实现仓库里定义，就容易退化成“实现拥有协议解释权”，反过来污染协议边界。
+3. 如果一致性测试只在实现仓库里定义，就容易退化成“实现拥有协议解释权”，反过来污染协议边界。
 4. preview 阶段尤其需要同一套公共基线，否则不同实现会各自形成一套内部口径，看起来都通过了 CI，但彼此并不互通。
 
 协议文档负责冻结语义；一致性测试套件负责把被冻结的语义转成可执行断言。两者必须同源、但不能混为同一件事。
@@ -31,9 +31,9 @@
 
 `nnrp-doc` 负责：
 
-1. 定义协议对象、固定布局、状态机、错误码、版本边界和 conformance 规则。
+1. 定义协议对象、固定布局、状态机、错误码、版本边界和一致性测试规则。
 2. 定义一致性测试套件的公共目标、版本策略、分层结构和通过标准。
-3. 记录哪些语义已经冻结，哪些仍处于设计中，因而还不能进入 mandatory conformance。
+3. 记录哪些语义已经冻结，哪些仍处于设计中，因而还不能进入 mandatory 一致性测试。
 
 ### 3.2 `nnrp-rs` 负责什么
 
@@ -47,9 +47,9 @@
 
 各 SDK、runtime 或第三方实现负责：
 
-1. 消费 canonical conformance 产物并在 CI 中执行。
+1. 消费 canonical 一致性测试产物并在 CI 中执行。
 2. 为本语言实现提供 adapter / driver，使同一批协议用例能够被运行。
-3. 可以增加本仓库特有的回归测试，但不能用本地私有测试替代公共 conformance。
+3. 可以增加本仓库特有的回归测试，但不能用本地私有测试替代公共一致性测试。
 
 ## 4. 设计目标
 
@@ -78,7 +78,7 @@
 
 1. 每个协议线至少区分 `NNRP/1-preview1`、`NNRP/1-preview2`、`NNRP/1-preview3` 与后续正式冻结版本。
 2. preview 用例必须保留，因为同一主版本线内的 preview 会覆盖当前语义，但历史实现和迁移验证仍需要历史基线。
-3. 新 preview 冻结后，不允许直接改写旧 preview 的 conformance 结果；必须新增新版本目录或新版本标签。
+3. 新 preview 冻结后，不允许直接改写旧 preview 的一致性测试结果；必须新增新版本目录或新版本标签。
 4. 若某条语义在设计文档里尚未冻结，只能进入 experimental 或 draft case 集，不得进入 mandatory case 集。
 
 建议的版本目录形态：
@@ -127,7 +127,7 @@
 2. 实际 transport 绑定。
 3. runtime / SDK / 服务端最小互通路径。
 
-这一层仍属于 conformance 扩展层，但它不应替代 L0-L2 的规范性断言。
+这一层仍属于一致性测试扩展层，但它不应替代 L0-L2 的规范性断言。
 
 ### 7.5 L4 性能与稳态回归层
 
@@ -140,7 +140,7 @@
 
 ## 8. 用例状态分类
 
-每个 conformance case 都应至少带以下状态标签：
+每个一致性测试 case 都应至少带以下状态标签：
 
 1. `mandatory`：协议已经冻结，所有宣称支持该版本的实现都必须通过。
 2. `optional`：协议允许实现声明不支持，但如果声称支持相关 feature，就必须通过。
@@ -176,24 +176,24 @@ adapter execution contract 至少冻结以下公共边界：
 
 换句话说，adapter execution contract 冻结的是 suite 与实现仓库之间的执行接口，不是实现仓库内部测试 harness 的对象模型。
 
-### 9.2 Wire-level active conformance contract
+### 9.2 线路级主动一致性测试契约
 
 Adapter execution 不能覆盖所有协议保证。实现仓库自己维护的 adapter 可能会无意中把本地行为标准化，从而掩盖 SDK 之间的语义漂移。因此从
-preview4 工作流开始，suite 还要定义 wire-level active conformance contract。
+preview4 工作流开始，suite 还要定义线路级主动一致性测试契约。
 
-Wire-level contract 冻结以下公共边界：
+线路级契约冻结以下公共边界：
 
-1. target manifest 声明实现标识、协议版本、runner 模式、传输端点、选中的 wire capability 和执行限制。
+1. target manifest 声明实现标识、协议版本、runner 模式、传输端点、选中的线路级 capability 和执行限制。
 2. suite 可以扮演 NNRP client，主动连接实现侧 server。
 3. suite 可以扮演 NNRP server，接受实现侧 client。
 4. suite 可以扮演 proxy，注入帧顺序、超时、背压、关闭和恢复行为。
-5. 实现返回 machine-readable wire case result report，包含观察到的帧、终止状态、失败分类、计时和证据路径。
+5. 实现返回 machine-readable 线路级 case result report，包含观察到的帧、终止状态、失败分类、计时和证据路径。
 
 这个 contract 验证的是 frame/session 边界上的协议行为。它不得要求私有 SDK API、业务 runtime 对象或仓库本地 harness 约定。公共 target
 surface 只有声明的 endpoint 和选中的协议角色。
 
-Wire-level conformance 对 preview4 控制帧尤其重要，例如 cancellation、priority update、deadline、partial result、backpressure、route
-hint、cache reference、trace context 和 result drop reason。这些语义只有在独立 client 与 server 能在 wire 上观察到一致行为时才成立。
+线路级一致性测试对 preview4 控制帧尤其重要，例如 cancellation、priority update、deadline、partial result、backpressure、route
+hint、cache reference、trace context 和 result drop reason。这些语义只有在独立客户端与服务端能在线路上观察到一致行为时才成立。
 
 ## 10. 推荐执行模型
 
@@ -201,11 +201,11 @@ hint、cache reference、trace context 和 result drop reason。这些语义只�
 
 1. `nnrp-rs` 生成或承载 canonical conformance 产物。
 2. 各实现仓库提供本语言 test driver / adapter，用于仓库本地执行。
-3. 暴露 live endpoint 的实现还要提供 wire-level target manifest。
+3. 暴露 live endpoint 的实现还要提供线路级 target manifest。
 4. CI 按目标协议版本选择 case 集，并输出统一格式结果。
 
 共享接入路径包括 capability manifest + suite-owned adapter execution plan + implementation-owned adapter command + case-result report，以及
-wire target manifest + suite-owned wire execution plan + live endpoint + wire case-result report。canonical 字节向量仍然是 suite-owned
+线路级 target manifest + suite-owned wire execution plan + live endpoint + wire case-result report。canonical 字节向量仍然是 suite-owned
 artifact，由可读 recipe 生成，并由 suite 自身验证。
 
 换句话说，不推荐让每个 SDK 各自手写一份“看起来差不多”的协议测试；那样只会产生多份漂移的伪基线。
@@ -218,7 +218,7 @@ artifact，由可读 recipe 生成，并由 suite 自身验证。
 2. session / operation / recovery / flow-control 的公共状态机语义变更。
 3. mandatory case 的新增、删除或断言升级。
 
-凡是以下变更，不应直接改协议侧 conformance 规则：
+凡是以下变更，不应直接改协议侧一致性测试规则：
 
 1. 某个 SDK 的宿主 API 命名调整。
 2. 某个 runtime 的线程池、队列或框架集成改造。
@@ -229,9 +229,9 @@ artifact，由可读 recipe 生成，并由 suite 自身验证。
 任何实现者，无论是否属于当前官方仓库，只要声称实现了某个 NNRP 协议版本，就应至少满足以下要求：
 
 1. 以 `nnrp-doc` 中冻结的协议语义为准，而不是以某个 SDK 当前行为为准。
-2. 以同版本的 conformance case 集为准，而不是只跑本地单元测试。
+2. 以同版本的一致性测试 case 集为准，而不是只跑本地单元测试。
 3. 不得通过修改本地 adapter 来规避 mandatory case 的公共断言。
-4. 若发现协议文档与 conformance case 冲突，应先修正文档和基线，而不是在实现侧私设解释。
+4. 若发现协议文档与一致性测试 case 冲突，应先修正文档和基线，而不是在实现侧私设解释。
 
 ## 13. 当前结论
 
@@ -239,6 +239,6 @@ artifact，由可读 recipe 生成，并由 suite 自身验证。
 
 协议层应明确：
 
-1. conformance 是公共协议资产。
+1. 一致性测试是公共协议资产。
 2. `nnrp-rs` 是 canonical baseline 的第一实现来源。
-3. `nnrp-cs`、`nnrp-py`、runtime 以及未来第三方实现，都应通过消费同一套版本化 conformance 基线来证明自己符合协议。
+3. `nnrp-cs`、`nnrp-py`、runtime 以及未来第三方实现，都应通过消费同一套版本化一致性测试基线来证明自己符合协议。

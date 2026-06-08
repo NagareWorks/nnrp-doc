@@ -193,7 +193,7 @@ Metrics export 规则：
 2. Prometheus exporter 可以把 metrics 注册到已有 registry。
 3. 独立 `/metrics` server 是 opt-in deployment behavior。
 4. NNRP diagnostics 和导出的 metrics 应来自同一份 observation record，避免口径分裂。
-5. Conformance 可以验证 diagnostic shape，但 metrics 属于 release diagnostics 和 benchmark
+5. 一致性测试可以验证 diagnostic shape，但 metrics 属于 release diagnostics 和 benchmark
    material，不是正确性 gate。
 
 ## 9. Cancellation 与 Diagnostics
@@ -204,15 +204,15 @@ abort，adapter 仍然必须停止为已取消的 NNRP operation 继续发送迟
 Cancellation diagnostics 应包含 cancellation source、reason、operation id，以及 backend 是否接受
 abort。
 
-## 10. API Profile Conformance
+## 10. API Profile 一致性测试
 
 OpenAI 兼容 provider 经常扩展或调整 OpenAI HTTP API。因此 adapter conformance layer 验证的是冻结后的
 NNRP API Profile 语义，而不是完整复刻 OpenAI HTTP 行为。
 
-Conformance 形态与 SDK adapter conformance 类似：adapter 通过 manifest 声明 capability，suite 根据
+一致性测试形态与 SDK adapter 一致性测试类似：adapter 通过 manifest 声明 capability，suite 根据
 capability 选择可读 recipe。
 
-### 10.1 Capability Manifest
+### 10.1 能力声明（Capability Manifest）
 
 每个 adapter 提供一个 manifest：
 

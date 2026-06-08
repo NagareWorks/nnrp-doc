@@ -18,21 +18,21 @@ plan 或 case 定义。
 
 ## OpenAI API Profile 能力声明
 
-这个生成器面向提供 OpenAI-compatible NNRP API 的 adapter，例如 vLLM NNRP adapter。它输出 API profile
-runner 使用的 adapter
+这个生成器面向提供 OpenAI-compatible NNRP API 的 adapter，例如 vLLM NNRP adapter。它输出 API Profile
+测试 runner 使用的 adapter
 声明：`adapter`、`profile`、`schema_version`、`compatibility_levels`、`operations` 和 `extensions`。
 
 能力目录来自 `profiles/openai-compatible/1/manifest.json` 及其声明式 recipe manifest。生成的文件会和
-profile suite manifest 一起用于选择 recipe 级测试。
+Profile 测试套件声明一起用于选择 recipe 级测试。
 
 <ApiProfileManifestGenerator />
 
-## Wire 级测试目标声明
+## 线路级测试目标声明
 
 这个生成器用于一致性测试 runner 直接测试真实端点，而不是调用 SDK 自己提供的 adapter。生成的 target
-manifest 会声明 runner 模式、传输端点、选中的 wire 场景以及执行限制。
+manifest 会声明测试套件模式、传输端点、选中的线路级场景以及执行限制。
 
 它刻意独立于 SDK 能力声明和 OpenAI API Profile 能力声明。adapter manifest 适合做 recipe
-选择，但 Wire 级一致性测试必须能够直接扮演 client、server 或 proxy，并交换协议帧。
+选择，但线路级一致性测试必须能够直接扮演客户端、服务端或代理，并交换协议帧。
 
 <WireConformanceManifestGenerator />
