@@ -762,7 +762,6 @@ const zhSidebar = {
         { text: "缓存能力与租约", link: "/zh/protocol/v1/cache-and-lease" },
         { text: "Schema / Profile Registry", link: "/zh/protocol/v1/schema-registry" },
         { text: "流控与优先级", link: "/zh/protocol/v1/flow-control-and-priority" },
-        { text: "Runtime Control Profiles", link: "/zh/protocol/v1/runtime-control-profiles" },
         { text: "公共头", link: "/zh/common-header" },
         {
           text: "类型化载荷描述符",
@@ -772,6 +771,10 @@ const zhSidebar = {
           text: "标准 Profiles",
           collapsed: true,
           items: [
+            {
+              text: "运行时控制 Profiles",
+              link: "/zh/profiles/runtime-control",
+            },
             {
               text: "Tensor Profile",
               collapsed: true,
@@ -878,7 +881,6 @@ const enSidebar = {
         { text: "Cache Capabilities and Leases", link: "/en/protocol/v1/cache-and-lease" },
         { text: "Schema / Profile Registry", link: "/en/protocol/v1/schema-registry" },
         { text: "Flow Control and Priority", link: "/en/protocol/v1/flow-control-and-priority" },
-        { text: "Runtime Control Profiles", link: "/en/protocol/v1/runtime-control-profiles" },
         { text: "Common Header", link: "/en/common-header" },
         {
           text: "Typed Payload Descriptor",
@@ -888,6 +890,10 @@ const enSidebar = {
           text: "Standard Profiles",
           collapsed: true,
           items: [
+            {
+              text: "Runtime Control Profiles",
+              link: "/en/profiles/runtime-control",
+            },
             {
               text: "Tensor Profile",
               collapsed: true,

@@ -1,6 +1,7 @@
 # Standard Profiles
 
-Profile is one of the core abstractions in NNRP. Its purpose is to keep the public layer stable while moving domain-specific interpretation into profile and schema combinations.
+Profile is one of the core abstractions in NNRP. Its purpose is to keep the public layer stable
+while moving domain-specific interpretation into profile and schema combinations.
 
 The public layer is responsible for:
 
@@ -16,7 +17,8 @@ Profiles are responsible for:
 
 ## Current public standard directions
 
-`tensor` and `token` are the clearest current standard profile directions.
+`tensor`, `token`, and the preview4 runtime control profiles are the current standard profile
+directions.
 
 <div class="doc-grid">
   <div class="doc-card">
@@ -27,11 +29,20 @@ Profiles are responsible for:
     <h3>Token Profile</h3>
     <p>For discrete tokens, streaming text, AI NPC dialogue, agent collaboration, and tool-result streams.</p>
   </div>
+  <div class="doc-card">
+    <h3>Runtime Control Profiles</h3>
+    <p>For cancellation, deadlines, partial results, backpressure, runtime objects, cache references, route hints, and trace context.</p>
+  </div>
 </div>
 
 ## Reading path
 
-1. Start with [Tensor Profile Overview](/en/profiles/tensor/), then read its `Descriptor Common Header / Schema and Body / Payload Frame` child pages.
+1. Start with [Tensor Profile Overview](/en/profiles/tensor/), then read its
+   `Descriptor Common Header / Schema and Body / Payload Frame` child pages.
 2. Continue with [Token Profile Overview](/en/profiles/token/) in the same order.
-3. For cross-profile descriptor fields, read [Typed Payload Descriptor](/en/typed-payload-descriptor/) first.
-4. When you need to decide whether a field belongs to the public layer, cross-check [Common Header](/en/common-header/) or the version-frozen preview pages.
+3. Read [Runtime Control Profiles](/en/profiles/runtime-control) before implementing preview4
+   control, runtime object, cache reference, or wire conformance behavior.
+4. For cross-profile descriptor fields, read
+   [Typed Payload Descriptor](/en/typed-payload-descriptor/) first.
+5. When you need to decide whether a field belongs to the public layer, cross-check
+   [Common Header](/en/common-header/) or the version-frozen preview pages.

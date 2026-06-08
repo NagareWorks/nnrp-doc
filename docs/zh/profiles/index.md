@@ -16,7 +16,7 @@ Profile 负责：
 
 ## 当前公开的标准方向
 
-当前公开方向下，`tensor` 与 `token` 是最清晰、最值得优先阅读的两种标准 profile。
+当前公开方向下，`tensor`、`token` 和 preview4 运行时控制 profiles 是标准 profile 的主要方向。
 
 <div class="doc-grid">
   <div class="doc-card">
@@ -27,11 +27,19 @@ Profile 负责：
     <h3>Token Profile</h3>
     <p>面向离散 token、流式文本、AI NPC 对话、代理协作和工具调用结果流。</p>
   </div>
+  <div class="doc-card">
+    <h3>运行时控制 Profiles</h3>
+    <p>面向取消、deadline、部分结果、背压、运行时对象、缓存引用、路由提示和 trace context。</p>
+  </div>
 </div>
 
 ## 阅读方式
 
-1. 先看 [Tensor Profile 概览](/zh/profiles/tensor/)，再进入它的 `Descriptor 公共头 / Schema 与 Body / Payload Frame` 子页。
+1. 先看 [Tensor Profile 概览](/zh/profiles/tensor/)，再进入它的
+   `Descriptor 公共头 / Schema 与 Body / Payload Frame` 子页。
 2. 再看 [Token Profile 概览](/zh/profiles/token/)，按同样顺序阅读。
-3. 如果要看跨 profile 共用的 descriptor 字段，先读 [类型化载荷描述符](/zh/typed-payload-descriptor/)。
-4. 如果要判断某个字段是不是公共承诺，回到 [公共头](/zh/common-header/) 或对应版本页核对冻结范围。
+3. 实现 preview4 控制帧、运行时对象、缓存引用或线路级一致性测试前，先读
+   [运行时控制 Profiles](/zh/profiles/runtime-control)。
+4. 如果要看跨 profile 共用的 descriptor 字段，先读
+   [类型化载荷描述符](/zh/typed-payload-descriptor/)。
+5. 如果要判断某个字段是不是公共承诺，回到 [公共头](/zh/common-header/) 或对应版本页核对冻结范围。
