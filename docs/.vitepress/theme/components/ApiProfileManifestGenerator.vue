@@ -43,7 +43,7 @@ type Messages = {
 
 const localeMessages: Record<SupportedLocale, Messages> = {
   zh: {
-    title: "OpenAI API Profile Capability 生成器",
+    title: "OpenAI API Profile 能力声明生成器",
     subtitle: "生成 adapter 侧声明，用于 OpenAI-compatible NNRP API profile 的声明式 recipe 与执行计划选择。",
     adapterLabel: "adapter",
     adapterPlaceholder: "例如 vllm-nnrp-adapter、acme-openai-nnrp",

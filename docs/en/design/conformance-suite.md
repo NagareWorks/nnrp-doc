@@ -176,15 +176,45 @@ At minimum, the adapter execution contract freezes the following public boundari
 
 In other words, the adapter execution contract freezes the execution interface between the suite and an implementation repository, not the internal object model of a repository-local test harness.
 
+### 9.2 The wire-level active conformance contract
+
+Adapter execution is not sufficient for every protocol guarantee. An implementation-owned adapter can
+accidentally normalize local behavior and hide semantic drift between SDKs. Starting with the
+preview4 workstream, the suite therefore also defines a wire-level active conformance contract.
+
+The wire-level contract freezes these public boundaries:
+
+1. A target manifest declares the implementation identity, protocol version, runner modes, transport
+   endpoints, selected wire capabilities, and execution limits.
+2. The suite may act as an NNRP client and connect to an implementation server.
+3. The suite may act as an NNRP server and accept an implementation client.
+4. The suite may act as a proxy to inject frame ordering, timeout, backpressure, close, and recovery
+   behavior.
+5. The implementation returns a machine-readable wire case result report containing observed frames,
+   terminal state, failure kind, timing, and evidence paths.
+
+This contract validates protocol behavior at the frame/session boundary. It must not require private
+SDK APIs, business runtime objects, or repository-local harness conventions. The only public target
+surface is the declared endpoint and the selected protocol role.
+
+Wire-level conformance is especially important for preview4 control frames such as cancellation,
+priority updates, deadlines, partial results, backpressure, route hints, cache references, trace
+context, and result drop reasons. These semantics only matter if independent clients and servers can
+observe the same behavior over the wire.
+
 ## 10. Recommended Execution Model
 
-The recommended execution model is "one canonical suite, many language adapters":
+The recommended execution model is "one canonical suite, multiple execution channels":
 
 1. `nnrp-rs` generates or hosts the canonical conformance artifacts.
-2. Each implementation repository provides a language-specific test driver or adapter.
-3. CI selects the target protocol version, runs the corresponding case set, and emits results in one common format.
+2. Each implementation repository provides a language-specific test driver or adapter for repository-local execution.
+3. Implementations that expose a live endpoint also provide a wire-level target manifest.
+4. CI selects the target protocol version, runs the corresponding case set, and emits results in one common format.
 
-The shared integration path is capability manifest + suite-owned execution plan + implementation-owned adapter command + case-result report. Canonical byte vectors remain suite-owned artifacts generated from readable recipes and validated by the suite itself.
+The shared integration paths are capability manifest + suite-owned adapter execution plan +
+implementation-owned adapter command + case-result report, and wire target manifest + suite-owned
+wire execution plan + live endpoint + wire case-result report. Canonical byte vectors remain
+suite-owned artifacts generated from readable recipes and validated by the suite itself.
 
 In other words, it is not recommended for every SDK to hand-write a separate set of "roughly similar" protocol tests. That only creates multiple drifting pseudo-baselines.
 

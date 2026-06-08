@@ -27,3 +27,15 @@ manifests. The generated file is used together with the profile suite manifest t
 recipe-level tests.
 
 <ApiProfileManifestGenerator />
+
+## Wire-level conformance target manifest
+
+Use this generator when the conformance runner must test a real endpoint directly instead of
+calling an SDK-owned adapter. The generated target manifest declares runner modes, transport
+endpoints, selected wire scenarios, and execution limits.
+
+This is intentionally separate from the SDK capability manifest and the OpenAI API profile
+manifest. Adapter manifests are useful for recipe selection, but wire-level conformance must be
+able to act as a client, server, or proxy and exchange protocol frames directly.
+
+<WireConformanceManifestGenerator />

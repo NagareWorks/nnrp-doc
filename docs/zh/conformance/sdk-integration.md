@@ -1,15 +1,15 @@
 # SDK 集成指南 — 面向 SDK 开发者
 
 <div class="page-note">
-本页面描述 SDK 仓库当前正式接入模型。如果你在维护 conformance 套件本身，请参阅 <a href="./manifests">Manifest 参考</a>。
+本页面描述 SDK 仓库当前正式接入模型。如果你在维护一致性测试套件本身，请参阅 <a href="./manifests">Manifest 参考</a>。
 </div>
 
 ## 集成原则
 
-SDK 仓库接入 conformance 时，必须遵守以下边界：
+SDK 仓库接入一致性测试时，必须遵守以下边界：
 
-1. conformance 必须是**独立 CI job**，不能再嵌入单元测试、覆盖率或语言自带测试框架的主 job。
-2. conformance 的执行编排由 `nnrp-conformance` 提供的 `run-conformance` action 统一负责。
+1. 一致性测试必须是**独立 CI job**，不能再嵌入单元测试、覆盖率或语言自带测试框架的主 job。
+2. 一致性测试的执行编排由 `nnrp-conformance` 提供的 `run-conformance` action 统一负责。
 3. SDK 仓库负责声明 capability manifest，并在开启行为验证时提供 adapter command。
 4. SDK 的 pytest、xUnit 或其他单测框架不能替代 suite 生成的 execution plan 与统一 result schema。
 
@@ -34,7 +34,7 @@ capability manifest、profile execution plan、API profile results |
 `conformance/nnrp-1-preview3.capabilities.json`）。路径是约定俗成的，suite action 通过
 `capabilities-path` 读取它。
 
-如果你不想手写 JSON，可以直接使用 [Capability Manifest 生成器](./capability-manifest-generator)
+如果你不想手写 JSON，可以直接使用 [能力声明生成器](./capability-manifest-generator)
 先生成骨架，再回到版本化能力列表核对 token 语义。
 
 ### Capability Manifest 字段参考

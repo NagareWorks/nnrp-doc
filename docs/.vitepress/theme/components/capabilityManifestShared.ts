@@ -48,6 +48,28 @@ export type ApiProfilePreset = {
   recipes: ApiProfileRecipePreset[];
 };
 
+export type WireConformanceMode = "suite_as_client" | "suite_as_server" | "suite_as_proxy";
+
+export type WireConformanceTransport = "tcp" | "quic" | "websocket" | "ipc";
+
+export type WireConformanceScenarioPreset = {
+  id: string;
+  status: CapabilityCategory;
+  requiredCapabilities: string[];
+  summary: LocalizedText;
+};
+
+export type WireConformancePreset = {
+  protocolVersion: string;
+  suiteVersion: string;
+  title: LocalizedText;
+  note: LocalizedText;
+  recommendedPath: string;
+  modes: WireConformanceMode[];
+  transports: WireConformanceTransport[];
+  scenarios: WireConformanceScenarioPreset[];
+};
+
 export type CapabilityOptionOverride = {
   description?: LocalizedText;
   combination?: LocalizedText;
@@ -62,3 +84,5 @@ export type CapabilityVersionPresetOverride = {
 export const capabilityManifestSchemaPath = "../../schemas/capability-manifest.schema.json";
 export const apiProfileCapabilityManifestSchemaPath =
   "../../schemas/api-profile-capabilities.schema.json";
+export const wireConformanceTargetSchemaPath =
+  "../../schemas/wire-conformance-target.schema.json";

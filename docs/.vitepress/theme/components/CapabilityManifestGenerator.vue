@@ -51,8 +51,8 @@ type Messages = {
 
 const localeMessages: Record<SupportedLocale, Messages> = {
   zh: {
-    title: "低代码 Capability Manifest 生成器",
-    subtitle: "选择协议版本、填写实现标识、勾选已完成能力，即时生成可复制的 capability manifest JSON。",
+    title: "低代码能力声明生成器",
+    subtitle: "选择协议版本、填写实现标识、勾选已完成能力，即时生成可复制的能力声明 JSON。",
     versionLabel: "协议版本",
     implementationLabel: "implementation_name",
     implementationPlaceholder: "例如 nnrp-py、nnrp-cs、acme-runtime",
@@ -74,7 +74,7 @@ const localeMessages: Record<SupportedLocale, Messages> = {
     selectAll: "全选",
     selectMandatory: "选择 mandatory 集",
     clear: "清空",
-    helper: "生成器只负责拼装 JSON，不替你判断哪些 token 应该被对外声明。是否能声明某个能力，仍以对应版本的能力列表与 conformance baseline 为准。",
+    helper: "生成器只负责拼装 JSON，不替你判断哪些 token 应该被对外声明。是否能声明某个能力，仍以对应版本的能力列表与一致性测试基线为准。",
     statusLabels: {
       mandatory: "mandatory",
       optional: "optional",
@@ -85,8 +85,8 @@ const localeMessages: Record<SupportedLocale, Messages> = {
     emptyState: "没有匹配到能力。请调整筛选词。",
     schemaHelper: "默认值使用文档中推荐的相对 schema 路径。",
     selectedState: "当前",
-    loadingCatalog: "正在读取当前版本的 capability baseline...",
-    loadFailed: "读取 capability baseline 失败。请稍后刷新页面，或检查构建时导出的 JSON 是否存在。"
+    loadingCatalog: "正在读取当前版本的能力基线...",
+    loadFailed: "读取能力基线失败。请稍后刷新页面，或检查构建时导出的 JSON 是否存在。"
   },
   en: {
     title: "Low-Code Capability Manifest Generator",

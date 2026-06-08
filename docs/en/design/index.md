@@ -8,6 +8,7 @@ The site keeps the following versioned design documents:
 4. `NNRP Protocol Conformance Suite Design`
 5. `NNRP OpenAI-Compatible API Profile`
 6. `vLLM NNRP Adapter Design`
+7. `NNRP/1-preview4`
 
 Index notes:
 
@@ -23,3 +24,6 @@ Index notes:
 6. `vllm-nnrp-adapter` defines the first adapter architecture for implementing the
    `openai-compatible/1` profile against vLLM, with the adapter positioned as NNRP compatibility
    infrastructure rather than a vLLM performance accelerator.
+7. `v1-preview4` defines the runtime object, control-frame, and wire-level conformance direction for
+   workloads where scheduling, partial artifacts, deadlines, and heavy object movement dominate the
+   protocol boundary.

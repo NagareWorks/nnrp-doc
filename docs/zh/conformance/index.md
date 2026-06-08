@@ -1,6 +1,6 @@
-# NNRP Conformance 测试套件
+# NNRP 一致性测试套件
 
-NNRP Conformance 测试套件是一套独立于任何单一语言 SDK
+NNRP 一致性测试套件是一套独立于任何单一语言 SDK
 的公共协议一致性验证基线。它的作用是让不同语言、不同组织的 NNRP
 实现，能够用同一套版本化标准来证明自己在协议层面是互通的。
 
@@ -9,7 +9,7 @@ NNRP Conformance 测试套件是一套独立于任何单一语言 SDK
 随着 NNRP
 的官方实现和第三方实现不断增加，一个自然的问题出现了：**怎么知道这些实现真的在说同一种协议，而不只是各自的测试通过了？**
 
-Conformance 套件回答的就是这个问题。它由以下几个部分构成：
+一致性测试套件回答的就是这个问题。它由以下几个部分构成：
 
 1. **版本化 baseline**：每条协议版本线（如 `nnrp-1-preview3`）对应一个独立的 baseline
    目录，包含协议清单、case 清单、语义向量 recipe 与生成产物。
@@ -24,7 +24,7 @@ Conformance 套件回答的就是这个问题。它由以下几个部分构成�
 
 ## 为什么要有它
 
-没有公共 conformance 基线时，三件坏事会在多实现并行阶段自然发生：
+没有公共一致性测试基线时，三件坏事会在多实现并行阶段自然发生：
 
 1. **各自 CI 绿，互通没人管。**
    每个仓库只跑自己的单元测试，看起来都在通，但没有任何机制能证明两个实现之间实际上能握手、能协商能力、能跑完一次正常的帧提交和结果返回。
@@ -33,14 +33,13 @@ Conformance 套件回答的就是这个问题。它由以下几个部分构成�
 3. **"测试通过"失去意义。**
    如果测试只是验证"这个实现内部自洽"，而不是"这个实现对接了协议标准"，那么测试绿色只是一种假安全感。
 
-Conformance
-套件把这三个问题都收掉：它提供一个外部的、版本化的、机器可执行的协议标准，让每个实现都能独立地对照它，而不是对照彼此。
+一致性测试套件把这三个问题都收掉：它提供一个外部的、版本化的、机器可执行的协议标准，让每个实现都能独立地对照它，而不是对照彼此。
 
 ## 能用它做什么
 
 ### 开发阶段：只跑已完成的能力
 
-在实现过程中，你不需要等所有能力都做完才能开始跑 conformance。Capability manifest
+在实现过程中，你不需要等所有能力都做完才能开始跑一致性测试。Capability manifest
 让你声明"我现在支持哪些能力"，runner 就只跑对应的 case，未声明的能力被标记为 `not_claimed`
 而不是失败。
 
@@ -63,7 +62,7 @@ schema。SDK 仓库只提供能力声明、adapter command，以及可选的 ben
 
 ### 第三方实现：可验证的互通承诺
 
-如果你要做一个第三方 NNRP 实现，conformance 套件让你有办法公开说明"我的实现通过了 nnrp-1-preview3
+如果你要做一个第三方 NNRP 实现，一致性测试套件让你有办法公开说明"我的实现通过了 nnrp-1-preview3
 mandatory 核心集，支持以下能力"，而不只是说"我实现了 NNRP"。
 
 ## 快速入口
@@ -74,12 +73,12 @@ mandatory 核心集，支持以下能力"，而不只是说"我实现了 NNRP"�
     <p>最小接入路径，5 分钟跑出第一份执行计划。</p>
   </div>
   <div class="doc-card">
-    <h3><a href="./capability-manifest-generator">Capability Manifest 生成器</a></h3>
-    <p>生成协议 capability manifest 和 OpenAI API profile adapter 声明，减少手写 JSON 的摩擦。</p>
+    <h3><a href="./capability-manifest-generator">能力声明生成器</a></h3>
+    <p>生成协议能力声明、OpenAI API Profile adapter 声明和 Wire 级测试目标声明，减少手写 JSON 的摩擦。</p>
   </div>
   <div class="doc-card">
     <h3><a href="./capabilities/">能力列表</a></h3>
-    <p>按版本查看 capability token、组合要求，以及每个能力对应的 conformance 约束。</p>
+    <p>按版本查看 capability token、组合要求，以及每个能力对应的一致性测试约束。</p>
   </div>
   <div class="doc-card">
     <h3><a href="./manifests">Manifest 参考</a></h3>
@@ -87,10 +86,10 @@ mandatory 核心集，支持以下能力"，而不只是说"我实现了 NNRP"�
   </div>
   <div class="doc-card">
     <h3><a href="./sdk-integration">SDK 集成指南</a></h3>
-    <p>面向 SDK 开发者。如何创建 capability manifest、实现 adapter command、运行 benchmark，并端到端接入 CI。</p>
+    <p>面向 SDK 开发者。如何创建能力声明、实现 adapter command、运行 benchmark，并端到端接入 CI。</p>
   </div>
   <div class="doc-card">
     <h3><a href="./ci">CI 与版本选择</a></h3>
-    <p>Conformance 版本绑定机制，以及 CI 中需要避免的错误。</p>
+    <p>一致性测试版本绑定机制，以及 CI 中需要避免的错误。</p>
   </div>
 </div>

@@ -176,15 +176,37 @@ adapter execution contract 至少冻结以下公共边界：
 
 换句话说，adapter execution contract 冻结的是 suite 与实现仓库之间的执行接口，不是实现仓库内部测试 harness 的对象模型。
 
+### 9.2 Wire-level active conformance contract
+
+Adapter execution 不能覆盖所有协议保证。实现仓库自己维护的 adapter 可能会无意中把本地行为标准化，从而掩盖 SDK 之间的语义漂移。因此从
+preview4 工作流开始，suite 还要定义 wire-level active conformance contract。
+
+Wire-level contract 冻结以下公共边界：
+
+1. target manifest 声明实现标识、协议版本、runner 模式、传输端点、选中的 wire capability 和执行限制。
+2. suite 可以扮演 NNRP client，主动连接实现侧 server。
+3. suite 可以扮演 NNRP server，接受实现侧 client。
+4. suite 可以扮演 proxy，注入帧顺序、超时、背压、关闭和恢复行为。
+5. 实现返回 machine-readable wire case result report，包含观察到的帧、终止状态、失败分类、计时和证据路径。
+
+这个 contract 验证的是 frame/session 边界上的协议行为。它不得要求私有 SDK API、业务 runtime 对象或仓库本地 harness 约定。公共 target
+surface 只有声明的 endpoint 和选中的协议角色。
+
+Wire-level conformance 对 preview4 控制帧尤其重要，例如 cancellation、priority update、deadline、partial result、backpressure、route
+hint、cache reference、trace context 和 result drop reason。这些语义只有在独立 client 与 server 能在 wire 上观察到一致行为时才成立。
+
 ## 10. 推荐执行模型
 
-推荐执行模型为“一个 canonical suite，多语言 adapter”：
+推荐执行模型为“一个 canonical suite，多条执行通道”：
 
 1. `nnrp-rs` 生成或承载 canonical conformance 产物。
-2. 各实现仓库提供本语言 test driver / adapter。
-3. CI 按目标协议版本选择 case 集，并输出统一格式结果。
+2. 各实现仓库提供本语言 test driver / adapter，用于仓库本地执行。
+3. 暴露 live endpoint 的实现还要提供 wire-level target manifest。
+4. CI 按目标协议版本选择 case 集，并输出统一格式结果。
 
-共享接入路径是 capability manifest + suite-owned execution plan + implementation-owned adapter command + case-result report。canonical 字节向量仍然是 suite-owned artifact，由可读 recipe 生成，并由 suite 自身验证。
+共享接入路径包括 capability manifest + suite-owned adapter execution plan + implementation-owned adapter command + case-result report，以及
+wire target manifest + suite-owned wire execution plan + live endpoint + wire case-result report。canonical 字节向量仍然是 suite-owned
+artifact，由可读 recipe 生成，并由 suite 自身验证。
 
 换句话说，不推荐让每个 SDK 各自手写一份“看起来差不多”的协议测试；那样只会产生多份漂移的伪基线。
 

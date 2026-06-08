@@ -762,6 +762,7 @@ const zhSidebar = {
         { text: "缓存能力与租约", link: "/zh/protocol/v1/cache-and-lease" },
         { text: "Schema / Profile Registry", link: "/zh/protocol/v1/schema-registry" },
         { text: "流控与优先级", link: "/zh/protocol/v1/flow-control-and-priority" },
+        { text: "Runtime Control Profiles", link: "/zh/protocol/v1/runtime-control-profiles" },
         { text: "公共头", link: "/zh/common-header" },
         {
           text: "类型化载荷描述符",
@@ -811,6 +812,7 @@ const zhSidebar = {
         { text: "v1-preview1", link: "/zh/design/v1-preview1" },
         { text: "v1-preview2", link: "/zh/design/v1-preview2" },
         { text: "v1-preview3", link: "/zh/design/v1-preview3" },
+        { text: "v1-preview4", link: "/zh/design/v1-preview4" },
         { text: "一致性测试套件设计", link: "/zh/design/conformance-suite" },
         { text: "OpenAI 兼容 API Profile", link: "/zh/design/openai-compatible-profile" },
         { text: "vLLM NNRP Adapter 设计", link: "/zh/design/vllm-nnrp-adapter" },
@@ -876,6 +878,7 @@ const enSidebar = {
         { text: "Cache Capabilities and Leases", link: "/en/protocol/v1/cache-and-lease" },
         { text: "Schema / Profile Registry", link: "/en/protocol/v1/schema-registry" },
         { text: "Flow Control and Priority", link: "/en/protocol/v1/flow-control-and-priority" },
+        { text: "Runtime Control Profiles", link: "/en/protocol/v1/runtime-control-profiles" },
         { text: "Common Header", link: "/en/common-header" },
         {
           text: "Typed Payload Descriptor",
@@ -931,6 +934,7 @@ const enSidebar = {
         { text: "v1-preview1", link: "/en/design/v1-preview1" },
         { text: "v1-preview2", link: "/en/design/v1-preview2" },
         { text: "v1-preview3", link: "/en/design/v1-preview3" },
+        { text: "v1-preview4", link: "/en/design/v1-preview4" },
         { text: "Conformance Suite Design", link: "/en/design/conformance-suite" },
         { text: "OpenAI-Compatible API Profile", link: "/en/design/openai-compatible-profile" },
         { text: "vLLM NNRP Adapter Design", link: "/en/design/vllm-nnrp-adapter" },
