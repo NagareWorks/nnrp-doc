@@ -3,11 +3,11 @@
 Transport packages are real provider boundaries. Install the transport packages that the application
 is allowed to use; runtime probing and policy selection choose the active path.
 
-| Package                     | Host support                                                                                | Artifact ownership                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `@nnrp/transport-tcp`       | Node.js/Deno native hosts, plus browser/edge hosts with TCP-capable WASM transport bridges  | Full-platform native libraries, manifests, and WASM transport primitives. |
-| `@nnrp/transport-quic`      | Node.js/Deno native hosts, plus browser/edge hosts with QUIC-capable WASM transport bridges | Full-platform native libraries, manifests, and WASM transport primitives. |
-| `@nnrp/transport-websocket` | Browser/edge clients and backend hosts with a WebSocket implementation                      | WebSocket provider; no Rust native/WASM transport artifact.               |
+| Package                     | Host support                                                                | Artifact ownership                                           |
+| --------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `@nnrp/transport-tcp`       | Node.js/Deno native hosts                                                   | Native TCP provider behavior and packaged artifacts.         |
+| `@nnrp/transport-quic`      | Node.js/Deno native hosts                                                   | Native QUIC provider behavior and packaged artifacts.        |
+| `@nnrp/transport-websocket` | Browser/edge clients with a WebSocket implementation; client-side only path | WebSocket provider; no Rust native or browser WASM artifact. |
 
 ## `createTcpTransportProvider`
 
@@ -83,22 +83,20 @@ If several providers are installed and passed in, the runtime probes them and ap
 policy. A provider package is not just a configuration switch; it owns the behavior and artifacts
 for its transport.
 
-Browsers do not expose raw operating-system TCP or QUIC sockets by default. The TCP and QUIC
-packages still carry WASM transport primitives so browser/edge runtimes that provide the required
-network bridge can use the same provider model instead of falling back to a JavaScript-only shim.
-WebSocket is useful wherever a host WebSocket implementation is available, including browsers and
-backend runtimes, but it is not the Rust-backed fast path.
+Browsers do not expose raw operating-system TCP or QUIC sockets. The current browser client accepts
+the WebSocket provider. TCP and QUIC providers are native host providers; WebSocket is a client-side
+provider and does not expose a server listener in this SDK.
 
 ## Artifact Boundary
 
-| Package                     | Includes native `.dll` / `.so` / `.dylib` | Includes WASM transport primitives | Notes                                                                        |
-| --------------------------- | ----------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
-| `@nnrp/native-client`       | No                                        | No                                 | Client role only.                                                            |
-| `@nnrp/native-server`       | No                                        | No                                 | Server role only.                                                            |
-| `@nnrp/browser-client`      | No                                        | Browser runtime primitives         | Browser role only.                                                           |
-| `@nnrp/transport-tcp`       | Yes                                       | Yes                                | TCP owns TCP artifacts for native and WASM-capable hosts.                    |
-| `@nnrp/transport-quic`      | Yes                                       | Yes                                | QUIC owns QUIC artifacts for native and WASM-capable hosts.                  |
-| `@nnrp/transport-websocket` | No                                        | No                                 | Host WebSocket provider; Rust does not expose WebSocket transport artifacts. |
+| Package                     | Includes native `.dll` / `.so` / `.dylib` | Includes browser WASM primitives | Notes                                                                        |
+| --------------------------- | ----------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
+| `@nnrp/native-client`       | No                                        | No                               | Client role only.                                                            |
+| `@nnrp/native-server`       | No                                        | No                               | Server role only.                                                            |
+| `@nnrp/browser-client`      | No                                        | Browser runtime primitives       | Browser role only.                                                           |
+| `@nnrp/transport-tcp`       | Yes                                       | No                               | TCP owns TCP artifacts for native hosts.                                     |
+| `@nnrp/transport-quic`      | Yes                                       | No                               | QUIC owns QUIC artifacts for native hosts.                                   |
+| `@nnrp/transport-websocket` | No                                        | No                               | Host WebSocket provider; Rust does not expose WebSocket transport artifacts. |
 
 ## Option Types
 

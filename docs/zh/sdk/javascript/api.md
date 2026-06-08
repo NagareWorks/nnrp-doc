@@ -11,15 +11,15 @@
 
 ## 包边界规则
 
-| 包                          | 可以拥有                                                                                               | 不能隐藏                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
-| `@nnrp/core`                | 运行时无关 TypeScript contract。                                                                       | Native loader、WASM loader、Node built-in 或 DOM global。 |
-| `@nnrp/native-client`       | Client role surface 与 native client lifecycle。                                                       | TCP/QUIC artifact 或 server-only entrypoint。             |
-| `@nnrp/native-server`       | Server role surface 与 native server lifecycle。                                                       | TCP/QUIC artifact 或 browser code。                       |
-| `@nnrp/browser-client`      | Browser client surface 与 browser WASM primitives。                                                    | Native `.dll` / `.so` / `.dylib` 产物或 server API。      |
-| `@nnrp/transport-tcp`       | TCP provider 行为、native artifact 与 WASM transport primitives。                                      | QUIC 或 WebSocket 行为。                                  |
-| `@nnrp/transport-quic`      | QUIC provider 行为、native artifact 与 WASM transport primitives。                                     | TCP 或 WebSocket 行为。                                   |
-| `@nnrp/transport-websocket` | 宿主 WebSocket provider 行为，适用于浏览器、edge runtime 或提供 WebSocket implementation 的后端 host。 | Rust native/WASM transport artifact。                     |
+| 包                          | 可以拥有                                                                | 不能隐藏                                                         |
+| --------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `@nnrp/core`                | 运行时无关 TypeScript contract。                                        | Native loader、WASM loader、Node built-in 或 DOM global。        |
+| `@nnrp/native-client`       | Client role surface 与 native client lifecycle。                        | TCP/QUIC artifact 或 server-only entrypoint。                    |
+| `@nnrp/native-server`       | Server role surface 与 native server lifecycle。                        | TCP/QUIC artifact 或 browser code。                              |
+| `@nnrp/browser-client`      | Browser client surface 与 browser WASM primitives。                     | Native `.dll` / `.so` / `.dylib` 产物或 server API。             |
+| `@nnrp/transport-tcp`       | TCP provider 行为与 native artifact。                                   | QUIC、WebSocket、browser 或 server role 行为。                   |
+| `@nnrp/transport-quic`      | QUIC provider 行为与 native artifact。                                  | TCP、WebSocket、browser 或 server role 行为。                    |
+| `@nnrp/transport-websocket` | 面向浏览器与 edge runtime 的 client-side 宿主 WebSocket provider 行为。 | Rust native artifact、browser WASM artifact 或 server listener。 |
 
 ## API 参考
 

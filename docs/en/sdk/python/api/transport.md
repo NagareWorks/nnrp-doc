@@ -1,8 +1,11 @@
 # Python — Transport Adapters
 
-Transport adapters wrap the underlying QUIC and TCP connections. All types are exported from `nnrp.adapters` and also accessible via the top-level `nnrp` namespace.
+Transport adapters wrap the underlying QUIC and TCP connections. All types are exported from
+`nnrp.adapters` and also accessible via the top-level `nnrp` namespace.
 
-QUIC is provided as a transport slot through `aioquic`; it is not required for every deployment. TCP remains the recommended local development path when certificate handling or QUIC support is unavailable.
+QUIC is provided as a transport slot through `aioquic`; it is not required for every deployment. TCP
+remains the recommended local development path when certificate handling or QUIC support is
+unavailable.
 
 ## Import
 
@@ -28,8 +31,8 @@ from nnrp.adapters import (
 
 ## Constants
 
-| Name | Value | Description |
-|---|---|---|
+| Name                | Value      | Description                  |
+| ------------------- | ---------- | ---------------------------- |
 | `NNRP_CURRENT_ALPN` | `"nnrp/1"` | Current QUIC ALPN identifier |
 
 ---
@@ -56,11 +59,11 @@ async def close(self) -> None: ...
 
 ### QUIC Exceptions
 
-| Exception | Description |
-|---|---|
-| `NnrpQuicError` | Base QUIC transport exception |
-| `NnrpQuicConnectionClosedError` | Connection closed |
-| `NnrpQuicProtocolError` | QUIC protocol-level error |
+| Exception                       | Description                   |
+| ------------------------------- | ----------------------------- |
+| `NnrpQuicError`                 | Base QUIC transport exception |
+| `NnrpQuicConnectionClosedError` | Connection closed             |
+| `NnrpQuicProtocolError`         | QUIC protocol-level error     |
 
 ### `create_quic_client_configuration`
 
@@ -120,7 +123,8 @@ async def serve_quic(
 
 ## TCP Transport
 
-TCP transport uses length-prefixed framing for reliable ordered delivery, suitable for networks where QUIC is unavailable.
+TCP transport uses length-prefixed framing for reliable ordered delivery, suitable for networks
+where QUIC is unavailable.
 
 ### `NnrpTcpConnection`
 
@@ -142,12 +146,12 @@ async def close(self) -> None: ...
 
 ### TCP Exceptions
 
-| Exception | Description |
-|---|---|
-| `NnrpTcpError` | Base TCP transport exception |
-| `NnrpTcpConnectionClosedError` | Connection closed |
-| `NnrpTcpProtocolError` | Protocol-level error |
-| `NnrpTcpUnsupportedOperationError` | Unsupported operation |
+| Exception                          | Description                  |
+| ---------------------------------- | ---------------------------- |
+| `NnrpTcpError`                     | Base TCP transport exception |
+| `NnrpTcpConnectionClosedError`     | Connection closed            |
+| `NnrpTcpProtocolError`             | Protocol-level error         |
+| `NnrpTcpUnsupportedOperationError` | Unsupported operation        |
 
 ### `NnrpTcpClientConfiguration`
 
@@ -191,12 +195,12 @@ async def serve_tcp(
 
 ## QUIC vs TCP Guidance
 
-| Scenario | Recommendation |
-|---|---|
-| Production, low-latency neural rendering | QUIC (Datagram, 0-RTT support) |
-| Enterprise intranet, TCP-only firewall | TCP |
-| Development / testing | TCP (no certificate required) |
-| Multi-path migration | QUIC (primary) + TCP (fallback) |
+| Scenario                                 | Recommendation                  |
+| ---------------------------------------- | ------------------------------- |
+| Production, low-latency neural rendering | QUIC (Datagram, 0-RTT support)  |
+| Enterprise intranet, TCP-only firewall   | TCP                             |
+| Development / testing                    | TCP (no certificate required)   |
+| Multi-path migration                     | QUIC (primary) + TCP (fallback) |
 
 ---
 
@@ -207,8 +211,8 @@ async def serve_tcp(
 ```python
 import ssl
 from nnrp.adapters.quic import create_quic_client_configuration, connect_quic
-from nnrp.client import ClientProfile, dial_client
-from nnrp import TransportPolicy
+from nnrp.client import ClientProfile, connect_client_control
+from nnrp import TransportId
 
 # Production: verify server certificate
 quic_cfg = create_quic_client_configuration(
@@ -219,10 +223,14 @@ quic_cfg = create_quic_client_configuration(
 # Development only: skip verification
 dev_cfg = create_quic_client_configuration(verify_mode=ssl.CERT_NONE)
 
-session = await dial_client("render.example.com", 4433,
-                             profile=ClientProfile(
-                                 transport_policy=TransportPolicy.PREFER_QUIC),
-                             config=quic_cfg)
+async with connect_client_control(
+    "render.example.com",
+    quic_port=4433,
+    quic_configuration=quic_cfg,
+    client_profile=ClientProfile(),
+    selected_transport_id=TransportId.QUIC,
+) as bootstrap:
+    session = bootstrap.session
 ```
 
 ### Case 2: TCP Fallback Transport
@@ -265,13 +273,21 @@ async def main():
 ## Common Pitfalls
 
 ::: warning
-1. **QUIC requires the correct ALPN protocol name.** Default is `nnrp/1` (via `NNRP_CURRENT_ALPN`). Mismatched ALPN between client and server causes a TLS-layer rejection, reported as `SSL handshake failed`. Always use `alpn_for_wire_format(WireFormat.CURRENT)` instead of hardcoding the string.
 
-2. **`verify_mode=ssl.CERT_NONE` is for local development only.** CI/staging should use a self-signed CA (`cafile` parameter), not disabled verification.
+1. **QUIC requires the correct ALPN protocol name.** Default is `nnrp/1` (via `NNRP_CURRENT_ALPN`).
+   Mismatched ALPN between client and server causes a TLS-layer rejection, reported as
+   `SSL handshake failed`. Always use `alpn_for_wire_format(WireFormat.CURRENT)` instead of
+   hardcoding the string.
 
-3. **TCP transport does not support Datagram message types** (e.g., `TRANSPORT_PROBE`). These raise `NnrpTcpUnsupportedOperationError`; callers must catch and degrade gracefully.
+2. **`verify_mode=ssl.CERT_NONE` is for local development only.** CI/staging should use a
+   self-signed CA (`cafile` parameter), not disabled verification.
 
-4. **`serve_quic` / `serve_tcp` do not close established sessions on exit.** Cancel and await all `handle_session` tasks before leaving the context manager for a graceful shutdown.
+3. **TCP transport does not support Datagram message types** (e.g., `TRANSPORT_PROBE`). These raise
+   `NnrpTcpUnsupportedOperationError`; callers must catch and degrade gracefully.
 
-5. **`idle_timeout` is configured independently on client and server.** If the server timeout is shorter than the client's, the server closes first, and the client receives a `ConnectionResetError` instead of a clean NNRP close frame. Keep timeouts consistent.
-:::
+4. **`serve_quic` / `serve_tcp` do not close established sessions on exit.** Cancel and await all
+   `handle_session` tasks before leaving the context manager for a graceful shutdown.
+
+5. **`idle_timeout` is configured independently on client and server.** If the server timeout is
+   shorter than the client's, the server closes first, and the client receives a
+   `ConnectionResetError` instead of a clean NNRP close frame. Keep timeouts consistent. :::

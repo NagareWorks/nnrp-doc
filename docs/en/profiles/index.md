@@ -40,8 +40,9 @@ directions.
 1. Start with [Tensor Profile Overview](/en/profiles/tensor/), then read its
    `Descriptor Common Header / Schema and Body / Payload Frame` child pages.
 2. Continue with [Token Profile Overview](/en/profiles/token/) in the same order.
-3. Read [Runtime Control Profiles](/en/profiles/runtime-control) before implementing preview4
-   control, runtime object, cache reference, or wire conformance behavior.
+3. Read [Runtime Control Profiles](/en/profiles/runtime-control/) before implementing preview4
+   control, runtime object, cache reference, or wire conformance behavior. Its child pages split the
+   frozen value registries, control-frame metadata, and object/cache metadata.
 4. For cross-profile descriptor fields, read
    [Typed Payload Descriptor](/en/typed-payload-descriptor/) first.
 5. When you need to decide whether a field belongs to the public layer, cross-check

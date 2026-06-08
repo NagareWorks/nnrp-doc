@@ -35,17 +35,11 @@ For the default browser WebSocket path:
 npm install @nnrp/browser-client @nnrp/transport-websocket
 ```
 
-For browser or edge hosts that expose TCP/QUIC-capable WASM transport bridges:
-
-```bash
-npm install @nnrp/browser-client @nnrp/transport-tcp @nnrp/transport-quic @nnrp/transport-websocket
-```
-
 To pin the current preview exactly:
 
 ```bash
-deno add npm:@nnrp/native-client@1.0.0-preview.3.4 npm:@nnrp/transport-tcp@1.0.0-preview.3.4 npm:@nnrp/transport-quic@1.0.0-preview.3.4
-npm install @nnrp/native-client@1.0.0-preview.3.4 @nnrp/transport-tcp@1.0.0-preview.3.4 @nnrp/transport-quic@1.0.0-preview.3.4
+deno add npm:@nnrp/native-client@1.0.0-preview.3.5 npm:@nnrp/transport-tcp@1.0.0-preview.3.5 npm:@nnrp/transport-quic@1.0.0-preview.3.5
+npm install @nnrp/native-client@1.0.0-preview.3.5 @nnrp/transport-tcp@1.0.0-preview.3.5 @nnrp/transport-quic@1.0.0-preview.3.5
 ```
 
 ## Backend Native Client
@@ -104,10 +98,8 @@ await runtime.close();
 
 ## Browser Client
 
-Use `@nnrp/browser-client` for browser and edge clients. The browser client package carries browser
-WASM primitives. WebSocket is the default browser-native transport. `@nnrp/transport-tcp` and
-`@nnrp/transport-quic` carry WASM transport primitives for browser/edge hosts that provide the
-required network bridge.
+Use `@nnrp/browser-client` for browser and edge clients. The current browser client accepts the
+WebSocket provider; native TCP and QUIC providers are for Node.js/Deno or other native hosts.
 
 ```ts
 import { openBrowserRuntime } from "@nnrp/browser-client";
@@ -125,27 +117,12 @@ const client = runtime.connect({
 const session = client.openSession({ inputProfile: "token" });
 ```
 
-When the host can provide TCP/QUIC transport capability to WASM, pass those providers too:
-
-```ts
-import { createTcpTransportProvider } from "@nnrp/transport-tcp";
-import { createQuicTransportProvider } from "@nnrp/transport-quic";
-
-const runtime = await openBrowserRuntime({
-  transportProviders: [
-    createQuicTransportProvider(),
-    createTcpTransportProvider(),
-    createWebSocketTransportProvider(),
-  ],
-});
-```
-
 ## Package Boundary Checklist
 
 1. `@nnrp/native-client` and `@nnrp/native-server` are role packages; they do not bundle `.dll`,
-   `.so`, `.dylib`, or transport WASM artifacts.
-2. `@nnrp/transport-tcp` and `@nnrp/transport-quic` carry the full native/WASM transport payloads,
-   including browser/edge WASM transport primitives.
+   `.so`, `.dylib`, or browser WASM artifacts.
+2. `@nnrp/transport-tcp` and `@nnrp/transport-quic` carry native transport payloads for backend
+   hosts that install those providers.
 3. `@nnrp/transport-websocket` uses the host WebSocket implementation and does not depend on Rust
    WebSocket transport artifacts.
 4. Install the transports you want to allow; if several are installed, runtime probing and policy

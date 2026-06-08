@@ -31,9 +31,9 @@ artifacts are owned by the transport packages.
 
 ## Artifact Boundary
 
-| Package                | Native artifact ownership             |
-| ---------------------- | ------------------------------------- |
-| `@nnrp/native-client`  | None; client role only.               |
-| `@nnrp/native-server`  | None; server role only.               |
-| `@nnrp/transport-tcp`  | TCP native/WASM transport artifacts.  |
-| `@nnrp/transport-quic` | QUIC native/WASM transport artifacts. |
+| Package                | Native artifact ownership        |
+| ---------------------- | -------------------------------- |
+| `@nnrp/native-client`  | None; client role only.          |
+| `@nnrp/native-server`  | None; server role only.          |
+| `@nnrp/transport-tcp`  | TCP native transport artifacts.  |
+| `@nnrp/transport-quic` | QUIC native transport artifacts. |

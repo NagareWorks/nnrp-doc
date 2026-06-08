@@ -30,9 +30,9 @@ package 拥有。
 
 ## Artifact 边界
 
-| 包                     | Native artifact 归属                  |
-| ---------------------- | ------------------------------------- |
-| `@nnrp/native-client`  | 无，只负责 client role。              |
-| `@nnrp/native-server`  | 无，只负责 server role。              |
-| `@nnrp/transport-tcp`  | TCP native/WASM transport artifact。  |
-| `@nnrp/transport-quic` | QUIC native/WASM transport artifact。 |
+| 包                     | Native artifact 归属             |
+| ---------------------- | -------------------------------- |
+| `@nnrp/native-client`  | 无，只负责 client role。         |
+| `@nnrp/native-server`  | 无，只负责 server role。         |
+| `@nnrp/transport-tcp`  | TCP native transport artifact。  |
+| `@nnrp/transport-quic` | QUIC native transport artifact。 |

@@ -9,10 +9,10 @@ Client 代码按照同一套生命周期阅读：
 
 Native 和 browser 的包名不同，但 client session 的方法形态刻意保持一致。
 
-| 宿主         | Role package           | Transport package                                                                                                                         |
-| ------------ | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Node.js/Deno | `@nnrp/native-client`  | `@nnrp/transport-tcp`、`@nnrp/transport-quic`                                                                                             |
-| Browser/edge | `@nnrp/browser-client` | `@nnrp/transport-websocket`；如果宿主暴露 TCP/QUIC-capable WASM transport bridge，也可加入 `@nnrp/transport-tcp` / `@nnrp/transport-quic` |
+| 宿主         | Role package           | Transport package                             |
+| ------------ | ---------------------- | --------------------------------------------- |
+| Node.js/Deno | `@nnrp/native-client`  | `@nnrp/transport-tcp`、`@nnrp/transport-quic` |
+| Browser/edge | `@nnrp/browser-client` | `@nnrp/transport-websocket`                   |
 
 ## `openNativeClient`
 
@@ -60,21 +60,6 @@ import { createWebSocketTransportProvider } from "@nnrp/transport-websocket";
 
 const runtime = await openBrowserRuntime({
   transportProviders: [createWebSocketTransportProvider()],
-});
-```
-
-如果宿主暴露 TCP/QUIC-capable WASM transport bridge，也可以同时传入这些 provider：
-
-```ts
-import { createTcpTransportProvider } from "@nnrp/transport-tcp";
-import { createQuicTransportProvider } from "@nnrp/transport-quic";
-
-const runtime = await openBrowserRuntime({
-  transportProviders: [
-    createQuicTransportProvider(),
-    createTcpTransportProvider(),
-    createWebSocketTransportProvider(),
-  ],
 });
 ```
 
@@ -174,12 +159,12 @@ const result = await session.submit({
 
 ## 运行时差异
 
-| 领域              | Native client                                                | Browser client                                                                                                     |
-| ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| 包                | `@nnrp/native-client`                                        | `@nnrp/browser-client`                                                                                             |
-| Runtime 打开方式  | `openNativeClient(options)` 直接返回已连接 client。          | `openBrowserRuntime(options)` 返回 runtime，然后 `runtime.connect(options)` 返回 client。                          |
-| Transport package | TCP 与 QUIC package 携带 native 与 WASM transport artifact。 | WebSocket 是默认浏览器原生路径；如果 browser/edge host 暴露所需 WASM transport bridge，也可以安装并启用 TCP/QUIC。 |
-| Server API        | 不暴露。                                                     | 不暴露。                                                                                                           |
+| 领域              | Native client                                        | Browser client                                                                            |
+| ----------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 包                | `@nnrp/native-client`                                | `@nnrp/browser-client`                                                                    |
+| Runtime 打开方式  | `openNativeClient(options)` 直接返回已连接 client。  | `openBrowserRuntime(options)` 返回 runtime，然后 `runtime.connect(options)` 返回 client。 |
+| Transport package | TCP 与 QUIC package 携带 native transport artifact。 | WebSocket 是当前浏览器原生路径。                                                          |
+| Server API        | 不暴露。                                             | 不暴露。                                                                                  |
 
 ## 选项类型
 
@@ -197,13 +182,13 @@ const result = await session.submit({
 
 ### `NnrpBrowserRuntimeOptions`
 
-| 字段                 | 类型                                      | 必填 | 说明                                                                                                                        |
-| -------------------- | ----------------------------------------- | ---: | --------------------------------------------------------------------------------------------------------------------------- |
-| `moduleUrl`          | `string \| URL`                           |   否 | 显式 WASM module URL。                                                                                                      |
-| `module`             | `WebAssembly.Module`                      |   否 | 预编译 WASM module。                                                                                                        |
-| `artifact`           | `NnrpWasmArtifactOptions`                 |   否 | Browser WASM primitive manifest 与可选 base URL。                                                                           |
-| `transportPolicy`    | [`NnrpTransportPolicy`](./core#数据类型)  |   否 | Browser transport selection policy。                                                                                        |
-| `transportProviders` | `readonly NnrpBrowserTransportProvider[]` |   否 | Browser transport provider，包括 WebSocket，以及宿主支持时的 TCP/QUIC WASM provider。见 [Transport Provider](./transport)。 |
+| 字段                 | 类型                                      | 必填 | 说明                                                                                                 |
+| -------------------- | ----------------------------------------- | ---: | ---------------------------------------------------------------------------------------------------- |
+| `moduleUrl`          | `string \| URL`                           |   否 | 显式 WASM module URL。                                                                               |
+| `module`             | `WebAssembly.Module`                      |   否 | 预编译 WASM module。                                                                                 |
+| `artifact`           | `NnrpWasmArtifactOptions`                 |   否 | Browser WASM primitive manifest 与可选 base URL。                                                    |
+| `transportPolicy`    | [`NnrpTransportPolicy`](./core#数据类型)  |   否 | Browser transport selection policy。                                                                 |
+| `transportProviders` | `readonly NnrpBrowserTransportProvider[]` |   否 | Browser transport provider。当前 SDK 接受 WebSocket provider。见 [Transport Provider](./transport)。 |
 
 ### `NnrpBrowserConnectOptions`
 

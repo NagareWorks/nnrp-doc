@@ -39,7 +39,8 @@ Profile 负责：
    `Descriptor 公共头 / Schema 与 Body / Payload Frame` 子页。
 2. 再看 [Token Profile 概览](/zh/profiles/token/)，按同样顺序阅读。
 3. 实现 preview4 控制帧、运行时对象、缓存引用或线路级一致性测试前，先读
-   [运行时控制 Profiles](/zh/profiles/runtime-control)。
+   [运行时控制 Profiles](/zh/profiles/runtime-control/)。它的子页已经拆出冻结取值注册表、控制帧
+   metadata、对象与缓存 metadata。
 4. 如果要看跨 profile 共用的 descriptor 字段，先读
    [类型化载荷描述符](/zh/typed-payload-descriptor/)。
 5. 如果要判断某个字段是不是公共承诺，回到 [公共头](/zh/common-header/) 或对应版本页核对冻结范围。

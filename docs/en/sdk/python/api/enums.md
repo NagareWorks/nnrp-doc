@@ -1,8 +1,12 @@
 # Enums & Constants
 
-> **How to use this page**: The first part (imports + per-type reference tables) is for looking up specific enum members and their values. The second part — [Use-Case Guide](#use-case-guide) — groups enums by development task with code examples and common pitfalls. Start there when you're not sure which enum to use.
+> **How to use this page**: The first part (imports + per-type reference tables) is for looking up
+> specific enum members and their values. The second part — [Use-Case Guide](#use-case-guide) —
+> groups enums by development task with code examples and common pitfalls. Start there when you're
+> not sure which enum to use.
 
-Enums are spread across `nnrp.core.enums` and `nnrp.core.messages` submodules, unified re-exported through the top-level `nnrp` namespace.
+Enums are spread across `nnrp.core.enums` and `nnrp.core.messages` submodules, unified re-exported
+through the top-level `nnrp` namespace.
 
 ## Import
 
@@ -21,9 +25,9 @@ from nnrp import (
 
 ### `WireFormat(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `CURRENT` | `0` | Only supported wire format (NNRP/1) |
+| Member    | Value | Description                         |
+| --------- | ----- | ----------------------------------- |
+| `CURRENT` | `0`   | Only supported wire format (NNRP/1) |
 
 ---
 
@@ -31,29 +35,29 @@ from nnrp import (
 
 ### `MessageType(IntEnum)`
 
-| Member | Value | Direction | Description |
-|---|---|---|---|
-| `CLIENT_HELLO` | `0x01` | C→S | Connection setup, carries client capability set |
-| `SERVER_HELLO_ACK` | `0x02` | S→C | Handshake acknowledgement |
-| `SESSION_PATCH` | `0x03` | C→S | Session parameter update request |
-| `SESSION_PATCH_ACK` | `0x04` | S→C | Session parameter update result |
-| `CLOSE` | `0x05` | Both | Graceful close |
-| `ERROR` | `0x06` | Both | Protocol error notification |
-| `FRAME_SUBMIT` | `0x10` | C→S | Submit a frame |
-| `FRAME_CANCEL` | `0x11` | C→S | Cancel a frame |
-| `RESULT_PUSH` | `0x12` | S→C | Push inference result |
-| `RESULT_DROP` | `0x13` | S→C | Notify result dropped |
-| `CACHE_PUT` | `0x14` | C→S | Store a cache object |
-| `CACHE_ACK` | `0x15` | S→C | Cache store result |
-| `CACHE_INVALIDATE` | `0x16` | C→S | Invalidate cache |
-| `FLOW_UPDATE` | `0x17` | Both | Flow control window update |
-| `RESULT_HINT` | `0x18` | S→C | Server hint (backpressure/queue state) |
-| `TRANSPORT_PROBE` | `0x19` | Both | Transport path probe |
-| `TRANSPORT_PROBE_ACK` | `0x1A` | Both | Path probe acknowledgement |
-| `SESSION_MIGRATE` | `0x1B` | S→C | Session migration notification |
-| `SESSION_MIGRATE_ACK` | `0x1C` | C→S | Session migration confirmation |
-| `PING` | `0x20` | Both | Keep-alive probe |
-| `PONG` | `0x21` | Both | Keep-alive response |
+| Member                | Value  | Direction | Description                                     |
+| --------------------- | ------ | --------- | ----------------------------------------------- |
+| `CLIENT_HELLO`        | `0x01` | C→S       | Connection setup, carries client capability set |
+| `SERVER_HELLO_ACK`    | `0x02` | S→C       | Handshake acknowledgement                       |
+| `SESSION_PATCH`       | `0x03` | C→S       | Session parameter update request                |
+| `SESSION_PATCH_ACK`   | `0x04` | S→C       | Session parameter update result                 |
+| `CLOSE`               | `0x05` | Both      | Graceful close                                  |
+| `ERROR`               | `0x06` | Both      | Protocol error notification                     |
+| `FRAME_SUBMIT`        | `0x10` | C→S       | Submit a frame                                  |
+| `FRAME_CANCEL`        | `0x11` | C→S       | Cancel a frame                                  |
+| `RESULT_PUSH`         | `0x12` | S→C       | Push inference result                           |
+| `RESULT_DROP`         | `0x13` | S→C       | Notify result dropped                           |
+| `CACHE_PUT`           | `0x14` | C→S       | Store a cache object                            |
+| `CACHE_ACK`           | `0x15` | S→C       | Cache store result                              |
+| `CACHE_INVALIDATE`    | `0x16` | C→S       | Invalidate cache                                |
+| `FLOW_UPDATE`         | `0x17` | Both      | Flow control window update                      |
+| `RESULT_HINT`         | `0x18` | S→C       | Server hint (backpressure/queue state)          |
+| `TRANSPORT_PROBE`     | `0x19` | Both      | Transport path probe                            |
+| `TRANSPORT_PROBE_ACK` | `0x1A` | Both      | Path probe acknowledgement                      |
+| `SESSION_MIGRATE`     | `0x1B` | S→C       | Session migration notification                  |
+| `SESSION_MIGRATE_ACK` | `0x1C` | C→S       | Session migration confirmation                  |
+| `PING`                | `0x20` | Both      | Keep-alive probe                                |
+| `PONG`                | `0x21` | Both      | Keep-alive response                             |
 
 ---
 
@@ -61,15 +65,15 @@ from nnrp import (
 
 ### `HeaderFlags(IntFlag)`
 
-| Member | Mask | Description |
-|---|---|---|
-| `NONE` | `0x00` | No flags |
-| `ACK_REQUIRED` | `0x01` | Receiver must acknowledge |
-| `CAN_DROP` | `0x02` | May be dropped under backpressure |
-| `STALE` | `0x04` | Data is stale |
-| `EOS` | `0x08` | End of stream |
-| `RETRANSMIT` | `0x10` | Retransmitted packet |
-| `KEYFRAME` | `0x20` | Keyframe |
+| Member         | Mask   | Description                       |
+| -------------- | ------ | --------------------------------- |
+| `NONE`         | `0x00` | No flags                          |
+| `ACK_REQUIRED` | `0x01` | Receiver must acknowledge         |
+| `CAN_DROP`     | `0x02` | May be dropped under backpressure |
+| `STALE`        | `0x04` | Data is stale                     |
+| `EOS`          | `0x08` | End of stream                     |
+| `RETRANSMIT`   | `0x10` | Retransmitted packet              |
+| `KEYFRAME`     | `0x20` | Keyframe                          |
 
 ---
 
@@ -77,12 +81,12 @@ from nnrp import (
 
 ### `FrameClass(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `KEYFRAME` | `0` | Complete keyframe |
-| `DELTA` | `1` | Delta frame, depends on previous keyframe |
-| `RETRANSMIT` | `2` | Retransmit frame |
-| `DISCARDABLE` | `3` | May be skipped under high server load |
+| Member        | Value | Description                               |
+| ------------- | ----- | ----------------------------------------- |
+| `KEYFRAME`    | `0`   | Complete keyframe                         |
+| `DELTA`       | `1`   | Delta frame, depends on previous keyframe |
+| `RETRANSMIT`  | `2`   | Retransmit frame                          |
+| `DISCARDABLE` | `3`   | May be skipped under high server load     |
 
 ---
 
@@ -90,20 +94,20 @@ from nnrp import (
 
 ### `ErrorCode(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `UNSUPPORTED_VERSION` | `0x0001` | Unsupported protocol version |
-| `AUTH_FAILED` | `0x0002` | Authentication failed |
-| `INVALID_STATE` | `0x0003` | Operation not allowed in current state |
-| `MALFORMED_HEADER` | `0x0004` | Malformed header |
-| `MALFORMED_BODY` | `0x0005` | Malformed body |
-| `UNSUPPORTED_CAPABILITY` | `0x0006` | Unsupported capability |
-| `LIMIT_EXCEEDED` | `0x0007` | Limit exceeded |
-| `FRAME_EXPIRED` | `0x0008` | Frame expired (over latency budget) |
-| `FRAME_CANCELLED` | `0x0009` | Frame cancelled by client |
-| `CACHE_MISS` | `0x000A` | Cache object not found |
-| `SERVER_BUSY` | `0x000B` | Server temporarily unable to process |
-| `INTERNAL_ERROR` | `0x000C` | Server internal error |
+| Member                   | Value    | Description                            |
+| ------------------------ | -------- | -------------------------------------- |
+| `UNSUPPORTED_VERSION`    | `0x0001` | Unsupported protocol version           |
+| `AUTH_FAILED`            | `0x0002` | Authentication failed                  |
+| `INVALID_STATE`          | `0x0003` | Operation not allowed in current state |
+| `MALFORMED_HEADER`       | `0x0004` | Malformed header                       |
+| `MALFORMED_BODY`         | `0x0005` | Malformed body                         |
+| `UNSUPPORTED_CAPABILITY` | `0x0006` | Unsupported capability                 |
+| `LIMIT_EXCEEDED`         | `0x0007` | Limit exceeded                         |
+| `FRAME_EXPIRED`          | `0x0008` | Frame expired (over latency budget)    |
+| `FRAME_CANCELLED`        | `0x0009` | Frame cancelled by client              |
+| `CACHE_MISS`             | `0x000A` | Cache object not found                 |
+| `SERVER_BUSY`            | `0x000B` | Server temporarily unable to process   |
+| `INTERNAL_ERROR`         | `0x000C` | Server internal error                  |
 
 ---
 
@@ -111,11 +115,11 @@ from nnrp import (
 
 ### `ErrorScope(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `CONNECTION` | `0` | Connection-level (fatal, requires reconnect) |
-| `SESSION` | `1` | Session-level |
-| `FRAME` | `2` | Frame-level (recoverable) |
+| Member       | Value | Description                                  |
+| ------------ | ----- | -------------------------------------------- |
+| `CONNECTION` | `0`   | Connection-level (fatal, requires reconnect) |
+| `SESSION`    | `1`   | Session-level                                |
+| `FRAME`      | `2`   | Frame-level (recoverable)                    |
 
 ---
 
@@ -123,36 +127,36 @@ from nnrp import (
 
 ### `TransportId(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `UNSPECIFIED` | `0` | Unspecified, server chooses |
-| `QUIC` | `1` | QUIC transport |
-| `TCP` | `2` | TCP transport |
+| Member        | Value | Description                 |
+| ------------- | ----- | --------------------------- |
+| `UNSPECIFIED` | `0`   | Unspecified, server chooses |
+| `QUIC`        | `1`   | QUIC transport              |
+| `TCP`         | `2`   | TCP transport               |
 
 ### `TransportPolicy(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `AUTO` | `0` | No preference, automatic selection |
-| `PREFER_QUIC` | `1` | Prefer QUIC |
-| `PREFER_TCP` | `2` | Prefer TCP |
-| `FORCE_QUIC` | `3` | Force QUIC |
-| `FORCE_TCP` | `4` | Force TCP |
+| Member        | Value | Description                        |
+| ------------- | ----- | ---------------------------------- |
+| `AUTO`        | `0`   | No preference, automatic selection |
+| `PREFER_QUIC` | `1`   | Prefer QUIC                        |
+| `PREFER_TCP`  | `2`   | Prefer TCP                         |
+| `FORCE_QUIC`  | `3`   | Force QUIC                         |
+| `FORCE_TCP`   | `4`   | Force TCP                          |
 
 ### `LossTolerance(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `STRICT` | `0` | No packet loss allowed |
-| `BEST_EFFORT` | `1` | Best effort |
-| `LOW_LATENCY` | `2` | Low latency preferred, minor loss tolerated |
-| `FIRE_AND_FORGET` | `3` | High loss tolerance |
+| Member            | Value | Description                                 |
+| ----------------- | ----- | ------------------------------------------- |
+| `STRICT`          | `0`   | No packet loss allowed                      |
+| `BEST_EFFORT`     | `1`   | Best effort                                 |
+| `LOW_LATENCY`     | `2`   | Low latency preferred, minor loss tolerated |
+| `FIRE_AND_FORGET` | `3`   | High loss tolerance                         |
 
 ### `ControlExtensionFlags(IntFlag)`
 
-| Member | Mask | Description |
-|---|---|---|
-| `NONE` | `0x0000` | No flags |
+| Member     | Mask     | Description                                              |
+| ---------- | -------- | -------------------------------------------------------- |
+| `NONE`     | `0x0000` | No flags                                                 |
 | `CRITICAL` | `0x0001` | Critical extension; receiver must reject if unrecognized |
 
 ---
@@ -161,16 +165,16 @@ from nnrp import (
 
 ### `PayloadKind(IntFlag)`
 
-| Member | Mask | Description |
-|---|---|---|
-| `NONE` | `0x00` | None |
-| `TENSOR` | `0x01` | Tensor payload (neural rendering) |
-| `TOKEN_CHUNK` | `0x02` | Token stream chunk (LLM) |
-| `AUDIO_CHUNK` | `0x04` | Audio chunk |
-| `VIDEO_CHUNK` | `0x08` | Video chunk |
-| `STRUCTURED_EVENT` | `0x10` | Structured event |
-| `TOOL_DELTA` | `0x20` | Tool call delta |
-| `OPAQUE_BYTES` | `0x40` | Opaque binary |
+| Member             | Mask   | Description                       |
+| ------------------ | ------ | --------------------------------- |
+| `NONE`             | `0x00` | None                              |
+| `TENSOR`           | `0x01` | Tensor payload (neural rendering) |
+| `TOKEN_CHUNK`      | `0x02` | Token stream chunk (LLM)          |
+| `AUDIO_CHUNK`      | `0x04` | Audio chunk                       |
+| `VIDEO_CHUNK`      | `0x08` | Video chunk                       |
+| `STRUCTURED_EVENT` | `0x10` | Structured event                  |
+| `TOOL_DELTA`       | `0x20` | Tool call delta                   |
+| `OPAQUE_BYTES`     | `0x40` | Opaque binary                     |
 
 ---
 
@@ -178,69 +182,69 @@ from nnrp import (
 
 ### `InputProfile(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `UNSPECIFIED` | `0` | Unspecified |
-| `CHANGED_TILES_LUMA` | `1` | Luma data for changed tiles only |
-| `DENSE_LUMA_FRAME` | `2` | Full-frame luma data |
+| Member               | Value | Description                      |
+| -------------------- | ----- | -------------------------------- |
+| `UNSPECIFIED`        | `0`   | Unspecified                      |
+| `CHANGED_TILES_LUMA` | `1`   | Luma data for changed tiles only |
+| `DENSE_LUMA_FRAME`   | `2`   | Full-frame luma data             |
 
 ### `TileIndexMode(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `DENSE_RANGE` | `0` | Dense contiguous range |
-| `RAW_U16` | `1` | Raw uint16 list |
-| `DELTA_U16` | `2` | Delta-encoded uint16 |
-| `BITSET` | `3` | Bitset encoding |
+| Member        | Value | Description            |
+| ------------- | ----- | ---------------------- |
+| `DENSE_RANGE` | `0`   | Dense contiguous range |
+| `RAW_U16`     | `1`   | Raw uint16 list        |
+| `DELTA_U16`   | `2`   | Delta-encoded uint16   |
+| `BITSET`      | `3`   | Bitset encoding        |
 
 ### `TensorDType(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `FP16` | `0` | Half-precision float |
-| `FP32` | `1` | Single-precision float |
-| `FP8_E4M3` | `2` | FP8 E4M3 |
-| `FP8_E5M2` | `3` | FP8 E5M2 |
-| `INT8` | `4` | Signed 8-bit integer |
-| `UINT8` | `5` | Unsigned 8-bit integer |
-| `INT16` | `6` | Signed 16-bit integer |
-| `UINT16` | `7` | Unsigned 16-bit integer |
+| Member     | Value | Description             |
+| ---------- | ----- | ----------------------- |
+| `FP16`     | `0`   | Half-precision float    |
+| `FP32`     | `1`   | Single-precision float  |
+| `FP8_E4M3` | `2`   | FP8 E4M3                |
+| `FP8_E5M2` | `3`   | FP8 E5M2                |
+| `INT8`     | `4`   | Signed 8-bit integer    |
+| `UINT8`    | `5`   | Unsigned 8-bit integer  |
+| `INT16`    | `6`   | Signed 16-bit integer   |
+| `UINT16`   | `7`   | Unsigned 16-bit integer |
 
 ### `SubmitMode(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `INLINE` | `0` | All objects inlined in body |
-| `REFERENCE` | `1` | Objects referenced via cache keys |
-| `MIXED` | `2` | Mix of inline and reference |
+| Member      | Value | Description                       |
+| ----------- | ----- | --------------------------------- |
+| `INLINE`    | `0`   | All objects inlined in body       |
+| `REFERENCE` | `1`   | Objects referenced via cache keys |
+| `MIXED`     | `2`   | Mix of inline and reference       |
 
 ### `BudgetPolicy(IntFlag)`
 
-| Member | Mask | Description |
-|---|---|---|
-| `NONE` | `0x00` | Strict; no degradation allowed |
-| `ALLOW_PARTIAL` | `0x01` | Allow partial results |
-| `ALLOW_STALE_REUSE` | `0x02` | Allow stale cache reuse |
-| `ALLOW_DEGRADED` | `0x04` | Allow degraded quality |
-| `ALLOW_DROP` | `0x08` | Allow dropping the frame |
+| Member              | Mask   | Description                    |
+| ------------------- | ------ | ------------------------------ |
+| `NONE`              | `0x00` | Strict; no degradation allowed |
+| `ALLOW_PARTIAL`     | `0x01` | Allow partial results          |
+| `ALLOW_STALE_REUSE` | `0x02` | Allow stale cache reuse        |
+| `ALLOW_DEGRADED`    | `0x04` | Allow degraded quality         |
+| `ALLOW_DROP`        | `0x08` | Allow dropping the frame       |
 
 ### `ResultClass(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `COMPLETE` | `0` | Complete result |
-| `PARTIAL` | `1` | Partial result |
-| `STALE_REUSE` | `2` | Reused stale cached result |
-| `DEGRADED` | `3` | Quality-degraded result |
+| Member        | Value | Description                |
+| ------------- | ----- | -------------------------- |
+| `COMPLETE`    | `0`   | Complete result            |
+| `PARTIAL`     | `1`   | Partial result             |
+| `STALE_REUSE` | `2`   | Reused stale cached result |
+| `DEGRADED`    | `3`   | Quality-degraded result    |
 
 ### `ResultFlags(IntFlag)`
 
-| Member | Mask | Description |
-|---|---|---|
-| `NONE` | `0x0000` | No flags |
-| `STALE` | `0x0001` | Result from stale/cached data |
-| `FALLBACK` | `0x0002` | Degraded fallback path used |
-| `PARTIAL` | `0x0004` | Incomplete result |
+| Member     | Mask     | Description                   |
+| ---------- | -------- | ----------------------------- |
+| `NONE`     | `0x0000` | No flags                      |
+| `STALE`    | `0x0001` | Result from stale/cached data |
+| `FALLBACK` | `0x0002` | Degraded fallback path used   |
+| `PARTIAL`  | `0x0004` | Incomplete result             |
 
 ---
 
@@ -248,25 +252,25 @@ from nnrp import (
 
 ### `CacheObjectKind(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `CAMERA_BLOCK` | `0x0001` | Camera parameter block |
-| `TILE_INDEX_BLOCK` | `0x0002` | Tile index block (alias: `TILE_INDEX_TEMPLATE`) |
-| `TENSOR_SECTION_TABLE` | `0x0003` | Tensor section table |
-| `CODEC_TABLE` | `0x0004` | Codec auxiliary table (alias: `CODEC_AUX_BLOCK`) |
-| `REUSABLE_RESULT_OBJECT` | `0x0005` | Reusable result (alias: `FALLBACK_RESOURCE`) |
-| `PAYLOAD_LAYOUT_TEMPLATE` | `0x0006` | Payload layout template |
-| `PROMPT_SEGMENT` | `0x0007` | Prompt segment (LLM) |
-| `TOOL_SCHEMA` | `0x0008` | Tool schema |
-| `STRUCTURED_EVENT_SCHEMA` | `0x0009` | Structured event schema |
+| Member                    | Value    | Description                                      |
+| ------------------------- | -------- | ------------------------------------------------ |
+| `CAMERA_BLOCK`            | `0x0001` | Camera parameter block                           |
+| `TILE_INDEX_BLOCK`        | `0x0002` | Tile index block (alias: `TILE_INDEX_TEMPLATE`)  |
+| `TENSOR_SECTION_TABLE`    | `0x0003` | Tensor section table                             |
+| `CODEC_TABLE`             | `0x0004` | Codec auxiliary table (alias: `CODEC_AUX_BLOCK`) |
+| `REUSABLE_RESULT_OBJECT`  | `0x0005` | Reusable result (alias: `FALLBACK_RESOURCE`)     |
+| `PAYLOAD_LAYOUT_TEMPLATE` | `0x0006` | Payload layout template                          |
+| `PROMPT_SEGMENT`          | `0x0007` | Prompt segment (LLM)                             |
+| `TOOL_SCHEMA`             | `0x0008` | Tool schema                                      |
+| `STRUCTURED_EVENT_SCHEMA` | `0x0009` | Structured event schema                          |
 
 ### `CachePutFlags(IntFlag)`
 
-| Member | Mask | Description |
-|---|---|---|
-| `NONE` | `0x00` | Default |
-| `PINNED` | `0x01` | Pinned; exempt from LRU eviction |
-| `REUSABLE` | `0x02` | Cross-frame reusable |
+| Member     | Mask   | Description                      |
+| ---------- | ------ | -------------------------------- |
+| `NONE`     | `0x00` | Default                          |
+| `PINNED`   | `0x01` | Pinned; exempt from LRU eviction |
+| `REUSABLE` | `0x02` | Cross-frame reusable             |
 
 ---
 
@@ -274,38 +278,38 @@ from nnrp import (
 
 ### `FlowUpdateScopeKind(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `CONNECTION` | `0` | Connection level |
-| `SESSION` | `1` | Session level |
-| `OPERATION` | `2` | Operation level |
+| Member       | Value | Description      |
+| ------------ | ----- | ---------------- |
+| `CONNECTION` | `0`   | Connection level |
+| `SESSION`    | `1`   | Session level    |
+| `OPERATION`  | `2`   | Operation level  |
 
 ### `FlowUpdateReason(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `GRANT` | `0` | Grant more credit |
-| `REDUCE` | `1` | Reduce credit |
-| `PAUSE` | `2` | Pause |
-| `RESUME` | `3` | Resume |
-| `CONGESTION` | `4` | Congestion notification |
+| Member       | Value | Description             |
+| ------------ | ----- | ----------------------- |
+| `GRANT`      | `0`   | Grant more credit       |
+| `REDUCE`     | `1`   | Reduce credit           |
+| `PAUSE`      | `2`   | Pause                   |
+| `RESUME`     | `3`   | Resume                  |
+| `CONGESTION` | `4`   | Congestion notification |
 
 ### `FlowUpdateBackpressureLevel(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `NONE` | `0` | No backpressure |
-| `SOFT` | `1` | Soft (advisory) |
-| `HARD` | `2` | Hard (mandatory) |
+| Member | Value | Description      |
+| ------ | ----- | ---------------- |
+| `NONE` | `0`   | No backpressure  |
+| `SOFT` | `1`   | Soft (advisory)  |
+| `HARD` | `2`   | Hard (mandatory) |
 
 ### `FlowUpdateFlags(IntFlag)`
 
-| Member | Mask | Description |
-|---|---|---|
-| `NONE` | `0x00` | None |
-| `CREDIT_VALID` | `0x01` | Credit field is valid |
-| `RETRY_AFTER_VALID` | `0x02` | `retry_after_ms` is valid |
-| `BACKGROUND_ONLY` | `0x04` | Applies only to background operations |
+| Member                 | Mask   | Description                            |
+| ---------------------- | ------ | -------------------------------------- |
+| `NONE`                 | `0x00` | None                                   |
+| `CREDIT_VALID`         | `0x01` | Credit field is valid                  |
+| `RETRY_AFTER_VALID`    | `0x02` | `retry_after_ms` is valid              |
+| `BACKGROUND_ONLY`      | `0x04` | Applies only to background operations  |
 | `DRAIN_IN_FLIGHT_ONLY` | `0x08` | Takes effect after in-flight ops drain |
 
 ---
@@ -314,32 +318,32 @@ from nnrp import (
 
 ### `ResultHintBudgetPolicy(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `NONE` | `0` | No suggestion |
-| `FULL` | `1` | Use full budget |
-| `PARTIAL` | `2` | Accept partial result |
-| `STALE_REUSE` | `3` | Accept stale cache reuse |
-| `DROP` | `4` | Client should drop the frame |
+| Member        | Value | Description                  |
+| ------------- | ----- | ---------------------------- |
+| `NONE`        | `0`   | No suggestion                |
+| `FULL`        | `1`   | Use full budget              |
+| `PARTIAL`     | `2`   | Accept partial result        |
+| `STALE_REUSE` | `3`   | Accept stale cache reuse     |
+| `DROP`        | `4`   | Client should drop the frame |
 
 ### `ResultHintCongestionState(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `NONE` | `0` | No congestion |
-| `STEADY` | `1` | Steady state |
-| `ELEVATED` | `2` | Elevated congestion |
-| `SATURATED` | `3` | Severely saturated |
+| Member      | Value | Description         |
+| ----------- | ----- | ------------------- |
+| `NONE`      | `0`   | No congestion       |
+| `STEADY`    | `1`   | Steady state        |
+| `ELEVATED`  | `2`   | Elevated congestion |
+| `SATURATED` | `3`   | Severely saturated  |
 
 ### `ResultHintReason(IntEnum)`
 
-| Member | Value | Description |
-|---|---|---|
-| `NONE` | `0` | None |
-| `QUEUE_FULL` | `1` | Queue is full |
-| `SERVER_BUSY` | `2` | Server busy |
-| `BUDGET_EXCEEDED` | `3` | Budget exceeded |
-| `SUPERSEDED` | `4` | Superseded by later submit |
+| Member            | Value | Description                |
+| ----------------- | ----- | -------------------------- |
+| `NONE`            | `0`   | None                       |
+| `QUEUE_FULL`      | `1`   | Queue is full              |
+| `SERVER_BUSY`     | `2`   | Server busy                |
+| `BUDGET_EXCEEDED` | `3`   | Budget exceeded            |
+| `SUPERSEDED`      | `4`   | Superseded by later submit |
 
 ---
 
@@ -365,26 +369,28 @@ SERVER_HELLO_ACK_PAYLOAD_CAPABILITIES_EXTENSION = 0x0106
 
 ```python
 from nnrp import TransportId, TransportPolicy, LossTolerance
-from nnrp.client import ClientProfile, ClientDialPolicy, dial_client
+from nnrp.client import ClientProfile, connect_client_control
 
 profile = ClientProfile(
     transport_policy=TransportPolicy.PREFER_QUIC,
     loss_tolerance=LossTolerance.LOW_LATENCY,
 )
-dial_policy = ClientDialPolicy(
-    preferred_transport=TransportId.QUIC,
-    fallback_transport=TransportId.TCP,
-)
-session = await dial_client("render.example.com", 4433,
-                             profile=profile, dial_policy=dial_policy,
-                             config=quic_cfg)
+async with connect_client_control(
+    "render.example.com",
+    quic_port=4433,
+    quic_configuration=quic_cfg,
+    client_profile=profile,
+    selected_transport_id=TransportId.QUIC,
+) as bootstrap:
+    session = bootstrap.session
 ```
 
 ::: warning Pitfalls
+
 - **`FORCE_QUIC` fails immediately in TCP-only firewalls.** Use `PREFER_QUIC` in production.
-- **`LossTolerance.FIRE_AND_FORGET` does not guarantee ordering.** Only use it for telemetry/stats, never for the main frame submission path.
-- Always use `WireFormat.CURRENT` symbolically; do not hardcode `0`.
-:::
+- **`LossTolerance.FIRE_AND_FORGET` does not guarantee ordering.** Only use it for telemetry/stats,
+  never for the main frame submission path.
+- Always use `WireFormat.CURRENT` symbolically; do not hardcode `0`. :::
 
 ---
 
@@ -410,9 +416,11 @@ await session.submit_frame(request)
 ```
 
 ::: warning Pitfalls
-- **`BudgetPolicy` is a bitmask (`IntFlag`).** Combine multiple policies with `|`, not with commas. `BudgetPolicy.NONE` is strict mode.
-- **`SubmitMode.REFERENCE` requires a prior `session.put_cache()` call**; otherwise the server returns `ErrorCode.CACHE_MISS`.
-:::
+
+- **`BudgetPolicy` is a bitmask (`IntFlag`).** Combine multiple policies with `|`, not with commas.
+  `BudgetPolicy.NONE` is strict mode.
+- **`SubmitMode.REFERENCE` requires a prior `session.put_cache()` call**; otherwise the server
+  returns `ErrorCode.CACHE_MISS`. :::
 
 ---
 
@@ -439,9 +447,11 @@ if result.metadata.result_flags & ResultFlags.FALLBACK:
 ```
 
 ::: warning Pitfalls
-- **Do not treat non-`COMPLETE` results as errors.** `STALE_REUSE` and `DEGRADED` are normal under load.
-- `ResultFlags.STALE` and `ResultClass.STALE_REUSE` overlap in meaning but differ in granularity; prefer checking `result_class` in business logic.
-:::
+
+- **Do not treat non-`COMPLETE` results as errors.** `STALE_REUSE` and `DEGRADED` are normal under
+  load.
+- `ResultFlags.STALE` and `ResultClass.STALE_REUSE` overlap in meaning but differ in granularity;
+  prefer checking `result_class` in business logic. :::
 
 ---
 
@@ -460,7 +470,8 @@ except NnrpProtocolError as e:
     if e.error_scope == ErrorScope.CONNECTION:
         # Fatal — must reconnect
         await session.close()
-        session = await dial_client(...)
+        async with connect_client_control(...) as bootstrap:
+            session = bootstrap.session
     elif e.error_code == ErrorCode.FRAME_EXPIRED:
         pass  # skip this frame
     elif e.error_code == ErrorCode.SERVER_BUSY:
@@ -468,9 +479,10 @@ except NnrpProtocolError as e:
 ```
 
 ::: warning Pitfalls
+
 - **`ErrorScope.CONNECTION` errors are fatal.** Do not retry on the same session.
-- `ErrorCode.LIMIT_EXCEEDED` may be a patch rate-limit (see `SessionPatchRejectReason.RATE_LIMITED`), not necessarily a hardware resource exhaustion.
-:::
+- `ErrorCode.LIMIT_EXCEEDED` may be a patch rate-limit (see
+  `SessionPatchRejectReason.RATE_LIMITED`), not necessarily a hardware resource exhaustion. :::
 
 ---
 
@@ -493,15 +505,18 @@ match ack.status:
 ```
 
 ::: warning Pitfalls
-- **`PINNED` objects are not subject to LRU eviction but still count against the total cache quota.** Too many pinned objects will cause subsequent `CACHE_PUT` requests to be `REJECTED`.
-- `CacheObjectKind.TILE_INDEX_BLOCK` and `TILE_INDEX_TEMPLATE` are aliases (same value). Pick one and use it consistently.
-:::
+
+- **`PINNED` objects are not subject to LRU eviction but still count against the total cache
+  quota.** Too many pinned objects will cause subsequent `CACHE_PUT` requests to be `REJECTED`.
+- `CacheObjectKind.TILE_INDEX_BLOCK` and `TILE_INDEX_TEMPLATE` are aliases (same value). Pick one
+  and use it consistently. :::
 
 ---
 
 ### Scenario 6: Flow Control and Backpressure
 
-**Relevant enums**: `FlowUpdateReason`, `FlowUpdateBackpressureLevel`, `FlowUpdateFlags`, `ResultHintCongestionState`, `ResultHintBudgetPolicy`
+**Relevant enums**: `FlowUpdateReason`, `FlowUpdateBackpressureLevel`, `FlowUpdateFlags`,
+`ResultHintCongestionState`, `ResultHintBudgetPolicy`
 
 ```python
 from nnrp import ResultHintCongestionState, FlowUpdateBackpressureLevel
@@ -515,10 +530,12 @@ async def monitor_hints(session):
 ```
 
 ::: warning Pitfalls
-- **`ResultHint` is advisory, not a command**, but ignoring `SATURATED` will cause the server queue to overflow, eventually triggering `RESULT_DROP` (server drops frames silently).
+
+- **`ResultHint` is advisory, not a command**, but ignoring `SATURATED` will cause the server queue
+  to overflow, eventually triggering `RESULT_DROP` (server drops frames silently).
 - **`FlowUpdateFlags.CREDIT_VALID` must be set** before the `credit` field is meaningful.
-- **`FlowUpdateFlags.RETRY_AFTER_VALID` must be set** before `retry_after_ms` is meaningful; reading it unconditionally can give zero, causing no back-off.
-:::
+- **`FlowUpdateFlags.RETRY_AFTER_VALID` must be set** before `retry_after_ms` is meaningful; reading
+  it unconditionally can give zero, causing no back-off. :::
 
 ---
 
@@ -542,6 +559,8 @@ match ack.status:
 ```
 
 ::: warning Pitfalls
-- **`SessionPatchField` is a bitmask.** Combine fields with `|`; do not send multiple single-field patches (each counts against the rate limit).
-- On `PARTIALLY_APPLIED`, **accepted fields are not rolled back**. Track the effective state on the client side.
-:::
+
+- **`SessionPatchField` is a bitmask.** Combine fields with `|`; do not send multiple single-field
+  patches (each counts against the rate limit).
+- On `PARTIALLY_APPLIED`, **accepted fields are not rolled back**. Track the effective state on the
+  client side. :::

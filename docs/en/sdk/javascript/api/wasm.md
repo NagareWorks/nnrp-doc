@@ -7,13 +7,11 @@ described in the [Client API](./client).
 ## Browser Transport
 
 Use [`@nnrp/transport-websocket`](./transport#createwebsockettransportprovider) for the default
-browser-native transport. For browser/edge hosts that expose TCP/QUIC-capable WASM transport
-bridges, install [`@nnrp/transport-tcp`](./transport#createtcptransportprovider) and
-[`@nnrp/transport-quic`](./transport#createquictransportprovider) as well.
+browser-native transport. The current browser client API accepts WebSocket providers. TCP and QUIC
+provider packages are native host packages.
 
-WebSocket does not bundle Rust native/WASM transport artifacts because the Rust runtime does not
-expose a WebSocket transport implementation. TCP and QUIC do bundle WASM transport primitives; the
-only gating factor is whether the browser/edge host can provide the matching network capability.
+WebSocket does not bundle Rust native or browser WASM artifacts because the Rust runtime does not
+expose a WebSocket transport implementation.
 
 ## WASM Artifact Helpers
 
@@ -29,5 +27,5 @@ only gating factor is whether the browser/edge host can provide the matching net
 | --------------------------- | ----------------------------------------- | -------------------------------- |
 | `@nnrp/browser-client`      | No                                        | Yes                              |
 | `@nnrp/transport-websocket` | No                                        | No                               |
-| `@nnrp/transport-tcp`       | Yes                                       | Yes                              |
-| `@nnrp/transport-quic`      | Yes                                       | Yes                              |
+| `@nnrp/transport-tcp`       | Yes                                       | No                               |
+| `@nnrp/transport-quic`      | Yes                                       | No                               |

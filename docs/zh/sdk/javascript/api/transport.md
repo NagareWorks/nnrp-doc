@@ -3,11 +3,11 @@
 Transport package 是真实 provider 边界。应用安装允许使用的 transport package；runtime probe 和
 policy selection 决定实际路径。
 
-| 包                          | 宿主支持                                                                                 | Artifact 归属                                                  |
-| --------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `@nnrp/transport-tcp`       | Node.js/Deno native host，以及带 TCP-capable WASM transport bridge 的 browser/edge host  | 全平台 native library、manifest 与 WASM transport primitives。 |
-| `@nnrp/transport-quic`      | Node.js/Deno native host，以及带 QUIC-capable WASM transport bridge 的 browser/edge host | 全平台 native library、manifest 与 WASM transport primitives。 |
-| `@nnrp/transport-websocket` | Browser/edge client，以及提供 WebSocket implementation 的 backend host                   | WebSocket provider；没有 Rust native/WASM transport artifact。 |
+| 包                          | 宿主支持                                                             | Artifact 归属                                                   |
+| --------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `@nnrp/transport-tcp`       | Node.js/Deno native host                                             | Native TCP provider 行为与打包产物。                            |
+| `@nnrp/transport-quic`      | Node.js/Deno native host                                             | Native QUIC provider 行为与打包产物。                           |
+| `@nnrp/transport-websocket` | 提供 WebSocket implementation 的 browser/edge client；仅 client-side | WebSocket provider；没有 Rust native 或 browser WASM artifact。 |
 
 ## `createTcpTransportProvider`
 
@@ -82,21 +82,20 @@ const client = await openNativeClient({
 如果同时安装并传入多个 provider，runtime 会 probe 并应用 transport policy。Provider package
 不是配置开关；它拥有对应 transport 的行为和 artifact。
 
-浏览器默认不暴露操作系统级 raw TCP 或 QUIC socket。TCP 与 QUIC package 依然携带 WASM transport
-primitives，用于能提供对应 network bridge 的 browser/edge runtime，避免退化成 JavaScript-only shim。
-WebSocket 在任何提供宿主 WebSocket implementation 的地方都有意义，包括浏览器和后端 runtime，
-但它不是 Rust-backed fast path。
+浏览器默认不暴露操作系统级 raw TCP 或 QUIC socket。当前 browser client 接受 WebSocket provider。 TCP
+与 QUIC provider 面向 native host；WebSocket 是 client-side provider，本 SDK 当前不通过它暴露 server
+listener。
 
 ## Artifact 边界
 
-| 包                          | 包含 native `.dll` / `.so` / `.dylib` | 包含 WASM transport primitives | 说明                                                                  |
-| --------------------------- | ------------------------------------- | ------------------------------ | --------------------------------------------------------------------- |
-| `@nnrp/native-client`       | 否                                    | 否                             | 只负责 client role。                                                  |
-| `@nnrp/native-server`       | 否                                    | 否                             | 只负责 server role。                                                  |
-| `@nnrp/browser-client`      | 否                                    | Browser runtime primitives     | 只负责 browser role。                                                 |
-| `@nnrp/transport-tcp`       | 是                                    | 是                             | TCP 拥有 native 与 WASM-capable host 的 TCP artifact。                |
-| `@nnrp/transport-quic`      | 是                                    | 是                             | QUIC 拥有 native 与 WASM-capable host 的 QUIC artifact。              |
-| `@nnrp/transport-websocket` | 否                                    | 否                             | 宿主 WebSocket provider；Rust 没有暴露 WebSocket transport artifact。 |
+| 包                          | 包含 native `.dll` / `.so` / `.dylib` | 包含 browser WASM primitives | 说明                                                                  |
+| --------------------------- | ------------------------------------- | ---------------------------- | --------------------------------------------------------------------- |
+| `@nnrp/native-client`       | 否                                    | 否                           | 只负责 client role。                                                  |
+| `@nnrp/native-server`       | 否                                    | 否                           | 只负责 server role。                                                  |
+| `@nnrp/browser-client`      | 否                                    | Browser runtime primitives   | 只负责 browser role。                                                 |
+| `@nnrp/transport-tcp`       | 是                                    | 否                           | TCP 拥有 native host 的 TCP artifact。                                |
+| `@nnrp/transport-quic`      | 是                                    | 否                           | QUIC 拥有 native host 的 QUIC artifact。                              |
+| `@nnrp/transport-websocket` | 否                                    | 否                           | 宿主 WebSocket provider；Rust 没有暴露 WebSocket transport artifact。 |
 
 ## 选项类型
 

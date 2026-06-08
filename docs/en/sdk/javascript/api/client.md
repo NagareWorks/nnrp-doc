@@ -9,10 +9,10 @@ Client code starts from the same lifecycle shape in native and browser hosts:
 
 The package names differ by host, but the client session methods intentionally stay aligned.
 
-| Host         | Role package           | Transport packages                                                                                                                            |
-| ------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node.js/Deno | `@nnrp/native-client`  | `@nnrp/transport-tcp`, `@nnrp/transport-quic`                                                                                                 |
-| Browser/edge | `@nnrp/browser-client` | `@nnrp/transport-websocket`; add `@nnrp/transport-tcp` / `@nnrp/transport-quic` when the host exposes TCP/QUIC-capable WASM transport bridges |
+| Host         | Role package           | Transport packages                            |
+| ------------ | ---------------------- | --------------------------------------------- |
+| Node.js/Deno | `@nnrp/native-client`  | `@nnrp/transport-tcp`, `@nnrp/transport-quic` |
+| Browser/edge | `@nnrp/browser-client` | `@nnrp/transport-websocket`                   |
 
 ## `openNativeClient`
 
@@ -60,21 +60,6 @@ import { createWebSocketTransportProvider } from "@nnrp/transport-websocket";
 
 const runtime = await openBrowserRuntime({
   transportProviders: [createWebSocketTransportProvider()],
-});
-```
-
-Hosts that expose TCP/QUIC-capable WASM transport bridges can pass those providers as well:
-
-```ts
-import { createTcpTransportProvider } from "@nnrp/transport-tcp";
-import { createQuicTransportProvider } from "@nnrp/transport-quic";
-
-const runtime = await openBrowserRuntime({
-  transportProviders: [
-    createQuicTransportProvider(),
-    createTcpTransportProvider(),
-    createWebSocketTransportProvider(),
-  ],
 });
 ```
 
@@ -174,12 +159,12 @@ Reads the next runtime event.
 
 ## Runtime Differences
 
-| Area               | Native client                                                    | Browser client                                                                                                                                     |
-| ------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Package            | `@nnrp/native-client`                                            | `@nnrp/browser-client`                                                                                                                             |
-| Runtime open       | `openNativeClient(options)` returns a connected client.          | `openBrowserRuntime(options)` returns a runtime, then `runtime.connect(options)` returns a client.                                                 |
-| Transport packages | TCP and QUIC packages carry native and WASM transport artifacts. | WebSocket is the default browser-native path; TCP and QUIC can be installed when the browser/edge host exposes the required WASM transport bridge. |
-| Server APIs        | Not exposed.                                                     | Not exposed.                                                                                                                                       |
+| Area               | Native client                                           | Browser client                                                                                     |
+| ------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Package            | `@nnrp/native-client`                                   | `@nnrp/browser-client`                                                                             |
+| Runtime open       | `openNativeClient(options)` returns a connected client. | `openBrowserRuntime(options)` returns a runtime, then `runtime.connect(options)` returns a client. |
+| Transport packages | TCP and QUIC packages carry native transport artifacts. | WebSocket is the current browser-native path.                                                      |
+| Server APIs        | Not exposed.                                            | Not exposed.                                                                                       |
 
 ## Option Types
 
@@ -197,13 +182,13 @@ Reads the next runtime event.
 
 ### `NnrpBrowserRuntimeOptions`
 
-| Field                | Type                                       | Required | Description                                                                                                                                     |
-| -------------------- | ------------------------------------------ | -------: | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `moduleUrl`          | `string \| URL`                            |       No | Explicit WASM module URL.                                                                                                                       |
-| `module`             | `WebAssembly.Module`                       |       No | Precompiled WASM module.                                                                                                                        |
-| `artifact`           | `NnrpWasmArtifactOptions`                  |       No | Browser WASM primitive manifest plus optional base URL.                                                                                         |
-| `transportPolicy`    | [`NnrpTransportPolicy`](./core#data-types) |       No | Browser transport selection policy.                                                                                                             |
-| `transportProviders` | `readonly NnrpBrowserTransportProvider[]`  |       No | Browser transport providers, including WebSocket and any TCP/QUIC WASM providers supported by the host. See [Transport Providers](./transport). |
+| Field                | Type                                       | Required | Description                                                                                                       |
+| -------------------- | ------------------------------------------ | -------: | ----------------------------------------------------------------------------------------------------------------- |
+| `moduleUrl`          | `string \| URL`                            |       No | Explicit WASM module URL.                                                                                         |
+| `module`             | `WebAssembly.Module`                       |       No | Precompiled WASM module.                                                                                          |
+| `artifact`           | `NnrpWasmArtifactOptions`                  |       No | Browser WASM primitive manifest plus optional base URL.                                                           |
+| `transportPolicy`    | [`NnrpTransportPolicy`](./core#data-types) |       No | Browser transport selection policy.                                                                               |
+| `transportProviders` | `readonly NnrpBrowserTransportProvider[]`  |       No | Browser transport providers. The current SDK accepts WebSocket providers. See [Transport Providers](./transport). |
 
 ### `NnrpBrowserConnectOptions`
 

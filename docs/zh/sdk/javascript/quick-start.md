@@ -34,17 +34,11 @@ npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic
 npm install @nnrp/browser-client @nnrp/transport-websocket
 ```
 
-如果 browser 或 edge host 暴露 TCP/QUIC-capable WASM transport bridge：
-
-```bash
-npm install @nnrp/browser-client @nnrp/transport-tcp @nnrp/transport-quic @nnrp/transport-websocket
-```
-
 如果要精确固定当前 preview：
 
 ```bash
-deno add npm:@nnrp/native-client@1.0.0-preview.3.4 npm:@nnrp/transport-tcp@1.0.0-preview.3.4 npm:@nnrp/transport-quic@1.0.0-preview.3.4
-npm install @nnrp/native-client@1.0.0-preview.3.4 @nnrp/transport-tcp@1.0.0-preview.3.4 @nnrp/transport-quic@1.0.0-preview.3.4
+deno add npm:@nnrp/native-client@1.0.0-preview.3.5 npm:@nnrp/transport-tcp@1.0.0-preview.3.5 npm:@nnrp/transport-quic@1.0.0-preview.3.5
+npm install @nnrp/native-client@1.0.0-preview.3.5 @nnrp/transport-tcp@1.0.0-preview.3.5 @nnrp/transport-quic@1.0.0-preview.3.5
 ```
 
 ## Backend Native Client
@@ -102,9 +96,8 @@ await runtime.close();
 
 ## Browser Client
 
-浏览器与 edge client 使用 `@nnrp/browser-client`。Browser client 包带浏览器 WASM primitives。
-WebSocket 是默认浏览器原生 transport；`@nnrp/transport-tcp` 与 `@nnrp/transport-quic` 携带 WASM
-transport primitives，用于宿主提供对应 network bridge 的 browser/edge runtime。
+浏览器与 edge client 使用 `@nnrp/browser-client`。当前 browser client 接受 WebSocket provider；
+native TCP 与 QUIC provider 面向 Node.js/Deno 或其他 native host。
 
 ```ts
 import { openBrowserRuntime } from "@nnrp/browser-client";
@@ -122,27 +115,11 @@ const client = runtime.connect({
 const session = client.openSession({ inputProfile: "token" });
 ```
 
-如果宿主能把 TCP/QUIC transport capability 暴露给 WASM，也可以同时传入这些 provider：
-
-```ts
-import { createTcpTransportProvider } from "@nnrp/transport-tcp";
-import { createQuicTransportProvider } from "@nnrp/transport-quic";
-
-const runtime = await openBrowserRuntime({
-  transportProviders: [
-    createQuicTransportProvider(),
-    createTcpTransportProvider(),
-    createWebSocketTransportProvider(),
-  ],
-});
-```
-
 ## 包边界清单
 
 1. `@nnrp/native-client` 与 `@nnrp/native-server` 是 role package，不捆绑 `.dll`、`.so`、`.dylib` 或
-   transport WASM artifact。
-2. `@nnrp/transport-tcp` 与 `@nnrp/transport-quic` 携带完整 native/WASM transport 产物，包括
-   browser/edge WASM transport primitives。
+   browser WASM artifact。
+2. `@nnrp/transport-tcp` 与 `@nnrp/transport-quic` 携带 backend host 使用的 native transport 产物。
 3. `@nnrp/transport-websocket` 使用宿主 WebSocket implementation，不依赖 Rust WebSocket transport
    artifact。
 4. 安装哪个 transport 就允许哪个 transport 参与探测；同时安装多个时由 runtime probing 与 policy 选择

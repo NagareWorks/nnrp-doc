@@ -773,7 +773,16 @@ const zhSidebar = {
           items: [
             {
               text: "运行时控制 Profiles",
-              link: "/zh/profiles/runtime-control",
+              collapsed: true,
+              items: [
+                { text: "概览", link: "/zh/profiles/runtime-control" },
+                { text: "取值注册表", link: "/zh/profiles/runtime-control/value-registries" },
+                { text: "控制帧 Metadata", link: "/zh/profiles/runtime-control/control-frames" },
+                {
+                  text: "对象与缓存 Metadata",
+                  link: "/zh/profiles/runtime-control/object-cache-frames",
+                },
+              ],
             },
             {
               text: "Tensor Profile",
@@ -892,7 +901,19 @@ const enSidebar = {
           items: [
             {
               text: "Runtime Control Profiles",
-              link: "/en/profiles/runtime-control",
+              collapsed: true,
+              items: [
+                { text: "Overview", link: "/en/profiles/runtime-control" },
+                { text: "Value Registries", link: "/en/profiles/runtime-control/value-registries" },
+                {
+                  text: "Control Frame Metadata",
+                  link: "/en/profiles/runtime-control/control-frames",
+                },
+                {
+                  text: "Object and Cache Metadata",
+                  link: "/en/profiles/runtime-control/object-cache-frames",
+                },
+              ],
             },
             {
               text: "Tensor Profile",

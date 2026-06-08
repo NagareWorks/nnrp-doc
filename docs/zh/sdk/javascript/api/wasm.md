@@ -7,14 +7,11 @@ workflow。
 ## Browser Transport
 
 默认浏览器原生 transport 使用
-[`@nnrp/transport-websocket`](./transport#createwebsockettransportprovider)。 如果 browser/edge host
-暴露 TCP/QUIC-capable WASM transport bridge，也可以安装
-[`@nnrp/transport-tcp`](./transport#createtcptransportprovider) 和
-[`@nnrp/transport-quic`](./transport#createquictransportprovider)。
+[`@nnrp/transport-websocket`](./transport#createwebsockettransportprovider)。当前 browser client API
+接受 WebSocket provider。TCP 与 QUIC provider package 面向 native host。
 
-WebSocket 不捆绑 Rust native/WASM transport artifact，因为 Rust runtime 没有暴露 WebSocket transport
-实现。TCP 与 QUIC 会捆绑 WASM transport primitives；唯一门槛是 browser/edge host 是否提供对应
-network capability。
+WebSocket 不捆绑 Rust native 或 browser WASM artifact，因为 Rust runtime 没有暴露 WebSocket
+transport 实现。
 
 ## WASM Artifact Helper
 
@@ -30,5 +27,5 @@ network capability。
 | --------------------------- | ------------------------------------- | ---------------------------- |
 | `@nnrp/browser-client`      | 否                                    | 是                           |
 | `@nnrp/transport-websocket` | 否                                    | 否                           |
-| `@nnrp/transport-tcp`       | 是                                    | 是                           |
-| `@nnrp/transport-quic`      | 是                                    | 是                           |
+| `@nnrp/transport-tcp`       | 是                                    | 否                           |
+| `@nnrp/transport-quic`      | 是                                    | 否                           |

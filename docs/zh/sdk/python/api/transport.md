@@ -2,7 +2,8 @@
 
 传输适配器封装了底层 QUIC 和 TCP 连接。所有类型从 `nnrp.adapters` 导出，也可从顶层 `nnrp` 包访问。
 
-QUIC 通过 `aioquic` 作为传输插槽提供，并不是所有部署都必须启用。证书处理或 QUIC 支持不可用时，TCP 仍然是推荐的本地开发路径。
+QUIC 通过 `aioquic` 作为传输插槽提供，并不是所有部署都必须启用。证书处理或 QUIC 支持不可用时，TCP
+仍然是推荐的本地开发路径。
 
 ## 导入
 
@@ -28,8 +29,8 @@ from nnrp.adapters import (
 
 ## 常量
 
-| 名称 | 值 | 说明 |
-|---|---|---|
+| 名称                | 值         | 说明                  |
+| ------------------- | ---------- | --------------------- |
 | `NNRP_CURRENT_ALPN` | `"nnrp/1"` | 当前 QUIC ALPN 标识符 |
 
 ---
@@ -70,11 +71,11 @@ async def close(self) -> None: ...
 
 ### QUIC 异常类型
 
-| 异常 | 说明 |
-|---|---|
-| `NnrpQuicError` | QUIC 传输基础异常 |
-| `NnrpQuicConnectionClosedError` | 连接已关闭 |
-| `NnrpQuicProtocolError` | QUIC 协议层错误 |
+| 异常                            | 说明              |
+| ------------------------------- | ----------------- |
+| `NnrpQuicError`                 | QUIC 传输基础异常 |
+| `NnrpQuicConnectionClosedError` | 连接已关闭        |
+| `NnrpQuicProtocolError`         | QUIC 协议层错误   |
 
 ### `create_quic_client_configuration`
 
@@ -183,33 +184,33 @@ async def close(self) -> None: ...
 
 ### TCP 异常类型
 
-| 异常 | 说明 |
-|---|---|
-| `NnrpTcpError` | TCP 传输基础异常 |
-| `NnrpTcpConnectionClosedError` | 连接已关闭 |
-| `NnrpTcpProtocolError` | 协议层错误（帧格式非法等） |
+| 异常                               | 说明                               |
+| ---------------------------------- | ---------------------------------- |
+| `NnrpTcpError`                     | TCP 传输基础异常                   |
+| `NnrpTcpConnectionClosedError`     | 连接已关闭                         |
+| `NnrpTcpProtocolError`             | 协议层错误（帧格式非法等）         |
 | `NnrpTcpUnsupportedOperationError` | 不支持的操作（TCP 无 Datagram 等） |
 
 ### `NnrpTcpClientConfiguration`
 
 TCP 客户端配置（`@dataclass`）。
 
-| 字段 | 类型 | 默认值 | 说明 |
-|---|---|---|---|
-| `wire_format` | `WireFormat` | `WireFormat.CURRENT` | 线路格式 |
-| `connect_timeout` | `float` | `10.0` | 连接超时（秒） |
-| `idle_timeout` | `float` | `30.0` | 空闲超时（秒） |
-| `max_frame_size` | `int` | `33554432` | 单帧最大字节数（32 MB） |
+| 字段              | 类型         | 默认值               | 说明                    |
+| ----------------- | ------------ | -------------------- | ----------------------- |
+| `wire_format`     | `WireFormat` | `WireFormat.CURRENT` | 线路格式                |
+| `connect_timeout` | `float`      | `10.0`               | 连接超时（秒）          |
+| `idle_timeout`    | `float`      | `30.0`               | 空闲超时（秒）          |
+| `max_frame_size`  | `int`        | `33554432`           | 单帧最大字节数（32 MB） |
 
 ### `NnrpTcpServerConfiguration`
 
 TCP 服务端配置（`@dataclass`）。
 
-| 字段 | 类型 | 默认值 | 说明 |
-|---|---|---|---|
-| `wire_format` | `WireFormat` | `WireFormat.CURRENT` | 线路格式 |
-| `idle_timeout` | `float` | `30.0` | 空闲超时（秒） |
-| `max_frame_size` | `int` | `33554432` | 单帧最大字节数（32 MB） |
+| 字段             | 类型         | 默认值               | 说明                    |
+| ---------------- | ------------ | -------------------- | ----------------------- |
+| `wire_format`    | `WireFormat` | `WireFormat.CURRENT` | 线路格式                |
+| `idle_timeout`   | `float`      | `30.0`               | 空闲超时（秒）          |
+| `max_frame_size` | `int`        | `33554432`           | 单帧最大字节数（32 MB） |
 
 ### `create_tcp_client_configuration` / `create_tcp_server_configuration`
 
@@ -262,12 +263,12 @@ async def serve_tcp(
 
 ## QUIC vs TCP 选择建议
 
-| 场景 | 推荐 |
-|---|---|
-| 生产环境、低延迟神经渲染 | QUIC（支持 Datagram 0-RTT） |
-| 企业内网、TCP Only 防火墙 | TCP |
-| 开发 / 测试环境 | TCP（无需证书，配置简单） |
-| 多路径迁移 | QUIC（首选）+ TCP（备用） |
+| 场景                      | 推荐                        |
+| ------------------------- | --------------------------- |
+| 生产环境、低延迟神经渲染  | QUIC（支持 Datagram 0-RTT） |
+| 企业内网、TCP Only 防火墙 | TCP                         |
+| 开发 / 测试环境           | TCP（无需证书，配置简单）   |
+| 多路径迁移                | QUIC（首选）+ TCP（备用）   |
 
 ---
 
@@ -278,8 +279,8 @@ async def serve_tcp(
 ```python
 import ssl
 from nnrp.adapters.quic import create_quic_client_configuration, connect_quic
-from nnrp.client import ClientProfile, ClientDialPolicy, dial_client
-from nnrp import TransportPolicy
+from nnrp.client import ClientProfile, connect_client_control
+from nnrp import TransportId
 
 # 生产环境：验证服务端证书
 quic_cfg = create_quic_client_configuration(
@@ -292,11 +293,14 @@ dev_cfg = create_quic_client_configuration(
     verify_mode=ssl.CERT_NONE,
 )
 
-session = await dial_client(
-    "render.example.com", 4433,
-    profile=ClientProfile(transport_policy=TransportPolicy.PREFER_QUIC),
-    config=quic_cfg,
-)
+async with connect_client_control(
+    "render.example.com",
+    quic_port=4433,
+    quic_configuration=quic_cfg,
+    client_profile=ClientProfile(),
+    selected_transport_id=TransportId.QUIC,
+) as bootstrap:
+    session = bootstrap.session
 ```
 
 ### 场景二：TCP 备用传输
@@ -315,7 +319,7 @@ tcp_cfg = NnrpTcpClientConfiguration(
     idle_timeout=60.0,
 )
 connection = await connect_tcp("render.example.com", 4434, tcp_cfg)
-# 直接用底层 connection，或通过 dial_client 自动选择传输
+# 直接用底层 connection，或通过 connect_client_control 选择传输
 ```
 
 ### 场景三：服务端同时监听 QUIC 和 TCP
@@ -351,13 +355,23 @@ async def main():
 ## 常见坑点
 
 ::: warning
-1. **QUIC 需要正确的 ALPN 协议名**：默认为 `nnrp/1`（通过 `NNRP_CURRENT_ALPN` 常量获取）。若服务端和客户端使用的 ALPN 不一致，握手会被 TLS 层拒绝，报错为 `SSL handshake failed` 而非 NNRP 协议错误。不要手动拼写 ALPN 字符串，始终用 `alpn_for_wire_format(WireFormat.CURRENT)`。
 
-2. **`verify_mode=ssl.CERT_NONE` 只用于本地开发**：它跳过所有证书验证，中间人攻击无法被检测。CI/staging 环境应使用自签名 CA 证书（`cafile` 参数），而非禁用验证。
+1. **QUIC 需要正确的 ALPN 协议名**：默认为 `nnrp/1`（通过 `NNRP_CURRENT_ALPN`
+   常量获取）。若服务端和客户端使用的 ALPN 不一致，握手会被 TLS 层拒绝，报错为
+   `SSL handshake failed` 而非 NNRP 协议错误。不要手动拼写 ALPN 字符串，始终用
+   `alpn_for_wire_format(WireFormat.CURRENT)`。
 
-3. **TCP 传输不支持 Datagram 消息类型**（如 `TRANSPORT_PROBE`）；若客户端发起探测，会抛出 `NnrpTcpUnsupportedOperationError`，调用方需捕获并降级处理。
+2. **`verify_mode=ssl.CERT_NONE`
+   只用于本地开发**：它跳过所有证书验证，中间人攻击无法被检测。CI/staging 环境应使用自签名 CA
+   证书（`cafile` 参数），而非禁用验证。
 
-4. **`serve_quic` / `serve_tcp` 是异步上下文管理器，退出时会关闭监听器但不会关闭已建立的 Session**；若需优雅关闭所有会话，应在 `__aexit__` 前先 cancel 所有 `handle_session` 任务并 await 其完成。
+3. **TCP 传输不支持 Datagram 消息类型**（如 `TRANSPORT_PROBE`）；若客户端发起探测，会抛出
+   `NnrpTcpUnsupportedOperationError`，调用方需捕获并降级处理。
 
-5. **`idle_timeout` 参数在 QUIC 和 TCP 侧独立计时**：若客户端 QUIC 端设为 30 秒，服务端设为 10 秒，服务端会先超时关闭连接，客户端收到的是 `ConnectionResetError` 而非 NNRP 协议关闭帧。两端超时应保持一致，或服务端略大于客户端。
-:::
+4. **`serve_quic` / `serve_tcp` 是异步上下文管理器，退出时会关闭监听器但不会关闭已建立的
+   Session**；若需优雅关闭所有会话，应在 `__aexit__` 前先 cancel 所有 `handle_session` 任务并 await
+   其完成。
+
+5. **`idle_timeout` 参数在 QUIC 和 TCP 侧独立计时**：若客户端 QUIC 端设为 30 秒，服务端设为 10
+   秒，服务端会先超时关闭连接，客户端收到的是 `ConnectionResetError` 而非 NNRP
+   协议关闭帧。两端超时应保持一致，或服务端略大于客户端。 :::
