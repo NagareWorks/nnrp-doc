@@ -68,6 +68,8 @@ the same 40-byte header; each frame below defines its own fixed metadata layout.
 | `0x45` | `OBJECT_DELTA`           | C -> S or S -> C | `runtime.object`  | [Object Delta Metadata](./object-cache-frames#object-delta-metadata)           |
 | `0x46` | `CACHE_REFERENCE`        | C -> S or S -> C | `cache.reference` | [Cache Reference Metadata](./object-cache-frames#cache-reference-metadata)     |
 | `0x47` | `CACHE_MISS`             | C -> S or S -> C | `cache.reference` | [Cache Miss Metadata](./object-cache-frames#cache-miss-metadata)               |
+| `0x48` | `ERROR_RECOVERABLE`      | C -> S or S -> C | `runtime.control` | [Recoverable Error Metadata](./control-frames#recoverable-error-metadata)      |
+| `0x49` | `RETRY_AFTER`            | C -> S or S -> C | `runtime.control` | [Retry After Metadata](./control-frames#retry-after-metadata)                  |
 
 `CACHE_INVALIDATE` keeps its existing NNRP/1 message type and gains the `cache.reference` capability
 requirement when used as part of this profile.
@@ -86,6 +88,7 @@ requirement when used as part of this profile.
 | `control.route_execution_hint` | `ROUTE_HINT`, `EXECUTION_HINT`                      |
 | `control.trace_context`        | `TRACE_CONTEXT`                                     |
 | `control.result_drop_reason`   | `RESULT_DROP_REASON`                                |
+| `control.recoverable_error`    | `ERROR_RECOVERABLE`, `RETRY_AFTER`                  |
 | `object.lifecycle`             | `OBJECT_DECLARE`, `OBJECT_REF`, `OBJECT_RELEASE`    |
 | `object.delta`                 | `OBJECT_PATCH`, `OBJECT_DELTA`                      |
 | `object.cost`                  | Object descriptor cost fields                       |

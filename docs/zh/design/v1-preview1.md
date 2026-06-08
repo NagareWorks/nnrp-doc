@@ -427,7 +427,7 @@ preview1 允许通过 `SESSION_PATCH` 修改以下低频字段：
 
 ### 10.3 控制面扩展兼容规则
 
-为避免 preview1 冻结后只能通过 `1 -> 2` 的破坏性版本迁移补扩展能力，preview1 在控制面正式预留一个受约束的扩展机制，但该机制只用于低频控制消息，不用于热路径数据面。
+为避免 preview1 发布后只能通过 `1 -> 2` 的破坏性版本迁移补扩展能力，preview1 在控制面正式预留一个受约束的扩展机制，但该机制只用于低频控制消息，不用于热路径数据面。
 
 1. `FRAME_SUBMIT` 和 `RESULT_PUSH` 不得承载通用自定义请求头、字符串键值 metadata 或其他开放式应用扩展块。
 2. preview1 的通用扩展入口仅保留给控制面；标准消息中优先允许 `CLIENT_HELLO / SERVER_HELLO_ACK / SESSION_PATCH / SESSION_PATCH_ACK / CLOSE / ERROR` 使用该入口。
@@ -795,7 +795,7 @@ preview1 冻结的是“会话级低频对象缓存”：
 3. 公共头中的 `route_id`、保留 `flags`、若干消息类型号段，为后续多租户、调度等级、配额与路由扩展预留。
 4. 与 preview1 不兼容的 wire 变化，不得静默覆盖，必须通过新的设计阶段文档边界或新的 major version 暴露。
 5. 兼容性增强、可选能力或新增错误码，优先通过 capability bit、控制面 `control_extension_block`、保留标志位和新增可选消息类型扩展，而不是改写既有定长头。
-6. 若未来引入热路径 cache reference、并发多 session 或多租户语义，应优先使用新的设计阶段明确暴露，而不是回溯修改 preview1 的既有语义。
+6. 若引入热路径 cache reference、并发多 session 或多租户语义，应优先使用新的设计阶段明确暴露，而不是回溯修改 preview1 的既有语义。
 
 ## 19. 首轮结论
 

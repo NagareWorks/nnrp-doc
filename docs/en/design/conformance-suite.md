@@ -33,7 +33,7 @@ The protocol document freezes semantics. The conformance suite turns frozen sema
 
 1. The protocol objects, fixed layouts, state machines, error codes, version boundaries, and conformance rules.
 2. The public goals, versioning strategy, layering model, and pass criteria of the conformance suite.
-3. The record of which semantics are frozen already and which semantics remain under design and therefore cannot yet enter the mandatory conformance set.
+3. The versioned conformance matrix that maps protocol semantics to mandatory, optional, and extension-owned test levels.
 
 ### 3.2 What `nnrp-rs` Owns
 
@@ -41,7 +41,7 @@ The protocol document freezes semantics. The conformance suite turns frozen sema
 
 1. The canonical `nnrp-conformance` artifacts and the first reference implementation.
 2. The generation of recipe-backed vectors, fixture manifests, state-machine scenarios, error-path baselines, and machine-readable report formats.
-3. Acting as the first implementation that consumes the protocol document, while still not inventing protocol semantics before they are frozen in `nnrp-doc`.
+3. Acting as the first implementation that consumes the protocol document while keeping protocol semantics sourced from versioned `nnrp-doc` entries.
 
 ### 3.3 What SDK and Runtime Repositories Own
 
@@ -79,7 +79,7 @@ Minimum requirements:
 1. Each protocol line should distinguish at least `NNRP/1-preview1`, `NNRP/1-preview2`, `NNRP/1-preview3`, and later formally frozen versions.
 2. Preview suites must be retained, because previews overwrite the current semantics within one major line, while historical implementations and migration validation still need the historical baseline.
 3. Once a new preview is frozen, the old preview's conformance result set must not be silently rewritten; a new version directory or version tag must be added instead.
-4. If a semantic rule is not yet frozen in the design document, it may only enter an experimental or draft case set and must not enter the mandatory set.
+4. If a semantic rule only exists in draft or experimental design material, it may only enter an experimental or draft case set and must not enter the mandatory set.
 
 Suggested version directory shape:
 

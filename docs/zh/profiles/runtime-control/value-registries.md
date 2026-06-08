@@ -174,6 +174,8 @@ next:
 | Route Hint Metadata       | `flags` | `0x00000003` | bit `0`：必须遵守；bit `1`：尽力而为。                      |
 | Trace Context Metadata    | `flags` | `0x0003`     | bit `0`：采样；bit `1`：错误。                              |
 | Result Drop Metadata      | `flags` | `0x03`       | bit `0`：最终；bit `1`：可重试。                            |
+| Recoverable Error Metadata | `flags` | `0x03`       | bit `0`：当前可重试；bit `1`：必须等待 retry_after。         |
+| Retry After Metadata      | `flags` | `0x03`       | bit `0`：作用于连接；bit `1`：作用于 operation。             |
 | Object Reference Metadata | `flags` | `0x00000007` | bit `0`：borrowed；bit `1`：mutable；bit `2`：存在 region。 |
 | Object Release Metadata   | `flags` | `0x03`       | bit `0`：最终释放；bit `1`：使依赖对象失效。                |
 | Object Delta Metadata     | `flags` | `0x00000007` | bit `0`：替换区域；bit `1`：压缩；bit `2`：最终 delta。     |

@@ -75,7 +75,7 @@ preview3 adopts the following design principles:
 
 This document freezes only protocol objects, fixed layouts, state machines, error codes, and the conformance vocabulary.
 
-Concrete implementation-facing API shape, handle management, callback/polling drive modes, packaging, and release strategy are not frozen in this protocol document.
+Concrete implementation-facing API shape, handle management, callback/polling drive modes, packaging, and release strategy belong to SDK and release documents, not this protocol document.
 
 The cross-version design of the protocol conformance suite itself, including its layering, case-status model, and integration boundary for implementations, is specified separately in the `conformance-suite` design document. preview3 only declares here that it must consume one shared public conformance baseline rather than redefining the whole testing framework inline.
 

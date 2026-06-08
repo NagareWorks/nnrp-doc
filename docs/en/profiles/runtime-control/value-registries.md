@@ -176,6 +176,8 @@ sets a `reserved` field to a non-zero value.
 | Route Hint Metadata       | `flags` | `0x00000003` | bit `0`: must honor; bit `1`: best effort.                           |
 | Trace Context Metadata    | `flags` | `0x0003`     | bit `0`: sampled; bit `1`: error.                                    |
 | Result Drop Metadata      | `flags` | `0x03`       | bit `0`: final; bit `1`: retryable.                                  |
+| Recoverable Error Metadata | `flags` | `0x03`       | bit `0`: retryable now; bit `1`: retry after required.               |
+| Retry After Metadata      | `flags` | `0x03`       | bit `0`: applies to connection; bit `1`: applies to operation.       |
 | Object Reference Metadata | `flags` | `0x00000007` | bit `0`: borrowed; bit `1`: mutable; bit `2`: region present.        |
 | Object Release Metadata   | `flags` | `0x03`       | bit `0`: final release; bit `1`: invalidates dependents.             |
 | Object Delta Metadata     | `flags` | `0x00000007` | bit `0`: replaces region; bit `1`: compressed; bit `2`: final delta. |

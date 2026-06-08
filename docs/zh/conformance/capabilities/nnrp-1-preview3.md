@@ -18,7 +18,7 @@ Preview3 当前有两个无 token 的 mandatory 基座检查：`header.roundtrip
 | `result_push.basic` | L1 | mandatory | 需同时声明 `frame_submit.tensor.inline` | 与最小提交路径兼容的结果返回。 |
 | `transport.quic` | L3 | optional | 无 | Preview3 QUIC 最小互通传输。 |
 | `transport.tcp` | L3 | optional | 无 | Preview3 TCP 最小互通传输。 |
-| `flow_update` | L1 | experimental | 无 | 尚未冻结进 mandatory core 的 flow-control 语义。 |
+| `flow_update` | L1 | experimental | 无 | 未进入 mandatory core 的 flow-control 语义。 |
 
 ## 详细说明
 

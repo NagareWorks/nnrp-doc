@@ -160,3 +160,35 @@ metadata。多取值字段统一使用[运行时控制取值注册表](./value-r
 | `19`   | `flags`            | `u8`  | 是   | 见取值注册表里的 flag masks。         |
 | `20`   | `diagnostic_bytes` | `u32` | 否   | 可选诊断 body 长度。                  |
 | `24`   | `reserved`         | `u64` | 是   | 必须为零。                            |
+
+## Recoverable Error Metadata
+
+用于 `ERROR_RECOVERABLE`。
+
+| Offset | 字段                 | 类型  | 必填 | 含义                                      |
+| ------ | -------------------- | ----- | ---- | ----------------------------------------- |
+| `0`    | `error_code`         | `u32` | 是   | 当前错误注册表中的错误码。                |
+| `4`    | `error_scope`        | `u32` | 是   | Connection、session 或 frame 作用域。     |
+| `8`    | `recovery_action`    | `u16` | 是   | 见取值注册表里的 `reason_code`。          |
+| `10`   | `source_role`        | `u8`  | 是   | 见取值注册表里的 role codes。             |
+| `11`   | `flags`              | `u8`  | 是   | 见取值注册表里的 flag masks。             |
+| `12`   | `retry_after_ms`     | `u32` | 否   | 建议重试延迟；`0` 表示无显式延迟。        |
+| `16`   | `related_session_id` | `u32` | 否   | 相关 session id。                         |
+| `20`   | `related_frame_id`   | `u32` | 否   | 相关 frame 或 operation id 的低位。        |
+| `24`   | `related_view_id`    | `u32` | 否   | 相关 view id。                            |
+| `28`   | `diagnostic_bytes`   | `u32` | 否   | 可选诊断 body 长度。                      |
+
+## Retry After Metadata
+
+用于 `RETRY_AFTER`。
+
+| Offset | 字段               | 类型  | 必填 | 含义                                           |
+| ------ | ------------------ | ----- | ---- | ---------------------------------------------- |
+| `0`    | `scope_id`         | `u64` | 是   | Session 或 operation 作用域；`0` 表示 connection。 |
+| `8`    | `control_sequence` | `u64` | 是   | 发送方内单调递增序号。                         |
+| `16`   | `retry_after_ms`   | `u32` | 是   | 最小重试等待时间，单位毫秒。                   |
+| `20`   | `jitter_ms`        | `u32` | 否   | 可选 jitter 窗口，单位毫秒。                   |
+| `24`   | `reason_code`      | `u16` | 是   | 见取值注册表里的 `reason_code`。               |
+| `26`   | `source_role`      | `u8`  | 是   | 见取值注册表里的 role codes。                  |
+| `27`   | `flags`            | `u8`  | 是   | 见取值注册表里的 flag masks。                  |
+| `28`   | `diagnostic_bytes` | `u32` | 否   | 可选诊断 body 长度。                           |

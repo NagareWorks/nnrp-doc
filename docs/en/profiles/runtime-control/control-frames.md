@@ -160,3 +160,35 @@ Used by `RESULT_DROP_REASON`.
 | `19`   | `flags`            | `u8`  | Yes      | See flag masks in the value registries.         |
 | `20`   | `diagnostic_bytes` | `u32` | No       | Optional diagnostic body length.                |
 | `24`   | `reserved`         | `u64` | Yes      | Must be zero.                                   |
+
+## Recoverable Error Metadata
+
+Used by `ERROR_RECOVERABLE`.
+
+| Offset | Field                | Type  | Required | Meaning                                             |
+| ------ | -------------------- | ----- | -------- | --------------------------------------------------- |
+| `0`    | `error_code`         | `u32` | Yes      | Error code in the active error registry.            |
+| `4`    | `error_scope`        | `u32` | Yes      | Connection, session, or frame scope.                |
+| `8`    | `recovery_action`    | `u16` | Yes      | See `reason_code` in the value registries.          |
+| `10`   | `source_role`        | `u8`  | Yes      | See role codes in the value registries.             |
+| `11`   | `flags`              | `u8`  | Yes      | See flag masks in the value registries.             |
+| `12`   | `retry_after_ms`     | `u32` | No       | Suggested retry delay; `0` means no explicit delay. |
+| `16`   | `related_session_id` | `u32` | No       | Related session identifier.                         |
+| `20`   | `related_frame_id`   | `u32` | No       | Related frame or operation identifier low bits.     |
+| `24`   | `related_view_id`    | `u32` | No       | Related view identifier.                            |
+| `28`   | `diagnostic_bytes`   | `u32` | No       | Optional diagnostic body length.                    |
+
+## Retry After Metadata
+
+Used by `RETRY_AFTER`.
+
+| Offset | Field              | Type  | Required | Meaning                                           |
+| ------ | ------------------ | ----- | -------- | ------------------------------------------------- |
+| `0`    | `scope_id`         | `u64` | Yes      | Session or operation scope; `0` means connection. |
+| `8`    | `control_sequence` | `u64` | Yes      | Monotonic sequence within the sender.             |
+| `16`   | `retry_after_ms`   | `u32` | Yes      | Minimum retry delay in milliseconds.              |
+| `20`   | `jitter_ms`        | `u32` | No       | Optional jitter window in milliseconds.           |
+| `24`   | `reason_code`      | `u16` | Yes      | See `reason_code` in the value registries.        |
+| `26`   | `source_role`      | `u8`  | Yes      | See role codes in the value registries.           |
+| `27`   | `flags`            | `u8`  | Yes      | See flag masks in the value registries.           |
+| `28`   | `diagnostic_bytes` | `u32` | No       | Optional diagnostic body length.                  |

@@ -2,7 +2,7 @@
 
 ## 1. 定位
 
-vLLM NNRP adapter 是冻结后的 `openai-compatible/1` API Profile 的第一个具体实现目标。
+vLLM NNRP adapter 是 `openai-compatible/1` API Profile 的第一个具体实现目标。
 
 这个 adapter 不创建另一个 OpenAI HTTP server。它把 vLLM 的 OpenAI 兼容 serving surface 绑定到 NNRP
 session、frame submit、result stream、cancel、diagnostics 和 profile-level conformance 上。
@@ -17,7 +17,7 @@ Adapter 必须保留三条边界：
 
 1. **NNRP runtime 边界**：NNRP 负责 session lifecycle、flow control、cancellation、result push、
    transport probing 和 diagnostics delivery。
-2. **OpenAI 兼容 API 边界**：冻结后的 `openai-compatible/1` Profile 负责 request envelope、
+2. **OpenAI 兼容 API 边界**：`openai-compatible/1` Profile 负责 request envelope、
    operation name、streaming event shape、error body、usage event 和 capability document。
 3. **vLLM backend 边界**：vLLM 负责 model loading、token generation、batching、scheduling、model
    policy、tokenizer behavior 和 backend-specific limit。
@@ -206,7 +206,7 @@ abort。
 
 ## 10. API Profile 一致性测试
 
-OpenAI 兼容 provider 经常扩展或调整 OpenAI HTTP API。因此 adapter conformance layer 验证的是冻结后的
+OpenAI 兼容 provider 经常扩展或调整 OpenAI HTTP API。因此 adapter conformance layer 验证的是
 NNRP API Profile 语义，而不是完整复刻 OpenAI HTTP 行为。
 
 一致性测试形态与 SDK adapter 一致性测试类似：adapter 通过 manifest 声明 capability，suite 根据

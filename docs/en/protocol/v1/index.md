@@ -7,7 +7,7 @@ next:
 
 # NNRP/1
 
-This is the only current public version line. The sidebar keeps the “Preview” label only because the stable release marker is not frozen yet; for readers and integrators, this page is simply the entry for the current `NNRP/1` contract.
+This is the only current public version line. The sidebar keeps the “Preview” label only because the stable release marker has not been published yet; for readers and integrators, this page is simply the entry for the current `NNRP/1` contract.
 
 If you only remember a few things, start with these four:
 

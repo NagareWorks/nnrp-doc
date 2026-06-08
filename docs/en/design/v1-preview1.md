@@ -42,7 +42,7 @@ It is not a general-purpose RPC, nor is it a transport adaptation layer for an e
 3. More complete quota, lease, and audit semantics.
 4. Connection migration, recovery, and finer-grained QoS.
 
-Therefore, this document is responsible only for `NNRP/1-preview1`; any capability not frozen by this document must not be misunderstood as already finalized in the formal version.
+Therefore, this document is responsible only for `NNRP/1-preview1`; capabilities outside this document must not be treated as finalized in the formal version.
 
 ## 2. Design Goals
 
@@ -795,7 +795,7 @@ The following content should not be cached by default:
 3. `route_id`, reserved `flags`, and several message-type ranges in the common header are reserved for later multi-tenancy, scheduling class, quota, and routing extensions.
 4. Wire changes incompatible with preview1 must not silently overwrite preview1; they must be exposed through a new design-stage document boundary or a new major version.
 5. For compatibility enhancements, optional capabilities, or new error codes, priority should be given to extension through capability bits, the control-plane `control_extension_block`, reserved flag bits, and new optional message types, rather than rewriting existing fixed-size headers.
-6. If future hot-path cache references, concurrent multi-session semantics, or multi-tenant semantics are introduced, they should be explicitly exposed through a new design stage rather than retroactively modifying the existing semantics of preview1.
+6. If hot-path cache references, concurrent multi-session semantics, or multi-tenant semantics are introduced, they should be explicitly exposed through a new design stage rather than retroactively modifying the existing semantics of preview1.
 
 ## 19. First-Round Conclusion
 

@@ -18,7 +18,7 @@ Preview3 currently has two mandatory protocol-floor checks with no capability to
 | `result_push.basic` | L1 | mandatory | must also claim `frame_submit.tensor.inline` | Result return compatible with the minimum submit path. |
 | `transport.quic` | L3 | optional | none | Preview3 minimum QUIC interoperability transport. |
 | `transport.tcp` | L3 | optional | none | Preview3 minimum TCP interoperability transport. |
-| `flow_update` | L1 | experimental | none | Flow-control semantics not yet frozen into the mandatory core. |
+| `flow_update` | L1 | experimental | none | Flow-control semantics outside the mandatory core. |
 
 ## Detailed explanations
 

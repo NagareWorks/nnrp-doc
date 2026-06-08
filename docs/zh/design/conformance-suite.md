@@ -41,7 +41,7 @@
 
 1. 提供 canonical 的 `nnrp-conformance` 产物与参考实现。
 2. 生成 recipe-backed vector、fixture manifest、状态机用例、错误路径基线和机器可读报告格式。
-3. 作为第一实现来消费协议文档，但不得在 `nnrp-doc` 未冻结前私设协议语义。
+3. 作为第一实现来消费协议文档，但不得私设 `nnrp-doc` 之外的协议语义。
 
 ### 3.3 各 SDK / runtime 仓库负责什么
 
@@ -68,7 +68,7 @@
 1. 不替代某个 SDK 的 API 体验测试、IDE 集成测试或宿主框架适配测试。
 2. 不替代 benchmark、容量测试、长时 soak、模型质量评估或视觉指标对比。
 3. 不负责冻结某个实现特有的线程模型、回调风格、打包方式或宿主对象树。
-4. 不把尚未冻结的协议设计提前变成“测试要求”。
+4. 不把草案或实验性协议设计提前变成“测试要求”。
 
 ## 6. 版本策略
 
@@ -78,8 +78,8 @@
 
 1. 每个协议线至少区分 `NNRP/1-preview1`、`NNRP/1-preview2`、`NNRP/1-preview3` 与后续正式冻结版本。
 2. preview 用例必须保留，因为同一主版本线内的 preview 会覆盖当前语义，但历史实现和迁移验证仍需要历史基线。
-3. 新 preview 冻结后，不允许直接改写旧 preview 的一致性测试结果；必须新增新版本目录或新版本标签。
-4. 若某条语义在设计文档里尚未冻结，只能进入 experimental 或 draft case 集，不得进入 mandatory case 集。
+3. 新 preview 发布后，不允许直接改写旧 preview 的一致性测试结果；必须新增新版本目录或新版本标签。
+4. 若某条语义只存在于草案或实验设计里，只能进入 experimental 或 draft case 集，不得进入 mandatory case 集。
 
 建议的版本目录形态：
 

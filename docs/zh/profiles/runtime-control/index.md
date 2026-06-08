@@ -66,6 +66,8 @@ Preview4 控制帧和对象帧扩展 NNRP/1 message type 注册表。公共头�
 | `0x45` | `OBJECT_DELTA`           | C -> S 或 S -> C | `runtime.object`  | [Object Delta Metadata](./object-cache-frames#object-delta-metadata)           |
 | `0x46` | `CACHE_REFERENCE`        | C -> S 或 S -> C | `cache.reference` | [Cache Reference Metadata](./object-cache-frames#cache-reference-metadata)     |
 | `0x47` | `CACHE_MISS`             | C -> S 或 S -> C | `cache.reference` | [Cache Miss Metadata](./object-cache-frames#cache-miss-metadata)               |
+| `0x48` | `ERROR_RECOVERABLE`      | C -> S 或 S -> C | `runtime.control` | [Recoverable Error Metadata](./control-frames#recoverable-error-metadata)      |
+| `0x49` | `RETRY_AFTER`            | C -> S 或 S -> C | `runtime.control` | [Retry After Metadata](./control-frames#retry-after-metadata)                  |
 
 `CACHE_INVALIDATE` 保持已有 NNRP/1 message type；当它作为本 profile 的一部分使用时，必须声明
 `cache.reference` 能力。
@@ -84,6 +86,7 @@ Preview4 控制帧和对象帧扩展 NNRP/1 message type 注册表。公共头�
 | `control.route_execution_hint` | `ROUTE_HINT`, `EXECUTION_HINT`                      |
 | `control.trace_context`        | `TRACE_CONTEXT`                                     |
 | `control.result_drop_reason`   | `RESULT_DROP_REASON`                                |
+| `control.recoverable_error`    | `ERROR_RECOVERABLE`, `RETRY_AFTER`                  |
 | `object.lifecycle`             | `OBJECT_DECLARE`, `OBJECT_REF`, `OBJECT_RELEASE`    |
 | `object.delta`                 | `OBJECT_PATCH`, `OBJECT_DELTA`                      |
 | `object.cost`                  | 对象描述符成本字段                                  |

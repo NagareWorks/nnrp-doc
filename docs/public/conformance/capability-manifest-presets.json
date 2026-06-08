@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-08T04:58:40.815Z",
+  "generated_at": "2026-06-08T11:30:04.043Z",
   "source": "local nnrp-conformance checkout",
   "presets": [
     {
@@ -315,8 +315,8 @@
             "experimental"
           ],
           "description": {
-            "zh": "尚未冻结进 mandatory core 的 flow-control 语义。",
-            "en": "Flow-control semantics not yet frozen into the mandatory core."
+            "zh": "未进入 mandatory core 的 flow-control 语义。",
+            "en": "Flow-control semantics outside the mandatory core."
           }
         },
         {

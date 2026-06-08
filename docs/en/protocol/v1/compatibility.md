@@ -2,7 +2,7 @@
 
 The user-facing docs now keep only one main entry: `/en/protocol/v1/`.
 
-The “Preview” label only means the stable release has not been frozen yet. It does not mean readers should choose between multiple preview-numbered entry points.
+The “Preview” label only means the stable release has not been published yet. It does not mean readers should choose between multiple preview-numbered entry points.
 
 Current rules:
 
