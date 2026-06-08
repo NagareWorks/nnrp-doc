@@ -854,8 +854,8 @@ export const wireConformancePresets = [
       "en": "nnrp-1-preview4 Wire-level Conformance"
     },
     "note": {
-      "zh": "从线路级测试场景声明派生，覆盖 4 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
-      "en": "Derived from wire-level conformance scenario manifests. Covers 4 protocol scenarios where the runner directly acts as client, server, or proxy."
+      "zh": "从线路级测试场景声明派生，覆盖 6 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
+      "en": "Derived from wire-level conformance scenario manifests. Covers 6 protocol scenarios where the runner directly acts as client, server, or proxy."
     },
     "recommendedPath": "conformance/nnrp-1-preview4.wire-target.json",
     "modes": [
@@ -922,6 +922,32 @@ export const wireConformancePresets = [
         "summary": {
           "zh": "协商能力成本并发送路由、执行和缓存提示，验证降级或缓存未命中会被显式返回。",
           "en": "Runner negotiates costs, sends route and execution hints, references cache state, and verifies downgrade or cache miss behavior is explicit."
+        }
+      },
+      {
+        "id": "wire.control.cancel-abort.ipc-client",
+        "status": "experimental",
+        "requiredCapabilities": [
+          "control.cancel_abort",
+          "control.result_drop_reason",
+          "control.trace_context"
+        ],
+        "summary": {
+          "zh": "提交操作后发送取消帧，并验证对端通过协作终止或结构化丢弃原因完成收敛。",
+          "en": "Runner submits an operation over the Rust IPC transport, sends CANCEL, and verifies cooperative termination or a typed drop reason without falling back to an SDK adapter."
+        }
+      },
+      {
+        "id": "wire.control.progress-backpressure.websocket-server",
+        "status": "experimental",
+        "requiredCapabilities": [
+          "control.progress_partial",
+          "control.credit_backpressure",
+          "object.lifecycle"
+        ],
+        "summary": {
+          "zh": "由测试套件扮演服务端，发送进度、部分结果和信用更新，验证客户端遵守背压。",
+          "en": "Runner accepts a WebSocket transport request, emits PROGRESS and PARTIAL_RESULT frames, constrains credits, and verifies the client honors backpressure without using a transport-local JSON shim."
         }
       }
     ]
