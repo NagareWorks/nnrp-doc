@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-08T11:30:04.043Z",
+  "generated_at": "2026-06-08T14:23:18.473Z",
   "source": "local nnrp-conformance checkout",
   "presets": [
     {
@@ -315,8 +315,8 @@
             "experimental"
           ],
           "description": {
-            "zh": "未进入 mandatory core 的 flow-control 语义。",
-            "en": "Flow-control semantics outside the mandatory core."
+            "zh": "尚未冻结进 mandatory core 的 flow-control 语义。",
+            "en": "Flow-control semantics not yet frozen into the mandatory core."
           }
         },
         {
@@ -626,7 +626,7 @@
           }
         },
         {
-          "token": "control.cache_reference",
+          "token": "cache.reference",
           "layers": "L1",
           "categories": [
             "optional"
@@ -912,7 +912,7 @@
           "requiredCapabilities": [
             "control.capability_costs",
             "control.route_execution_hint",
-            "control.cache_reference",
+            "cache.reference",
             "control.degrade_profile",
             "control.budget_update"
           ],

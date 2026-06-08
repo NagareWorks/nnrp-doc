@@ -627,7 +627,7 @@ export const capabilityVersionPresets = [
         }
       },
       {
-        "token": "control.cache_reference",
+        "token": "cache.reference",
         "layers": "L1",
         "categories": [
           "optional"
@@ -915,7 +915,7 @@ export const wireConformancePresets = [
         "requiredCapabilities": [
           "control.capability_costs",
           "control.route_execution_hint",
-          "control.cache_reference",
+          "cache.reference",
           "control.degrade_profile",
           "control.budget_update"
         ],
