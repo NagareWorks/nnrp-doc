@@ -258,5 +258,181 @@ export const capabilityManifestPresetOverrides: Record<string, CapabilityVersion
         }
       }
     }
+  },
+  "nnrp-1-preview4": {
+    title: {
+      zh: "NNRP/1 Preview4",
+      en: "NNRP/1 Preview4"
+    },
+    note: {
+      zh: "覆盖 Preview4 运行时控制帧、运行时对象、缓存引用、IPC/WebSocket 传输与线路级测试能力。",
+      en: "Covers Preview4 runtime control frames, runtime objects, cache references, IPC/WebSocket transports, and wire-level test capabilities."
+    },
+    capabilityOverrides: {
+      "control.cancel_abort": {
+        description: {
+          zh: "按操作标识取消或中止任务，并输出带 trace context 的类型化终态。",
+          en: "Cancel or abort an operation by id and emit a typed terminal state with trace context."
+        },
+        combination: {
+          zh: "通常与 control.result_drop_reason、control.trace_context 同时声明。",
+          en: "Usually claimed with control.result_drop_reason and control.trace_context."
+        }
+      },
+      "control.result_drop_reason": {
+        description: {
+          zh: "标记结果被丢弃的原因，覆盖取消、中止、过期、被替换等终态。",
+          en: "Marks why a result was dropped, including cancelled, aborted, expired, and superseded terminal states."
+        },
+        combination: {
+          zh: "会与取消、中止、优先级/截止时间、supersede 等控制帧组合出现。",
+          en: "Appears with cancel/abort, priority/deadline, and supersede control frames."
+        }
+      },
+      "control.trace_context": {
+        description: {
+          zh: "在线路级保留端到端 trace context，用于分段计时和问题定位。",
+          en: "Preserves end-to-end trace context for segmented timing and diagnosis."
+        },
+        combination: {
+          zh: "通常与 control.cancel_abort、control.result_drop_reason 同时声明。",
+          en: "Usually claimed with control.cancel_abort and control.result_drop_reason."
+        }
+      },
+      "control.priority_update": {
+        description: {
+          zh: "在操作生命周期中动态调整优先级，允许调度器重新排序未完成工作。",
+          en: "Dynamically updates operation priority so schedulers can reorder unfinished work."
+        },
+        combination: {
+          zh: "通常与 control.deadline_expire、control.result_drop_reason 同时声明。",
+          en: "Usually claimed with control.deadline_expire and control.result_drop_reason."
+        }
+      },
+      "control.deadline_expire": {
+        description: {
+          zh: "声明任务截止时间或过期时间，避免服务端继续完成已经无意义的工作。",
+          en: "Declares task deadlines or expiry times so servers can stop stale work."
+        },
+        combination: {
+          zh: "通常与 control.priority_update、control.result_drop_reason 同时声明。",
+          en: "Usually claimed with control.priority_update and control.result_drop_reason."
+        }
+      },
+      "control.progress_partial": {
+        description: {
+          zh: "以更细粒度返回进度和部分结果，避免所有数据只能在终态一次性交付。",
+          en: "Returns progress and partial results at finer granularity instead of only at terminal completion."
+        },
+        combination: {
+          zh: "通常与 control.credit_backpressure 同时声明。",
+          en: "Usually claimed with control.credit_backpressure."
+        }
+      },
+      "control.credit_backpressure": {
+        description: {
+          zh: "通过 credit update 与 backpressure 告知对端当前可接受的并发和数据量。",
+          en: "Uses credit updates and backpressure to signal accepted concurrency and data volume."
+        },
+        combination: {
+          zh: "通常与 control.progress_partial 同时声明。",
+          en: "Usually claimed with control.progress_partial."
+        }
+      },
+      "control.capability_costs": {
+        description: {
+          zh: "在能力协商中声明成本、偏好、限制与降级元数据。",
+          en: "Negotiates capability cost, preference, limit, and downgrade metadata."
+        }
+      },
+      "object.lifecycle": {
+        description: {
+          zh: "声明运行时对象、在操作中引用对象，并显式释放所有权。",
+          en: "Declares runtime objects, references them in operations, and releases ownership explicitly."
+        },
+        combination: {
+          zh: "会与 object.cost、object.ownership、object.delta 等对象能力组合出现。",
+          en: "Appears with object.cost, object.ownership, and object.delta."
+        }
+      },
+      "object.cost": {
+        description: {
+          zh: "为运行时对象声明计算、显存、带宽或生命周期成本。",
+          en: "Declares compute, memory, bandwidth, or lifetime cost for runtime objects."
+        },
+        combination: {
+          zh: "通常与 object.lifecycle、object.ownership 同时声明。",
+          en: "Usually claimed with object.lifecycle and object.ownership."
+        }
+      },
+      "object.ownership": {
+        description: {
+          zh: "固定运行时对象的所有权转移、释放和失效语义。",
+          en: "Fixes ownership transfer, release, and invalidation semantics for runtime objects."
+        },
+        combination: {
+          zh: "通常与 object.lifecycle、object.cost 同时声明。",
+          en: "Usually claimed with object.lifecycle and object.cost."
+        }
+      },
+      "object.delta": {
+        description: {
+          zh: "发送对象补丁或 delta，避免重复传输完整运行时对象。",
+          en: "Sends object patches or deltas without resending the full runtime object."
+        },
+        combination: {
+          zh: "通常与 object.lifecycle 同时声明。",
+          en: "Usually claimed with object.lifecycle."
+        }
+      },
+      "control.route_execution_hint": {
+        description: {
+          zh: "携带路由与执行 hint，供 runtime 或 subagent 调度使用，避免退回重 JSON / protobuf 包装。",
+          en: "Carries route and execution hints for runtime or subagent scheduling without heavy JSON/protobuf wrappers."
+        }
+      },
+      "cache.reference": {
+        description: {
+          zh: "正式化 cache reference、cache miss 和 invalidation，仅在身份与失效语义清晰的路径使用。",
+          en: "Formalizes cache references, cache misses, and invalidation where identity and invalidation are well-defined."
+        }
+      },
+      "control.degrade_profile": {
+        description: {
+          zh: "协商更便宜的执行 profile，允许在会话中降级计算或带宽策略。",
+          en: "Negotiates a cheaper execution profile during a session."
+        },
+        combination: {
+          zh: "通常与 control.budget_update 同时声明。",
+          en: "Usually claimed with control.budget_update."
+        }
+      },
+      "control.budget_update": {
+        description: {
+          zh: "在会话中更新 compute、token、memory 或 bandwidth budget。",
+          en: "Updates compute, token, memory, or bandwidth budgets during a session."
+        },
+        combination: {
+          zh: "通常与 control.degrade_profile 同时声明。",
+          en: "Usually claimed with control.degrade_profile."
+        }
+      },
+      "control.supersede": {
+        description: {
+          zh: "用新操作替换过期操作，并保持 trace 连续性与迟到结果可丢弃语义。",
+          en: "Replaces obsolete operations while preserving trace continuity and droppable late-result semantics."
+        },
+        combination: {
+          zh: "通常与 control.result_drop_reason 同时声明。",
+          en: "Usually claimed with control.result_drop_reason."
+        }
+      },
+      "control.retry_after": {
+        description: {
+          zh: "区分可重试压力与终止失败，并携带 retry-after 时间。",
+          en: "Distinguishes retryable pressure from terminal failure and carries retry-after timing."
+        }
+      }
+    }
   }
 };

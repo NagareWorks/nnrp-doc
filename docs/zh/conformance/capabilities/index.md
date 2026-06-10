@@ -28,6 +28,10 @@
     <strong>nnrp-1-preview3</strong>
     <span>覆盖 Preview3 当前 mandatory core，以及正在演进的 optional / experimental 能力。</span>
   </a>
+  <a href="./nnrp-1-preview4">
+    <strong>nnrp-1-preview4</strong>
+    <span>覆盖运行时控制帧、运行时对象、缓存引用、IPC/WebSocket 传输与线路级测试能力。</span>
+  </a>
 </div>
 
 ## 读表时要特别注意什么

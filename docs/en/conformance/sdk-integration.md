@@ -28,6 +28,7 @@ evidence files they choose to attach.
 | adapter execution     | Execute selected dynamic behavior cases and return machine-readable results | execution plan, adapter command, case-result report                          |
 | benchmark execution   | Measure selected latency and throughput scenarios                           | benchmark plan, benchmark command, benchmark result report                   |
 | API profile execution | Validate an adapter-level OpenAI-compatible API surface                     | API profile capability manifest, profile execution plan, API profile results |
+| wire-level execution  | Validate a real endpoint by acting directly as client, server, or proxy     | wire target manifest, wire execution plan, wire results, evidence files      |
 
 ---
 
@@ -68,6 +69,10 @@ and it lets each version explain the exact semantics of the same token name inde
   <div class="doc-card">
     <h3><a href="./capabilities/nnrp-1-preview3">nnrp-1-preview3</a></h3>
     <p>Preview3 capability catalog covering the current mandatory core plus optional and experimental tokens.</p>
+  </div>
+  <div class="doc-card">
+    <h3><a href="./capabilities/nnrp-1-preview4">nnrp-1-preview4</a></h3>
+    <p>Preview4 capability catalog covering runtime controls, runtime objects, cache references, and wire-level endpoints.</p>
   </div>
 </div>
 
@@ -229,6 +234,46 @@ cargo run \
 
 The adapter command should consume the plan, execute each recipe against its OpenAI-compatible NNRP
 surface, and write API profile results with ids copied exactly from the plan.
+
+### Wire-level endpoint plan and results
+
+Use wire-level conformance when the runner must bypass SDK-owned adapters and exercise a real
+endpoint directly. The target manifest declares the endpoint mode, transport addresses, selected
+wire scenarios, and execution limits.
+
+```bash
+cargo run \
+  --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
+  -p nnrp-conformance-runner \
+  -- \
+  wire-plan \
+  --suite <path-to-nnrp-conformance>/wire-conformance/nnrp-1-preview4/manifest.json \
+  --target conformance/nnrp-1-preview4.wire-target.json \
+  --output /tmp/wire-plan.json \
+  --results-path /tmp/wire-results.json \
+  --evidence-dir /tmp/wire-evidence
+
+cargo run \
+  --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
+  -p nnrp-conformance-runner \
+  -- \
+  wire-run \
+  --plan /tmp/wire-plan.json \
+  --target conformance/nnrp-1-preview4.wire-target.json \
+  --output /tmp/wire-results.json
+
+cargo run \
+  --manifest-path <path-to-nnrp-conformance>/Cargo.toml \
+  -p nnrp-conformance-runner \
+  -- \
+  validate-wire-results \
+  --plan /tmp/wire-plan.json \
+  --results /tmp/wire-results.json
+```
+
+Adapter execution validates SDK ergonomics and implementation-owned behavior. Wire-level execution
+validates the public protocol boundary: frame order, terminal state, transport binding, and evidence
+capture.
 
 ---
 

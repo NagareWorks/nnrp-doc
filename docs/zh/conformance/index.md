@@ -18,8 +18,9 @@ NNRP 一致性测试套件是一套独立于任何单一语言 SDK
 3. **Capability manifest**：每个实现仓库提供一份 JSON
    声明，列出自己当前已完成并愿意对外宣称支持的协议能力。
 4. **API profile recipe**：OpenAI-compatible NNRP API 这类应用层 profile 使用可读 recipe manifest 和
-   adapter capability 声明，而不是维护硬编码请求轨迹。
-5. **Runner**：一个 Rust 命令行工具，加载 baseline 和 capability manifest，生成执行计划、adapter
+   适配器能力声明，而不是维护硬编码请求轨迹。
+5. **线路级目标声明**：端点级测试让 runner 直接扮演客户端、服务端或代理，不经过 SDK 适配器也能验证协议帧。
+6. **Runner**：一个 Rust 命令行工具，加载 baseline 和 capability manifest，生成执行计划、适配器
    结果校验、API profile plan、benchmark 计划与报告。
 
 ## 为什么要有它
@@ -43,7 +44,7 @@ NNRP 一致性测试套件是一套独立于任何单一语言 SDK
 让你声明"我现在支持哪些能力"，runner 就只跑对应的 case，未声明的能力被标记为 `not_claimed`
 而不是失败。
 
-这意味着你可以在开发的任意阶段接入 conformance，得到一个有意义的报告，而不是一个全红的噪音输出。
+这意味着你可以在开发的任意阶段接入一致性测试，得到一个有意义的报告，而不是一个全红的噪音输出。
 
 ### CI 阶段：显式绑定协议版本口径
 
@@ -54,11 +55,11 @@ CI 不会猜你的实现对接的是哪个版本的协议。你在 CI 里显式�
 2. 只有实现声明支持的能力，才能进入 mandatory/optional 执行集。
 3. 版本对不上就报错退出，不允许"差不多是这个版本"的模糊状态进入合并流程。
 
-### SDK 集成：使用 suite-owned adapter 与 benchmark 合约
+### SDK 集成：使用 suite-owned 适配器与 benchmark 合约
 
 SDK 仓库不需要手工维护字节 fixture。Suite 负责维护人可读的语义 recipe、生成 canonical
 vector、adapter execution plan、adapter result schema、benchmark execution plan 和 benchmark result
-schema。SDK 仓库只提供能力声明、adapter command，以及可选的 benchmark runner 证据。
+schema。SDK 仓库只提供能力声明、适配器命令，以及可选的 benchmark runner 证据。
 
 ### 第三方实现：可验证的互通承诺
 
@@ -74,19 +75,19 @@ mandatory 核心集，支持以下能力"，而不只是说"我实现了 NNRP"�
   </div>
   <div class="doc-card">
     <h3><a href="./capability-manifest-generator">能力声明生成器</a></h3>
-    <p>生成协议能力声明、OpenAI API Profile adapter 声明和线路级测试目标声明，减少手写 JSON 的摩擦。</p>
+    <p>生成协议能力声明、OpenAI API 配置档适配器声明和线路级测试目标声明，减少手写 JSON 的摩擦。</p>
   </div>
   <div class="doc-card">
     <h3><a href="./capabilities/">能力列表</a></h3>
     <p>按版本查看 capability token、组合要求，以及每个能力对应的一致性测试约束。</p>
   </div>
   <div class="doc-card">
-    <h3><a href="./manifests">Manifest 参考</a></h3>
+    <h3><a href="./manifests">清单参考</a></h3>
     <p>面向套件开发者。Protocol manifest、case manifest、向量 recipe、adapter plan、benchmark plan 与报告格式的完整字段参考。</p>
   </div>
   <div class="doc-card">
     <h3><a href="./sdk-integration">SDK 集成指南</a></h3>
-    <p>面向 SDK 开发者。如何创建能力声明、实现 adapter command、运行 benchmark，并端到端接入 CI。</p>
+    <p>面向 SDK 开发者。如何创建能力声明、实现适配器命令、运行 benchmark，并端到端接入 CI。</p>
   </div>
   <div class="doc-card">
     <h3><a href="./ci">CI 与版本选择</a></h3>

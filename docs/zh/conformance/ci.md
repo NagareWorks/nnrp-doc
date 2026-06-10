@@ -26,7 +26,7 @@ CI 不允许靠仓库当前状态推断协议版本。
 CI 必须显式选择一个 protocol manifest，例如：
 
 1. `protocol/nnrp-1-preview3/manifest.json`
-2. 后续某条 Preview4 或正式版本线的 protocol manifest
+2. `protocol/nnrp-1-preview4/manifest.json`
 
 然后 runner 至少要验证三件事：
 

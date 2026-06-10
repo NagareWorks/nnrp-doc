@@ -530,13 +530,14 @@ const zhConformanceItems = [
       { text: "能力列表总览", link: "/zh/conformance/capabilities/" },
       { text: "nnrp-1-preview2", link: "/zh/conformance/capabilities/nnrp-1-preview2" },
       { text: "nnrp-1-preview3", link: "/zh/conformance/capabilities/nnrp-1-preview3" },
+      { text: "nnrp-1-preview4", link: "/zh/conformance/capabilities/nnrp-1-preview4" },
     ],
   },
   {
     text: "参考",
     collapsed: false,
     items: [
-      { text: "Manifest 参考（测试套件开发者）", link: "/zh/conformance/manifests" },
+      { text: "清单参考（测试套件开发者）", link: "/zh/conformance/manifests" },
       { text: "SDK 集成指南", link: "/zh/conformance/sdk-integration" },
     ],
   },
@@ -625,6 +626,7 @@ const enConformanceItems = [
       { text: "Catalog Overview", link: "/en/conformance/capabilities/" },
       { text: "nnrp-1-preview2", link: "/en/conformance/capabilities/nnrp-1-preview2" },
       { text: "nnrp-1-preview3", link: "/en/conformance/capabilities/nnrp-1-preview3" },
+      { text: "nnrp-1-preview4", link: "/en/conformance/capabilities/nnrp-1-preview4" },
     ],
   },
   {

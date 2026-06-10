@@ -23,7 +23,9 @@ The conformance suite answers exactly that question. It consists of:
 4. **API profile recipes**: application-level profiles, such as OpenAI-compatible NNRP APIs, use
    readable recipe manifests and adapter capability declarations instead of hard-coded request
    traces.
-5. **Runner**: a Rust CLI that loads a baseline and capability manifests, then produces execution
+5. **Wire-level targets**: endpoint-level tests let the runner act directly as client, server, or
+   proxy and validate protocol frames without going through an SDK adapter.
+6. **Runner**: a Rust CLI that loads a baseline and capability manifests, then produces execution
    plans, adapter result validation, API profile plans, benchmark plans, and reports.
 
 ## Why it exists
@@ -88,7 +90,7 @@ capabilities" rather than just "I implemented NNRP".
   </div>
   <div class="doc-card">
     <h3><a href="./capability-manifest-generator">Capability Manifest Generator</a></h3>
-    <p>Generate protocol capability manifests and OpenAI API profile adapter declarations without hand-writing JSON.</p>
+    <p>Generate protocol capability manifests, OpenAI API profile adapter declarations, and wire-level target manifests without hand-writing JSON.</p>
   </div>
   <div class="doc-card">
     <h3><a href="./capabilities/">Capability Catalog</a></h3>

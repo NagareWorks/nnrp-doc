@@ -26,7 +26,7 @@ CI must not infer the protocol version from the repository state.
 CI must explicitly select one protocol manifest, for example:
 
 1. `protocol/nnrp-1-preview3/manifest.json`
-2. a future Preview4 or final-line protocol manifest
+2. `protocol/nnrp-1-preview4/manifest.json`
 
 Then the runner should verify at least these three things:
 

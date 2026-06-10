@@ -14,14 +14,15 @@ The minimum integration should answer three questions:
 
 The shared baseline currently consists of:
 
-1. A versioned protocol manifest such as `protocol/nnrp-1-preview3/manifest.json`.
+1. A versioned protocol manifest such as `protocol/nnrp-1-preview4/manifest.json`.
 2. One or more case manifests such as `cases/mandatory-core.json`.
 3. A capability manifest that declares which capabilities an implementation currently claims publicly.
 4. A machine-readable report that records which cases were selected for execution.
+5. Optional wire-level target manifests when the runner must test a real endpoint directly.
 
 ## Shortest usage path
 
-1. Select the target protocol line explicitly in the implementation repository, for example `nnrp-1-preview3`.
+1. Select the target protocol line explicitly in the implementation repository, for example `nnrp-1-preview4`.
 2. Prepare a capability manifest that declares the capabilities the implementation has already completed.
 3. Use the shared runner to load the matching protocol manifest, case manifests, and capability manifest.
 4. Emit a machine-readable report and let CI decide pass/fail from that report.

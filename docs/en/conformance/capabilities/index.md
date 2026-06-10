@@ -28,6 +28,10 @@ This directory records the public capability tokens exposed by each conformance 
     <strong>nnrp-1-preview3</strong>
     <span>Covers the current Preview3 mandatory core plus the evolving optional and experimental capabilities.</span>
   </a>
+  <a href="./nnrp-1-preview4">
+    <strong>nnrp-1-preview4</strong>
+    <span>Covers runtime control frames, runtime objects, cache references, IPC/WebSocket transports, and wire-level test capabilities.</span>
+  </a>
 </div>
 
 ## What to pay attention to when reading the tables

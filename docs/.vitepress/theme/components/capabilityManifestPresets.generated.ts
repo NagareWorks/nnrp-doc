@@ -429,12 +429,12 @@ export const capabilityVersionPresets = [
   {
     "version": "nnrp-1-preview4",
     "title": {
-      "zh": "nnrp-1-preview4",
-      "en": "nnrp-1-preview4"
+      "zh": "NNRP/1 Preview4",
+      "en": "NNRP/1 Preview4"
     },
     "note": {
-      "zh": "自动从 nnrp-conformance 的 frozen 基线派生，当前共有 18 个能力 token。",
-      "en": "Derived automatically from the frozen nnrp-conformance baseline. 18 capability tokens are currently exposed."
+      "zh": "覆盖 Preview4 运行时控制帧、运行时对象、缓存引用、IPC/WebSocket 传输与线路级测试能力。",
+      "en": "Covers Preview4 runtime control frames, runtime objects, cache references, IPC/WebSocket transports, and wire-level test capabilities."
     },
     "recommendedPath": "conformance/nnrp-1-preview4.capabilities.json",
     "capabilities": [
@@ -445,12 +445,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Cancel or abort an operation by id and emit a typed terminal state with trace context.",
+          "zh": "按操作标识取消或中止任务，并输出带 trace context 的类型化终态。",
           "en": "Cancel or abort an operation by id and emit a typed terminal state with trace context."
         },
         "combination": {
-          "zh": "Also selected with control.result_drop_reason, control.trace_context.",
-          "en": "Also selected with control.result_drop_reason, control.trace_context."
+          "zh": "通常与 control.result_drop_reason、control.trace_context 同时声明。",
+          "en": "Usually claimed with control.result_drop_reason and control.trace_context."
         }
       },
       {
@@ -461,12 +461,12 @@ export const capabilityVersionPresets = [
           "experimental"
         ],
         "description": {
-          "zh": "Derived from 3 cases. Cancel or abort an operation by id and emit a typed terminal state with trace context. Apply priority updates and deadline expiry without completing stale work late. Replace an obsolete operation while preserving trace continuity and marking late results droppable.",
-          "en": "Derived from 3 cases. Cancel or abort an operation by id and emit a typed terminal state with trace context. Apply priority updates and deadline expiry without completing stale work late. Replace an obsolete operation while preserving trace continuity and marking late results droppable."
+          "zh": "标记结果被丢弃的原因，覆盖取消、中止、过期、被替换等终态。",
+          "en": "Marks why a result was dropped, including cancelled, aborted, expired, and superseded terminal states."
         },
         "combination": {
-          "zh": "Appears in multiple combined selections: control.cancel_abort, control.trace_context; control.priority_update, control.deadline_expire; control.supersede.",
-          "en": "Appears in multiple combined selections: control.cancel_abort, control.trace_context; control.priority_update, control.deadline_expire; control.supersede."
+          "zh": "会与取消、中止、优先级/截止时间、supersede 等控制帧组合出现。",
+          "en": "Appears with cancel/abort, priority/deadline, and supersede control frames."
         }
       },
       {
@@ -476,12 +476,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Cancel or abort an operation by id and emit a typed terminal state with trace context.",
-          "en": "Cancel or abort an operation by id and emit a typed terminal state with trace context."
+          "zh": "在线路级保留端到端 trace context，用于分段计时和问题定位。",
+          "en": "Preserves end-to-end trace context for segmented timing and diagnosis."
         },
         "combination": {
-          "zh": "Also selected with control.cancel_abort, control.result_drop_reason.",
-          "en": "Also selected with control.cancel_abort, control.result_drop_reason."
+          "zh": "通常与 control.cancel_abort、control.result_drop_reason 同时声明。",
+          "en": "Usually claimed with control.cancel_abort and control.result_drop_reason."
         }
       },
       {
@@ -491,12 +491,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Apply priority updates and deadline expiry without completing stale work late.",
-          "en": "Apply priority updates and deadline expiry without completing stale work late."
+          "zh": "在操作生命周期中动态调整优先级，允许调度器重新排序未完成工作。",
+          "en": "Dynamically updates operation priority so schedulers can reorder unfinished work."
         },
         "combination": {
-          "zh": "Also selected with control.deadline_expire, control.result_drop_reason.",
-          "en": "Also selected with control.deadline_expire, control.result_drop_reason."
+          "zh": "通常与 control.deadline_expire、control.result_drop_reason 同时声明。",
+          "en": "Usually claimed with control.deadline_expire and control.result_drop_reason."
         }
       },
       {
@@ -506,12 +506,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Apply priority updates and deadline expiry without completing stale work late.",
-          "en": "Apply priority updates and deadline expiry without completing stale work late."
+          "zh": "声明任务截止时间或过期时间，避免服务端继续完成已经无意义的工作。",
+          "en": "Declares task deadlines or expiry times so servers can stop stale work."
         },
         "combination": {
-          "zh": "Also selected with control.priority_update, control.result_drop_reason.",
-          "en": "Also selected with control.priority_update, control.result_drop_reason."
+          "zh": "通常与 control.priority_update、control.result_drop_reason 同时声明。",
+          "en": "Usually claimed with control.priority_update and control.result_drop_reason."
         }
       },
       {
@@ -521,12 +521,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Emit progress and partial results while respecting credit updates and backpressure.",
-          "en": "Emit progress and partial results while respecting credit updates and backpressure."
+          "zh": "以更细粒度返回进度和部分结果，避免所有数据只能在终态一次性交付。",
+          "en": "Returns progress and partial results at finer granularity instead of only at terminal completion."
         },
         "combination": {
-          "zh": "Also selected with control.credit_backpressure.",
-          "en": "Also selected with control.credit_backpressure."
+          "zh": "通常与 control.credit_backpressure 同时声明。",
+          "en": "Usually claimed with control.credit_backpressure."
         }
       },
       {
@@ -536,12 +536,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Emit progress and partial results while respecting credit updates and backpressure.",
-          "en": "Emit progress and partial results while respecting credit updates and backpressure."
+          "zh": "通过 credit update 与 backpressure 告知对端当前可接受的并发和数据量。",
+          "en": "Uses credit updates and backpressure to signal accepted concurrency and data volume."
         },
         "combination": {
-          "zh": "Also selected with control.progress_partial.",
-          "en": "Also selected with control.progress_partial."
+          "zh": "通常与 control.progress_partial 同时声明。",
+          "en": "Usually claimed with control.progress_partial."
         }
       },
       {
@@ -551,8 +551,8 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Negotiate capabilities with cost, preference, limit, and downgrade metadata.",
-          "en": "Negotiate capabilities with cost, preference, limit, and downgrade metadata."
+          "zh": "在能力协商中声明成本、偏好、限制与降级元数据。",
+          "en": "Negotiates capability cost, preference, limit, and downgrade metadata."
         }
       },
       {
@@ -562,12 +562,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Derived from 2 cases. Declare runtime objects, reference them in operations, and release ownership explicitly. Send object patches or deltas without resending the full runtime object.",
-          "en": "Derived from 2 cases. Declare runtime objects, reference them in operations, and release ownership explicitly. Send object patches or deltas without resending the full runtime object."
+          "zh": "声明运行时对象、在操作中引用对象，并显式释放所有权。",
+          "en": "Declares runtime objects, references them in operations, and releases ownership explicitly."
         },
         "combination": {
-          "zh": "Appears in multiple combined selections: object.cost, object.ownership; object.delta.",
-          "en": "Appears in multiple combined selections: object.cost, object.ownership; object.delta."
+          "zh": "会与 object.cost、object.ownership、object.delta 等对象能力组合出现。",
+          "en": "Appears with object.cost, object.ownership, and object.delta."
         }
       },
       {
@@ -577,12 +577,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Declare runtime objects, reference them in operations, and release ownership explicitly.",
-          "en": "Declare runtime objects, reference them in operations, and release ownership explicitly."
+          "zh": "为运行时对象声明计算、显存、带宽或生命周期成本。",
+          "en": "Declares compute, memory, bandwidth, or lifetime cost for runtime objects."
         },
         "combination": {
-          "zh": "Also selected with object.lifecycle, object.ownership.",
-          "en": "Also selected with object.lifecycle, object.ownership."
+          "zh": "通常与 object.lifecycle、object.ownership 同时声明。",
+          "en": "Usually claimed with object.lifecycle and object.ownership."
         }
       },
       {
@@ -592,12 +592,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Declare runtime objects, reference them in operations, and release ownership explicitly.",
-          "en": "Declare runtime objects, reference them in operations, and release ownership explicitly."
+          "zh": "固定运行时对象的所有权转移、释放和失效语义。",
+          "en": "Fixes ownership transfer, release, and invalidation semantics for runtime objects."
         },
         "combination": {
-          "zh": "Also selected with object.lifecycle, object.cost.",
-          "en": "Also selected with object.lifecycle, object.cost."
+          "zh": "通常与 object.lifecycle、object.cost 同时声明。",
+          "en": "Usually claimed with object.lifecycle and object.cost."
         }
       },
       {
@@ -607,12 +607,12 @@ export const capabilityVersionPresets = [
           "mandatory"
         ],
         "description": {
-          "zh": "Send object patches or deltas without resending the full runtime object.",
-          "en": "Send object patches or deltas without resending the full runtime object."
+          "zh": "发送对象补丁或 delta，避免重复传输完整运行时对象。",
+          "en": "Sends object patches or deltas without resending the full runtime object."
         },
         "combination": {
-          "zh": "Also selected with object.lifecycle.",
-          "en": "Also selected with object.lifecycle."
+          "zh": "通常与 object.lifecycle 同时声明。",
+          "en": "Usually claimed with object.lifecycle."
         }
       },
       {
@@ -622,8 +622,8 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Carry route and execution hints for runtime scheduling without JSON or protobuf wrappers.",
-          "en": "Carry route and execution hints for runtime scheduling without JSON or protobuf wrappers."
+          "zh": "携带路由与执行 hint，供 runtime 或 subagent 调度使用，避免退回重 JSON / protobuf 包装。",
+          "en": "Carries route and execution hints for runtime or subagent scheduling without heavy JSON/protobuf wrappers."
         }
       },
       {
@@ -633,8 +633,8 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Use cache references, misses, and invalidation only where identity and invalidation are well-defined.",
-          "en": "Use cache references, misses, and invalidation only where identity and invalidation are well-defined."
+          "zh": "正式化 cache reference、cache miss 和 invalidation，仅在身份与失效语义清晰的路径使用。",
+          "en": "Formalizes cache references, cache misses, and invalidation where identity and invalidation are well-defined."
         }
       },
       {
@@ -644,12 +644,12 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Negotiate a cheaper profile and update compute, token, memory, or bandwidth budgets during a session.",
-          "en": "Negotiate a cheaper profile and update compute, token, memory, or bandwidth budgets during a session."
+          "zh": "协商更便宜的执行 profile，允许在会话中降级计算或带宽策略。",
+          "en": "Negotiates a cheaper execution profile during a session."
         },
         "combination": {
-          "zh": "Also selected with control.budget_update.",
-          "en": "Also selected with control.budget_update."
+          "zh": "通常与 control.budget_update 同时声明。",
+          "en": "Usually claimed with control.budget_update."
         }
       },
       {
@@ -659,12 +659,12 @@ export const capabilityVersionPresets = [
           "optional"
         ],
         "description": {
-          "zh": "Negotiate a cheaper profile and update compute, token, memory, or bandwidth budgets during a session.",
-          "en": "Negotiate a cheaper profile and update compute, token, memory, or bandwidth budgets during a session."
+          "zh": "在会话中更新 compute、token、memory 或 bandwidth budget。",
+          "en": "Updates compute, token, memory, or bandwidth budgets during a session."
         },
         "combination": {
-          "zh": "Also selected with control.degrade_profile.",
-          "en": "Also selected with control.degrade_profile."
+          "zh": "通常与 control.degrade_profile 同时声明。",
+          "en": "Usually claimed with control.degrade_profile."
         }
       },
       {
@@ -674,12 +674,12 @@ export const capabilityVersionPresets = [
           "experimental"
         ],
         "description": {
-          "zh": "Replace an obsolete operation while preserving trace continuity and marking late results droppable.",
-          "en": "Replace an obsolete operation while preserving trace continuity and marking late results droppable."
+          "zh": "用新操作替换过期操作，并保持 trace 连续性与迟到结果可丢弃语义。",
+          "en": "Replaces obsolete operations while preserving trace continuity and droppable late-result semantics."
         },
         "combination": {
-          "zh": "Also selected with control.result_drop_reason.",
-          "en": "Also selected with control.result_drop_reason."
+          "zh": "通常与 control.result_drop_reason 同时声明。",
+          "en": "Usually claimed with control.result_drop_reason."
         }
       },
       {
@@ -689,8 +689,8 @@ export const capabilityVersionPresets = [
           "experimental"
         ],
         "description": {
-          "zh": "Distinguish retryable pressure from terminal failure and provide retry-after timing.",
-          "en": "Distinguish retryable pressure from terminal failure and provide retry-after timing."
+          "zh": "区分可重试压力与终止失败，并携带 retry-after 时间。",
+          "en": "Distinguishes retryable pressure from terminal failure and carries retry-after timing."
         }
       }
     ]

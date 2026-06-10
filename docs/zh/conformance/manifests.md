@@ -1,4 +1,4 @@
-# Manifest 参考 — 面向测试套件开发者
+# 清单参考 — 面向测试套件开发者
 
 <div class="page-note">
 本页面向维护 conformance 套件的工程师。SDK 作者通常应先阅读 <a href="./sdk-integration">SDK 集成指南</a>。
@@ -11,21 +11,26 @@
 
 | 文档                            | Schema                                   | 维护方        | 用途                                                              |
 | ------------------------------- | ---------------------------------------- | ------------- | ----------------------------------------------------------------- |
-| Protocol manifest               | `protocol-manifest.schema.json`          | Suite         | 某条协议版本线的根入口。                                          |
-| Case manifest                   | `case-manifest.schema.json`              | Suite         | 声明 case、层级、状态和所需 capability token。                    |
-| Capability manifest             | `capability-manifest.schema.json`        | SDK           | 声明实现名、目标协议版本线和支持能力 token。                      |
-| Semantic vector recipes         | `semantic-vector-recipes.schema.json`    | Suite         | Canonical vector 的人可读来源。                                   |
-| Generated vector manifest       | `vector-manifest.schema.json`            | Suite tooling | SDK 测试消费的已生成字节产物。                                    |
-| 一致性测试报告                  | `report.schema.json`                     | Runner        | 针对某份 capability manifest 的 case 选择报告。                   |
-| Adapter execution plan          | `adapter-execution-plan.schema.json`     | Runner/action | 传给 SDK adapter command 的动态行为用例。                         |
-| Adapter case results            | `adapter-case-results.schema.json`       | SDK adapter   | Adapter plan 的机器可读 pass/fail/skip 结果。                     |
-| Benchmark execution plan        | `benchmark-execution-plan.schema.json`   | Runner/action | 传给 SDK benchmark command 的 benchmark 场景。                    |
-| Benchmark results               | `benchmark-results.schema.json`          | SDK benchmark | 延迟、吞吐、分配等指标与证据路径。                                |
-| API profile suite manifest      | `api-profile-suite.schema.json`          | Suite         | 某个应用层 API 兼容 profile 的根入口。                            |
-| API profile recipe              | `api-profile-recipe.schema.json`         | Suite         | API 级兼容用例的人可读请求与期望来源。                            |
-| API profile capability manifest | `api-profile-capabilities.schema.json`   | Adapter       | 声明 adapter、profile level、支持的 operation 与可选 API 扩展。   |
-| API profile execution plan      | `api-profile-execution-plan.schema.json` | Runner/action | 针对 adapter capability manifest 选出的 profile recipe 执行计划。 |
-| API profile results             | `api-profile-results.schema.json`        | Adapter       | API profile recipe 的机器可读 pass/fail/skip 结果。               |
+| Protocol manifest               | `protocol-manifest.schema.json`          | Suite          | 某条协议版本线的根入口。                                          |
+| Case manifest                   | `case-manifest.schema.json`              | Suite          | 声明 case、层级、状态和所需 capability token。                    |
+| Capability manifest             | `capability-manifest.schema.json`        | SDK            | 声明实现名、目标协议版本线和支持能力 token。                      |
+| Semantic vector recipes         | `semantic-vector-recipes.schema.json`    | Suite          | Canonical vector 的人可读来源。                                   |
+| Generated vector manifest       | `vector-manifest.schema.json`            | Suite tooling  | SDK 测试消费的已生成字节产物。                                    |
+| 一致性测试报告                  | `report.schema.json`                     | Runner         | 针对某份 capability manifest 的 case 选择报告。                   |
+| Adapter execution plan          | `adapter-execution-plan.schema.json`     | Runner/action  | 传给 SDK 适配器命令的动态行为用例。                               |
+| Adapter case results            | `adapter-case-results.schema.json`       | SDK adapter    | Adapter plan 的机器可读 pass/fail/skip 结果。                     |
+| Benchmark execution plan        | `benchmark-execution-plan.schema.json`   | Runner/action  | 传给 SDK benchmark command 的 benchmark 场景。                    |
+| Benchmark results               | `benchmark-results.schema.json`          | SDK benchmark  | 延迟、吞吐、分配等指标与证据路径。                                |
+| API profile suite manifest      | `api-profile-suite.schema.json`          | Suite          | 某个应用层 API 兼容 profile 的根入口。                            |
+| API profile recipe              | `api-profile-recipe.schema.json`         | Suite          | API 级兼容用例的人可读请求与期望来源。                            |
+| API profile capability manifest | `api-profile-capabilities.schema.json`   | Adapter        | 声明适配器、profile level、支持的 operation 与可选 API 扩展。     |
+| API profile execution plan      | `api-profile-execution-plan.schema.json` | Runner/action  | 针对 adapter capability manifest 选出的 profile recipe 执行计划。 |
+| API profile results             | `api-profile-results.schema.json`        | Adapter        | API profile recipe 的机器可读 pass/fail/skip 结果。               |
+| Wire conformance suite manifest | `wire-conformance-suite.schema.json`     | Suite          | 线路级端点测试的根入口。                                          |
+| Wire conformance scenario       | `wire-conformance-scenario.schema.json`  | Suite          | 帧级客户端、服务端或代理场景的人可读来源。                        |
+| Wire conformance target         | `wire-conformance-target.schema.json`    | Implementation | 声明端点模式、传输、场景能力和执行限制。                          |
+| Wire conformance plan           | `wire-conformance-plan.schema.json`      | Runner/action  | 针对某个 target 选出的具体线路级场景。                            |
+| Wire conformance results        | `wire-conformance-results.schema.json`   | Runner/action  | 线路级场景的机器可读结果与证据引用。                              |
 
 ## Protocol Manifest
 
@@ -213,7 +218,7 @@ API profile recipe 是可读的请求与期望文件。它不维护硬编码字�
 
 ## API Profile 能力声明
 
-Adapter 提供 API profile capability manifest，用来声明自己支持的 profile level 和 operation
+适配器提供 API profile capability manifest，用来声明自己支持的 profile level 和 operation
 特性。本站低代码生成器可以从 profile suite manifest 与 recipe 目录生成这种结构。
 
 ```json
@@ -249,9 +254,72 @@ nnrp-conformance-runner api-profile-plan \
   --output artifacts/api-profile-plan.json
 ```
 
+## 线路级一致性测试 Manifest
+
+线路级一致性测试面向真实端点。当 runner 需要直接扮演客户端、服务端或代理，而不是调用 SDK 自己的
+适配器命令时，使用这一组文档。
+
+Suite manifest 是某条线路级测试 baseline 的入口：
+
+```json
+{
+  "$schema": "../../schemas/wire-conformance-suite.schema.json",
+  "protocol_version": "nnrp-1-preview4",
+  "suite_version": "0.1.0",
+  "status": "frozen",
+  "scenario_manifests": ["scenarios/runtime-control.json"],
+  "modes": ["client", "server", "proxy"],
+  "transports": ["tcp", "quic", "ipc", "websocket"]
+}
+```
+
+Target manifest 由实现仓库维护，用来声明 runner 可以使用哪些模式和传输端点：
+
+```json
+{
+  "$schema": "../../schemas/wire-conformance-target.schema.json",
+  "target_name": "nnrp-rs-preview4",
+  "protocol_version": "nnrp-1-preview4",
+  "suite_version": "0.1.0",
+  "wire_conformance": {
+    "modes": ["client", "server"],
+    "transports": [
+      { "name": "tcp", "endpoint": "127.0.0.1:19091", "tls": false }
+    ],
+    "capabilities": ["control.cancel_abort", "control.trace_context"],
+    "limits": {
+      "max_frame_bytes": 16777216,
+      "max_in_flight": 256
+    }
+  }
+}
+```
+
+Runner 执行链路：
+
+```bash
+nnrp-conformance-runner wire-plan \
+  --suite wire-conformance/nnrp-1-preview4/manifest.json \
+  --target conformance/nnrp-1-preview4.wire-target.json \
+  --output artifacts/wire-plan.json \
+  --results-path artifacts/wire-results.json \
+  --evidence-dir artifacts/wire-evidence
+
+nnrp-conformance-runner wire-run \
+  --plan artifacts/wire-plan.json \
+  --target conformance/nnrp-1-preview4.wire-target.json \
+  --output artifacts/wire-results.json
+
+nnrp-conformance-runner validate-wire-results \
+  --plan artifacts/wire-plan.json \
+  --results artifacts/wire-results.json
+```
+
+Wire results 中的 scenario id 必须与 plan 保持一致，并通过 evidence path 关联帧捕获、终态与传输层诊断信息。
+
 ## Adapter 文档
 
-Suite action 会创建 adapter execution plan，并调用 SDK 提供的 adapter command。Adapter command 写出
+Suite action 会创建 adapter execution plan，并调用 SDK 提供的适配器命令。适配器命令写出
 adapter case results。关键约束是结果里的 `id` 必须和 plan 里的 case id 完全一致。
 
 Python SDK adapter command：
@@ -277,5 +345,5 @@ python -m nnrp.tools.benchmark \
 
 ## Runner 不冻结什么
 
-公开合约是上面列出的 JSON 边界。内部 Rust 类型布局、SDK adapter 对象树和 runner
+公开合约是上面列出的 JSON 边界。内部 Rust 类型布局、SDK 适配器对象树和 runner
 运行中的内存状态都不属于冻结面。

@@ -14,14 +14,15 @@
 
 当前公共 baseline 由以下部分组成：
 
-1. 版本化 protocol manifest，例如 `protocol/nnrp-1-preview3/manifest.json`。
+1. 版本化 protocol manifest，例如 `protocol/nnrp-1-preview4/manifest.json`。
 2. case manifest，例如 `cases/mandatory-core.json`。
 3. capability manifest，用来声明实现当前已完成并对外声称支持的能力。
 4. 机器可读 report，用来描述本次执行到底选中了哪些 case。
+5. 当 runner 需要直接测试真实端点时，可选提供线路级 target manifest。
 
 ## 最短使用路径
 
-1. 在实现仓库中明确当前目标协议版本，例如 `nnrp-1-preview3`。
+1. 在实现仓库中明确当前目标协议版本，例如 `nnrp-1-preview4`。
 2. 准备一份 capability manifest，声明当前实现已经完成的能力。
 3. 用公共 runner 加载对应协议版本的 protocol manifest、case manifest 和 capability manifest。
 4. 输出一份机器可读 report，并让 CI 基于这份 report 判断通过/失败。
@@ -39,5 +40,5 @@
 更准确地说：
 
 1. 本地单测负责验证本仓库内部实现细节和回归。
-2. 公共 conformance 负责验证当前实现是否真的符合某个公开协议版本口径。
+2. 公共一致性测试负责验证当前实现是否真的符合某个公开协议版本口径。
 3. 这两层都需要存在，但不能互相冒充。
