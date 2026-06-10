@@ -1,89 +1,55 @@
-# Rust — WASM Primitives（Preview3）
+# Rust — WASM 浏览器 Primitives
 
-::: tip 已实现的边界 `nnrp-rs` 当前提供 `nnrp-wasm` primitive crate：它通过 `wasm-bindgen`
-暴露协议版本、transport probe scoring 和 transport selection 的低层 JSON 接口，并产出
-`.wasm`、`.d.ts` 与 manifest。完整 JavaScript/TypeScript SDK、npm 包布局、Node native loader、浏览器
-WebSocket/WebTransport adapter 由 `nnrp-js` 仓库负责。 :::
+`nnrp-wasm` 打包由 Rust 生成、适合浏览器使用的协议 primitives。它不替代 JavaScript/TypeScript SDK，也不加载 native transport library。
 
-## 产物边界
+## Cargo
 
-| 场景            | 推荐路径                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------ |
-| Node.js 后端    | 优先探测 `nnrp_ffi.dll` / `.so` / `.dylib` native link library；不可用时回退到 `nnrp-wasm` |
-| 浏览器          | 使用 `nnrp-wasm` primitives，加上 `nnrp-js` 提供的 WebSocket/WebTransport adapter          |
-| C#/Python/Unity | 使用 `nnrp-ffi` native package，不走浏览器 WASM 包                                         |
-
-浏览器不能加载 native link library，也不能直接打开原生 TCP/UDP。当前浏览器侧的实际传输由 JS/TS
-层使用 WebSocket provider 接入。
-
-## 构建
-
-```bash
-rustup target add wasm32-unknown-unknown
-python scripts/package_wasm_primitives.py --out artifacts/wasm
+```toml
+[dependencies]
+nnrp-wasm = "1.0.0-preview.4.0"
 ```
 
-输出目录：
+## Artifact
 
-```text
-artifacts/wasm/nnrp-wasm-primitives/
-  nnrp_wasm.wasm
-  nnrp_wasm.d.ts
-  manifest.json
-```
+| 项目 | 值 |
+|---|---|
+| Release artifact | `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| 内容 | `.wasm`、生成的 JS glue、`.d.ts`、manifest |
+| 用途 | 浏览器协议 primitives 与 binary-frame helpers |
+| 不包含 | Native `.dll` / `.so` / `.dylib` transport libraries |
 
-CI 会构建并上传 `nnrp-wasm-primitives` artifact；release 包也会包含 `artifacts/wasm/**`。
+## Exports
 
-## 当前导出
+| Export | 目的 |
+|---|---|
+| `nnrp_wasm_protocol_major()` | 返回 protocol major version。 |
+| `nnrp_wasm_wire_format()` | 返回 wire format id。 |
+| `selectTransportWithProbeJson(...)` | 应用 provider/probe policy，返回 selected provider JSON。 |
+| `scoreProviderProbeJson(...)` | 根据 policy 和 probe samples 给单个 provider 打分。 |
+| `encodeWebSocketBinaryFrameJson(...)` | 编码浏览器 WebSocket binary-frame wrapper。 |
+| `decodeWebSocketBinaryFrameJson(...)` | 解码一个浏览器 WebSocket binary-frame wrapper。 |
+| `decodeWebSocketBinaryFrameBatchJson(...)` | 批量解码浏览器 binary frames。 |
+| `encodeRuntimeControlMetadataJson(...)` | 从 JSON 编码 runtime-control metadata。 |
+| `decodeRuntimeControlMetadataJson(...)` | 将 runtime-control metadata 解码成 JSON。 |
+| `encodeRuntimeObjectMetadataJson(...)` | 从 JSON 编码 runtime object metadata。 |
+| `decodeRuntimeObjectMetadataJson(...)` | 将 runtime object metadata 解码成 JSON。 |
 
-```typescript
-export function nnrp_wasm_protocol_major(): number;
-export function nnrp_wasm_wire_format(): number;
+JSON 边界保持足够粗粒度，方便 JS/TS SDK 批处理，避免大量字段级 JS/WASM 往返。
 
-export function selectTransportWithProbeJson(
-  providersJson: string,
-  remoteTransportsJson: string,
-  policy: TransportPolicy,
-  samplesJson: string,
-): string;
+## 浏览器 Transport 边界
 
-export function scoreProviderProbeJson(
-  providerJson: string,
-  policy: TransportPolicy,
-  samplesJson: string,
-): string;
-```
+浏览器不能打开 raw TCP socket，也不能加载 native link library。浏览器构建中：
 
-`selectTransportWithProbeJson` 与 `scoreProviderProbeJson` 使用 JSON 字符串作为 ABI 边界，方便
-`nnrp-js` 在 Node/browser 两侧复用同一套低层 primitive。返回 JSON 中包含 selected provider、probe
-score、candidate scores 与 rejected candidate diagnostics。
+| Concern | Owner |
+|---|---|
+| Protocol metadata、binary-frame helper、provider scoring | `nnrp-wasm` |
+| WebSocket connection lifecycle、auth、reconnect、worker/fetch 集成 | JavaScript/TypeScript SDK |
+| Native TCP/QUIC/IPC/WebSocket libraries | FFI transport artifacts，不属于浏览器包 |
 
-## 策略语义
-
-`auto`、`prefer_quic`、`prefer_tcp` 会在本地 provider、远端能力和 probe 样本之间做综合评分；不会因为
-QUIC 能连通就一定选择 QUIC。`force_quic` / `force_tcp` 会在目标 provider 缺失、远端不支持或 probe
-全失败时 fail-fast。
-
-评分会综合：
-
-- RTT / latency
-- timeout 与失败率
-- 有效吞吐
-- 本地 policy 偏好
-
-## 非目标
-
-- `nnrp-wasm` 不提供 `NnrpWasmClient` / `NnrpWasmSession` 高层 API。
-- `nnrp-rs` 不维护 npm package、bundler adapter、React/Vue 示例或浏览器 transport adapter。
-- raw `nnrp_ffi.wasm` 不是浏览器 SDK；跨语言 C ABI 继续属于 native/FFI 路径。
-
-## 常见坑点
+## 常见问题
 
 ::: warning
-
-1. **浏览器不能加载 `.dll` / `.so` / `.dylib`。** Node 可以走 native addon，浏览器只能走 WASM + web
-   transport。
-2. **WASM 不等于传输实现。** WebSocket/WebTransport 连接、重连、鉴权和 fetch/worker 生命周期由
-   `nnrp-js` 管理。
-3. **选择 QUIC/TCP 不能只看“能通”。** 生产路径应使用 probe
-   score、失败率、远端能力和本地策略综合选择。 :::
+1. 不要在 browser client package 里塞 native library。
+2. 不要把 WASM 当成高层 `NnrpClient`；高层 session API 属于 JS/TS SDK。
+3. 处理多个浏览器 frame 时用 batch decode helper，避免不必要的 JS/WASM 边界开销。
+:::

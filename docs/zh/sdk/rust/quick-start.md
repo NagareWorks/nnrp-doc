@@ -1,37 +1,34 @@
-# Rust 快速使用
+# Rust 快速上手
 
-Rust SDK 的 Preview3 runtime 已经可以在 TCP 和默认 QUIC provider 上完成最小 client/server 会话：客户端连接、打开 session、提交 frame、等待结果；服务端监听、accept、接收 submit、返回 result。
+Rust SDK 是 NNRP 的 canonical 实现。Preview4 release 提供 transport-neutral runtime、独立
+transport provider crate、运行时控制帧、对象/缓存 metadata、面向原生 SDK 的 FFI artifact，以及浏览器
+WASM primitives。
 
-## 依赖
+## 安装
 
-常用 Rust client/server runtime 加 TCP transport：
-
-```bash
-cargo add nnrp-core@1.0.0-preview.3.8 nnrp-runtime@1.0.0-preview.3.8 nnrp-transport-tcp@1.0.0-preview.3.8
-cargo add tokio --features macros,rt-multi-thread,net,io-util,time
-```
-
-需要 QUIC、FFI 或 WASM primitive 时再追加对应包：
+原生 TCP client/server：
 
 ```bash
-cargo add nnrp-transport-quic@1.0.0-preview.3.8
-cargo add nnrp-transport-provider@1.0.0-preview.3.8
-cargo add nnrp-ffi@1.0.0-preview.3.8
-cargo add nnrp-wasm@1.0.0-preview.3.8
+cargo add nnrp-core@1.0.0-preview.4.0 nnrp-runtime@1.0.0-preview.4.0 nnrp-transport-tcp@1.0.0-preview.4.0
+cargo add tokio --features macros,rt-multi-thread,net,io-util
 ```
 
-等价的 `Cargo.toml` 写法：
+按需增加 transport 包：
 
-```toml
-[dependencies]
-nnrp-core = "1.0.0-preview.3.8"
-nnrp-runtime = "1.0.0-preview.3.8"
-nnrp-transport-tcp = "1.0.0-preview.3.8"
-nnrp-transport-quic = "1.0.0-preview.3.8"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+```bash
+cargo add nnrp-transport-quic@1.0.0-preview.4.0
+cargo add nnrp-transport-ipc@1.0.0-preview.4.0
+cargo add nnrp-transport-websocket@1.0.0-preview.4.0
 ```
 
-## 客户端最短路径
+FFI 和浏览器 primitives 是单独边界：
+
+```bash
+cargo add nnrp-ffi@1.0.0-preview.4.0
+cargo add nnrp-wasm@1.0.0-preview.4.0
+```
+
+## 客户端
 
 ```rust
 use nnrp_core::FrameSubmitMetadata;
@@ -42,15 +39,18 @@ let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 let mut session = client.open_session().await?;
 
 let frame_id = session
-    .submit(FrameSubmitMetadata::default(), b"input".to_vec())
+    .submit(FrameSubmitMetadata::default(), b"hello".to_vec())
     .await?;
+
 let result = session.await_result().await?;
 assert_eq!(result.frame_id, frame_id);
-
 session.close().await?;
 ```
 
-## 服务端最短路径
+如果服务端可能返回 progress、partial result、backpressure、object/cache event 或 result-drop reason，
+使用 [`await_event`](./api/client#nnrpclientsession-await-event)，不要只用 `await_result`。
+
+## 服务端
 
 ```rust
 use nnrp_core::ResultPushMetadata;
@@ -61,17 +61,33 @@ let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 
 let mut session = server.accept().await?;
 let submit = session.receive_submit().await?;
-session
-    .send_result(submit.frame_id, ResultPushMetadata::default(), b"output".to_vec())
-    .await?;
 
-let close = session.receive_close().await?;
-session.ack_close(&close).await?;
+session
+    .send_result(
+        submit.frame_id,
+        ResultPushMetadata::default(),
+        submit.body,
+    )
+    .await?;
 session.close().await?;
 ```
 
-## 当前限制
+## Transport 包
 
-1. Preview3 Rust runtime 内置 TCP；默认 QUIC 路径由 `nnrp-transport-quic` 的 Quinn/Rustls provider 提供，同时保留 `FramedTransport` / `FramedListener` 插槽接入外部 provider。
-2. `submit` 与 `submit_nowait` 当前都会发送 `FRAME_SUBMIT` 并返回 `frame_id`；如果要消费结果，需要随后调用 `await_result` 或 `await_event`。
-3. FFI 层提供 handle/event ABI，适合绑定层接入；Rust 业务代码优先直接使用 `nnrp-runtime`。
+每个 transport 包都拥有真实传输层逻辑。安装一个包不是只打开配置开关。
+
+| Package | 适用场景 | Runtime 形态 |
+|---|---|---|
+| `nnrp-transport-tcp` | 原生 TCP 足够 | TCP framed transport 的 connect/bind |
+| `nnrp-transport-quic` | 需要 QUIC stream、TLS 或更好的迁移行为 | Quinn/Rustls transport 的 connect/bind |
+| `nnrp-transport-ipc` | client 和 server 在同一节点 | Unix domain socket 或 Windows named pipe |
+| `nnrp-transport-websocket` | 需要 WebSocket 上传输二进制 NNRP frame | 原生 Rust WebSocket transport |
+
+Provider 选择和 probe 见 [Rust API 概览](./api#transport-provider-boundary)。
+
+## 下一步
+
+1. [客户端 API](./api/client)：session submit、控制帧、object/cache event、关闭语义。
+2. [服务端 API](./api/server)：accept loop、result/progress、control receive、runtime feedback。
+3. [核心类型](./api/core)：profiles、message types、metadata、registries。
+4. [FFI / 原生接口](./api/ffi) 和 [WASM](./api/wasm)：下游 SDK 的打包边界。

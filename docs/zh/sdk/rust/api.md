@@ -1,70 +1,73 @@
-# Rust — 冻结 API
+# Rust API 概览
 
-Rust SDK（`nnrp-rs`）工作区包含协议核心、runtime、transport provider、FFI/native packaging、WASM
-primitives 和一致性测试 crate。Preview3 当前已经具备协议核心、异步 TCP client/server runtime、默认
-QUIC provider、一致性 fixtures，以及跨语言绑定所需的 FFI ABI / WASM primitive 表面。
+这一页是地图。具体方法表放在 client、server、core、FFI 和 WASM 分页里，方便使用者从自己要实现的工作流进入，而不是先读一整坨符号清单。
 
-应用代码优先从 [客户端](./api/client) 或 [服务端](./api/server) 开始阅读。核心类型、FFI 和 WASM
-页面作为参数和打包细节的参考资料。
+## Release
 
-| 分组                                | Crate                                                                    | 说明                                                                                                                          | 状态                                       |
-| ----------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| [核心类型](./api/core)              | `nnrp-core`                                                              | Wire codec、校验、生命周期、缓存/Schema、恢复、一致性基线                                                                     | ✅ Preview3 core 已实现                    |
-| [客户端（Preview3）](./api/client)  | `nnrp-runtime`                                                           | `NnrpClient`、`NnrpClientSession`、事件接收、submit/cancel/patch/migrate/close                                                | ✅ TCP runtime 与 QUIC provider 接入已实现 |
-| [服务端（Preview3）](./api/server)  | `nnrp-runtime`                                                           | `NnrpServer`、`NnrpServerSession`、accept/receive/send/flow/close                                                             | ✅ TCP runtime 与 QUIC provider 接入已实现 |
-| Transport provider                  | `nnrp-transport-provider` / `nnrp-transport-tcp` / `nnrp-transport-quic` | provider registry、native library detection、policy resolver、probe score selection、TCP provider、Quinn/Rustls QUIC provider | ✅ 已实现                                  |
-| [FFI / 原生接口](./api/ffi)         | `nnrp-ffi`                                                               | Value handle、buffer view、callback/polling event、client/server handle ABI、native artifact packaging                        | ✅ 已实现                                  |
-| [WASM 导出（Preview3）](./api/wasm) | `nnrp-wasm`                                                              | wasm-bindgen JSON primitive、probe scoring、transport selection、`.d.ts` / `.wasm` 打包                                       | ✅ Primitive 已实现                        |
+| 项目 | 值 |
+|---|---|
+| NNRP 协议线 | NNRP/1 Preview4 |
+| Rust package version | `1.0.0-preview.4.0` |
+| 最低 Rust 版本 | `1.82` |
+| GitHub release asset tag | `v1.0.0-preview.4.0` |
 
-## 工作区信息
+## API 区域
 
-| 属性         | 值                                   |
-| ------------ | ------------------------------------ |
-| 工作区       | `nnrp-rs`                            |
-| 版本         | `1.0.0-preview.3.8`                  |
-| 最低 Rust    | `1.82`                               |
-| Runtime 依赖 | `tokio = "1"`、`async-trait = "0.1"` |
+| 区域 | Package | 拥有内容 | 页面 |
+|---|---|---|---|
+| 核心协议模型 | `nnrp-core` | Wire codec、metadata、profiles、runtime-control、object/cache、校验 | [核心类型](./api/core) |
+| 客户端 runtime | `nnrp-runtime` | connect、open session、submit、receive events、control requests、close | [客户端 API](./api/client) |
+| 服务端 runtime | `nnrp-runtime` | bind、accept、receive submit/control、send result/progress/object/cache events | [服务端 API](./api/server) |
+| Transport providers | `nnrp-transport-provider`、`nnrp-transport-*` | Registry、probe policy、TCP/QUIC/IPC/WebSocket 真实传输实现 | [Transport Provider 边界](#transport-provider-boundary) |
+| 原生 ABI | `nnrp-ffi` | C ABI、handle/event model、native artifact manifest | [FFI / 原生接口](./api/ffi) |
+| 浏览器 primitives | `nnrp-wasm` | WASM protocol helpers、browser binary-frame helpers、`.d.ts` 输出 | [WASM](./api/wasm) |
+
+## Cargo
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3.8"
-nnrp-runtime = "1.0.0-preview.3.8"
-nnrp-transport-provider = "1.0.0-preview.3.8"
-nnrp-transport-tcp = "1.0.0-preview.3.8"
-nnrp-transport-quic = "1.0.0-preview.3.8"
-nnrp-wasm = "1.0.0-preview.3.8"
+nnrp-core = "1.0.0-preview.4.0"
+nnrp-runtime = "1.0.0-preview.4.0"
+nnrp-transport-provider = "1.0.0-preview.4.0"
+nnrp-transport-tcp = "1.0.0-preview.4.0"
+nnrp-transport-quic = "1.0.0-preview.4.0"
+nnrp-transport-ipc = "1.0.0-preview.4.0"
+nnrp-transport-websocket = "1.0.0-preview.4.0"
 
-# FFI 集成（C#/Python/Unity 调用）
-nnrp-ffi = "1.0.0-preview.3.8"
+# 可选下游表面
+nnrp-ffi = "1.0.0-preview.4.0"
+nnrp-wasm = "1.0.0-preview.4.0"
+nnrp-conformance = "1.0.0-preview.4.0"
 ```
 
-## 构建目标
+## Transport Provider 边界
 
-| 目标                                         | 产物                                                                          | 用途                                     |
-| -------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------- |
-| `--lib`                                      | `libnnrp_core.rlib` / `libnnrp_runtime.rlib`                                  | Rust 内部依赖                            |
-| `python scripts/package_native_artifacts.py` | Windows/Linux/macOS/Android 动态库、iOS 静态库、`include/nnrp/*.h` + manifest | C#/Python/Unity/Node native FFI 集成     |
-| `python scripts/package_wasm_primitives.py`  | `nnrp_wasm.wasm` + `nnrp_wasm.d.ts` + manifest                                | `nnrp-js` 封装浏览器/Node WASM primitive |
+Runtime 只通过 framed transport traits 看 transport。具体网络行为归 provider 包所有。
 
-## 当前边界
+| Package | 拥有内容 | Native / WASM artifact 边界 |
+|---|---|---|
+| `nnrp-transport-tcp` | TCP connect/bind 与 TCP probe identity | Native FFI transport artifact 以 TCP 为粒度发布 |
+| `nnrp-transport-quic` | Quinn/Rustls QUIC connect/bind 与 QUIC probe identity | Native FFI transport artifact 以 QUIC 为粒度发布 |
+| `nnrp-transport-ipc` | 本地 IPC endpoint：Unix domain socket 与 Windows named pipe | Native FFI transport artifact 以 IPC 为粒度发布 |
+| `nnrp-transport-websocket` | 原生 Rust WebSocket binary-frame transport | Native FFI transport artifact 以 WebSocket 为粒度发布 |
+| `nnrp-wasm` | 浏览器 WASM primitives 与 browser binary-frame helpers | 浏览器 artifact 是 `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
 
-`nnrp-runtime` 当前内置 TCP 传输上的 client/server session runtime，同时开放 `FramedTransport` /
-`FramedListener` 插槽给外部 TCP/QUIC provider。`nnrp-transport-quic` 是独立 provider 包，默认使用
-Quinn/Rustls 提供开箱 QUIC 连接、监听和证书配置 helper；需要接入平台 QUIC、native addon 或
-WASM-facing 后端时，仍可使用 `QuicProvider::backend_descriptor` 注册真实 backend，并通过
-`from_transport` / `from_listener` 注入。
+client/server runtime 这种角色包不隐藏 transport 实现。需要哪个 transport，就安装拥有该行为的 transport 包；多个 transport 同时可用时，再交给 provider policy 选择。
 
-FFI 层已经暴露 client/server handle、session、operation 和 event
-ABI；它是跨语言绑定的底层控制面，不直接把 Rust 异步对象或 socket 指针暴露给调用方。
+## Runtime Control 与 Object/Cache Frame
 
-Native 链接库适合 C#/Python/Unity 和 Node.js 后端 native addon 场景。`nnrp-rs` 发布多平台 native
-artifact、WASM primitives 和 `include/nnrp/nnrp.h` C ABI 入口；`nnrp-js` 在 Node.js 中应优先探测
-native link library，并在不可用时回退到 WASM。浏览器不能加载 `.dll` / `.so` / `.dylib`，当前
-JavaScript/TypeScript 浏览器 SDK 使用 browser runtime primitives 与 WebSocket transport provider。
+Preview4 增加了紧凑控制面事件，用于 scheduling、cancel、progress、partial result、backpressure、
+capability negotiation、route hint、cache reference 和 trace context。Wire 定义见
+[运行时控制 Profiles](/zh/profiles/runtime-control/)。Rust 侧通过 client event、server send/receive helper
+和 core metadata 类型暴露这些能力。
 
-## Rust 侧约束
+## Artifact 命名
 
-1. 所有权和借用规则需要在公开类型里表达清楚。
-2. 异步接收流程保持显式：客户端通过 `await_event` / `await_result`，服务端通过 `receive_*`。
-3. 公开 crate、feature flag 和结果类型在 Preview3 集成窗口内应保持稳定。
-4. 代码块只展示用例；方法细节放在方法级参数表中。
+| Artifact family | 示例 |
+|---|---|
+| Native transport FFI | `nnrp-ffi-transport-tcp-native-linux-x86_64-1.0.0-preview.4.0.zip` |
+| Native QUIC FFI | `nnrp-ffi-transport-quic-native-windows-x86_64-1.0.0-preview.4.0.zip` |
+| Browser WASM | `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| Checksums | `SHA256SUMS` |
+
+下游 SDK 加载 native library 或 WASM 文件前，应先校验 artifact manifest。

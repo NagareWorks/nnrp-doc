@@ -1,37 +1,34 @@
 # Rust Quick Start
 
-The Preview3 Rust runtime can complete a minimal client/server session over TCP and the default QUIC provider: the client connects, opens a session, submits a frame, and awaits a result; the server listens, accepts, receives submit, and sends result.
+The Rust SDK is the canonical NNRP implementation. The Preview4 release exposes a transport-neutral
+runtime, independent transport provider crates, runtime-control frames, object/cache metadata, FFI
+artifacts for native SDKs, and browser WASM primitives.
 
-## Dependencies
+## Install
 
-For a Rust client/server application using the runtime plus TCP transport:
-
-```bash
-cargo add nnrp-core@1.0.0-preview.3.8 nnrp-runtime@1.0.0-preview.3.8 nnrp-transport-tcp@1.0.0-preview.3.8
-cargo add tokio --features macros,rt-multi-thread,net,io-util,time
-```
-
-Add QUIC, FFI, or WASM primitives only when your application needs them:
+For a native TCP client/server:
 
 ```bash
-cargo add nnrp-transport-quic@1.0.0-preview.3.8
-cargo add nnrp-transport-provider@1.0.0-preview.3.8
-cargo add nnrp-ffi@1.0.0-preview.3.8
-cargo add nnrp-wasm@1.0.0-preview.3.8
+cargo add nnrp-core@1.0.0-preview.4.0 nnrp-runtime@1.0.0-preview.4.0 nnrp-transport-tcp@1.0.0-preview.4.0
+cargo add tokio --features macros,rt-multi-thread,net,io-util
 ```
 
-Equivalent `Cargo.toml` form:
+Add only the transport packages your application uses:
 
-```toml
-[dependencies]
-nnrp-core = "1.0.0-preview.3.8"
-nnrp-runtime = "1.0.0-preview.3.8"
-nnrp-transport-tcp = "1.0.0-preview.3.8"
-nnrp-transport-quic = "1.0.0-preview.3.8"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
+```bash
+cargo add nnrp-transport-quic@1.0.0-preview.4.0
+cargo add nnrp-transport-ipc@1.0.0-preview.4.0
+cargo add nnrp-transport-websocket@1.0.0-preview.4.0
 ```
 
-## Minimal Client
+FFI and browser primitives are separate boundaries:
+
+```bash
+cargo add nnrp-ffi@1.0.0-preview.4.0
+cargo add nnrp-wasm@1.0.0-preview.4.0
+```
+
+## Client
 
 ```rust
 use nnrp_core::FrameSubmitMetadata;
@@ -42,15 +39,18 @@ let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 let mut session = client.open_session().await?;
 
 let frame_id = session
-    .submit(FrameSubmitMetadata::default(), b"input".to_vec())
+    .submit(FrameSubmitMetadata::default(), b"hello".to_vec())
     .await?;
+
 let result = session.await_result().await?;
 assert_eq!(result.frame_id, frame_id);
-
 session.close().await?;
 ```
 
-## Minimal Server
+Use [`await_event`](./api/client#nnrpclientsession-await-event) instead of `await_result` when the server can send progress,
+partial results, backpressure, object/cache events, or result-drop reasons.
+
+## Server
 
 ```rust
 use nnrp_core::ResultPushMetadata;
@@ -61,17 +61,33 @@ let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 
 let mut session = server.accept().await?;
 let submit = session.receive_submit().await?;
-session
-    .send_result(submit.frame_id, ResultPushMetadata::default(), b"output".to_vec())
-    .await?;
 
-let close = session.receive_close().await?;
-session.ack_close(&close).await?;
+session
+    .send_result(
+        submit.frame_id,
+        ResultPushMetadata::default(),
+        submit.body,
+    )
+    .await?;
 session.close().await?;
 ```
 
-## Current Limits
+## Transport Packages
 
-1. The Preview3 Rust runtime ships TCP built in; the default QUIC path is provided by the Quinn/Rustls provider in `nnrp-transport-quic`, while `FramedTransport` / `FramedListener` slots remain available for external providers.
-2. `submit` and `submit_nowait` both send `FRAME_SUBMIT` and return the assigned `frame_id`; call `await_result` or `await_event` to consume server output.
-3. The FFI layer provides a handle/event ABI for bindings. Rust application code should prefer `nnrp-runtime` directly.
+Each transport package owns real transport behavior. Installing a package is not just a feature flag.
+
+| Package | Use when | Runtime shape |
+|---|---|---|
+| `nnrp-transport-tcp` | Plain native TCP is enough | Connects/binds TCP framed transports |
+| `nnrp-transport-quic` | You need QUIC streams, TLS, or better migration behavior | Connects/binds Quinn/Rustls transports |
+| `nnrp-transport-ipc` | Client and server live on the same node | Uses Unix domain sockets or Windows named pipes |
+| `nnrp-transport-websocket` | You need binary NNRP frames over WebSocket | Provides native Rust WebSocket transport |
+
+Provider selection and probing are described in [Rust API Overview](./api#transport-provider-boundary).
+
+## Next Pages
+
+1. [Client API](./api/client) for session submission, control, object/cache events, and close semantics.
+2. [Server API](./api/server) for accept loops, result/progress sending, control receive, and runtime feedback.
+3. [Core Types](./api/core) for profiles, message types, metadata, and registries.
+4. [FFI / Native](./api/ffi) and [WASM](./api/wasm) for downstream SDK packaging boundaries.

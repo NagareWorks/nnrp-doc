@@ -1,80 +1,58 @@
-# Rust — WASM Primitives (Preview3)
+# Rust — WASM Browser Primitives
 
-::: tip Implemented Boundary
-`nnrp-rs` now provides the `nnrp-wasm` primitive crate. It exposes protocol version, transport probe scoring, and transport selection through a low-level `wasm-bindgen` JSON interface, then packages `.wasm`, `.d.ts`, and manifest outputs. The full JavaScript/TypeScript SDK, npm layout, Node native loader, and browser WebSocket/WebTransport adapters belong in the `nnrp-js` repository.
-:::
+`nnrp-wasm` packages browser-safe protocol primitives generated from Rust. It does not replace the
+JavaScript/TypeScript SDK and it does not load native transport libraries.
 
-## Package Boundary
+## Cargo
 
-| Scenario | Recommended path |
+```toml
+[dependencies]
+nnrp-wasm = "1.0.0-preview.4.0"
+```
+
+## Artifact
+
+| Item | Value |
 |---|---|
-| Node.js backend | Probe `nnrp_ffi.dll` / `.so` / `.dylib` native link libraries first; fall back to `nnrp-wasm` when native loading is unavailable |
-| Browser | Use `nnrp-wasm` primitives plus WebSocket/WebTransport adapters from `nnrp-js` |
-| C#/Python/Unity | Use the `nnrp-ffi` native package, not the browser WASM package |
+| Release artifact | `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| Contents | `.wasm`, generated JS glue, `.d.ts`, manifest |
+| Use case | Browser protocol primitives and binary-frame helpers |
+| Not included | Native `.dll` / `.so` / `.dylib` transport libraries |
 
-Browsers cannot load native link libraries and cannot open raw TCP/UDP sockets. Browser transport still has to be implemented in JS/TS through WebSocket or WebTransport.
+## Exports
 
-## Build
+| Export | Purpose |
+|---|---|
+| `nnrp_wasm_protocol_major()` | Returns protocol major version. |
+| `nnrp_wasm_wire_format()` | Returns wire format id. |
+| `selectTransportWithProbeJson(...)` | Applies provider/probe policy and returns selected provider JSON. |
+| `scoreProviderProbeJson(...)` | Scores one provider against policy and probe samples. |
+| `encodeWebSocketBinaryFrameJson(...)` | Encodes a browser WebSocket binary-frame wrapper. |
+| `decodeWebSocketBinaryFrameJson(...)` | Decodes one browser WebSocket binary-frame wrapper. |
+| `decodeWebSocketBinaryFrameBatchJson(...)` | Decodes multiple browser binary frames. |
+| `encodeRuntimeControlMetadataJson(...)` | Encodes runtime-control metadata from JSON. |
+| `decodeRuntimeControlMetadataJson(...)` | Decodes runtime-control metadata to JSON. |
+| `encodeRuntimeObjectMetadataJson(...)` | Encodes runtime object metadata from JSON. |
+| `decodeRuntimeObjectMetadataJson(...)` | Decodes runtime object metadata to JSON. |
 
-```bash
-rustup target add wasm32-unknown-unknown
-python scripts/package_wasm_primitives.py --out artifacts/wasm
-```
+The JSON boundary is intentionally coarse enough for JS/TS SDKs to batch work and avoid tiny
+field-by-field crossings.
 
-Output layout:
+## Browser Transport Boundary
 
-```text
-artifacts/wasm/nnrp-wasm-primitives/
-  nnrp_wasm.wasm
-  nnrp_wasm.d.ts
-  manifest.json
-```
+Browsers cannot open raw TCP sockets or load native link libraries. In browser builds:
 
-CI builds and uploads the `nnrp-wasm-primitives` artifact. Release bundles also include `artifacts/wasm/**`.
-
-## Current Exports
-
-```typescript
-export function nnrp_wasm_protocol_major(): number;
-export function nnrp_wasm_wire_format(): number;
-
-export function selectTransportWithProbeJson(
-  providersJson: string,
-  remoteTransportsJson: string,
-  policy: TransportPolicy,
-  samplesJson: string
-): string;
-
-export function scoreProviderProbeJson(
-  providerJson: string,
-  policy: TransportPolicy,
-  samplesJson: string
-): string;
-```
-
-`selectTransportWithProbeJson` and `scoreProviderProbeJson` use JSON strings as the ABI boundary so `nnrp-js` can reuse the same low-level primitive in Node and browser builds. Returned JSON includes the selected provider, probe score, candidate scores, and rejected candidate diagnostics.
-
-## Policy Semantics
-
-`auto`, `prefer_quic`, and `prefer_tcp` evaluate local providers, remote capability, and probe samples together; QUIC being reachable does not automatically mean QUIC is selected. `force_quic` / `force_tcp` fail fast when the requested provider is missing, unsupported remotely, or has no viable probe.
-
-Scoring combines:
-
-- RTT / latency
-- Timeout and failure rate
-- Effective throughput
-- Local policy preference
-
-## Non-goals
-
-- `nnrp-wasm` does not provide high-level `NnrpWasmClient` / `NnrpWasmSession` APIs.
-- `nnrp-rs` does not own npm packaging, bundler adapters, React/Vue examples, or browser transport adapters.
-- Raw `nnrp_ffi.wasm` is not the browser SDK; the cross-language C ABI remains on the native/FFI path.
+| Concern | Owner |
+|---|---|
+| Protocol metadata, binary-frame helpers, provider scoring | `nnrp-wasm` |
+| WebSocket connection lifecycle, auth, reconnect, worker/fetch integration | JavaScript/TypeScript SDK |
+| Native TCP/QUIC/IPC/WebSocket libraries | FFI transport artifacts, not browser packages |
 
 ## Common Pitfalls
 
 ::: warning
-1. **Browsers cannot load `.dll` / `.so` / `.dylib`.** Node can use native addons; browsers must use WASM plus web transports.
-2. **WASM is not the transport implementation.** WebSocket/WebTransport connection handling, reconnects, auth, and fetch/worker lifecycle belong in `nnrp-js`.
-3. **QUIC/TCP selection must not rely only on reachability.** Production selection should use probe score, failure rate, remote capability, and local policy together.
+1. Do not ship native libraries inside browser client packages.
+2. Do not treat WASM as a high-level `NnrpClient`; high-level session APIs belong to the JS/TS SDK.
+3. Use batch decode helpers when processing multiple browser frames to avoid unnecessary JS/WASM
+   boundary churn.
 :::

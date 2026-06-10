@@ -586,9 +586,9 @@ const zhSdkRustItems = [
     items: [
       { text: "核心类型", link: "/zh/sdk/rust/api/core" },
       { text: "FFI / 原生接口", link: "/zh/sdk/rust/api/ffi" },
-      { text: "客户端（Preview3）", link: "/zh/sdk/rust/api/client" },
-      { text: "服务端（Preview3）", link: "/zh/sdk/rust/api/server" },
-      { text: "WASM 导出（Preview3）", link: "/zh/sdk/rust/api/wasm" },
+      { text: "客户端", link: "/zh/sdk/rust/api/client" },
+      { text: "服务端", link: "/zh/sdk/rust/api/server" },
+      { text: "WASM 浏览器 Primitives", link: "/zh/sdk/rust/api/wasm" },
     ],
   },
 ];
@@ -681,9 +681,9 @@ const enSdkRustItems = [
     items: [
       { text: "Core Types", link: "/en/sdk/rust/api/core" },
       { text: "FFI / Native", link: "/en/sdk/rust/api/ffi" },
-      { text: "Client (Preview3)", link: "/en/sdk/rust/api/client" },
-      { text: "Server (Preview3)", link: "/en/sdk/rust/api/server" },
-      { text: "WASM Exports (Preview3)", link: "/en/sdk/rust/api/wasm" },
+      { text: "Client", link: "/en/sdk/rust/api/client" },
+      { text: "Server", link: "/en/sdk/rust/api/server" },
+      { text: "WASM Browser Primitives", link: "/en/sdk/rust/api/wasm" },
     ],
   },
 ];

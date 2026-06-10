@@ -1,41 +1,77 @@
 # Rust — 核心类型
 
-`nnrp-core` crate 是 Preview3 协议语义的 Rust canonical source。它包含 wire codec、固定布局 metadata、枚举/错误基线、生命周期状态机、流控校验、缓存/Schema 语义、恢复校验和操作状态。
+`nnrp-core` 是 NNRP/1 Preview4 协议语义的 canonical Rust 来源。它拥有 wire 常量、固定布局 metadata、profile registry、runtime-control frame、object/cache metadata、校验逻辑和可复用生命周期状态机。
 
-这个 crate 按设计保持 host-neutral。网络化 client/server runtime API 位于 `nnrp-runtime`，
-并消费这些 core 类型，而不是重新定义协议行为。
-
-## Cargo.toml
+## Dependency
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.3.8"
+nnrp-core = "1.0.0-preview.4.0"
 ```
-
-## 已实现的 Preview3 表面
-
-| 领域 | 状态 |
-|---|---|
-| Common header、消息类型、header flags、协议版本 | 已实现 |
-| Client/server hello、session open/ack/close、migration/probe metadata | 已实现 |
-| `FRAME_SUBMIT`、`RESULT_PUSH`、`RESULT_DROP`、body region、object reference | 已实现 |
-| Typed payload descriptor 与 payload-family 边界 | 已实现 |
-| `FLOW_UPDATE`、result hint、priority、operation state、cancel scope | 已实现 |
-| Cache put/ack/invalidate 以及 lease/version/dependency 校验 | 已实现 |
-| Schema/profile registry 与 token delta schema anchor | 已实现 |
-| Session-bound recovery 与 migration resume cursor 校验 | 已实现 |
 
 ## 边界
 
-`nnrp-core` 是 host-neutral 层。它校验协议行为并暴露可复用状态机原语，但不打开 socket、不启动 async task、不 accept client，也不运行 submit/result stream。
+`nnrp-core` 不打开 socket，也不启动 async task。它定义并校验协议模型，供 `nnrp-runtime`、transport provider、FFI binding、WASM helper 和 conformance suite 复用。
 
-可直接使用的 Rust `NnrpClient` / `NnrpServer` API 位于 runtime shard，并消费这些 core 类型，
-而不是重新定义协议行为。
+## 主要类型族
 
-## 常见坑点
+| 类型族 | 示例 | 使用方 |
+|---|---|---|
+| Protocol header 与 message id | common header、message type、header flags、protocol version | 所有 wire codec |
+| Session lifecycle | `SessionOpenMetadata`、`SessionCloseMetadata`、patch/migrate metadata | client/server runtime |
+| Submit/result | `FrameSubmitMetadata`、`ResultPushMetadata`、result-drop metadata | request/result flow |
+| Flow 与 scheduling | credit、backpressure、priority、deadline、expire-at metadata | runtime control |
+| Runtime control | cancel/abort、progress、partial result、capability、route hint、trace context | Preview4 control profiles |
+| Runtime object | object declare/ref/release/delta metadata | heavy transport 与 orchestration 路径 |
+| Cache reference | cache reference/miss/invalidate metadata | cache-aware profile 与 runtime |
+| Registry | profile id、schema id、payload family、object kind | conformance 与 SDK 校验 |
+
+## `FrameSubmitMetadata`
+
+| 字段组 | 说明 |
+|---|---|
+| Profile 与 schema | 选择解释 body 的标准或应用 profile。 |
+| Operation identity | 关联 submit、result、cancellation 和 runtime feedback。 |
+| Priority 与 deadline | 提供调度 hint，不要求额外 JSON/protobuf control envelope。 |
+| Object/cache hints | 允许 transport 和 runtime 协调大 payload reference。 |
+
+## `ResultPushMetadata`
+
+| 字段组 | 说明 |
+|---|---|
+| Correlation | 将 result bytes 关联回已提交 frame。 |
+| Status 与 timing | 携带完成状态和 timing hint。 |
+| Payload interpretation | 指向 result body 使用的 profile/schema。 |
+
+## Runtime-Control Metadata
+
+Rust metadata 名称与 [运行时控制 Profiles](/zh/profiles/runtime-control/) 中冻结的 wire profiles 对齐。
+
+| Control family | 目的 |
+|---|---|
+| Cancel / abort | 停止过期或不再需要的工作。 |
+| Priority / deadline / expire-at | Submit 后更新调度决策。 |
+| Progress / partial result | 流式返回有意义的中间结果。 |
+| Backpressure / credit | 协调生产者和消费者压力。 |
+| Capability / route hint | 交换成本、偏好、限制和执行 hint。 |
+| Trace context / result-drop reason | 让端到端计时和丢弃原因可解释。 |
+
+## Object And Cache Metadata
+
+| Family | 目的 |
+|---|---|
+| Object declare | 用 kind、size、version 和 lifetime hint 声明 runtime object。 |
+| Object ref | 引用已有 object，而不是重新发送 bytes。 |
+| Object release | 释放 ownership 或 lease state。 |
+| Object delta | 对已有 object 发送紧凑更新。 |
+| Cache reference | 报告可复用的 cached object。 |
+| Cache miss | 报告请求的 cache key 不可用。 |
+| Cache invalidate | 失效过期 object/cache state。 |
+
+## 常见问题
 
 ::: warning
-1. **不要把 core lifecycle object 当成网络 runtime。** 它们是协议状态机，不是 socket pump。
-2. **不要在 SDK 侧重新发明 retry、cache 或 schema 语义。** 下游 SDK 应消费 Rust-owned semantics。
-3. **不要在不更新 conformance fixtures 的情况下修改枚举/错误/消息数值。**
+1. 不要在 SDK 本地代码重新分配 numeric message、profile、schema、object-kind 或 error value。
+2. 不要把 transport 行为塞进 `nnrp-core`；使用 `nnrp-runtime` 和 provider crates。
+3. 如果已经有紧凑控制帧，不要再把 Preview4 控制语义塞进临时 JSON。
 :::
