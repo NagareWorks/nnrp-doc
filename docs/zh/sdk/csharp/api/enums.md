@@ -47,6 +47,32 @@ using Nnrp.Core;
 | `SessionMigrateAck` | `0x1C` | 会话迁移确认 |
 | `Ping` | `0x20` | 保活探测 |
 | `Pong` | `0x21` | 保活应答 |
+| `Cancel` | `0x30` | 取消操作 |
+| `Abort` | `0x31` | 中止操作作用域 |
+| `PriorityUpdate` | `0x32` | 更新操作优先级 |
+| `Deadline` | `0x33` | 设置操作截止时间 |
+| `ExpireAt` | `0x34` | 设置操作过期时间 |
+| `Supersede` | `0x35` | 用新操作替换旧操作 |
+| `BudgetUpdate` | `0x36` | 更新计算、内存、带宽或 token 预算 |
+| `Progress` | `0x37` | 流式进度 |
+| `PartialResult` | `0x38` | 流式部分结果 |
+| `Backpressure` | `0x39` | 背压和重试提示 |
+| `CreditUpdate` | `0x3A` | 更新运行时 credit |
+| `CapabilityNegotiation` | `0x3B` | 协商能力、成本和限制 |
+| `DegradeProfile` | `0x3C` | 选择降级 profile |
+| `RouteHint` | `0x3D` | 路由提示 |
+| `ExecutionHint` | `0x3E` | 执行提示 |
+| `TraceContext` | `0x3F` | Trace/span 上下文 |
+| `ResultDropReason` | `0x40` | 说明结果丢弃原因 |
+| `ObjectDeclare` | `0x41` | 声明运行时对象 |
+| `ObjectRef` | `0x42` | 引用运行时对象 |
+| `ObjectRelease` | `0x43` | 释放运行时对象 |
+| `ObjectPatch` | `0x44` | Patch 运行时对象 |
+| `ObjectDelta` | `0x45` | 运行时对象增量 |
+| `CacheReference` | `0x46` | 引用可复用缓存对象 |
+| `CacheMiss` | `0x47` | 报告缓存 miss |
+| `ErrorRecoverable` | `0x48` | 可恢复错误 |
+| `RetryAfter` | `0x49` | 请求延迟重试 |
 
 ---
 
@@ -232,6 +258,8 @@ Tensor 在推理管道中的角色（由服务端 Profile 定义）。
 | `Unspecified` | `0` | 未指定 |
 | `Quic` | `1` | QUIC |
 | `Tcp` | `2` | TCP |
+| `Ipc` | `3` | 本地 IPC |
+| `WebSocket` | `4` | WebSocket |
 
 ### `TransportPolicy : byte`
 
@@ -240,8 +268,12 @@ Tensor 在推理管道中的角色（由服务端 Profile 定义）。
 | `Auto` | `0` | 自动 |
 | `PreferQuic` | `1` | 优先 QUIC |
 | `PreferTcp` | `2` | 优先 TCP |
-| `ForceQuic` | `3` | 强制 QUIC |
-| `ForceTcp` | `4` | 强制 TCP |
+| `PreferIpc` | `3` | 优先 IPC |
+| `PreferWebSocket` | `4` | 优先 WebSocket |
+| `ForceQuic` | `5` | 强制 QUIC |
+| `ForceTcp` | `6` | 强制 TCP |
+| `ForceIpc` | `7` | 强制 IPC |
+| `ForceWebSocket` | `8` | 强制 WebSocket |
 
 ### `LossTolerance : byte`
 

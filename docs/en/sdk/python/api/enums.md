@@ -58,6 +58,32 @@ from nnrp import (
 | `SESSION_MIGRATE_ACK` | `0x1C` | C→S       | Session migration confirmation                  |
 | `PING`                | `0x20` | Both      | Keep-alive probe                                |
 | `PONG`                | `0x21` | Both      | Keep-alive response                             |
+| `CANCEL`              | `0x30` | Both      | Cancel an operation                            |
+| `ABORT`               | `0x31` | Both      | Abort an operation scope                       |
+| `PRIORITY_UPDATE`     | `0x32` | Both      | Update operation priority                      |
+| `DEADLINE`            | `0x33` | Both      | Set operation deadline                         |
+| `EXPIRE_AT`           | `0x34` | Both      | Set operation expiration                       |
+| `SUPERSEDE`           | `0x35` | Both      | Replace an operation with another operation    |
+| `BUDGET_UPDATE`       | `0x36` | Both      | Update compute, memory, bandwidth, or token budget |
+| `PROGRESS`            | `0x37` | Both      | Stream progress metadata                       |
+| `PARTIAL_RESULT`      | `0x38` | Both      | Stream a partial result                        |
+| `BACKPRESSURE`        | `0x39` | Both      | Signal pressure and retry guidance             |
+| `CREDIT_UPDATE`       | `0x3A` | Both      | Update runtime credits                         |
+| `CAPABILITY_NEGOTIATION` | `0x3B` | Both   | Negotiate capabilities with costs and limits   |
+| `DEGRADE_PROFILE`     | `0x3C` | Both      | Select a degraded profile                      |
+| `ROUTE_HINT`          | `0x3D` | Both      | Provide routing guidance                       |
+| `EXECUTION_HINT`      | `0x3E` | Both      | Provide execution guidance                     |
+| `TRACE_CONTEXT`       | `0x3F` | Both      | Carry trace/span context                       |
+| `RESULT_DROP_REASON`  | `0x40` | Both      | Explain dropped result                         |
+| `OBJECT_DECLARE`      | `0x41` | Both      | Declare a runtime object                       |
+| `OBJECT_REF`          | `0x42` | Both      | Reference a runtime object                     |
+| `OBJECT_RELEASE`      | `0x43` | Both      | Release a runtime object                       |
+| `OBJECT_PATCH`        | `0x44` | Both      | Patch a runtime object                         |
+| `OBJECT_DELTA`        | `0x45` | Both      | Stream an object delta                         |
+| `CACHE_REFERENCE`     | `0x46` | Both      | Reference a reusable cache object              |
+| `CACHE_MISS`          | `0x47` | Both      | Report cache miss                              |
+| `ERROR_RECOVERABLE`   | `0x48` | Both      | Report recoverable error                       |
+| `RETRY_AFTER`         | `0x49` | Both      | Request retry after a delay                    |
 
 ---
 
@@ -132,6 +158,8 @@ from nnrp import (
 | `UNSPECIFIED` | `0`   | Unspecified, server chooses |
 | `QUIC`        | `1`   | QUIC transport              |
 | `TCP`         | `2`   | TCP transport               |
+| `IPC`         | `3`   | Local IPC transport         |
+| `WEBSOCKET`   | `4`   | WebSocket transport         |
 
 ### `TransportPolicy(IntEnum)`
 
@@ -140,8 +168,12 @@ from nnrp import (
 | `AUTO`        | `0`   | No preference, automatic selection |
 | `PREFER_QUIC` | `1`   | Prefer QUIC                        |
 | `PREFER_TCP`  | `2`   | Prefer TCP                         |
-| `FORCE_QUIC`  | `3`   | Force QUIC                         |
-| `FORCE_TCP`   | `4`   | Force TCP                          |
+| `PREFER_IPC`  | `3`   | Prefer IPC                         |
+| `PREFER_WEBSOCKET` | `4` | Prefer WebSocket                 |
+| `FORCE_QUIC`  | `5`   | Force QUIC                         |
+| `FORCE_TCP`   | `6`   | Force TCP                          |
+| `FORCE_IPC`   | `7`   | Force IPC                          |
+| `FORCE_WEBSOCKET` | `8` | Force WebSocket                  |
 
 ### `LossTolerance(IntEnum)`
 

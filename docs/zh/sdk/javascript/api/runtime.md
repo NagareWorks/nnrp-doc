@@ -1,0 +1,175 @@
+# 运行时控制与对象
+
+JavaScript/TypeScript Preview 4 API 固定运行时控制、对象引用和 WebSocket 二进制帧 helper。运行时无关
+helper 位于 `@nnrp/core`；浏览器包可以通过 `@nnrp/browser-client` 使用 WASM 支撑的 helper；后端包通过角色包
+和传输包接入 native 能力。传输包必须维护自己的传输行为，不只是隐藏实现上的配置开关。
+
+## 导入
+
+```ts
+import {
+  decodeRuntimeControlMetadata,
+  decodeRuntimeObjectMetadata,
+  decodeWebSocketBinaryFrame,
+  decodeWebSocketBinaryFrameBatch,
+  encodeRuntimeControlMetadata,
+  encodeRuntimeObjectMetadata,
+  encodeWebSocketBinaryFrame,
+  NnrpMessageType,
+} from "@nnrp/core";
+```
+
+## `encodeRuntimeControlMetadata`
+
+编码一个 Preview 4 控制面 metadata。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `messageType` | [`NnrpMessageType`](#nnrpmessagetype) | 是 | Preview 4 控制消息类型。 |
+| `metadata` | [运行时控制 metadata](#运行时控制-metadata) | 是 | 与 `messageType` 匹配的数据结构。 |
+| `tail` | `Uint8Array` | 否 | 扩展字节、诊断字节、进度 body 或 partial result body。 |
+
+| 返回 |
+|---|
+| `Uint8Array` |
+
+```ts
+const payload = encodeRuntimeControlMetadata(NnrpMessageType.Progress, {
+  operationId: 42n,
+  progressSequence: 1n,
+  stageCode: 2,
+  percentX100: 2500,
+  objectId: 0n,
+  bodyBytes: 0,
+});
+```
+
+## `decodeRuntimeControlMetadata`
+
+解码一个控制面 metadata payload。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `messageType` | [`NnrpMessageType`](#nnrpmessagetype) | 是 | 决定 metadata 布局的消息类型。 |
+| `payload` | `Uint8Array` | 是 | metadata 字节和声明的 tail。 |
+
+| 返回 |
+|---|
+| `DecodedRuntimeControlMetadata` |
+
+## `encodeRuntimeObjectMetadata`
+
+编码对象、对象引用、对象增量、缓存引用和缓存 miss metadata。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `messageType` | [`NnrpMessageType`](#nnrpmessagetype) | 是 | `ObjectDeclare`、`ObjectRef`、`ObjectRelease`、`ObjectPatch`、`ObjectDelta`、`CacheReference` 或 `CacheMiss`。 |
+| `metadata` | [运行时对象 metadata](#运行时对象-metadata) | 是 | 与 `messageType` 匹配的数据结构。 |
+| `tail` | `Uint8Array` | 否 | 扩展字节、诊断字节或 delta payload。 |
+
+| 返回 |
+|---|
+| `Uint8Array` |
+
+## `decodeRuntimeObjectMetadata`
+
+解码一个运行时对象或缓存 metadata payload。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `messageType` | [`NnrpMessageType`](#nnrpmessagetype) | 是 | 决定 metadata 布局的消息类型。 |
+| `payload` | `Uint8Array` | 是 | metadata 字节和声明的 tail。 |
+
+| 返回 |
+|---|
+| `DecodedRuntimeObjectMetadata` |
+
+## `encodeWebSocketBinaryFrame`
+
+构造 WebSocket 传输层使用的二进制帧。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `header` | [`NnrpRuntimeFrameHeader`](#nnrpruntimeframeheader) | 是 | 除 `metadataLength` 和 `bodyLength` 之外的 header 字段；函数从 buffer 长度推导这两个值。 |
+| `metadata` | `Uint8Array` | 否 | metadata payload。 |
+| `body` | `Uint8Array` | 否 | body payload。 |
+
+| 返回 |
+|---|
+| `Uint8Array` |
+
+## `decodeWebSocketBinaryFrame`
+
+拆分一个 WebSocket 二进制帧。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `frame` | `Uint8Array` | 是 | 一个完整 WebSocket binary message。 |
+
+| 返回 |
+|---|
+| `DecodedRuntimeFrame` |
+
+## `decodeWebSocketBinaryFrameBatch`
+
+解码本地 buffer 或测试夹具里的连续二进制帧。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `batch` | `Uint8Array` | 是 | 连续帧。 |
+| `options` | `{ limit?: number }` | 否 | 最大解码帧数；`0` 或省略表示不限制。 |
+
+| 返回 |
+|---|
+| `DecodedRuntimeFrame[]` |
+
+## 运行时控制 Metadata
+
+| 类型 | 消息类型 | 冻结字段 |
+|---|---|---|
+| `ControlRequestMetadata` | `Cancel`, `Abort` | `operationId`, `controlSequence`, `reasonCode`, `sourceRole`, `flags`, `diagnosticBytes` |
+| `SchedulingMetadata` | `PriorityUpdate`, `Deadline`, `ExpireAt` | `operationId`, `controlSequence`, `priorityClass`, `priorityDelta`, `deadlineUnixMs`, `flags` |
+| `SupersedeMetadata` | `Supersede` | `oldOperationId`, `newOperationId`, `controlSequence`, `dropReasonCode`, `flags`, `diagnosticBytes` |
+| `BudgetMetadata` | `BudgetUpdate` | `operationId`, `computeBudgetUnits`, `memoryBudgetBytes`, `bandwidthBudgetBytes`, `tokenBudget`, `flags` |
+| `ProgressMetadata` | `Progress` | `operationId`, `progressSequence`, `stageCode`, `percentX100`, `objectId`, `bodyBytes` |
+| `PartialResultMetadata` | `PartialResult` | `operationId`, `resultSequence`, `objectId`, `deltaSequence`, `bodyBytes`, `flags` |
+| `PressureMetadata` | `Backpressure`, `CreditUpdate` | `scopeId`, `creditWindow`, `pressureLevel`, `pressureReason`, `retryAfterMs`, `flags` |
+| `CapabilityMetadata` | `CapabilityNegotiation`, `DegradeProfile` | `profileId`, `capabilityCount`, `costModelId`, `preferenceRank`, `limitBytes`, `limitUnits`, `bodyBytes`, `flags` |
+| `RouteHintMetadata` | `RouteHint`, `ExecutionHint` | `operationId`, `routeId`, `executorClass`, `affinityClass`, `deadlineUnixMs`, `bodyBytes`, `flags` |
+| `TraceContextMetadata` | `TraceContext` | `traceId`, `spanId`, `parentSpanId`, `stageCode`, `flags`, `bodyBytes` |
+| `ResultDropReasonMetadata` | `ResultDropReason` | `operationId`, `resultSequence`, `dropReasonCode`, `sourceRole`, `flags`, `diagnosticBytes` |
+| `RecoverableErrorMetadata` | `ErrorRecoverable` | `errorCode`, `errorScope`, `recoveryAction`, `sourceRole`, `flags`, `retryAfterMs`, `relatedSessionId`, `relatedFrameId`, `relatedViewId`, `diagnosticBytes` |
+| `RetryAfterMetadata` | `RetryAfter` | `scopeId`, `controlSequence`, `retryAfterMs`, `jitterMs`, `reasonCode`, `sourceRole`, `flags`, `diagnosticBytes` |
+
+## 运行时对象 Metadata
+
+| 类型 | 消息类型 | 冻结字段 |
+|---|---|---|
+| `ObjectDescriptorMetadata` | `ObjectDeclare` | `objectId`, `objectKind`, `producerRole`, `consumerRole`, `sessionId`, `byteSize`, `computeCostUnits`, `memoryLocationHint`, `ownershipHint`, `lifetimeHintMs`, `metadataBytes` |
+| `ObjectReferenceMetadata` | `ObjectRef` | `objectId`, `operationId`, `objectVersion`, `offset`, `length`, `flags`, `metadataBytes` |
+| `ObjectReleaseMetadata` | `ObjectRelease` | `objectId`, `operationId`, `releaseReason`, `sourceRole`, `flags`, `diagnosticBytes` |
+| `ObjectDeltaMetadata` | `ObjectPatch`, `ObjectDelta` | `objectId`, `deltaSequence`, `regionOffset`, `regionBytes`, `deltaBytes`, `flags`, `metadataBytes` |
+| `CacheReferenceMetadata` | `CacheReference` | `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags` |
+| `CacheMissMetadata` | `CacheMiss` | `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes` |
+
+## 运行时枚举
+
+| 枚举 | 成员 |
+|---|---|
+| `RuntimeObjectKind` | `Unspecified`, `Tensor`, `TokenBlock`, `ImageTile`, `FeatureMap`, `ToolResult`, `TraceSegment`, `OpaqueBytes`, `DocumentChunk`, `AudioChunk`, `VideoChunk`, `RoutePlan`, `CacheManifest` |
+| `RuntimeRole` | `Unspecified`, `Client`, `Server`, `Runtime`, `Subagent`, `Tool`, `Scheduler`, `ConformanceRunner` |
+| `MemoryLocationHint` | `Unspecified`, `HostMemory`, `DeviceMemory`, `SharedMemory`, `RemoteMemory`, `MmapFile`, `ObjectStore` |
+| `OwnershipHint` | `Unspecified`, `ProducerOwned`, `ConsumerOwned`, `SessionOwned`, `Borrowed`, `TransferOnRef`, `ReleaseOnDrop` |
+| `ObjectReleaseReason` | `Completed`, `Cancelled`, `Expired`, `Replaced`, `Invalidated`, `OwnerClosed`, `LeaseExpired`, `ConformanceInjection` |
+| `CacheReuseScope` | `Operation`, `Session`, `Connection`, `Global`, `Tenant`, `Profile` |
+| `CacheMissReason` | `Unknown`, `NotFound`, `Expired`, `Invalidated`, `SchemaMismatch`, `ProducerUnavailable`, `LeaseRequired`, `PermissionDenied` |
+
+## `NnrpRuntimeFrameHeader`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `messageType` | [`NnrpMessageType`](#nnrpmessagetype) | 帧消息类型。 |
+| `flags` | `number` | Header flags。 |
+| `sessionId` | `number` | Session id。 |
+| `generation` | `number` | Session generation。 |
+| `frameId` | `number` | Frame id。 |

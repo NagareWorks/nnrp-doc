@@ -47,6 +47,32 @@ using Nnrp.Core;
 | `SessionMigrateAck` | `0x1C` | C→S | Session migration confirmation |
 | `Ping` | `0x20` | Both | Keep-alive probe |
 | `Pong` | `0x21` | Both | Keep-alive response |
+| `Cancel` | `0x30` | Both | Cancel an operation |
+| `Abort` | `0x31` | Both | Abort an operation scope |
+| `PriorityUpdate` | `0x32` | Both | Update operation priority |
+| `Deadline` | `0x33` | Both | Set operation deadline |
+| `ExpireAt` | `0x34` | Both | Set operation expiration |
+| `Supersede` | `0x35` | Both | Replace an operation with another operation |
+| `BudgetUpdate` | `0x36` | Both | Update compute, memory, bandwidth, or token budget |
+| `Progress` | `0x37` | Both | Stream progress metadata |
+| `PartialResult` | `0x38` | Both | Stream a partial result |
+| `Backpressure` | `0x39` | Both | Signal pressure and retry guidance |
+| `CreditUpdate` | `0x3A` | Both | Update runtime credits |
+| `CapabilityNegotiation` | `0x3B` | Both | Negotiate capabilities with costs and limits |
+| `DegradeProfile` | `0x3C` | Both | Select a degraded profile |
+| `RouteHint` | `0x3D` | Both | Provide routing guidance |
+| `ExecutionHint` | `0x3E` | Both | Provide execution guidance |
+| `TraceContext` | `0x3F` | Both | Carry trace/span context |
+| `ResultDropReason` | `0x40` | Both | Explain dropped result |
+| `ObjectDeclare` | `0x41` | Both | Declare a runtime object |
+| `ObjectRef` | `0x42` | Both | Reference a runtime object |
+| `ObjectRelease` | `0x43` | Both | Release a runtime object |
+| `ObjectPatch` | `0x44` | Both | Patch a runtime object |
+| `ObjectDelta` | `0x45` | Both | Stream an object delta |
+| `CacheReference` | `0x46` | Both | Reference a reusable cache object |
+| `CacheMiss` | `0x47` | Both | Report cache miss |
+| `ErrorRecoverable` | `0x48` | Both | Report recoverable error |
+| `RetryAfter` | `0x49` | Both | Request retry after a delay |
 
 ---
 
@@ -109,6 +135,8 @@ using Nnrp.Core;
 | `Unspecified` | `0` | Unspecified |
 | `Quic` | `1` | QUIC transport |
 | `Tcp` | `2` | TCP transport |
+| `Ipc` | `3` | Local IPC transport |
+| `WebSocket` | `4` | WebSocket transport |
 
 ### `TransportPolicy`
 
@@ -117,8 +145,12 @@ using Nnrp.Core;
 | `Auto` | `0` | Automatic selection |
 | `PreferQuic` | `1` | Prefer QUIC |
 | `PreferTcp` | `2` | Prefer TCP |
-| `ForceQuic` | `3` | Force QUIC |
-| `ForceTcp` | `4` | Force TCP |
+| `PreferIpc` | `3` | Prefer IPC |
+| `PreferWebSocket` | `4` | Prefer WebSocket |
+| `ForceQuic` | `5` | Force QUIC |
+| `ForceTcp` | `6` | Force TCP |
+| `ForceIpc` | `7` | Force IPC |
+| `ForceWebSocket` | `8` | Force WebSocket |
 
 ### `LossTolerance`
 

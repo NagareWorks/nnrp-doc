@@ -70,6 +70,32 @@ from nnrp.core.messages.data import (
 | `SESSION_MIGRATE_ACK` | `0x1C` | C→S  | 会话迁移确认                |
 | `PING`                | `0x20` | 双向 | 保活探测                    |
 | `PONG`                | `0x21` | 双向 | 保活应答                    |
+| `CANCEL`              | `0x30` | 双向 | 取消操作                    |
+| `ABORT`               | `0x31` | 双向 | 中止操作作用域              |
+| `PRIORITY_UPDATE`     | `0x32` | 双向 | 更新操作优先级              |
+| `DEADLINE`            | `0x33` | 双向 | 设置操作截止时间            |
+| `EXPIRE_AT`           | `0x34` | 双向 | 设置操作过期时间            |
+| `SUPERSEDE`           | `0x35` | 双向 | 用新操作替换旧操作          |
+| `BUDGET_UPDATE`       | `0x36` | 双向 | 更新计算、内存、带宽或 token 预算 |
+| `PROGRESS`            | `0x37` | 双向 | 流式进度                    |
+| `PARTIAL_RESULT`      | `0x38` | 双向 | 流式部分结果                |
+| `BACKPRESSURE`        | `0x39` | 双向 | 背压和重试提示              |
+| `CREDIT_UPDATE`       | `0x3A` | 双向 | 更新运行时 credit           |
+| `CAPABILITY_NEGOTIATION` | `0x3B` | 双向 | 协商能力、成本和限制     |
+| `DEGRADE_PROFILE`     | `0x3C` | 双向 | 选择降级 profile            |
+| `ROUTE_HINT`          | `0x3D` | 双向 | 路由提示                    |
+| `EXECUTION_HINT`      | `0x3E` | 双向 | 执行提示                    |
+| `TRACE_CONTEXT`       | `0x3F` | 双向 | Trace/span 上下文           |
+| `RESULT_DROP_REASON`  | `0x40` | 双向 | 说明结果丢弃原因            |
+| `OBJECT_DECLARE`      | `0x41` | 双向 | 声明运行时对象              |
+| `OBJECT_REF`          | `0x42` | 双向 | 引用运行时对象              |
+| `OBJECT_RELEASE`      | `0x43` | 双向 | 释放运行时对象              |
+| `OBJECT_PATCH`        | `0x44` | 双向 | Patch 运行时对象            |
+| `OBJECT_DELTA`        | `0x45` | 双向 | 运行时对象增量              |
+| `CACHE_REFERENCE`     | `0x46` | 双向 | 引用可复用缓存对象          |
+| `CACHE_MISS`          | `0x47` | 双向 | 报告缓存 miss               |
+| `ERROR_RECOVERABLE`   | `0x48` | 双向 | 可恢复错误                  |
+| `RETRY_AFTER`         | `0x49` | 双向 | 请求延迟重试                |
 
 ---
 
@@ -144,6 +170,8 @@ from nnrp.core.messages.data import (
 | `UNSPECIFIED` | `0` | 未指定，由服务端选择 |
 | `QUIC`        | `1` | QUIC 传输            |
 | `TCP`         | `2` | TCP 传输             |
+| `IPC`         | `3` | 本地 IPC 传输        |
+| `WEBSOCKET`   | `4` | WebSocket 传输       |
 
 ### `TransportPolicy(IntEnum)`
 
@@ -152,8 +180,12 @@ from nnrp.core.messages.data import (
 | `AUTO`        | `0` | 无要求，自动选择 |
 | `PREFER_QUIC` | `1` | 优先使用 QUIC    |
 | `PREFER_TCP`  | `2` | 优先使用 TCP     |
-| `FORCE_QUIC`  | `3` | 强制使用 QUIC    |
-| `FORCE_TCP`   | `4` | 强制使用 TCP     |
+| `PREFER_IPC`  | `3` | 优先使用 IPC     |
+| `PREFER_WEBSOCKET` | `4` | 优先使用 WebSocket |
+| `FORCE_QUIC`  | `5` | 强制使用 QUIC    |
+| `FORCE_TCP`   | `6` | 强制使用 TCP     |
+| `FORCE_IPC`   | `7` | 强制使用 IPC     |
+| `FORCE_WEBSOCKET` | `8` | 强制使用 WebSocket |
 
 ### `LossTolerance(IntEnum)`
 
