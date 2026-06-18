@@ -13,7 +13,7 @@ The current public version explicitly separates connection, session, and operati
 
 ## Connection
 
-The connection is the transport-level container. It handles message framing (packing, unpacking, byte-stream I/O) and hosts multiple sessions simultaneously. Connection-level `FLOW_UPDATE` applies to all sessions on that connection.
+The connection is the frame-carrier container. It handles message framing (packing, unpacking, byte-stream I/O) and hosts multiple sessions simultaneously. Connection-level `FLOW_UPDATE` applies to all sessions on that connection.
 
 ## Session
 

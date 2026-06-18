@@ -74,7 +74,7 @@ session.close().await?;
 
 ## Transport 包
 
-每个 transport 包都拥有真实传输层逻辑。安装一个包不是只打开配置开关。
+每个 transport 包都拥有真实帧承载实现。安装一个包不是只打开配置开关。
 
 | Package | 适用场景 | Runtime 形态 |
 |---|---|---|

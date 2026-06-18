@@ -13,8 +13,8 @@ If you only remember a few things, start with these four:
 
 1. `tensor` and `token` are peer standard profiles. The public layer no longer bakes in fields for any single use case.
 2. Connection, session, and operation are three distinct layers. A real-time interaction is not "one request, one response"—it is a continuous submit loop, a result loop, and a control-message path running in parallel.
-3. The transport layer is not hard-wired. The protocol supports path probing before the handshake and session migration at runtime, without dropping the connection.
-4. The common header is fixed at 40 bytes with self-describing length fields, so the same parsing logic works over QUIC, TCP+TLS, or any other byte-stream transport.
+3. The frame-carrier boundary is not hard-wired. The protocol supports path probing before the handshake and session migration at runtime, without dropping the connection.
+4. The common header is fixed at 40 bytes with self-describing length fields, so the same parsing logic works over QUIC, TCP+TLS, IPC, WebSocket, or any other reliable binary frame carrier.
 
 ## Current Public Contract
 
@@ -30,7 +30,7 @@ Flow control is part of the protocol: `FLOW_UPDATE` can target the connection le
 
 ### 3. Transport strategy and session continuity
 
-The protocol does not lock to one transport. Hosts can probe multiple path candidates (QUIC, TCP+TLS, etc.) before committing to a connection, and can migrate a live session to a different transport path later without tearing down the session.
+The protocol does not lock to one carrier. Hosts can probe multiple path candidates (QUIC, TCP+TLS, IPC, WebSocket, etc.) before committing to a connection, and can migrate a live session to a different carrier path later without tearing down the session.
 
 More details on the transport strategy and probing page.
 

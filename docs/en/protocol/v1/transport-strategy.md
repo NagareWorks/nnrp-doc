@@ -2,21 +2,30 @@
 
 This is not a private local optimization. It is a protocol capability boundary that needs to be explained explicitly.
 
-## Why the transport layer cannot be hard-wired
+In NNRP, "transport" names the frame-carrier boundary below the NNRP wire protocol. It is not a claim that every
+carrier is an OSI transport-layer protocol. TCP, QUIC, IPC, and WebSocket are different carrier bindings that can move
+ordered NNRP frames with the reliability, flow-control, and observability properties required by the protocol.
 
-Real networks do not always reward UDP or QUIC. In China, for example, some operators are reluctant to accommodate UDP-heavy services and may classify large amounts of UDP traffic as PCDN traffic, leading to throttling, penalties, or even blocking. Similar commercial, regulatory, or device-compatibility constraints can exist in other regions as well.
+## Why the carrier boundary cannot be hard-wired
 
-If a modern application-layer protocol hard-binds itself to one transport, its reachability, throughput, and stability become hostages of local network policy. NNRP aims for the opposite: keep submission, result, flow-control, and status semantics stable at the application layer, then choose the most suitable transport binding for the network that actually exists.
+Real networks do not always reward UDP or QUIC. In China, for example, some operators are reluctant to accommodate UDP-heavy services and may classify large amounts of UDP traffic as PCDN traffic, leading to throttling, penalties, or even blocking. Similar commercial, regulatory, local-process, browser-runtime, or device-compatibility constraints can exist in other regions and deployment environments as well.
+
+If a modern application-layer protocol hard-binds itself to one carrier, its reachability, throughput, and stability become hostages of local network policy and host runtime constraints. NNRP aims for the opposite: keep submission, result, flow-control, and status semantics stable at the application layer, then choose the most suitable carrier binding for the environment that actually exists.
 
 ## What this looks like in the protocol
 
-NNRP does not express path selection by inventing one URI scheme per transport. Instead, transport strategy is part of the protocol surface:
+NNRP does not express path selection by inventing one user-facing URI scheme per carrier. Instead, transport strategy is part of the protocol surface:
 
-1. The endpoint keeps one secure entry form, `nnrps://`, rather than encoding QUIC, TCP, and future bindings in separate schemes.
+1. The endpoint keeps one secure entry form, `nnrps://`, rather than encoding QUIC, TCP, IPC, WebSocket, and future bindings in separate user-facing schemes.
 2. Before the main handshake, implementations may run `TRANSPORT_PROBE / TRANSPORT_PROBE_ACK` using samples close to real payload size to measure RTT, jitter, and throughput.
 3. `CLIENT_HELLO` can carry `transport_policy` and `preferred_transport_id`, expressing automatic choice, path preference, or a forced path.
 4. `SERVER_HELLO_ACK` returns the accepted policy and final `active_transport_id`, making the outcome protocol-visible instead of private local state.
 5. If path quality changes later, `SESSION_MIGRATE / SESSION_MIGRATE_ACK` can continue the same session across bindings instead of forcing a full reconnect and full context rebuild.
+
+Provider-local locators such as `unix://`, `npipe://`, `ws://`, and `wss://` are implementation locators for specific
+carrier providers. They may appear in diagnostics, conformance fixtures, or explicit provider overrides, but the
+application-facing NNRP endpoint should remain `nnrp://` or `nnrps://` unless an SDK deliberately exposes a lower-level
+provider API.
 
 ## Minimal probing sequence
 

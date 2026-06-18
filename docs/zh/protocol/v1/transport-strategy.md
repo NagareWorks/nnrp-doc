@@ -2,21 +2,27 @@
 
 这不是某个局部实现的优化技巧，而是协议本身必须讲清楚的能力边界。
 
-## 为什么不能把传输层写死
+NNRP 里的“传输”指 NNRP wire protocol 下方的帧承载边界，不是在断言每一种承载都属于传统网络分层里的传输层协议。
+TCP、QUIC、IPC、WebSocket 是不同环境下的 carrier binding；它们共同承担的是可靠移动有序 NNRP frame，并提供协议需要的流控、观测和恢复语义。
+
+## 为什么不能把帧承载写死
 
 现实网络并不总是奖励 UDP / QUIC。以中国市场为例，一些运营商并不愿意兼容适配 UDP 业务，会把大量 UDP 流量识别为 PCDN 流量，从而触发限速、惩罚甚至封禁。其他国家和网络环境里，也可能出现类似的商业策略、网络治理策略或设备兼容问题。
 
-如果一个现代应用层协议把自己硬绑定到单一 transport，它的可达性、吞吐量和稳定性就会直接受制于局部网络政策。NNRP 的目标恰恰相反：把提交、结果、流控和状态语义稳定在应用层，再根据网络条件选择最合适的 transport binding。
+如果一个现代应用层协议把自己硬绑定到单一 carrier，它的可达性、吞吐量和稳定性就会直接受制于局部网络政策、宿主运行时和部署环境。NNRP 的目标恰恰相反：把提交、结果、流控和状态语义稳定在应用层，再根据实际环境选择最合适的 carrier binding。
 
 ## 协议里长什么样
 
-NNRP 不通过“每种 transport 一个新 scheme”的方式表达选路，而是把 transport 策略做成显式协议语义：
+NNRP 不通过“每种 carrier 一个新的用户侧 scheme”的方式表达选路，而是把 transport 策略做成显式协议语义：
 
-1. endpoint 只保留一个安全入口 `nnrps://`，不把 QUIC、TCP 等 binding 写进 URI scheme。
+1. endpoint 只保留一个安全入口 `nnrps://`，不把 QUIC、TCP、IPC、WebSocket 等 binding 写进用户侧 URI scheme。
 2. 主握手前可以执行 `TRANSPORT_PROBE / TRANSPORT_PROBE_ACK`，用接近真实提交载荷大小的样本测 RTT、抖动和吞吐。
 3. `CLIENT_HELLO` 可携带 `transport_policy` 与 `preferred_transport_id`，表达自动选择、偏好某条路径或强制某条路径。
 4. `SERVER_HELLO_ACK` 返回被接受的策略和最终生效的 `active_transport_id`，让选路结果变成协议可见事实。
 5. 如果链路质量变化，`SESSION_MIGRATE / SESSION_MIGRATE_ACK` 允许在不同 binding 之间延续同一 session，而不是只能断开重连再重建全部上下文。
+
+`unix://`、`npipe://`、`ws://`、`wss://` 这类 URI 是 provider-local locator，适合出现在诊断、conformance fixture
+或显式 provider override 中。普通应用侧 NNRP endpoint 应继续保持 `nnrp://` 或 `nnrps://`，除非 SDK 明确暴露了低层 provider API。
 
 ## 最小探测时序图
 

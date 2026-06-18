@@ -44,20 +44,21 @@ nnrp-conformance = "1.0.0-preview.4.0"
 
 ## Transport Provider Boundary
 
-The runtime sees transports through framed transport traits. Concrete networking belongs to provider
-packages.
+The runtime sees transports through framed transport traits. In the Rust SDK, "transport" follows the NNRP
+definition: a frame-carrier boundary below the NNRP wire protocol, not an OSI-layer claim. Concrete carrier behavior
+belongs to provider packages.
 
 | Package | Owns | Native / WASM artifact boundary |
 |---|---|---|
 | `nnrp-transport-tcp` | TCP connect/bind and TCP probe identity | Native FFI transport artifacts are published as TCP-scoped release zips |
 | `nnrp-transport-quic` | Quinn/Rustls QUIC connect/bind and QUIC probe identity | Native FFI transport artifacts are published as QUIC-scoped release zips |
 | `nnrp-transport-ipc` | Local IPC endpoints: Unix domain sockets and Windows named pipes | Native FFI transport artifacts are published as IPC-scoped release zips |
-| `nnrp-transport-websocket` | Native Rust WebSocket binary-frame transport | Native FFI transport artifacts are published as WebSocket-scoped release zips |
+| `nnrp-transport-websocket` | Native Rust WebSocket binary-frame carrier | Native FFI transport artifacts are published as WebSocket-scoped release zips |
 | `nnrp-wasm` | Browser WASM primitives and browser binary-frame helpers | Browser artifact is `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
 
-Role packages such as client/server runtimes do not hide transport implementations. Install the
-transport package that owns the behavior you need, then let provider policy select among registered
-providers when multiple transports are available.
+Role packages such as client/server runtimes do not hide carrier implementations. Install the transport package that
+owns the behavior you need, then let provider policy select among registered providers when multiple carriers are
+available.
 
 ## Runtime Control And Object/Cache Frames
 

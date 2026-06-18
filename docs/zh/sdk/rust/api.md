@@ -42,17 +42,18 @@ nnrp-conformance = "1.0.0-preview.4.0"
 
 ## Transport Provider 边界
 
-Runtime 只通过 framed transport traits 看 transport。具体网络行为归 provider 包所有。
+Runtime 只通过 framed transport traits 看 transport。Rust SDK 里的 transport 沿用 NNRP 的定义：它是
+NNRP wire protocol 下方的帧承载边界，不是在声明 OSI 网络分层。具体 carrier 行为归 provider 包所有。
 
 | Package | 拥有内容 | Native / WASM artifact 边界 |
 |---|---|---|
 | `nnrp-transport-tcp` | TCP connect/bind 与 TCP probe identity | Native FFI transport artifact 以 TCP 为粒度发布 |
 | `nnrp-transport-quic` | Quinn/Rustls QUIC connect/bind 与 QUIC probe identity | Native FFI transport artifact 以 QUIC 为粒度发布 |
 | `nnrp-transport-ipc` | 本地 IPC endpoint：Unix domain socket 与 Windows named pipe | Native FFI transport artifact 以 IPC 为粒度发布 |
-| `nnrp-transport-websocket` | 原生 Rust WebSocket binary-frame transport | Native FFI transport artifact 以 WebSocket 为粒度发布 |
+| `nnrp-transport-websocket` | 原生 Rust WebSocket binary-frame carrier | Native FFI transport artifact 以 WebSocket 为粒度发布 |
 | `nnrp-wasm` | 浏览器 WASM primitives 与 browser binary-frame helpers | 浏览器 artifact 是 `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
 
-client/server runtime 这种角色包不隐藏 transport 实现。需要哪个 transport，就安装拥有该行为的 transport 包；多个 transport 同时可用时，再交给 provider policy 选择。
+client/server runtime 这种角色包不隐藏 carrier 实现。需要哪个 transport，就安装拥有该行为的 transport 包；多个 carrier 同时可用时，再交给 provider policy 选择。
 
 ## Runtime Control 与 Object/Cache Frame
 
