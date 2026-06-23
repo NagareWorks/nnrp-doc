@@ -444,7 +444,7 @@ request = SubmitRequest(
     inference_budget_ms=8,
     tile_index_mode=TileIndexMode.RAW_U16,
 )
-await session.submit_frame(request)
+await session.submit(request)
 ```
 
 ::: warning Pitfalls
@@ -497,7 +497,7 @@ from nnrp.core.enums import ErrorScope
 from nnrp.errors import NnrpProtocolError
 
 try:
-    await session.submit_frame(request)
+    await session.submit(request)
 except NnrpProtocolError as e:
     if e.error_scope == ErrorScope.CONNECTION:
         # Fatal — must reconnect

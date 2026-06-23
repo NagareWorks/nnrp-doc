@@ -13,7 +13,7 @@ The published distribution name is `nnrp-py`.
 
 NNRP is documented against the intended stable `1.0.0` API line. During preview
 development, install snippets should use the current verified preview package. The current
-public Python preview package is `1.0.0rc3.post4`.
+public Python preview package is `1.0.0rc4`.
 
 Using `uv`:
 
@@ -30,8 +30,8 @@ pip install --pre nnrp-py
 If you want to lock to one verified public release explicitly, pin the version:
 
 ```bash
-uv add --prerelease allow "nnrp-py==1.0.0rc3.post4"
-pip install --pre "nnrp-py==1.0.0rc3.post4"
+uv add --prerelease allow "nnrp-py==1.0.0rc4"
+pip install --pre "nnrp-py==1.0.0rc4"
 ```
 
 ## Verify The Installation
@@ -52,6 +52,26 @@ The Python SDK uses packaged Rust native artifacts for runtime hot paths when th
 python -c "from nnrp import probe_native_artifact; print(probe_native_artifact())"
 ```
 
+Preview4 wheels carry transport-scoped native artifacts. Production host code should open sessions through the native client connection instead of starting from the older packet transport helpers:
+
+```python
+from nnrp.client import NativeClientSessionOpenOptions, connect_native_client_connection
+
+with connect_native_client_connection(require_native=True, transport="tcp") as connection:
+    session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=1))
+    result = connection.submit_and_poll_result(session, operation_id=1, frame_id=1, payload=b"hello")
+    print(result.payload)
+```
+
+When the installation contains several transport artifacts, the SDK can discover and select providers:
+
+```python
+from nnrp import discover_native_transport_providers, select_native_transport_provider
+
+print([provider.name for provider in discover_native_transport_providers()])
+print(select_native_transport_provider("auto").selected_transport_name)
+```
+
 If you are developing on a machine that cannot build or load the cffi API fast path, force the compiler-free fallback:
 
 ```bash
@@ -66,7 +86,16 @@ The SDK exposes suite-owned integration commands:
 
 ```bash
 python -m nnrp.tools.adapter_conformance
+python -m nnrp.tools.wire_conformance manifest --help
 python -m nnrp.tools.benchmark --plan benchmark-plan.json --output artifacts/benchmark-results.json
+```
+
+Installed environments can also use the console scripts:
+
+```bash
+nnrp-wire-conformance manifest --help
+nnrp-wire-target-manifest --help
+nnrp-run-benchmark --help
 ```
 
 ## Local Editable Override For Unpublished Changes

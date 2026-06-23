@@ -1,11 +1,26 @@
-# Python — 传输适配器
+# Python — 传输与 Provider
 
-传输适配器封装了底层 QUIC 和 TCP 连接。所有类型从 `nnrp.adapters` 导出，也可从顶层 `nnrp` 包访问。
+Preview4 Python SDK 有两个 transport 层级：
 
-QUIC 通过 `aioquic` 作为传输插槽提供，并不是所有部署都必须启用。证书处理或 QUIC 支持不可用时，TCP
-仍然是推荐的本地开发路径。
+1. **Native transport provider**：生产 host API 使用的 Rust-backed provider。当前 wheel 可以携带 `tcp`、`quic`、`ipc`、`websocket` 四类 transport-scoped artifact。
+2. **Packet transport adapter**：`nnrp.adapters` 下的 Python TCP/QUIC packet helper，用于 smoke、诊断和自定义 transport，不是 preview4 native hot path。
 
 ## 导入
+
+Native provider：
+
+```python
+from nnrp import (
+    diagnose_native_transport_endpoint_support,
+    diagnose_nnrp_endpoint_support,
+    discover_native_transport_providers,
+    native_transport_slot_names,
+    resolve_native_transport_provider,
+    select_native_transport_provider,
+)
+```
+
+Packet adapter：
 
 ```python
 from nnrp.adapters import (
@@ -24,6 +39,47 @@ from nnrp.adapters import (
     connect_tcp, serve_tcp,
 )
 ```
+
+## Native Transport Provider
+
+Preview4 native artifact 按 transport 粒度发布。安装包里只有某个 provider 时，选择逻辑直接使用它；安装多个 provider 时，`auto` / `probe` 策略再做选择。
+
+```python
+from nnrp import discover_native_transport_providers, select_native_transport_provider
+
+providers = discover_native_transport_providers()
+selection = select_native_transport_provider("auto")
+
+print([provider.name for provider in providers])
+print(selection.selected_transport_name, selection.diagnostic)
+```
+
+| API | 说明 |
+|---|---|
+| `discover_native_transport_providers(root=None, native_platform=None)` | 扫描当前 platform wheel 中的 provider artifacts。 |
+| `select_native_transport_provider(policy_or_name="auto", root=None, native_platform=None)` | 返回 `NativeTransportSelection`，包含选中 provider、被拒绝 provider 和 diagnostic。 |
+| `resolve_native_transport_provider(name, root=None, native_platform=None)` | 返回指定 `NativeTransportProvider`。 |
+| `diagnose_nnrp_endpoint_support(endpoint, ...)` | 诊断应用侧 `nnrp://` / `nnrps://` endpoint。 |
+| `diagnose_native_transport_endpoint_support(endpoint, ...)` | 诊断 provider-local endpoint。 |
+| `native_transport_slot_names(mask)` | 将 native capability bitmask 映射为 `tcp`、`quic`、`ipc`、`websocket` 名称。 |
+
+| Endpoint 层级 | 示例 | 用途 |
+|---|---|---|
+| 应用侧 endpoint | `nnrp://runtime.example/session/default`、`nnrps://runtime.example/session/default` | 推荐暴露给用户和配置文件。 |
+| Provider-local endpoint | `unix:///tmp/nnrp.sock`、`npipe://./pipe/nnrp`、`ws://host/nnrp`、`wss://host/nnrp` | 诊断、conformance fixture 或显式 provider override。 |
+
+`NativeTransportProvider` 会报告 artifact path、manifest path、transport slot、enabled features、platform tag、cost/preference hint 和 limitation。它不是配置开关；每个 provider 都由对应 Rust artifact 拥有实际 transport 行为。
+
+## Transport Artifact 边界
+
+| Provider | Native artifact | Python packet adapter |
+|---|---|---|
+| `tcp` | 是 | `nnrp.adapters.tcp` 可用于 smoke/custom transport |
+| `quic` | 是 | `nnrp.adapters.quic` 可用于 smoke/custom transport |
+| `ipc` | 是 | 无 Python packet adapter |
+| `websocket` | 是 | 无 Python packet adapter；WebSocket binary frame helper 在 [运行时控制与对象](./runtime) |
+
+生产代码需要打开 runtime session 时，优先使用 `connect_native_client_connection(require_native=True, transport=...)`。只有协议测试、诊断工具或自定义 transport 才直接使用下面的 packet adapter。
 
 ---
 

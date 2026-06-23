@@ -13,13 +13,25 @@ tests, diagnostics, and custom transports.
 from nnrp.client import (
     ClientProfile,
     ClientSession,
+    NativeClientSessionOpenOptions,
     SubmitRequest,
     connect_client_control,
     connect_client_control_with_probe,
+    connect_native_client_connection,
 )
 ```
 
 ## Client Workflow
+
+Production host code uses the Rust-backed native runtime:
+
+1. Select or discover a native transport provider.
+2. Call [`connect_native_client_connection`](#connect-native-client-connection).
+3. Open a session with [`NativeClientConnection.open_session`](#nativeclientconnection-open-session).
+4. Use coarse native methods for submit, polling, and runtime-control frames.
+5. Call `close()` to release the connection and sessions.
+
+Packet transport helpers remain public, but they are mainly for smoke tests, diagnostics, and custom transports:
 
 1. Build a [`ClientProfile`](#clientprofile).
 2. Choose TCP, QUIC, or probe-based transport bootstrap.
@@ -29,6 +41,76 @@ from nnrp.client import (
    flows, or [`send_submit`](#clientsession-send-submit) plus
    [`receive_result`](#clientsession-receive-result) when multiple frames are in flight.
 5. Keep the async context manager open for the lifetime of the client control session.
+
+## `connect_native_client_connection`
+
+Loads an installed preview4 native artifact, creates a native runtime connection, and returns a `NativeClientConnection` context manager.
+
+| Parameter | Type | Required | Description |
+|---|---|---:|---|
+| `options` | `NativeClientSessionOptions \| None` | No | Low-level connection id, generation, and transport id options. |
+| `artifact_path` | `Path \| str \| None` | No | Explicit native library path; usually unnecessary. |
+| `root` | `Path \| str \| None` | No | Native artifact root. |
+| `native_platform` | `NativePlatform \| None` | No | Platform override for diagnostics or tests. |
+| `transport` | `str \| None` | No | `tcp`, `quic`, `ipc`, or `websocket`; omitted means default artifact resolution. |
+| `library` | `Any \| None` | No | Test-injected library. |
+| `fallback` | `NativeRuntimeBackend \| None` | No | Test or diagnostic fallback. |
+| `require_native` | `bool` | No | Recommended as `True` for production; fails when native runtime is unavailable. |
+
+```python
+with connect_native_client_connection(require_native=True, transport="tcp") as connection:
+    session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
+    result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, payload=b"payload")
+```
+
+## `NativeClientConnection`
+
+`NativeClientConnection` is the primary preview4 Python host API. It preserves coarse native calls through session, operation, event, and owned-buffer objects instead of crossing the ABI for every small field.
+
+### `NativeClientConnection.open_session`
+
+| Parameter | Type | Required | Description |
+|---|---|---:|---|
+| `options` | `NativeClientSessionOpenOptions \| None` | No | Session id, generation, profile, and schema open options. |
+
+| Returns |
+|---|
+| `NativeRuntimeSession` |
+
+### `NativeClientConnection.submit_and_poll_result`
+
+| Parameter | Type | Required | Description |
+|---|---|---:|---|
+| `session` | `NativeRuntimeSession` | Yes | Open native session. |
+| `operation_id` | `int` | Yes | Operation id. |
+| `frame_id` | `int` | Yes | Frame id. |
+| `payload` | `bytes \| bytearray \| memoryview` | No | Submit payload. |
+| `result_payload` | `bytes \| bytearray \| memoryview \| None` | No | Test or loopback result payload. |
+| `parent_operation_id` | `int \| None` | No | Parent operation. |
+| `operation_group_id` | `int \| None` | No | Operation group. |
+| `max_events` | `int \| None` | No | Maximum events processed by this poll. |
+
+| Returns |
+|---|
+| `NativeRuntimeResult` |
+
+### Runtime control helpers
+
+| Method | Message type |
+|---|---|
+| `cancel_runtime_operation` | `CANCEL` |
+| `abort_runtime_operation` | `ABORT` |
+| `update_runtime_priority` | `PRIORITY_UPDATE` |
+| `update_runtime_deadline` | `DEADLINE` |
+| `expire_runtime_operation_at` | `EXPIRE_AT` |
+| `supersede_runtime_operation` | `SUPERSEDE` |
+| `update_runtime_budget` | `BUDGET_UPDATE` |
+| `send_runtime_route_hint` | `ROUTE_HINT` |
+| `send_runtime_execution_hint` | `EXECUTION_HINT` |
+| `negotiate_runtime_capabilities` | `CAPABILITY_NEGOTIATION` |
+| `degrade_runtime_profile` | `DEGRADE_PROFILE` |
+
+Event pump helpers include `dispatch_events`, `dispatch_credit_updates`, `dispatch_result_hints`, `dispatch_structured_events`, `dispatch_tool_deltas`, and `dispatch_workflow_states`.
 
 ## `connect_client_control`
 

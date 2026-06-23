@@ -342,7 +342,7 @@ def validate_frame_submit_body(packet: NnrpPacket, metadata: FrameSubmitMetadata
 
 ### 场景一：构造并发送帧提交包（低层方式）
 
-通常应使用 `ClientSession.submit_frame()`，但在自定义传输适配器或压测工具中，可直接使用构造函数。
+生产路径通常应使用 native client connection；packet transport helper 场景使用 `ClientSession.submit()` 或 `ClientSession.send_submit()`。只有在自定义传输适配器或压测工具中，才直接使用构造函数。
 
 ```python
 from nnrp.core import (

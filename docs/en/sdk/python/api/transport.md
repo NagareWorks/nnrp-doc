@@ -1,13 +1,26 @@
-# Python — Transport Adapters
+# Python — Transport & Providers
 
-Transport adapters wrap the underlying QUIC and TCP connections. All types are exported from
-`nnrp.adapters` and also accessible via the top-level `nnrp` namespace.
+Preview4 Python has two transport layers:
 
-QUIC is provided as a transport slot through `aioquic`; it is not required for every deployment. TCP
-remains the recommended local development path when certificate handling or QUIC support is
-unavailable.
+1. **Native transport providers**: Rust-backed providers used by production host APIs. Wheels can carry `tcp`, `quic`, `ipc`, and `websocket` transport-scoped artifacts.
+2. **Packet transport adapters**: Python TCP/QUIC packet helpers under `nnrp.adapters`, used for smoke tests, diagnostics, and custom transports. They are not the preview4 native hot path.
 
 ## Import
+
+Native provider:
+
+```python
+from nnrp import (
+    diagnose_native_transport_endpoint_support,
+    diagnose_nnrp_endpoint_support,
+    discover_native_transport_providers,
+    native_transport_slot_names,
+    resolve_native_transport_provider,
+    select_native_transport_provider,
+)
+```
+
+Packet adapter:
 
 ```python
 from nnrp.adapters import (
@@ -26,6 +39,47 @@ from nnrp.adapters import (
     connect_tcp, serve_tcp,
 )
 ```
+
+## Native Transport Providers
+
+Preview4 native artifacts are published per transport. If an installation contains one provider, selection uses it directly; if several providers are installed, `auto` / `probe` policies choose among them.
+
+```python
+from nnrp import discover_native_transport_providers, select_native_transport_provider
+
+providers = discover_native_transport_providers()
+selection = select_native_transport_provider("auto")
+
+print([provider.name for provider in providers])
+print(selection.selected_transport_name, selection.diagnostic)
+```
+
+| API | Description |
+|---|---|
+| `discover_native_transport_providers(root=None, native_platform=None)` | Scans provider artifacts in the current platform wheel. |
+| `select_native_transport_provider(policy_or_name="auto", root=None, native_platform=None)` | Returns `NativeTransportSelection` with selected provider, rejected providers, and diagnostics. |
+| `resolve_native_transport_provider(name, root=None, native_platform=None)` | Returns one `NativeTransportProvider`. |
+| `diagnose_nnrp_endpoint_support(endpoint, ...)` | Diagnoses application-facing `nnrp://` / `nnrps://` endpoints. |
+| `diagnose_native_transport_endpoint_support(endpoint, ...)` | Diagnoses provider-local endpoints. |
+| `native_transport_slot_names(mask)` | Maps a native capability bitmask to `tcp`, `quic`, `ipc`, and `websocket` names. |
+
+| Endpoint layer | Examples | Use |
+|---|---|---|
+| Application endpoint | `nnrp://runtime.example/session/default`, `nnrps://runtime.example/session/default` | Preferred for users and config files. |
+| Provider-local endpoint | `unix:///tmp/nnrp.sock`, `npipe://./pipe/nnrp`, `ws://host/nnrp`, `wss://host/nnrp` | Diagnostics, conformance fixtures, or explicit provider overrides. |
+
+`NativeTransportProvider` reports artifact path, manifest path, transport slots, enabled features, platform tag, cost/preference hints, and limitations. It is not a configuration switch; each provider is backed by the Rust artifact that owns the actual transport behavior.
+
+## Transport Artifact Boundary
+
+| Provider | Native artifact | Python packet adapter |
+|---|---|---|
+| `tcp` | Yes | `nnrp.adapters.tcp` can be used for smoke/custom transport |
+| `quic` | Yes | `nnrp.adapters.quic` can be used for smoke/custom transport |
+| `ipc` | Yes | No Python packet adapter |
+| `websocket` | Yes | No Python packet adapter; WebSocket binary frame helpers live in [Runtime Control & Objects](./runtime) |
+
+When production code needs runtime sessions, prefer `connect_native_client_connection(require_native=True, transport=...)`. Use the packet adapters below only for protocol tests, diagnostic tooling, or custom transports.
 
 ---
 

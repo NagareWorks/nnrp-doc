@@ -9,13 +9,25 @@ Client
 from nnrp.client import (
     ClientProfile,
     ClientSession,
+    NativeClientSessionOpenOptions,
     SubmitRequest,
     connect_client_control,
     connect_client_control_with_probe,
+    connect_native_client_connection,
 )
 ```
 
 ## Client 使用流程
+
+生产 host 路径使用 Rust-backed native runtime：
+
+1. 选择或发现 native transport provider。
+2. 调用 [`connect_native_client_connection`](#connect-native-client-connection)。
+3. 通过 [`NativeClientConnection.open_session`](#nativeclientconnection-open-session) 打开 session。
+4. 用粗粒度 native 方法提交、轮询结果、发送运行时控制帧。
+5. 调用 `close()` 释放 connection 和 session。
+
+Packet transport helper 仍然公开，但主要用于 smoke、诊断和自定义 transport：
 
 1. 构造 [`ClientProfile`](#clientprofile)。
 2. 选择 TCP、QUIC 或 probe-based bootstrap。
@@ -24,6 +36,76 @@ from nnrp.client import (
 4. 使用返回 bootstrap session 内的 [`ClientSession`](#clientsession)；多帧并发用
    [`send_submit`](#clientsession-send-submit) + [`receive_result`](#clientsession-receive-result)。
 5. 在 client control session 生命周期内保持 async context manager 打开。
+
+## `connect_native_client_connection`
+
+加载已安装的 preview4 native artifact，创建 native runtime connection，并返回 `NativeClientConnection` 上下文管理器。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `options` | `NativeClientSessionOptions \| None` | 否 | Connection id、generation、transport id 等底层 session 选项。 |
+| `artifact_path` | `Path \| str \| None` | 否 | 显式 native library 路径；通常不需要。 |
+| `root` | `Path \| str \| None` | 否 | Native artifact 根目录。 |
+| `native_platform` | `NativePlatform \| None` | 否 | 诊断或测试时覆盖平台选择。 |
+| `transport` | `str \| None` | 否 | `tcp`、`quic`、`ipc` 或 `websocket`；为空时按默认 artifact 解析。 |
+| `library` | `Any \| None` | 否 | 测试注入用 library。 |
+| `fallback` | `NativeRuntimeBackend \| None` | 否 | 测试或诊断 fallback。 |
+| `require_native` | `bool` | 否 | 生产路径建议设为 `True`，native 不可用时直接失败。 |
+
+```python
+with connect_native_client_connection(require_native=True, transport="tcp") as connection:
+    session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
+    result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, payload=b"payload")
+```
+
+## `NativeClientConnection`
+
+Native client connection 是 preview4 Python host API 的主入口。它不让 Python 为每个小字段跨一次 ABI，而是通过 session、operation、event 和 owned buffer 走粗粒度 native 调用。
+
+### `NativeClientConnection.open_session`
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `options` | `NativeClientSessionOpenOptions \| None` | 否 | Session id、generation、profile、schema 等打开参数。 |
+
+| 返回 |
+|---|
+| `NativeRuntimeSession` |
+
+### `NativeClientConnection.submit_and_poll_result`
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `session` | `NativeRuntimeSession` | 是 | 已打开的 native session。 |
+| `operation_id` | `int` | 是 | Operation id。 |
+| `frame_id` | `int` | 是 | Frame id。 |
+| `payload` | `bytes \| bytearray \| memoryview` | 否 | Submit payload。 |
+| `result_payload` | `bytes \| bytearray \| memoryview \| None` | 否 | 测试或 loopback 结果 payload。 |
+| `parent_operation_id` | `int \| None` | 否 | 父 operation。 |
+| `operation_group_id` | `int \| None` | 否 | Operation 分组。 |
+| `max_events` | `int \| None` | 否 | 本次 poll 最多处理事件数。 |
+
+| 返回 |
+|---|
+| `NativeRuntimeResult` |
+
+### Runtime control helper
+
+| 方法 | 消息类型 |
+|---|---|
+| `cancel_runtime_operation` | `CANCEL` |
+| `abort_runtime_operation` | `ABORT` |
+| `update_runtime_priority` | `PRIORITY_UPDATE` |
+| `update_runtime_deadline` | `DEADLINE` |
+| `expire_runtime_operation_at` | `EXPIRE_AT` |
+| `supersede_runtime_operation` | `SUPERSEDE` |
+| `update_runtime_budget` | `BUDGET_UPDATE` |
+| `send_runtime_route_hint` | `ROUTE_HINT` |
+| `send_runtime_execution_hint` | `EXECUTION_HINT` |
+| `negotiate_runtime_capabilities` | `CAPABILITY_NEGOTIATION` |
+| `degrade_runtime_profile` | `DEGRADE_PROFILE` |
+
+Event pump helper 包括 `dispatch_events`、`dispatch_credit_updates`、`dispatch_result_hints`、`dispatch_structured_events`、`dispatch_tool_deltas` 和 `dispatch_workflow_states`。
 
 ## `connect_client_control`
 
