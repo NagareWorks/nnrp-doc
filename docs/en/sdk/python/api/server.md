@@ -28,6 +28,27 @@ from nnrp.server import (
    [`send_result_drop`](#serversession-send-result-drop).
 6. Close the session when the peer disconnects or the application rejects further work.
 
+## `NativeRuntimeServerSession` Preview4 Frames
+
+Native server hosts use the same role-neutral runtime-frame ABI as clients. The server session
+exposes `send_runtime_frame(...)` plus these application-facing methods:
+
+| Method | Message |
+|---|---|
+| `send_progress(metadata, body=b"")` | `PROGRESS` |
+| `send_partial_result(metadata, body=b"")` | `PARTIAL_RESULT` |
+| `send_backpressure(metadata)`, `send_credit_update(metadata)` | pressure messages |
+| `send_result_drop_reason(metadata, diagnostic=b"")` | `RESULT_DROP_REASON` |
+| `send_trace_context(metadata, body=b"")` | `TRACE_CONTEXT` |
+| `send_recoverable_error(metadata, diagnostic=b"")`, `send_retry_after(...)` | recovery messages |
+| `declare_object`, `reference_object`, `release_object` | object lifecycle messages |
+| `patch_object`, `send_object_delta` | object update messages |
+| `reference_cache`, `report_cache_miss`, `invalidate_cache` | cache messages |
+
+`poll_runtime_frames()` and `iter_runtime_frames()` return the decoded
+[`NativeRuntimeFrameEvent`](./runtime#nativeruntimeframeevent). No application-facing server method
+accepts a raw `control_code`.
+
 ## `accept_server_session`
 
 Accepts a connection, validates `CLIENT_HELLO`, sends `SERVER_HELLO_ACK`, and returns an active

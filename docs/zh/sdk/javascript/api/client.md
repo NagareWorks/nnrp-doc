@@ -186,12 +186,14 @@ Native 与 browser session 使用同一套控制面。每个方法都编码对�
 
 ## Preview4 Runtime Event
 
-`nextEvent()` 与 `events()` 为 `NnrpRuntimeEvent` 增加以下 discriminant：
-
-`progress`、`partial-result`、`backpressure`、`credit-update`、`capability-negotiation`、
-`degrade-profile`、`route-hint`、`execution-hint`、`trace-context`、`result-drop-reason`、
-`recoverable-error`、`retry-after`、`object-declare`、`object-ref`、`object-release`、`object-patch`、
-`object-delta`、`cache-reference`、`cache-miss`、`cache-invalidate`。
+`nextEvent()` 与 `events()` 为 `NnrpRuntimeEvent` 增加全部 Preview4 runtime-frame
+discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`、`supersede`、
+`budget-update`、`progress`、`partial-result`、`backpressure`、`credit-update`、
+`capability-negotiation`、`degrade-profile`、`route-hint`、`execution-hint`、`trace-context`、
+`result-drop-reason`、`recoverable-error`、`retry-after`、`object-declare`、`object-ref`、
+`object-release`、`object-patch`、`object-delta`、`cache-reference`、`cache-miss` 和
+`cache-invalidate`。精确 typed 字段和语义化 tail 名称冻结在
+[运行时控制与对象](./runtime#typed-runtime-frame-event)。
 
 同一个 operation 内的事件保持 wire order，不同 operation 的事件可以交错。取消后仍可观察
 `result-drop-reason`，但普通结果迭代会抑制该 operation 的迟到 `result` 与 `partial-result` payload。

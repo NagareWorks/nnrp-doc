@@ -112,6 +112,58 @@ invalidation message.
 `cacheKeyLo`, and `reasonCode`. `CacheLease` is local validated state with `objectId`,
 `objectVersion`, `leaseId`, `ownerScope`, `ownerId`, `grantedAtMillis`, and `ttlMillis`.
 
+## High-Level Runtime Frame Contract
+
+Applications send Preview4 controls, runtime objects, and cache frames through client or server
+session methods. They do not construct a native request, select an ABI symbol, or concatenate a
+metadata buffer manually. Every session method performs exactly one coarse runtime call after the
+SDK validates and encodes its typed arguments.
+
+The internal native/WASM binding method is frozen as:
+
+```ts
+sendRuntimeFrame(request: NnrpRuntimeFrameSendRequest): void | Promise<void>;
+```
+
+`NnrpRuntimeFrameSendRequest` has the readonly fields `sessionOptions`, `messageType`, `frameId`,
+and `payload`. `payload` is the complete encoded metadata and declared tail. It is an internal
+binding contract; public applications use the named session methods documented on the client and
+server pages.
+
+## Typed Runtime Frame Events
+
+Incoming Preview4 frames are decoded before they reach application code. Each event contains
+`type`, `messageType`, `metadata`, `sessionId`, and the semantic tail field from this table. Tail
+buffers are owned `Uint8Array` snapshots. A no-tail event omits the tail field.
+
+| Event `type` | Message | Metadata | Semantic tail field |
+|---|---|---|---|
+| `cancel`, `abort` | `Cancel`, `Abort` | `ControlRequestMetadata` | `diagnostic` |
+| `priority-update`, `deadline`, `expire-at` | matching scheduling message | `SchedulingMetadata` | none |
+| `supersede` | `Supersede` | `SupersedeMetadata` | `diagnostic` |
+| `budget-update` | `BudgetUpdate` | `BudgetMetadata` | none |
+| `progress` | `Progress` | `ProgressMetadata` | `body` |
+| `partial-result` | `PartialResult` | `PartialResultMetadata` | `body` |
+| `backpressure`, `credit-update` | matching pressure message | `PressureMetadata` | none |
+| `capability-negotiation`, `degrade-profile` | matching capability message | `CapabilityMetadata` | `body` |
+| `route-hint`, `execution-hint` | matching routing message | `RouteHintMetadata` | `body` |
+| `trace-context` | `TraceContext` | `TraceContextMetadata` | `body` |
+| `result-drop-reason` | `ResultDropReason` | `ResultDropReasonMetadata` | `diagnostic` |
+| `recoverable-error` | `ErrorRecoverable` | `RecoverableErrorMetadata` | `diagnostic` |
+| `retry-after` | `RetryAfter` | `RetryAfterMetadata` | `diagnostic` |
+| `object-declare` | `ObjectDeclare` | `ObjectDescriptorMetadata` | `body` |
+| `object-ref` | `ObjectRef` | `ObjectReferenceMetadata` | `body` |
+| `object-release` | `ObjectRelease` | `ObjectReleaseMetadata` | `diagnostic` |
+| `object-patch`, `object-delta` | matching object update message | `ObjectDeltaMetadata` | `metadataBody`, `delta` |
+| `cache-reference` | `CacheReference` | `CacheReferenceMetadata` | `body` |
+| `cache-miss` | `CacheMiss` | `CacheMissMetadata` | `diagnostic` |
+| `cache-invalidate` | `CacheInvalidate` | `CacheInvalidateMetadata` | none |
+
+For object patch and delta events, the SDK splits the wire tail at `metadata.metadataBytes`; the
+remaining `metadata.deltaBytes` bytes become `delta`. A malformed length fails before an event is
+delivered. Existing submit, result, lifecycle, and migration event variants remain separate from
+this runtime-frame union.
+
 ## `encodeWebSocketBinaryFrame`
 
 Builds the binary frame used by the WebSocket transport.

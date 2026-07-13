@@ -37,10 +37,12 @@ manifest before loading the library.
 | `NnrpBufferView` | Borrowed byte slice valid only during the call. |
 | `NnrpFfiStatus` | Status code, error family, protocol error, and detail code. |
 | `NnrpFfiDiagnostic` | Status plus related connection/session/operation/frame ids. |
-| `NnrpEvent` | Callback/polling event with handles, frame id, payload view, and diagnostics. |
+| `NnrpEvent` | Callback/polling event with handles, message type, frame id, owned payload handle/view, and diagnostics. |
 
-Non-empty buffer views must use non-null pointers. Bindings must copy event payloads they need after
-the callback or poll call returns.
+Non-empty buffer views must use non-null pointers. A non-empty runtime-frame event owns its payload
+through `payload_owner`. Bindings copy the payload and call `nnrp_buffer_release(payload_owner)`
+exactly once before returning an application event. A callback may inspect the view only during the
+callback; it still releases the owner after copying.
 
 ## Runtime Requests
 
@@ -55,6 +57,12 @@ the callback or poll call returns.
 | `NnrpServerReceiveSubmitRequest` | Receives a submit and creates an operation handle. |
 | `NnrpServerSendResultRequest` | Sends result bytes. |
 | `NnrpControlRequest` | Sends or validates generic control-plane frames. |
+| `NnrpRuntimeFrameSendRequest` | Sends one typed Preview4 control, object, or cache frame through a session or operation handle. Fields are `handle`, `message_type`, `frame_id`, and `payload`. |
+
+`NnrpRuntimeFrameSendRequest.payload` contains the complete encoded metadata and declared tail.
+`nnrp_runtime_frame_send` validates the message type, metadata layout, declared lengths, handle
+scope, and client/server direction in one call. It snapshots the payload before returning; no
+queued event aliases caller-owned memory.
 
 ## Exported Functions
 
@@ -74,7 +82,12 @@ the callback or poll call returns.
 | `nnrp_server_send_flow_update` | Enqueues flow-control output. |
 | `nnrp_server_close` | Closes a server session. |
 | `nnrp_control` | Validates and enqueues a generic control request. |
+| `nnrp_runtime_frame_send` | Role-neutral coarse send path for Preview4 control, object, and cache frames. |
 | `nnrp_dispatch_event` | Delivers one borrowed event through a callback. |
+
+`nnrp_control` remains an ABI-level compatibility primitive for non-Preview4 control codes inside
+Rust-owned integrations. SDK public APIs use `nnrp_runtime_frame_send`; they must not expose raw
+control-code routing as the normal application path.
 
 ## C# P/Invoke Example
 

@@ -107,6 +107,29 @@ Native client connection 是 preview4 Python host API 的主入口。它不让 P
 
 Event pump helper 包括 `dispatch_events`、`dispatch_credit_updates`、`dispatch_result_hints`、`dispatch_structured_events`、`dispatch_tool_deltas` 和 `dispatch_workflow_states`。
 
+## `NativeRuntimeSession` Preview4 Frame
+
+`NativeClientConnection.open_session()` 返回的 session 持有高层 Preview4 发送接口。普通应用
+使用以下方法，不直接调用 `NativeRuntimeSession.control()` 或 codec 函数：
+
+| 方法 | 消息 |
+|---|---|
+| `cancel_operation(metadata, diagnostic=b"")`, `abort_operation(...)` | `CANCEL`, `ABORT` |
+| `update_priority(metadata)`, `update_deadline(metadata)`, `expire_at(metadata)` | scheduling 消息 |
+| `supersede(metadata, diagnostic=b"")`, `update_budget(metadata)` | `SUPERSEDE`, `BUDGET_UPDATE` |
+| `negotiate_capabilities(metadata, body=b"")`, `degrade_profile(...)` | capability 消息 |
+| `send_route_hint(metadata, body=b"")`, `send_execution_hint(...)` | routing 消息 |
+| `send_trace_context(metadata, body=b"")` | `TRACE_CONTEXT` |
+| `declare_object(metadata, body=b"")`, `reference_object(...)` | `OBJECT_DECLARE`, `OBJECT_REF` |
+| `release_object(metadata, diagnostic=b"")` | `OBJECT_RELEASE` |
+| `patch_object(metadata, delta, metadata_body=b"")` | `OBJECT_PATCH` |
+| `send_object_delta(metadata, delta, metadata_body=b"")` | `OBJECT_DELTA` |
+| `reference_cache(metadata, body=b"")`, `report_cache_miss(...)` | cache reference/miss |
+| `invalidate_cache(metadata)` | `CACHE_INVALIDATE` |
+
+每个方法返回 `None`，校验声明长度，并只调用一次 Rust runtime。`send_runtime_frame(...)` 是
+extension-safe 的 typed escape hatch。
+
 ## `connect_client_control`
 
 打开选中的 transport，完成控制面握手，并 yield `ClientControlBootstrapSession`。

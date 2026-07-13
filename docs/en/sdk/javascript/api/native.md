@@ -24,8 +24,8 @@ artifacts are owned by the transport packages.
 | `submitResultCompact`            | function                                               |       No | Coarse submit/result hot path.                |
 | `submitNoWait`                   | function                                               |       No | Coarse no-wait submit path.                   |
 | `cancel`                         | function                                               |       No | Coarse cancel path.                           |
-| `submitControl`                  | function                                               |       No | Coarse Preview4 runtime-control path.         |
-| `submitRuntimeObjectLoopCompact` | function                                               |       No | Coarse runtime-object request/result path.    |
+| `sendRuntimeFrame`               | function                                               |       No | Role-neutral coarse Preview4 frame send path. |
+| `submitRuntimeObjectLoopCompact` | function                                               |       No | Benchmark-only combined object loop helper.   |
 | `awaitEvents`                    | function                                               |       No | Coarse batch event polling path.              |
 | `close`                          | function                                               |       No | Binding cleanup hook.                         |
 

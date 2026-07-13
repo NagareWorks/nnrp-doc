@@ -80,6 +80,43 @@ payload = encode_runtime_control_metadata(
 |---|
 | `DecodedRuntimeObjectMetadata`，包含 `metadata` 和 `tail` |
 
+## 高层 Runtime Frame 契约
+
+上面的 codec 函数属于高级协议 helper。普通应用通过 `NativeRuntimeSession` 或
+`NativeRuntimeServerSession` 发送 Preview4 frame，不需要自行编码 payload 后调用 `control()`。
+
+两个 session class 都提供以下 typed escape hatch：
+
+```python
+send_runtime_frame(
+    message_type: MessageType,
+    metadata: RuntimeControlMetadata | RuntimeObjectMetadata | CacheInvalidateMetadata,
+    *,
+    tail: bytes = b"",
+    frame_id: int = 0,
+) -> None
+```
+
+该方法校验 metadata 与 message 的配对关系，编码完整 payload，并只执行一次粗粒度 native
+调用。Client 和 Server 页面记录的具名控制与对象方法在内部调用这个方法。
+
+## `NativeRuntimeFrameEvent`
+
+Runtime-frame polling 返回已经解码的 `NativeRuntimeFrameEvent`，而不是原始 control code 和
+byte buffer。冻结字段为 `type`、`message_type`、`metadata`、`body`、`diagnostic`、
+`metadata_body`、`delta`、`connection`、`session`、`operation`、`frame_id` 和
+`native_diagnostic`。不适用于当前消息的 byte 字段为 `b""`。
+
+`type` 使用 JavaScript runtime event 表中的 kebab-case 名称；`metadata` 是匹配消息类型的
+typed metadata。Object patch 和 delta event 把 tail 拆成 `metadata_body` 与 `delta`；其他
+声明 tail 以 `body` 或 `diagnostic` 暴露。Binding 返回 event 前必须复制并释放 native owned
+payload。
+
+`NativeRuntimeEvent.to_runtime_frame()` 对 Preview4 runtime frame 返回
+`NativeRuntimeFrameEvent`，对 submit/result/lifecycle event 返回 `None`。
+`NativeRuntimeConnection.poll_runtime_frames()` 和 `iter_runtime_frames()` 跳过非 runtime event，
+直接返回解码后的类型。
+
 ## `encode_websocket_binary_frame`
 
 构造 WebSocket 传输层使用的二进制帧。

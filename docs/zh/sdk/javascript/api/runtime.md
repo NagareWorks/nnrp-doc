@@ -107,6 +107,55 @@ Preview4 复用已有的 NNRP/1 `CacheInvalidate` frame，不再定义第二种 
 `cacheKeyLo`、`reasonCode`。`CacheLease` 是本地校验状态，冻结字段为 `objectId`、
 `objectVersion`、`leaseId`、`ownerScope`、`ownerId`、`grantedAtMillis`、`ttlMillis`。
 
+## 高层 Runtime Frame 契约
+
+应用通过 client 或 server session 方法发送 Preview4 控制帧、运行时对象和缓存帧，不需要
+自行构造 native request、选择 ABI 符号或拼接 metadata buffer。SDK 校验并编码 typed 参数后，
+每个 session 方法只执行一次粗粒度 runtime 调用。
+
+内部 native/WASM binding 方法冻结为：
+
+```ts
+sendRuntimeFrame(request: NnrpRuntimeFrameSendRequest): void | Promise<void>;
+```
+
+`NnrpRuntimeFrameSendRequest` 的 readonly 字段为 `sessionOptions`、`messageType`、`frameId`
+和 `payload`。`payload` 是完整编码后的 metadata 与声明 tail。它属于内部 binding 契约；应用
+使用 client 和 server 页面记录的具名 session 方法。
+
+## Typed Runtime Frame Event
+
+Preview4 入站帧必须在交给应用前完成解码。每个 event 都包含 `type`、`messageType`、
+`metadata`、`sessionId`，并按照下表提供语义化 tail 字段。Tail buffer 是 SDK 持有的
+`Uint8Array` 副本；没有 tail 的 event 不提供 tail 字段。
+
+| Event `type` | 消息 | Metadata | 语义化 tail 字段 |
+|---|---|---|---|
+| `cancel`, `abort` | `Cancel`, `Abort` | `ControlRequestMetadata` | `diagnostic` |
+| `priority-update`, `deadline`, `expire-at` | 对应调度消息 | `SchedulingMetadata` | 无 |
+| `supersede` | `Supersede` | `SupersedeMetadata` | `diagnostic` |
+| `budget-update` | `BudgetUpdate` | `BudgetMetadata` | 无 |
+| `progress` | `Progress` | `ProgressMetadata` | `body` |
+| `partial-result` | `PartialResult` | `PartialResultMetadata` | `body` |
+| `backpressure`, `credit-update` | 对应 pressure 消息 | `PressureMetadata` | 无 |
+| `capability-negotiation`, `degrade-profile` | 对应 capability 消息 | `CapabilityMetadata` | `body` |
+| `route-hint`, `execution-hint` | 对应 routing 消息 | `RouteHintMetadata` | `body` |
+| `trace-context` | `TraceContext` | `TraceContextMetadata` | `body` |
+| `result-drop-reason` | `ResultDropReason` | `ResultDropReasonMetadata` | `diagnostic` |
+| `recoverable-error` | `ErrorRecoverable` | `RecoverableErrorMetadata` | `diagnostic` |
+| `retry-after` | `RetryAfter` | `RetryAfterMetadata` | `diagnostic` |
+| `object-declare` | `ObjectDeclare` | `ObjectDescriptorMetadata` | `body` |
+| `object-ref` | `ObjectRef` | `ObjectReferenceMetadata` | `body` |
+| `object-release` | `ObjectRelease` | `ObjectReleaseMetadata` | `diagnostic` |
+| `object-patch`, `object-delta` | 对应 object update 消息 | `ObjectDeltaMetadata` | `metadataBody`, `delta` |
+| `cache-reference` | `CacheReference` | `CacheReferenceMetadata` | `body` |
+| `cache-miss` | `CacheMiss` | `CacheMissMetadata` | `diagnostic` |
+| `cache-invalidate` | `CacheInvalidate` | `CacheInvalidateMetadata` | 无 |
+
+Object patch 和 delta event 由 SDK 在 `metadata.metadataBytes` 位置切分 wire tail，剩余的
+`metadata.deltaBytes` 字节作为 `delta`。长度错误必须在 event 交付前失败。既有 submit、result、
+lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
+
 ## `encodeWebSocketBinaryFrame`
 
 构造 WebSocket 传输层使用的二进制帧。

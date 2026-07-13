@@ -188,12 +188,14 @@ each submit.
 
 ## Preview4 Runtime Events
 
-`nextEvent()` and `events()` extend `NnrpRuntimeEvent` with these discriminants:
-
-`progress`, `partial-result`, `backpressure`, `credit-update`, `capability-negotiation`,
-`degrade-profile`, `route-hint`, `execution-hint`, `trace-context`, `result-drop-reason`,
-`recoverable-error`, `retry-after`, `object-declare`, `object-ref`, `object-release`,
-`object-patch`, `object-delta`, `cache-reference`, `cache-miss`, and `cache-invalidate`.
+`nextEvent()` and `events()` extend `NnrpRuntimeEvent` with every Preview4 runtime-frame
+discriminant: `cancel`, `abort`, `priority-update`, `deadline`, `expire-at`, `supersede`,
+`budget-update`, `progress`, `partial-result`, `backpressure`, `credit-update`,
+`capability-negotiation`, `degrade-profile`, `route-hint`, `execution-hint`, `trace-context`,
+`result-drop-reason`, `recoverable-error`, `retry-after`, `object-declare`, `object-ref`,
+`object-release`, `object-patch`, `object-delta`, `cache-reference`, `cache-miss`, and
+`cache-invalidate`. The exact typed fields and semantic tail names are frozen in
+[Runtime Control & Objects](./runtime#typed-runtime-frame-events).
 
 Events preserve wire order within one operation. Events from different operations may interleave.
 After cancellation, `result-drop-reason` remains observable, while late `result` and

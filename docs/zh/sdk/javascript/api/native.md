@@ -24,8 +24,8 @@ package 拥有。
 | `submitResultCompact`            | function                                               |   否 | 粗粒度 submit/result hot path。             |
 | `submitNoWait`                   | function                                               |   否 | 粗粒度 no-wait submit path。                |
 | `cancel`                         | function                                               |   否 | 粗粒度 cancel path。                        |
-| `submitControl`                  | function                                               |   否 | 粗粒度 Preview4 runtime-control path。      |
-| `submitRuntimeObjectLoopCompact` | function                                               |   否 | 粗粒度 runtime-object request/result path。 |
+| `sendRuntimeFrame`               | function                                               |   否 | 角色中立的粗粒度 Preview4 frame 发送路径。   |
+| `submitRuntimeObjectLoopCompact` | function                                               |   否 | 只用于 benchmark 的组合 object loop helper。 |
 | `awaitEvents`                    | function                                               |   否 | 粗粒度 batch event polling path。           |
 | `close`                          | function                                               |   否 | Binding cleanup hook。                      |
 

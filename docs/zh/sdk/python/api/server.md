@@ -24,6 +24,27 @@ from nnrp.server import (
 5. 用 [`send_result`](#serversession-send-result) 或 [`send_result_drop`](#serversession-send-result-drop) 回答每一帧。
 6. 对端断开或应用拒绝继续处理时关闭 session。
 
+## `NativeRuntimeServerSession` Preview4 Frame
+
+Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Server session 提供
+`send_runtime_frame(...)` 和以下应用接口：
+
+| 方法 | 消息 |
+|---|---|
+| `send_progress(metadata, body=b"")` | `PROGRESS` |
+| `send_partial_result(metadata, body=b"")` | `PARTIAL_RESULT` |
+| `send_backpressure(metadata)`, `send_credit_update(metadata)` | pressure 消息 |
+| `send_result_drop_reason(metadata, diagnostic=b"")` | `RESULT_DROP_REASON` |
+| `send_trace_context(metadata, body=b"")` | `TRACE_CONTEXT` |
+| `send_recoverable_error(metadata, diagnostic=b"")`, `send_retry_after(...)` | recovery 消息 |
+| `declare_object`, `reference_object`, `release_object` | object lifecycle 消息 |
+| `patch_object`, `send_object_delta` | object update 消息 |
+| `reference_cache`, `report_cache_miss`, `invalidate_cache` | cache 消息 |
+
+`poll_runtime_frames()` 和 `iter_runtime_frames()` 返回已经解码的
+[`NativeRuntimeFrameEvent`](./runtime#nativeruntimeframeevent)。应用侧 server 方法不接收原始
+`control_code`。
+
 ## `accept_server_session`
 
 接受连接、校验 `CLIENT_HELLO`、发送 `SERVER_HELLO_ACK`，并返回活跃 [`ServerSession`](#serversession)。

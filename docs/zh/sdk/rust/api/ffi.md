@@ -31,9 +31,11 @@ Preview4 发布 transport-scoped native artifacts。角色是 client 还是 serv
 | `NnrpBufferView` | 只在调用期间有效的 borrowed byte slice。 |
 | `NnrpFfiStatus` | Status code、error family、protocol error 和 detail code。 |
 | `NnrpFfiDiagnostic` | Status 加关联 connection/session/operation/frame id。 |
-| `NnrpEvent` | 带 handles、frame id、payload view 和 diagnostics 的 callback/polling event。 |
+| `NnrpEvent` | 带 handles、message type、frame id、owned payload handle/view 和 diagnostics 的 callback/polling event。 |
 
-非空 buffer view 必须使用非空指针。Binding 如果需要在 callback 或 poll 返回后保留 event payload，必须复制。
+非空 buffer view 必须使用非空指针。非空 runtime-frame event 通过 `payload_owner` 持有 payload。
+Binding 在返回应用 event 前复制 payload，并且必须且只能调用一次
+`nnrp_buffer_release(payload_owner)`。Callback 只能在 callback 期间读取 view，复制后同样释放 owner。
 
 ## Runtime Requests
 
@@ -48,6 +50,11 @@ Preview4 发布 transport-scoped native artifacts。角色是 client 还是 serv
 | `NnrpServerReceiveSubmitRequest` | 接收 submit 并创建 operation handle。 |
 | `NnrpServerSendResultRequest` | 发送 result bytes。 |
 | `NnrpControlRequest` | 发送或校验通用控制面 frame。 |
+| `NnrpRuntimeFrameSendRequest` | 通过 session 或 operation handle 发送一条 typed Preview4 控制、对象或缓存 frame。字段为 `handle`、`message_type`、`frame_id` 和 `payload`。 |
+
+`NnrpRuntimeFrameSendRequest.payload` 包含完整编码后的 metadata 与声明 tail。
+`nnrp_runtime_frame_send` 在一次调用中校验 message type、metadata layout、声明长度、handle
+scope 和 client/server direction，并在返回前 snapshot payload；队列 event 不引用调用方内存。
 
 ## Exported Functions
 
@@ -67,7 +74,11 @@ Preview4 发布 transport-scoped native artifacts。角色是 client 还是 serv
 | `nnrp_server_send_flow_update` | 入队 flow-control output。 |
 | `nnrp_server_close` | 关闭 server session。 |
 | `nnrp_control` | 校验并入队通用控制 request。 |
+| `nnrp_runtime_frame_send` | Preview4 控制、对象和缓存 frame 的角色中立粗粒度发送路径。 |
 | `nnrp_dispatch_event` | 通过 callback 分发一个 borrowed event。 |
+
+`nnrp_control` 只作为 Rust-owned integration 内部处理非 Preview4 control code 的 ABI primitive。
+SDK 公开 API 使用 `nnrp_runtime_frame_send`，不得把原始 control-code routing 作为普通应用入口。
 
 ## C# P/Invoke 示例
 

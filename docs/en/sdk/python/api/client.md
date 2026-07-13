@@ -112,6 +112,30 @@ with connect_native_client_connection(require_native=True, transport="tcp") as c
 
 Event pump helpers include `dispatch_events`, `dispatch_credit_updates`, `dispatch_result_hints`, `dispatch_structured_events`, `dispatch_tool_deltas`, and `dispatch_workflow_states`.
 
+## `NativeRuntimeSession` Preview4 Frames
+
+The session returned by `NativeClientConnection.open_session()` owns the high-level Preview4 send
+surface. Applications normally use these methods instead of `NativeRuntimeSession.control()` or the
+codec functions:
+
+| Method | Message |
+|---|---|
+| `cancel_operation(metadata, diagnostic=b"")`, `abort_operation(...)` | `CANCEL`, `ABORT` |
+| `update_priority(metadata)`, `update_deadline(metadata)`, `expire_at(metadata)` | scheduling messages |
+| `supersede(metadata, diagnostic=b"")`, `update_budget(metadata)` | `SUPERSEDE`, `BUDGET_UPDATE` |
+| `negotiate_capabilities(metadata, body=b"")`, `degrade_profile(...)` | capability messages |
+| `send_route_hint(metadata, body=b"")`, `send_execution_hint(...)` | routing messages |
+| `send_trace_context(metadata, body=b"")` | `TRACE_CONTEXT` |
+| `declare_object(metadata, body=b"")`, `reference_object(...)` | `OBJECT_DECLARE`, `OBJECT_REF` |
+| `release_object(metadata, diagnostic=b"")` | `OBJECT_RELEASE` |
+| `patch_object(metadata, delta, metadata_body=b"")` | `OBJECT_PATCH` |
+| `send_object_delta(metadata, delta, metadata_body=b"")` | `OBJECT_DELTA` |
+| `reference_cache(metadata, body=b"")`, `report_cache_miss(...)` | cache reference/miss |
+| `invalidate_cache(metadata)` | `CACHE_INVALIDATE` |
+
+Every method returns `None`, validates declared lengths, and performs one call to the Rust-owned
+runtime. `send_runtime_frame(...)` remains the typed extension-safe escape hatch.
+
 ## `connect_client_control`
 
 Opens the selected transport, completes the control handshake, and yields a

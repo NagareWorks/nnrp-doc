@@ -86,6 +86,44 @@ Decodes one runtime object or cache metadata payload.
 |---|
 | `DecodedRuntimeObjectMetadata` with `metadata` and `tail` |
 
+## High-Level Runtime Frame Contract
+
+The codec functions above are advanced protocol helpers. Normal applications send Preview4 frames
+through `NativeRuntimeSession` or `NativeRuntimeServerSession`; they do not encode a payload and call
+`control()` themselves.
+
+Both session classes expose this typed escape hatch:
+
+```python
+send_runtime_frame(
+    message_type: MessageType,
+    metadata: RuntimeControlMetadata | RuntimeObjectMetadata | CacheInvalidateMetadata,
+    *,
+    tail: bytes = b"",
+    frame_id: int = 0,
+) -> None
+```
+
+The method validates the metadata/message pairing, encodes the complete payload, and performs one
+coarse native call. Named control and object methods documented on the client and server pages call
+this method internally.
+
+## `NativeRuntimeFrameEvent`
+
+Runtime-frame polling returns a decoded `NativeRuntimeFrameEvent`, not a raw control code and byte
+buffer. Its frozen fields are `type`, `message_type`, `metadata`, `body`, `diagnostic`,
+`metadata_body`, `delta`, `connection`, `session`, `operation`, `frame_id`, and
+`native_diagnostic`. Fields that do not apply to a message contain `b""`.
+
+`type` uses the kebab-case names from the JavaScript runtime event table. `metadata` is the matching
+typed metadata object. Object patch and delta events split their tail into `metadata_body` and
+`delta`; all other declared tails are exposed as `body` or `diagnostic`. Bindings copy and release
+the native owned payload before returning the event.
+
+`NativeRuntimeEvent.to_runtime_frame()` returns a `NativeRuntimeFrameEvent` for Preview4 runtime
+frames and `None` for submit/result/lifecycle events. `NativeRuntimeConnection.poll_runtime_frames()`
+and `iter_runtime_frames()` skip non-runtime events and return the decoded type directly.
+
 ## `encode_websocket_binary_frame`
 
 Builds the binary frame used by the WebSocket transport.
