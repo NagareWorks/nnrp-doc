@@ -94,6 +94,35 @@ Creates a compact selection summary for diagnostics, conformance, and benchmarks
 | ------------------------------- |
 | `NnrpTransportSelectionSummary` |
 
+## `parseApplicationEndpoint`
+
+Parses and validates the public application endpoint. The function accepts only `nnrp://` and
+`nnrps://` and returns a `URL`, preserving the authority, path, query, and security intent.
+
+| Parameter  | Type            | Required | Description                       |
+| ---------- | --------------- | -------: | --------------------------------- |
+| `endpoint` | `string \| URL` |      Yes | Public NNRP application endpoint. |
+
+| Returns | Throws                                                                 |
+| ------- | ---------------------------------------------------------------------- |
+| `URL`   | `NnrpProtocolError` for empty, malformed, or provider-local endpoints. |
+
+## `resolveProviderEndpoint`
+
+Resolves the carrier-local endpoint after provider selection. TCP and QUIC derive `host:port` from
+the application authority and use port `4433` when it is omitted. IPC and WebSocket require an
+explicit matching provider endpoint.
+
+| Parameter          | Type                | Required | Description                              |
+| ------------------ | ------------------- | -------: | ---------------------------------------- |
+| `endpoint`         | `string \| URL`     |      Yes | Public `nnrp://` or `nnrps://` endpoint. |
+| `transport`        | `NnrpTransportKind` |      Yes | Selected carrier.                        |
+| `providerEndpoint` | `string \| URL`     |       No | Explicit carrier-local endpoint.         |
+
+| Returns  | Throws                                                                              |
+| -------- | ----------------------------------------------------------------------------------- |
+| `string` | `NnrpTransportError` when the selected carrier cannot resolve the supplied locator. |
+
 ## `normalizeSubmitRequest`
 
 Validates and normalizes submit payloads.

@@ -38,6 +38,9 @@ const client = await openNativeClient({
 
 Role packages resolve an application endpoint after provider selection. They must not require users
 to replace `nnrp://` with a carrier-specific scheme merely because a different package was selected.
+TCP and QUIC use the application authority and default to port `4433` when no port is present. IPC
+requires `unix://` or `npipe://`; WebSocket requires `ws://` or `wss://` through `providerEndpoint`.
+An explicit locator for one carrier is rejected when another carrier is selected.
 
 ## Provider Factories
 

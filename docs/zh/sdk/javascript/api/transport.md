@@ -35,7 +35,10 @@ const client = await openNativeClient({
 | Provider-local locator | TCP/QUIC host-port、`unix://`、`npipe://`、`ws://`、`wss://` | 一致性测试 fixture、诊断或显式 `providerEndpoint` 覆盖。 |
 
 Role 包在 Provider 选择完成后解析应用 endpoint。仅仅因为换了 transport 包，SDK 不得要求用户把
-`nnrp://` 改成 carrier-specific scheme。
+`nnrp://` 改成 carrier-specific scheme。 TCP 与 QUIC 使用应用 endpoint 的
+authority，未提供端口时默认使用 `4433`。IPC 必须通过 `providerEndpoint` 提供 `unix://` 或
+`npipe://`；WebSocket 必须提供 `ws://` 或 `wss://`。当显式 locator 与最终选择的 carrier
+不匹配时必须拒绝连接。
 
 ## Provider Factory
 

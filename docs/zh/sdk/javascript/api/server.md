@@ -37,7 +37,7 @@ const runtime = await openBackendRuntime({
 | `NnrpServer` |
 
 ```ts
-const server = runtime.listen({ endpoint: "0.0.0.0:4433" });
+const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
 ```
 
 ## `NnrpBackendRuntime.connect`

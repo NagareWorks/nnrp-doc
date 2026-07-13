@@ -83,6 +83,34 @@
 | ------------------------------- |
 | `NnrpTransportSelectionSummary` |
 
+## `parseApplicationEndpoint`
+
+解析并校验公开的应用 endpoint。该函数只接受 `nnrp://` 和 `nnrps://`，返回保留 authority、path、query
+与安全意图的 `URL`。
+
+| 参数       | 类型            | 必填 | 说明                      |
+| ---------- | --------------- | ---: | ------------------------- |
+| `endpoint` | `string \| URL` |   是 | 公开 NNRP 应用 endpoint。 |
+
+| 返回  | 可能抛出                                                                         |
+| ----- | -------------------------------------------------------------------------------- |
+| `URL` | endpoint 为空、格式错误或使用 Provider-local scheme 时抛出 `NnrpProtocolError`。 |
+
+## `resolveProviderEndpoint`
+
+在 Provider 选择完成后解析 carrier-local endpoint。TCP 与 QUIC 从应用 endpoint 的 authority 派生
+`host:port`，未声明端口时使用 `4433`；IPC 与 WebSocket 必须提供匹配的显式 Provider endpoint。
+
+| 参数               | 类型                | 必填 | 说明                                    |
+| ------------------ | ------------------- | ---: | --------------------------------------- |
+| `endpoint`         | `string \| URL`     |   是 | 公开 `nnrp://` 或 `nnrps://` endpoint。 |
+| `transport`        | `NnrpTransportKind` |   是 | 已选择的 carrier。                      |
+| `providerEndpoint` | `string \| URL`     |   否 | 显式 carrier-local endpoint。           |
+
+| 返回     | 可能抛出                                                        |
+| -------- | --------------------------------------------------------------- |
+| `string` | 所选 carrier 无法解析传入 locator 时抛出 `NnrpTransportError`。 |
+
 ## `normalizeSubmitRequest`
 
 校验并规范化 submit payload。
