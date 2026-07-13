@@ -60,6 +60,13 @@ const payload = encodeRuntimeControlMetadata(NnrpMessageType.Progress, {
 | ------------------------------- |
 | `DecodedRuntimeControlMetadata` |
 
+`DecodedRuntimeControlMetadata` 包含两个只读字段：
+
+| 字段       | 类型                     | 说明                                         |
+| ---------- | ------------------------ | -------------------------------------------- |
+| `metadata` | `RuntimeControlMetadata` | 由 `messageType` 选择的 metadata 对象。      |
+| `tail`     | `Uint8Array`             | 已声明诊断、body 或扩展 payload 的独立副本。 |
+
 ## `encodeRuntimeObjectMetadata`
 
 编码对象、对象引用、对象增量、缓存引用和缓存 miss metadata。
@@ -140,6 +147,15 @@ Preview4 复用已有的 NNRP/1 `CacheInvalidate` frame，不再定义第二种 
 | `DecodedRuntimeFrame[]` |
 
 ## 运行时控制 Metadata
+
+### TypeScript 数值映射
+
+线路字段中的 `u64` 在 JavaScript API 中使用 `bigint`；`u32`、`u16`、`u8` 和 `i16` 使用
+`number`，非整数或超出冻结线路范围的值必须被拒绝。枚举字段使用对应的数值 TypeScript enum。
+编码器复制可选 `tail`；解码器返回独立 `Uint8Array`，不暴露调用方输入缓冲区的 view。
+
+`RuntimeControlMetadata` 是下表全部 metadata interface 的 union。每个 metadata 对象只允许与其所在行列出的
+消息类型配对。
 
 | 类型                       | 消息类型                                  | 冻结字段                                                                                                                                                     |
 | -------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |

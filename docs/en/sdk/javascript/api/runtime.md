@@ -64,6 +64,13 @@ Decodes one control metadata payload.
 | ------------------------------- |
 | `DecodedRuntimeControlMetadata` |
 
+`DecodedRuntimeControlMetadata` has two readonly fields:
+
+| Field      | Type                           | Description                                                        |
+| ---------- | ------------------------------ | ------------------------------------------------------------------ |
+| `metadata` | `RuntimeControlMetadata`       | Metadata object selected by `messageType`.                          |
+| `tail`     | `Uint8Array`                   | Owned copy of the declared diagnostic, body, or extension payload. |
+
 ## `encodeRuntimeObjectMetadata`
 
 Encodes object, object-reference, object-delta, cache-reference, and cache-miss metadata.
@@ -155,6 +162,16 @@ Preview 4 adds these message members to the JavaScript enum:
 `DegradeProfile`, `RouteHint`, `ExecutionHint`, `TraceContext`, `ResultDropReason`, `ObjectDeclare`,
 `ObjectRef`, `ObjectRelease`, `ObjectPatch`, `ObjectDelta`, `CacheReference`, `CacheMiss`,
 `CacheInvalidate`, `ErrorRecoverable`, `RetryAfter`.
+
+### TypeScript Numeric Mapping
+
+Wire fields declared as `u64` use `bigint` in the JavaScript API. Wire fields declared as `u32`,
+`u16`, `u8`, or `i16` use `number` and are rejected when they are not integers or exceed the frozen
+wire range. Enum-valued fields use the corresponding numeric TypeScript enum. Encoders snapshot the
+optional `tail`; decoders return an owned `Uint8Array` rather than a view into caller-owned storage.
+
+`RuntimeControlMetadata` is the union of every metadata interface in the control metadata field map
+below. A metadata object is valid only for the message types listed in its row.
 
 ### Control Metadata Field Map
 
