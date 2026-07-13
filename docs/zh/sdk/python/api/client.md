@@ -110,7 +110,7 @@ Event pump helper 包括 `dispatch_events`、`dispatch_credit_updates`、`dispat
 ## `NativeRuntimeSession` Preview4 Frame
 
 `NativeClientConnection.open_session()` 返回的 session 持有高层 Preview4 发送接口。普通应用
-使用以下方法，不直接调用 `NativeRuntimeSession.control()` 或 codec 函数：
+使用以下方法，不自行调用 codec 函数构造 frame：
 
 | 方法 | 消息 |
 |---|---|
@@ -127,8 +127,8 @@ Event pump helper 包括 `dispatch_events`、`dispatch_credit_updates`、`dispat
 | `reference_cache(metadata, body=b"")`, `report_cache_miss(...)` | cache reference/miss |
 | `invalidate_cache(metadata)` | `CACHE_INVALIDATE` |
 
-每个方法返回 `None`，校验声明长度，并只调用一次 Rust runtime。`send_runtime_frame(...)` 是
-extension-safe 的 typed escape hatch。
+每个方法返回 `None`，校验声明长度，并只调用一次粗粒度 Rust runtime。底层与角色无关的
+frame-send 原语仅供 SDK 内部使用，不在 `NativeRuntimeSession` 上公开。
 
 ## `connect_client_control`
 

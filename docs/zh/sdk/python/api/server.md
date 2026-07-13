@@ -27,7 +27,7 @@ from nnrp.server import (
 ## `NativeRuntimeServerSession` Preview4 Frame
 
 Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Server session 提供
-`send_runtime_frame(...)` 和以下应用接口：
+以下应用接口：
 
 | 方法 | 消息 |
 |---|---|

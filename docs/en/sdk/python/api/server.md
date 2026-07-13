@@ -31,7 +31,7 @@ from nnrp.server import (
 ## `NativeRuntimeServerSession` Preview4 Frames
 
 Native server hosts use the same role-neutral runtime-frame ABI as clients. The server session
-exposes `send_runtime_frame(...)` plus these application-facing methods:
+exposes these application-facing methods:
 
 | Method | Message |
 |---|---|

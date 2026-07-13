@@ -89,24 +89,13 @@ Decodes one runtime object or cache metadata payload.
 ## High-Level Runtime Frame Contract
 
 The codec functions above are advanced protocol helpers. Normal applications send Preview4 frames
-through `NativeRuntimeSession` or `NativeRuntimeServerSession`; they do not encode a payload and call
-`control()` themselves.
+through the named methods on `NativeRuntimeSession` or `NativeRuntimeServerSession`; they do not
+encode payloads, select message types, or call `control()` themselves.
 
-Both session classes expose this typed escape hatch:
-
-```python
-send_runtime_frame(
-    message_type: MessageType,
-    metadata: RuntimeControlMetadata | RuntimeObjectMetadata | CacheInvalidateMetadata,
-    *,
-    tail: bytes = b"",
-    frame_id: int = 0,
-) -> None
-```
-
-The method validates the metadata/message pairing, encodes the complete payload, and performs one
-coarse native call. Named control and object methods documented on the client and server pages call
-this method internally.
+The SDK validates each metadata/message pairing, encodes the complete payload, and performs one
+coarse native call behind those named methods. That role-neutral frame-send primitive is an internal
+binding boundary and is not part of the public session API. Protocol extensions add a typed metadata
+model and a named SDK method instead of exposing raw frame construction to applications.
 
 ## `NativeRuntimeFrameEvent`
 

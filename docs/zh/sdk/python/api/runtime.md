@@ -83,22 +83,13 @@ payload = encode_runtime_control_metadata(
 ## 高层 Runtime Frame 契约
 
 上面的 codec 函数属于高级协议 helper。普通应用通过 `NativeRuntimeSession` 或
-`NativeRuntimeServerSession` 发送 Preview4 frame，不需要自行编码 payload 后调用 `control()`。
+`NativeRuntimeServerSession` 上的具名方法发送 Preview4 frame，不需要自行编码 payload、选择
+message type 或调用 `control()`。
 
-两个 session class 都提供以下 typed escape hatch：
-
-```python
-send_runtime_frame(
-    message_type: MessageType,
-    metadata: RuntimeControlMetadata | RuntimeObjectMetadata | CacheInvalidateMetadata,
-    *,
-    tail: bytes = b"",
-    frame_id: int = 0,
-) -> None
-```
-
-该方法校验 metadata 与 message 的配对关系，编码完整 payload，并只执行一次粗粒度 native
-调用。Client 和 Server 页面记录的具名控制与对象方法在内部调用这个方法。
+SDK 在这些具名方法内部校验 metadata 与 message 的配对关系、编码完整 payload，并只执行一次
+粗粒度 native 调用。这个与角色无关的 frame-send 原语属于内部 binding 边界，不属于公开
+session API。协议扩展应增加 typed metadata model 和具名 SDK 方法，而不是向应用暴露原始
+frame 构造能力。
 
 ## `NativeRuntimeFrameEvent`
 

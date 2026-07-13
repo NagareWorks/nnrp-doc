@@ -115,8 +115,7 @@ Event pump helpers include `dispatch_events`, `dispatch_credit_updates`, `dispat
 ## `NativeRuntimeSession` Preview4 Frames
 
 The session returned by `NativeClientConnection.open_session()` owns the high-level Preview4 send
-surface. Applications normally use these methods instead of `NativeRuntimeSession.control()` or the
-codec functions:
+surface. Applications use these methods instead of constructing frames with the codec functions:
 
 | Method | Message |
 |---|---|
@@ -133,8 +132,9 @@ codec functions:
 | `reference_cache(metadata, body=b"")`, `report_cache_miss(...)` | cache reference/miss |
 | `invalidate_cache(metadata)` | `CACHE_INVALIDATE` |
 
-Every method returns `None`, validates declared lengths, and performs one call to the Rust-owned
-runtime. `send_runtime_frame(...)` remains the typed extension-safe escape hatch.
+Every method returns `None`, validates declared lengths, and performs one coarse call to the
+Rust-owned runtime. The underlying role-neutral frame-send primitive is internal to the SDK and is
+not exposed on `NativeRuntimeSession`.
 
 ## `connect_client_control`
 
