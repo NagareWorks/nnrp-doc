@@ -169,6 +169,7 @@ Wire fields declared as `u64` use `bigint` in the JavaScript API. Wire fields de
 `u16`, `u8`, or `i16` use `number` and are rejected when they are not integers or exceed the frozen
 wire range. Enum-valued fields use the corresponding numeric TypeScript enum. Encoders snapshot the
 optional `tail`; decoders return an owned `Uint8Array` rather than a view into caller-owned storage.
+`ProgressMetadata.percentX100` accepts `0..10000` and the frozen `0xffff` unknown-value sentinel.
 
 `RuntimeControlMetadata` is the union of every metadata interface in the control metadata field map
 below. A metadata object is valid only for the message types listed in its row.
@@ -208,6 +209,7 @@ below. A metadata object is valid only for the message types listed in its row.
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RuntimeObjectKind`   | `Unspecified`, `Tensor`, `TokenBlock`, `ImageTile`, `FeatureMap`, `ToolResult`, `TraceSegment`, `OpaqueBytes`, `DocumentChunk`, `AudioChunk`, `VideoChunk`, `RoutePlan`, `CacheManifest` |
 | `RuntimeRole`         | `Unspecified`, `Client`, `Server`, `Runtime`, `Subagent`, `Tool`, `Scheduler`, `ConformanceRunner`                                                                                       |
+| `ErrorScope`          | `Connection`, `Session`, `Frame`                                                                                                                                                         |
 | `MemoryLocationHint`  | `Unspecified`, `HostMemory`, `DeviceMemory`, `SharedMemory`, `RemoteMemory`, `MmapFile`, `ObjectStore`                                                                                   |
 | `OwnershipHint`       | `Unspecified`, `ProducerOwned`, `ConsumerOwned`, `SessionOwned`, `Borrowed`, `TransferOnRef`, `ReleaseOnDrop`                                                                            |
 | `ObjectReleaseReason` | `Completed`, `Cancelled`, `Expired`, `Replaced`, `Invalidated`, `OwnerClosed`, `LeaseExpired`, `ConformanceInjection`                                                                    |

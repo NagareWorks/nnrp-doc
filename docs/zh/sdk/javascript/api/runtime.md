@@ -153,6 +153,7 @@ Preview4 复用已有的 NNRP/1 `CacheInvalidate` frame，不再定义第二种 
 线路字段中的 `u64` 在 JavaScript API 中使用 `bigint`；`u32`、`u16`、`u8` 和 `i16` 使用
 `number`，非整数或超出冻结线路范围的值必须被拒绝。枚举字段使用对应的数值 TypeScript enum。
 编码器复制可选 `tail`；解码器返回独立 `Uint8Array`，不暴露调用方输入缓冲区的 view。
+`ProgressMetadata.percentX100` 接受 `0..10000`，以及表示未知值的冻结哨兵 `0xffff`。
 
 `RuntimeControlMetadata` 是下表全部 metadata interface 的 union。每个 metadata 对象只允许与其所在行列出的
 消息类型配对。
@@ -190,6 +191,7 @@ Preview4 复用已有的 NNRP/1 `CacheInvalidate` frame，不再定义第二种 
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `RuntimeObjectKind`   | `Unspecified`, `Tensor`, `TokenBlock`, `ImageTile`, `FeatureMap`, `ToolResult`, `TraceSegment`, `OpaqueBytes`, `DocumentChunk`, `AudioChunk`, `VideoChunk`, `RoutePlan`, `CacheManifest` |
 | `RuntimeRole`         | `Unspecified`, `Client`, `Server`, `Runtime`, `Subagent`, `Tool`, `Scheduler`, `ConformanceRunner`                                                                                       |
+| `ErrorScope`          | `Connection`, `Session`, `Frame`                                                                                                                                                         |
 | `MemoryLocationHint`  | `Unspecified`, `HostMemory`, `DeviceMemory`, `SharedMemory`, `RemoteMemory`, `MmapFile`, `ObjectStore`                                                                                   |
 | `OwnershipHint`       | `Unspecified`, `ProducerOwned`, `ConsumerOwned`, `SessionOwned`, `Borrowed`, `TransferOnRef`, `ReleaseOnDrop`                                                                            |
 | `ObjectReleaseReason` | `Completed`, `Cancelled`, `Expired`, `Replaced`, `Invalidated`, `OwnerClosed`, `LeaseExpired`, `ConformanceInjection`                                                                    |
