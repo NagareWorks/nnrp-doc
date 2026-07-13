@@ -19,7 +19,7 @@ import { openBackendRuntime } from "@nnrp/native-server";
 import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 
 const runtime = await openBackendRuntime({
-  transportPolicy: "tcp-only",
+  transportPolicy: "force-tcp",
   transports: [createTcpTransportProvider()],
 });
 ```
@@ -65,13 +65,49 @@ Selects a transport against a peer manifest.
 | ------------------------------- |
 | `NnrpTransportSelectionSummary` |
 
+## Preview4 Server Session Methods
+
+`NnrpServerSession.receive(options?)` returns the same typed `NnrpRuntimeEvent` union used by client
+sessions, including incoming control, runtime-object, and cache frames. The server sends incremental
+state with these methods:
+
+| Method                                        | Message                                    | Metadata                                                 | Optional tail         |
+| --------------------------------------------- | ------------------------------------------ | -------------------------------------------------------- | --------------------- |
+| `sendProgress(metadata, body?)`               | `Progress`                                 | [`ProgressMetadata`](./runtime#runtime-control-metadata) | progress body         |
+| `sendPartialResult(metadata, body?)`          | `PartialResult`                            | `PartialResultMetadata`                                  | inline partial result |
+| `sendBackpressure(metadata)`                  | `Backpressure`                             | `PressureMetadata`                                       | none                  |
+| `sendCreditUpdate(metadata)`                  | `CreditUpdate`                             | `PressureMetadata`                                       | none                  |
+| `sendResultDropReason(metadata, diagnostic?)` | `ResultDropReason`                         | `ResultDropReasonMetadata`                               | diagnostic bytes      |
+| `sendTraceContext(metadata, body?)`           | `TraceContext`                             | `TraceContextMetadata`                                   | trace attributes      |
+| `sendRecoverableError(metadata, diagnostic?)` | `ErrorRecoverable`                         | `RecoverableErrorMetadata`                               | diagnostic bytes      |
+| `sendRetryAfter(metadata, diagnostic?)`       | `RetryAfter`                               | `RetryAfterMetadata`                                     | diagnostic bytes      |
+| `sendControl(messageType, metadata, tail?)`   | Any server-sendable Preview4 control frame | Matching runtime metadata type                           | declared tail         |
+
+All methods return `Promise<void>`. Metadata/body length mismatches fail before the frame reaches
+the carrier provider.
+
+## Preview4 Server Object And Cache Methods
+
+| Method                                   | Message           | Metadata                   | Optional tail      |
+| ---------------------------------------- | ----------------- | -------------------------- | ------------------ |
+| `declareObject(metadata, body?)`         | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata    |
+| `referenceObject(metadata, body?)`       | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata |
+| `releaseObject(metadata, diagnostic?)`   | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes   |
+| `patchObject(metadata, delta)`           | `ObjectPatch`     | `ObjectDeltaMetadata`      | delta bytes        |
+| `sendObjectDelta(metadata, delta)`       | `ObjectDelta`     | `ObjectDeltaMetadata`      | delta bytes        |
+| `referenceCache(metadata, body?)`        | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata     |
+| `reportCacheMiss(metadata, diagnostic?)` | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes   |
+| `invalidateCache(metadata)`              | `CacheInvalidate` | `CacheInvalidateMetadata`  | none               |
+
+The final `sendResult(result)` remains separate from partial-result and object-delta frames.
+
 ## Boundary Rules
 
-| Package                                        | Owns                                                         | Must not own                                                        |
-| ---------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `@nnrp/native-server`                          | Server runtime, listen lifecycle, backend runtime lifecycle. | TCP/QUIC artifacts, browser code, or client-only top-level helpers. |
-| `@nnrp/native-client`                          | Client runtime and session lifecycle.                        | Server listener APIs.                                               |
-| `@nnrp/transport-tcp` / `@nnrp/transport-quic` | Transport behavior and packaged artifacts.                   | Server or client role lifecycle.                                    |
+| Package                                                                                              | Owns                                                         | Must not own                                                        |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `@nnrp/native-server`                                                                                | Server runtime, listen lifecycle, backend runtime lifecycle. | TCP/QUIC artifacts, browser code, or client-only top-level helpers. |
+| `@nnrp/native-client`                                                                                | Client runtime and session lifecycle.                        | Server listener APIs.                                               |
+| `@nnrp/transport-tcp` / `@nnrp/transport-quic` / `@nnrp/transport-ipc` / `@nnrp/transport-websocket` | Transport behavior and packaged native artifacts.            | Server or client role lifecycle.                                    |
 
 ## Option Types
 
@@ -87,20 +123,22 @@ Selects a transport against a peer manifest.
 
 ### `NnrpListenOptions`
 
-| Field             | Type                                       | Required | Description                                    |
-| ----------------- | ------------------------------------------ | -------: | ---------------------------------------------- |
-| `endpoint`        | `string`                                   |      Yes | Local endpoint to listen on.                   |
-| `transportPolicy` | [`NnrpTransportPolicy`](./core#data-types) |       No | Selection policy for the listener.             |
-| `transports`      | `readonly NnrpTransportProvider[]`         |       No | Transport providers allowed for this listener. |
+| Field              | Type                                       | Required | Description                                    |
+| ------------------ | ------------------------------------------ | -------: | ---------------------------------------------- |
+| `endpoint`         | `string`                                   |      Yes | Local endpoint to listen on.                   |
+| `providerEndpoint` | `string \| URL`                            |       No | Explicit carrier-local bind endpoint.          |
+| `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types) |       No | Selection policy for the listener.             |
+| `transports`       | `readonly NnrpTransportProvider[]`         |       No | Transport providers allowed for this listener. |
 
 ### `NnrpConnectOptions`
 
-| Field             | Type                                                | Required | Description                                      |
-| ----------------- | --------------------------------------------------- | -------: | ------------------------------------------------ |
-| `endpoint`        | `string`                                            |      Yes | Remote endpoint.                                 |
-| `transportPolicy` | [`NnrpTransportPolicy`](./core#data-types)          |       No | Selection policy for the connection.             |
-| `transports`      | `readonly NnrpTransportProvider[]`                  |       No | Transport providers allowed for this connection. |
-| `sessionDefaults` | [`NnrpSessionOptions`](./client#nnrpsessionoptions) |       No | Defaults applied when sessions omit values.      |
+| Field              | Type                                                | Required | Description                                      |
+| ------------------ | --------------------------------------------------- | -------: | ------------------------------------------------ |
+| `endpoint`         | `string`                                            |      Yes | Remote endpoint.                                 |
+| `providerEndpoint` | `string \| URL`                                     |       No | Explicit carrier-local connect endpoint.         |
+| `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types)          |       No | Selection policy for the connection.             |
+| `transports`       | `readonly NnrpTransportProvider[]`                  |       No | Transport providers allowed for this connection. |
+| `sessionDefaults`  | [`NnrpSessionOptions`](./client#nnrpsessionoptions) |       No | Defaults applied when sessions omit values.      |
 
 ### `NnrpTransportSelectionOptions`
 

@@ -4,41 +4,34 @@
 
 SDK 使用 Deno 作为开发工具链，但发布物是标准 npm ESM 包，并带 `.d.ts` 声明，保持 Node.js 兼容。
 
-Deno 后端 client，允许 TCP/QUIC 自动探测：
+Deno 后端 client，安装全部 Preview4 native carrier：
 
 ```bash
-deno add npm:@nnrp/native-client npm:@nnrp/transport-tcp npm:@nnrp/transport-quic
+deno add npm:@nnrp/native-client npm:@nnrp/transport-tcp npm:@nnrp/transport-quic npm:@nnrp/transport-ipc npm:@nnrp/transport-websocket
 ```
 
 Node.js 后端 client：
 
 ```bash
-npm install @nnrp/native-client @nnrp/transport-tcp @nnrp/transport-quic
+npm install @nnrp/native-client @nnrp/transport-tcp @nnrp/transport-quic @nnrp/transport-ipc @nnrp/transport-websocket
 ```
 
 Deno 后端 server：
 
 ```bash
-deno add npm:@nnrp/native-server npm:@nnrp/transport-tcp npm:@nnrp/transport-quic
+deno add npm:@nnrp/native-server npm:@nnrp/transport-tcp npm:@nnrp/transport-quic npm:@nnrp/transport-ipc npm:@nnrp/transport-websocket
 ```
 
 Node.js 后端 server：
 
 ```bash
-npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic
+npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic @nnrp/transport-ipc @nnrp/transport-websocket
 ```
 
 默认浏览器 WebSocket 路径：
 
 ```bash
 npm install @nnrp/browser-client @nnrp/transport-websocket
-```
-
-如果要精确固定当前 preview：
-
-```bash
-deno add npm:@nnrp/native-client@1.0.0-preview.3.5 npm:@nnrp/transport-tcp@1.0.0-preview.3.5 npm:@nnrp/transport-quic@1.0.0-preview.3.5
-npm install @nnrp/native-client@1.0.0-preview.3.5 @nnrp/transport-tcp@1.0.0-preview.3.5 @nnrp/transport-quic@1.0.0-preview.3.5
 ```
 
 ## Backend Native Client
@@ -52,8 +45,8 @@ import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
-  endpoint: "127.0.0.1:4433",
-  transportPolicy: "score",
+  endpoint: "nnrps://runtime.example/session/default",
+  transportPolicy: "auto",
   transports: [
     createQuicTransportProvider(),
     createTcpTransportProvider(),
@@ -82,11 +75,11 @@ import { openBackendRuntime } from "@nnrp/native-server";
 import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 
 const runtime = await openBackendRuntime({
-  transportPolicy: "tcp-only",
+  transportPolicy: "force-tcp",
   transports: [createTcpTransportProvider()],
 });
 
-const server = runtime.listen({ endpoint: "0.0.0.0:4433" });
+const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
 
 // 在 server adapter 中 accept 并处理 session。
 
@@ -96,8 +89,8 @@ await runtime.close();
 
 ## Browser Client
 
-浏览器与 edge client 使用 `@nnrp/browser-client`。当前 browser client 接受 WebSocket provider；
-native TCP 与 QUIC provider 面向 Node.js/Deno 或其他 native host。
+浏览器与 edge client 使用 `@nnrp/browser-client`。Browser client 使用 WebSocket Provider 与 browser
+role package 携带的 WASM runtime。
 
 ```ts
 import { openBrowserRuntime } from "@nnrp/browser-client";
@@ -108,8 +101,9 @@ const runtime = await openBrowserRuntime({
 });
 
 const client = runtime.connect({
-  endpoint: "wss://example.test/nnrp",
-  transportPolicy: "score",
+  endpoint: "nnrps://example.test/session/default",
+  providerEndpoint: "wss://example.test/nnrp",
+  transportPolicy: "auto",
 });
 
 const session = client.openSession({ inputProfile: "token" });
@@ -119,8 +113,8 @@ const session = client.openSession({ inputProfile: "token" });
 
 1. `@nnrp/native-client` 与 `@nnrp/native-server` 是 role package，不捆绑 `.dll`、`.so`、`.dylib` 或
    browser WASM artifact。
-2. `@nnrp/transport-tcp` 与 `@nnrp/transport-quic` 携带 backend host 使用的 native transport 产物。
-3. `@nnrp/transport-websocket` 使用宿主 WebSocket implementation，不依赖 Rust WebSocket transport
-   artifact。
+2. TCP、QUIC、IPC 与 WebSocket transport package 分别携带自己的 native Provider 产物。
+3. `@nnrp/browser-client` 携带 browser WASM；browser `@nnrp/transport-websocket` 将其与宿主
+   WebSocket 对象组合使用，不复制该 WASM。
 4. 安装哪个 transport 就允许哪个 transport 参与探测；同时安装多个时由 runtime probing 与 policy 选择
    active path。

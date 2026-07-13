@@ -19,7 +19,7 @@ import { openBackendRuntime } from "@nnrp/native-server";
 import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 
 const runtime = await openBackendRuntime({
-  transportPolicy: "tcp-only",
+  transportPolicy: "force-tcp",
   transports: [createTcpTransportProvider()],
 });
 ```
@@ -65,13 +65,47 @@ const server = runtime.listen({ endpoint: "0.0.0.0:4433" });
 | ------------------------------- |
 | `NnrpTransportSelectionSummary` |
 
+## Preview4 Server Session 方法
+
+`NnrpServerSession.receive(options?)` 返回与 client session 相同的 typed `NnrpRuntimeEvent`
+union，其中包括收到的控制帧、运行时对象帧与缓存帧。Server 使用以下方法发送增量状态：
+
+| 方法                                          | Message                                       | Metadata                                            | 可选 tail             |
+| --------------------------------------------- | --------------------------------------------- | --------------------------------------------------- | --------------------- |
+| `sendProgress(metadata, body?)`               | `Progress`                                    | [`ProgressMetadata`](./runtime#运行时控制-metadata) | progress body         |
+| `sendPartialResult(metadata, body?)`          | `PartialResult`                               | `PartialResultMetadata`                             | inline partial result |
+| `sendBackpressure(metadata)`                  | `Backpressure`                                | `PressureMetadata`                                  | 无                    |
+| `sendCreditUpdate(metadata)`                  | `CreditUpdate`                                | `PressureMetadata`                                  | 无                    |
+| `sendResultDropReason(metadata, diagnostic?)` | `ResultDropReason`                            | `ResultDropReasonMetadata`                          | diagnostic bytes      |
+| `sendTraceContext(metadata, body?)`           | `TraceContext`                                | `TraceContextMetadata`                              | trace attributes      |
+| `sendRecoverableError(metadata, diagnostic?)` | `ErrorRecoverable`                            | `RecoverableErrorMetadata`                          | diagnostic bytes      |
+| `sendRetryAfter(metadata, diagnostic?)`       | `RetryAfter`                                  | `RetryAfterMetadata`                                | diagnostic bytes      |
+| `sendControl(messageType, metadata, tail?)`   | 任意允许 server 发送的 Preview4 control frame | 匹配的 runtime metadata 类型                        | 声明的 tail           |
+
+所有方法返回 `Promise<void>`。Metadata/body 长度不匹配时必须在 frame 到达 carrier Provider 前失败。
+
+## Preview4 Server 对象与缓存方法
+
+| 方法                                     | Message           | Metadata                   | 可选 tail          |
+| ---------------------------------------- | ----------------- | -------------------------- | ------------------ |
+| `declareObject(metadata, body?)`         | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata    |
+| `referenceObject(metadata, body?)`       | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata |
+| `releaseObject(metadata, diagnostic?)`   | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes   |
+| `patchObject(metadata, delta)`           | `ObjectPatch`     | `ObjectDeltaMetadata`      | delta bytes        |
+| `sendObjectDelta(metadata, delta)`       | `ObjectDelta`     | `ObjectDeltaMetadata`      | delta bytes        |
+| `referenceCache(metadata, body?)`        | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata     |
+| `reportCacheMiss(metadata, diagnostic?)` | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes   |
+| `invalidateCache(metadata)`              | `CacheInvalidate` | `CacheInvalidateMetadata`  | 无                 |
+
+最终 `sendResult(result)` 与 partial-result、object-delta frame 保持独立。
+
 ## 边界规则
 
-| 包                                             | 拥有                                                          | 不能拥有                                                          |
-| ---------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `@nnrp/native-server`                          | Server runtime、listen lifecycle、backend runtime lifecycle。 | TCP/QUIC artifact、browser code 或 client-only top-level helper。 |
-| `@nnrp/native-client`                          | Client runtime 与 session lifecycle。                         | Server listener API。                                             |
-| `@nnrp/transport-tcp` / `@nnrp/transport-quic` | Transport 行为与打包 artifact。                               | Server 或 client role lifecycle。                                 |
+| 包                                                                                                   | 拥有                                                          | 不能拥有                                                          |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `@nnrp/native-server`                                                                                | Server runtime、listen lifecycle、backend runtime lifecycle。 | TCP/QUIC artifact、browser code 或 client-only top-level helper。 |
+| `@nnrp/native-client`                                                                                | Client runtime 与 session lifecycle。                         | Server listener API。                                             |
+| `@nnrp/transport-tcp` / `@nnrp/transport-quic` / `@nnrp/transport-ipc` / `@nnrp/transport-websocket` | Transport 行为与打包的 native artifact。                      | Server 或 client role lifecycle。                                 |
 
 ## 选项类型
 
@@ -87,20 +121,22 @@ const server = runtime.listen({ endpoint: "0.0.0.0:4433" });
 
 ### `NnrpListenOptions`
 
-| 字段              | 类型                                     | 必填 | 说明                                    |
-| ----------------- | ---------------------------------------- | ---: | --------------------------------------- |
-| `endpoint`        | `string`                                 |   是 | 本地监听 endpoint。                     |
-| `transportPolicy` | [`NnrpTransportPolicy`](./core#数据类型) |   否 | Listener 选择策略。                     |
-| `transports`      | `readonly NnrpTransportProvider[]`       |   否 | 本 listener 允许的 transport provider。 |
+| 字段               | 类型                                     | 必填 | 说明                                    |
+| ------------------ | ---------------------------------------- | ---: | --------------------------------------- |
+| `endpoint`         | `string`                                 |   是 | 本地监听 endpoint。                     |
+| `providerEndpoint` | `string \| URL`                          |   否 | 显式载体本地 bind endpoint。            |
+| `transportPolicy`  | [`NnrpTransportPolicy`](./core#数据类型) |   否 | Listener 选择策略。                     |
+| `transports`       | `readonly NnrpTransportProvider[]`       |   否 | 本 listener 允许的 transport provider。 |
 
 ### `NnrpConnectOptions`
 
-| 字段              | 类型                                                | 必填 | 说明                               |
-| ----------------- | --------------------------------------------------- | ---: | ---------------------------------- |
-| `endpoint`        | `string`                                            |   是 | 远端 endpoint。                    |
-| `transportPolicy` | [`NnrpTransportPolicy`](./core#数据类型)            |   否 | Connection 选择策略。              |
-| `transports`      | `readonly NnrpTransportProvider[]`                  |   否 | 本连接允许的 transport provider。  |
-| `sessionDefaults` | [`NnrpSessionOptions`](./client#nnrpsessionoptions) |   否 | session 未设置字段时使用的默认值。 |
+| 字段               | 类型                                                | 必填 | 说明                               |
+| ------------------ | --------------------------------------------------- | ---: | ---------------------------------- |
+| `endpoint`         | `string`                                            |   是 | 远端 endpoint。                    |
+| `providerEndpoint` | `string \| URL`                                     |   否 | 显式载体本地 connect endpoint。    |
+| `transportPolicy`  | [`NnrpTransportPolicy`](./core#数据类型)            |   否 | Connection 选择策略。              |
+| `transports`       | `readonly NnrpTransportProvider[]`                  |   否 | 本连接允许的 transport provider。  |
+| `sessionDefaults`  | [`NnrpSessionOptions`](./client#nnrpsessionoptions) |   否 | session 未设置字段时使用的默认值。 |
 
 ### `NnrpTransportSelectionOptions`
 

@@ -5,41 +5,34 @@
 The SDK is developed with Deno, but the published packages are standard npm ESM packages with
 `.d.ts` declarations and remain Node.js-compatible.
 
-For a Deno backend client using automatic TCP/QUIC probing:
+For a Deno backend client with all Preview4 native carriers installed:
 
 ```bash
-deno add npm:@nnrp/native-client npm:@nnrp/transport-tcp npm:@nnrp/transport-quic
+deno add npm:@nnrp/native-client npm:@nnrp/transport-tcp npm:@nnrp/transport-quic npm:@nnrp/transport-ipc npm:@nnrp/transport-websocket
 ```
 
 For a Node.js backend client:
 
 ```bash
-npm install @nnrp/native-client @nnrp/transport-tcp @nnrp/transport-quic
+npm install @nnrp/native-client @nnrp/transport-tcp @nnrp/transport-quic @nnrp/transport-ipc @nnrp/transport-websocket
 ```
 
 For a Deno backend server:
 
 ```bash
-deno add npm:@nnrp/native-server npm:@nnrp/transport-tcp npm:@nnrp/transport-quic
+deno add npm:@nnrp/native-server npm:@nnrp/transport-tcp npm:@nnrp/transport-quic npm:@nnrp/transport-ipc npm:@nnrp/transport-websocket
 ```
 
 For a Node.js backend server:
 
 ```bash
-npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic
+npm install @nnrp/native-server @nnrp/transport-tcp @nnrp/transport-quic @nnrp/transport-ipc @nnrp/transport-websocket
 ```
 
 For the default browser WebSocket path:
 
 ```bash
 npm install @nnrp/browser-client @nnrp/transport-websocket
-```
-
-To pin the current preview exactly:
-
-```bash
-deno add npm:@nnrp/native-client@1.0.0-preview.3.5 npm:@nnrp/transport-tcp@1.0.0-preview.3.5 npm:@nnrp/transport-quic@1.0.0-preview.3.5
-npm install @nnrp/native-client@1.0.0-preview.3.5 @nnrp/transport-tcp@1.0.0-preview.3.5 @nnrp/transport-quic@1.0.0-preview.3.5
 ```
 
 ## Backend Native Client
@@ -54,8 +47,8 @@ import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
-  endpoint: "127.0.0.1:4433",
-  transportPolicy: "score",
+  endpoint: "nnrps://runtime.example/session/default",
+  transportPolicy: "auto",
   transports: [
     createQuicTransportProvider(),
     createTcpTransportProvider(),
@@ -84,11 +77,11 @@ import { openBackendRuntime } from "@nnrp/native-server";
 import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 
 const runtime = await openBackendRuntime({
-  transportPolicy: "tcp-only",
+  transportPolicy: "force-tcp",
   transports: [createTcpTransportProvider()],
 });
 
-const server = runtime.listen({ endpoint: "0.0.0.0:4433" });
+const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
 
 // Accept and handle sessions in the server adapter.
 
@@ -98,8 +91,8 @@ await runtime.close();
 
 ## Browser Client
 
-Use `@nnrp/browser-client` for browser and edge clients. The current browser client accepts the
-WebSocket provider; native TCP and QUIC providers are for Node.js/Deno or other native hosts.
+Use `@nnrp/browser-client` for browser and edge clients. Browser clients use the WebSocket provider
+with the WASM runtime carried by the browser role package.
 
 ```ts
 import { openBrowserRuntime } from "@nnrp/browser-client";
@@ -110,8 +103,9 @@ const runtime = await openBrowserRuntime({
 });
 
 const client = runtime.connect({
-  endpoint: "wss://example.test/nnrp",
-  transportPolicy: "score",
+  endpoint: "nnrps://example.test/session/default",
+  providerEndpoint: "wss://example.test/nnrp",
+  transportPolicy: "auto",
 });
 
 const session = client.openSession({ inputProfile: "token" });
@@ -121,9 +115,8 @@ const session = client.openSession({ inputProfile: "token" });
 
 1. `@nnrp/native-client` and `@nnrp/native-server` are role packages; they do not bundle `.dll`,
    `.so`, `.dylib`, or browser WASM artifacts.
-2. `@nnrp/transport-tcp` and `@nnrp/transport-quic` carry native transport payloads for backend
-   hosts that install those providers.
-3. `@nnrp/transport-websocket` uses the host WebSocket implementation and does not depend on Rust
-   WebSocket transport artifacts.
+2. TCP, QUIC, IPC, and WebSocket transport packages carry their own native provider payloads.
+3. `@nnrp/browser-client` carries browser WASM; browser `@nnrp/transport-websocket` uses it with the
+   host WebSocket object and does not duplicate it.
 4. Install the transports you want to allow; if several are installed, runtime probing and policy
    choose the active path.

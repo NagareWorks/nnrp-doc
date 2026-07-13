@@ -6,12 +6,12 @@ workflow。
 
 ## Browser Transport
 
-默认浏览器原生 transport 使用
-[`@nnrp/transport-websocket`](./transport#createwebsockettransportprovider)。当前 browser client API
-接受 WebSocket provider。TCP 与 QUIC provider package 面向 native host。
+默认浏览器原生 transport 使用 [`@nnrp/transport-websocket`](./transport#provider-factory)。当前
+browser client API 接受 WebSocket Provider。TCP、QUIC 与 IPC Provider package 面向 native host。
 
-WebSocket 不捆绑 Rust native 或 browser WASM artifact，因为 Rust runtime 没有暴露 WebSocket
-transport 实现。
+`@nnrp/browser-client` 拥有 `nnrp-wasm-browser` artifact。`@nnrp/transport-websocket` 的 browser
+分支把这些运行时原语与宿主 `WebSocket` 对象组合使用。Native WebSocket artifact 仍归
+`@nnrp/transport-websocket`。
 
 ## WASM Artifact Helper
 
@@ -23,9 +23,10 @@ transport 实现。
 
 ## Runtime 边界
 
-| 包                          | 包含 native `.dll` / `.so` / `.dylib` | 包含 browser WASM primitives |
-| --------------------------- | ------------------------------------- | ---------------------------- |
-| `@nnrp/browser-client`      | 否                                    | 是                           |
-| `@nnrp/transport-websocket` | 否                                    | 否                           |
-| `@nnrp/transport-tcp`       | 是                                    | 否                           |
-| `@nnrp/transport-quic`      | 是                                    | 否                           |
+| 包                          | 包含 native `.dll` / `.so` / `.dylib` | 包含 browser WASM primitives    |
+| --------------------------- | ------------------------------------- | ------------------------------- |
+| `@nnrp/browser-client`      | 否                                    | 是                              |
+| `@nnrp/transport-websocket` | Node.js/Deno 下是                     | 否；使用 `@nnrp/browser-client` |
+| `@nnrp/transport-tcp`       | 是                                    | 否                              |
+| `@nnrp/transport-quic`      | 是                                    | 否                              |
+| `@nnrp/transport-ipc`       | 是                                    | 否                              |

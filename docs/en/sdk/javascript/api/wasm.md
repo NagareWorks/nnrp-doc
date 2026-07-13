@@ -6,12 +6,12 @@ described in the [Client API](./client).
 
 ## Browser Transport
 
-Use [`@nnrp/transport-websocket`](./transport#createwebsockettransportprovider) for the default
-browser-native transport. The current browser client API accepts WebSocket providers. TCP and QUIC
-provider packages are native host packages.
+Use [`@nnrp/transport-websocket`](./transport#provider-factories) for the default browser-native
+carrier. TCP, QUIC, and IPC provider packages are native-host packages.
 
-WebSocket does not bundle Rust native or browser WASM artifacts because the Rust runtime does not
-expose a WebSocket transport implementation.
+`@nnrp/browser-client` owns the `nnrp-wasm-browser` artifact. The browser branch of
+`@nnrp/transport-websocket` uses those runtime primitives with the host `WebSocket` object. Native
+WebSocket artifacts remain inside `@nnrp/transport-websocket`.
 
 ## WASM Artifact Helpers
 
@@ -26,6 +26,7 @@ expose a WebSocket transport implementation.
 | Package                     | Includes native `.dll` / `.so` / `.dylib` | Includes browser WASM primitives |
 | --------------------------- | ----------------------------------------- | -------------------------------- |
 | `@nnrp/browser-client`      | No                                        | Yes                              |
-| `@nnrp/transport-websocket` | No                                        | No                               |
+| `@nnrp/transport-websocket` | Yes on Node.js/Deno                       | No; uses `@nnrp/browser-client`  |
 | `@nnrp/transport-tcp`       | Yes                                       | No                               |
 | `@nnrp/transport-quic`      | Yes                                       | No                               |
+| `@nnrp/transport-ipc`       | Yes                                       | No                               |

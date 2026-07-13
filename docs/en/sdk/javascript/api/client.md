@@ -9,10 +9,10 @@ Client code starts from the same lifecycle shape in native and browser hosts:
 
 The package names differ by host, but the client session methods intentionally stay aligned.
 
-| Host         | Role package           | Transport packages                            |
-| ------------ | ---------------------- | --------------------------------------------- |
-| Node.js/Deno | `@nnrp/native-client`  | `@nnrp/transport-tcp`, `@nnrp/transport-quic` |
-| Browser/edge | `@nnrp/browser-client` | `@nnrp/transport-websocket`                   |
+| Host         | Role package           | Transport packages                             |
+| ------------ | ---------------------- | ---------------------------------------------- |
+| Node.js/Deno | `@nnrp/native-client`  | TCP, QUIC, IPC, and WebSocket carrier packages |
+| Browser/edge | `@nnrp/browser-client` | `@nnrp/transport-websocket`                    |
 
 ## `openNativeClient`
 
@@ -32,8 +32,8 @@ import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
-  endpoint: "127.0.0.1:4433",
-  transportPolicy: "score",
+  endpoint: "nnrps://runtime.example/session/default",
+  transportPolicy: "auto",
   transports: [
     createQuicTransportProvider(),
     createTcpTransportProvider(),
@@ -77,8 +77,9 @@ Creates a browser client from an opened browser runtime.
 
 ```ts
 const client = runtime.connect({
-  endpoint: "wss://example.test/nnrp",
-  transportPolicy: "score",
+  endpoint: "nnrps://runtime.example/session/default",
+  providerEndpoint: "wss://runtime.example/nnrp",
+  transportPolicy: "auto",
 });
 ```
 
@@ -134,16 +135,81 @@ Submits a request and returns the operation id. This method is available on nati
 
 ## `ClientSession.cancel`
 
-Cancels an operation.
+Sends a Preview4 `CANCEL` frame. `NnrpClientSession` and `NnrpBrowserClientSession` expose the same
+method.
 
-| Parameter   | Type                                      | Required | Description          |
-| ----------- | ----------------------------------------- | -------: | -------------------- |
-| `operation` | `bigint \| number`                        |      Yes | Operation id.        |
-| `options`   | [`NnrpCancelOptions`](#nnrpcanceloptions) |       No | Reason and metadata. |
+| Parameter    | Type                                                           | Required | Description                                                                |
+| ------------ | -------------------------------------------------------------- | -------: | -------------------------------------------------------------------------- |
+| `metadata`   | [`ControlRequestMetadata`](./runtime#runtime-control-metadata) |      Yes | Frozen operation id, sequence, reason, role, flags, and diagnostic length. |
+| `diagnostic` | `Uint8Array`                                                   |       No | Bytes whose length equals `metadata.diagnosticBytes`.                      |
 
 | Returns         |
 | --------------- |
 | `Promise<void>` |
+
+## Preview4 Client Control Methods
+
+The native and browser session classes expose the same control surface. Every method encodes the
+named NNRP message and submits it through the active runtime in one coarse runtime call.
+
+| Method                                      | Message                                    | Metadata                       | Optional tail      |
+| ------------------------------------------- | ------------------------------------------ | ------------------------------ | ------------------ |
+| `abort(metadata, diagnostic?)`              | `Abort`                                    | `ControlRequestMetadata`       | diagnostic bytes   |
+| `updatePriority(metadata)`                  | `PriorityUpdate`                           | `SchedulingMetadata`           | none               |
+| `updateDeadline(metadata)`                  | `Deadline`                                 | `SchedulingMetadata`           | none               |
+| `expireAt(metadata)`                        | `ExpireAt`                                 | `SchedulingMetadata`           | none               |
+| `supersede(metadata, diagnostic?)`          | `Supersede`                                | `SupersedeMetadata`            | diagnostic bytes   |
+| `updateBudget(metadata)`                    | `BudgetUpdate`                             | `BudgetMetadata`               | none               |
+| `negotiateCapabilities(metadata, body?)`    | `CapabilityNegotiation`                    | `CapabilityMetadata`           | capability entries |
+| `degradeProfile(metadata, body?)`           | `DegradeProfile`                           | `CapabilityMetadata`           | capability entries |
+| `sendRouteHint(metadata, body?)`            | `RouteHint`                                | `RouteHintMetadata`            | typed hint body    |
+| `sendExecutionHint(metadata, body?)`        | `ExecutionHint`                            | `RouteHintMetadata`            | typed hint body    |
+| `sendTraceContext(metadata, body?)`         | `TraceContext`                             | `TraceContextMetadata`         | trace attributes   |
+| `sendControl(messageType, metadata, tail?)` | Any client-sendable Preview4 control frame | Matching runtime metadata type | declared tail      |
+
+`sendControl` is the typed escape hatch for `ErrorRecoverable`, `RetryAfter`, and extension-safe
+control routing. It rejects a metadata type that does not match `messageType`.
+
+## Preview4 Client Object And Cache Methods
+
+| Method                                   | Message           | Metadata                   | Optional tail      |
+| ---------------------------------------- | ----------------- | -------------------------- | ------------------ |
+| `declareObject(metadata, body?)`         | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata    |
+| `referenceObject(metadata, body?)`       | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata |
+| `releaseObject(metadata, diagnostic?)`   | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes   |
+| `patchObject(metadata, delta)`           | `ObjectPatch`     | `ObjectDeltaMetadata`      | delta bytes        |
+| `sendObjectDelta(metadata, delta)`       | `ObjectDelta`     | `ObjectDeltaMetadata`      | delta bytes        |
+| `referenceCache(metadata, body?)`        | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata     |
+| `reportCacheMiss(metadata, diagnostic?)` | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes   |
+| `invalidateCache(metadata)`              | `CacheInvalidate` | `CacheInvalidateMetadata`  | none               |
+
+Object and cache methods return `Promise<void>`. They do not perform an implicit cache lookup before
+each submit.
+
+## Preview4 Runtime Events
+
+`nextEvent()` and `events()` extend `NnrpRuntimeEvent` with these discriminants:
+
+`progress`, `partial-result`, `backpressure`, `credit-update`, `capability-negotiation`,
+`degrade-profile`, `route-hint`, `execution-hint`, `trace-context`, `result-drop-reason`,
+`recoverable-error`, `retry-after`, `object-declare`, `object-ref`, `object-release`,
+`object-patch`, `object-delta`, `cache-reference`, `cache-miss`, and `cache-invalidate`.
+
+Events preserve wire order within one operation. Events from different operations may interleave.
+After cancellation, `result-drop-reason` remains observable, while late `result` and
+`partial-result` payloads for the cancelled operation are suppressed from normal result iteration.
+
+## Submit Cancellation
+
+`submit(request, options?)` and `submitNoWait(request, options?)` accept `NnrpSubmitOptions`:
+
+| Field           | Type                  | Required | Description                                                                                         |
+| --------------- | --------------------- | -------: | --------------------------------------------------------------------------------------------------- |
+| `signal`        | `NnrpAbortSignalLike` |       No | An already-aborted signal rejects before dispatch; an abort after dispatch sends `CANCEL`.          |
+| `timeoutMillis` | `number`              |       No | Local wait bound. The SDK sends `DEADLINE` before dispatch and cancels work when the bound expires. |
+
+These helpers use the same control sequence allocator as explicit control methods; they do not
+invent an out-of-band cancellation channel.
 
 ## `ClientSession.nextEvent`
 
@@ -159,26 +225,27 @@ Reads the next runtime event.
 
 ## Runtime Differences
 
-| Area               | Native client                                           | Browser client                                                                                     |
-| ------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Package            | `@nnrp/native-client`                                   | `@nnrp/browser-client`                                                                             |
-| Runtime open       | `openNativeClient(options)` returns a connected client. | `openBrowserRuntime(options)` returns a runtime, then `runtime.connect(options)` returns a client. |
-| Transport packages | TCP and QUIC packages carry native transport artifacts. | WebSocket is the current browser-native path.                                                      |
-| Server APIs        | Not exposed.                                            | Not exposed.                                                                                       |
+| Area               | Native client                                                            | Browser client                                                                                     |
+| ------------------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Package            | `@nnrp/native-client`                                                    | `@nnrp/browser-client`                                                                             |
+| Runtime open       | `openNativeClient(options)` returns a connected client.                  | `openBrowserRuntime(options)` returns a runtime, then `runtime.connect(options)` returns a client. |
+| Transport packages | TCP, QUIC, IPC, and WebSocket packages carry native transport artifacts. | Browser clients use the WebSocket provider with browser-client WASM.                               |
+| Server APIs        | Not exposed.                                                             | Not exposed.                                                                                       |
 
 ## Option Types
 
 ### `NnrpNativeClientOptions`
 
-| Field             | Type                                                    | Required | Description                                                                   |
-| ----------------- | ------------------------------------------------------- | -------: | ----------------------------------------------------------------------------- |
-| `endpoint`        | `string`                                                |      Yes | Remote NNRP endpoint.                                                         |
-| `transportPolicy` | [`NnrpTransportPolicy`](./core#data-types)              |       No | Selection policy such as `score`, `tcp-only`, or `quic-only`.                 |
-| `transports`      | `readonly NnrpTransportProvider[]`                      |       No | Installed native transport providers. See [Transport Providers](./transport). |
-| `sessionDefaults` | [`NnrpSessionOptions`](#nnrpsessionoptions)             |       No | Defaults applied when sessions omit values.                                   |
-| `environment`     | `Record<string, string>`                                |       No | Environment override for artifact lookup or diagnostics.                      |
-| `platform`        | `string`                                                |       No | Platform override for tests and controlled packaging checks.                  |
-| `ffi`             | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled deployments and tests.                 |
+| Field              | Type                                                    | Required | Description                                                                             |
+| ------------------ | ------------------------------------------------------- | -------: | --------------------------------------------------------------------------------------- |
+| `endpoint`         | `string`                                                |      Yes | Remote NNRP endpoint.                                                                   |
+| `providerEndpoint` | `string \| URL`                                         |       No | Explicit carrier-local endpoint for diagnostics, conformance, or controlled deployment. |
+| `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types)              |       No | `auto`, `prefer-*`, or `force-*` selection policy.                                      |
+| `transports`       | `readonly NnrpTransportProvider[]`                      |       No | Installed native transport providers. See [Transport Providers](./transport).           |
+| `sessionDefaults`  | [`NnrpSessionOptions`](#nnrpsessionoptions)             |       No | Defaults applied when sessions omit values.                                             |
+| `environment`      | `Record<string, string>`                                |       No | Environment override for artifact lookup or diagnostics.                                |
+| `platform`         | `string`                                                |       No | Platform override for tests and controlled packaging checks.                            |
+| `ffi`              | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled deployments and tests.                           |
 
 ### `NnrpBrowserRuntimeOptions`
 
@@ -192,12 +259,13 @@ Reads the next runtime event.
 
 ### `NnrpBrowserConnectOptions`
 
-| Field                | Type                                                      | Required | Description                                 |
-| -------------------- | --------------------------------------------------------- | -------: | ------------------------------------------- |
-| `endpoint`           | `string`                                                  |      Yes | Remote WebSocket endpoint.                  |
-| `transportPolicy`    | [`NnrpTransportPolicy`](./core#data-types)                |       No | Selection policy.                           |
-| `transportProviders` | `readonly NnrpBrowserTransportProvider[]`                 |       No | Browser providers for this connection.      |
-| `sessionDefaults`    | [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |       No | Defaults applied when sessions omit values. |
+| Field                | Type                                                      | Required | Description                                          |
+| -------------------- | --------------------------------------------------------- | -------: | ---------------------------------------------------- |
+| `endpoint`           | `string`                                                  |      Yes | Remote `nnrp://` or `nnrps://` application endpoint. |
+| `providerEndpoint`   | `string \| URL`                                           |       No | Explicit `ws://` or `wss://` carrier-local endpoint. |
+| `transportPolicy`    | [`NnrpTransportPolicy`](./core#data-types)                |       No | Selection policy.                                    |
+| `transportProviders` | `readonly NnrpBrowserTransportProvider[]`                 |       No | Browser providers for this connection.               |
+| `sessionDefaults`    | [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |       No | Defaults applied when sessions omit values.          |
 
 ### `NnrpSessionOptions`
 
@@ -211,13 +279,6 @@ Reads the next runtime event.
 ### `NnrpBrowserSessionOptions`
 
 Same shape as [`NnrpSessionOptions`](#nnrpsessionoptions), scoped to browser clients.
-
-### `NnrpCancelOptions`
-
-| Field      | Type                      | Required | Description                         |
-| ---------- | ------------------------- | -------: | ----------------------------------- |
-| `reason`   | `string`                  |       No | Human-readable cancellation reason. |
-| `metadata` | `Record<string, unknown>` |       No | Application metadata.               |
 
 ### `NnrpEventPollOptions`
 

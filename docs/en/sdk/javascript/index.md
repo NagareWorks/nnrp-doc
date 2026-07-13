@@ -1,44 +1,34 @@
 # JavaScript/TypeScript SDK Overview
 
-`nnrp-js` provides the JavaScript and TypeScript SDK packages for NNRP applications. The workspace
-uses Deno for development, while npm packages are ESM with `.d.ts` declarations for Node.js, Deno,
-browser, and edge consumers.
+`nnrp-js` provides ESM npm packages with `.d.ts` declarations for Node.js, Deno, browser, and edge
+applications. Start with a role package, then install only the carrier providers the application is
+allowed to use.
 
 ## Package Shape
 
-| Package                     | Runtime                        | Purpose                                                                                                                   |
-| --------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| `@nnrp/core`                | Runtime-neutral                | Shared protocol types, diagnostics, capability manifests, submit/result helpers, and transport selection.                 |
-| `@nnrp/native-client`       | Node.js and Deno backend hosts | Native client/session entrypoint. It does not bundle transport artifacts.                                                 |
-| `@nnrp/native-server`       | Node.js and Deno backend hosts | Native server/listen/session entrypoint. It does not bundle transport artifacts.                                          |
-| `@nnrp/browser-client`      | Browser and edge clients       | Browser client/session entrypoint with packaged browser WASM primitives.                                                  |
-| `@nnrp/transport-tcp`       | Native transport slot          | TCP transport provider package with full-platform native artifacts.                                                       |
-| `@nnrp/transport-quic`      | Native transport slot          | QUIC transport provider package with full-platform native artifacts.                                                      |
-| `@nnrp/transport-websocket` | Host WebSocket transport slot  | Client-side WebSocket transport provider for browsers and edge runtimes; it does not depend on a Rust WebSocket artifact. |
-
-Install a role package for the surface you call, then install the transport packages that should be
-available for probing. TCP and QUIC artifacts live in their transport packages, not in the native
-client/server role packages.
+| Package                     | Runtime                    | Purpose                                                                                                                       |
+| --------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `@nnrp/core`                | Runtime-neutral            | Shared protocol types, control/object codecs, diagnostics, endpoint resolution, capability manifests, and provider selection. |
+| `@nnrp/native-client`       | Node.js/Deno               | Native client/session role; no transport artifacts.                                                                           |
+| `@nnrp/native-server`       | Node.js/Deno               | Native server/listen/session role; no transport artifacts.                                                                    |
+| `@nnrp/browser-client`      | Browser/edge               | Browser client/session role plus the `nnrp-wasm-browser` runtime artifact.                                                    |
+| `@nnrp/transport-tcp`       | Node.js/Deno               | TCP provider behavior and platform native artifacts.                                                                          |
+| `@nnrp/transport-quic`      | Node.js/Deno               | QUIC provider behavior and platform native artifacts.                                                                         |
+| `@nnrp/transport-ipc`       | Node.js/Deno               | IPC provider behavior and platform native artifacts.                                                                          |
+| `@nnrp/transport-websocket` | Node.js/Deno, browser/edge | Native Rust WebSocket provider on backend hosts; host-WebSocket provider in browsers.                                         |
 
 ## Runtime Modes
 
-| Mode                      | Role package           | Transport packages                            |
-| ------------------------- | ---------------------- | --------------------------------------------- |
-| Backend native client     | `@nnrp/native-client`  | `@nnrp/transport-tcp`, `@nnrp/transport-quic` |
-| Backend native server     | `@nnrp/native-server`  | `@nnrp/transport-tcp`, `@nnrp/transport-quic` |
-| Browser client            | `@nnrp/browser-client` | `@nnrp/transport-websocket`                   |
-| Shared validation/helpers | `@nnrp/core`           | None                                          |
+| Mode                      | Role package           | Carrier packages                                  |
+| ------------------------- | ---------------------- | ------------------------------------------------- |
+| Backend native client     | `@nnrp/native-client`  | Any installed subset of TCP, QUIC, IPC, WebSocket |
+| Backend native server     | `@nnrp/native-server`  | Any installed subset of TCP, QUIC, IPC, WebSocket |
+| Browser client            | `@nnrp/browser-client` | `@nnrp/transport-websocket`                       |
+| Shared validation/helpers | `@nnrp/core`           | None                                              |
 
-`@nnrp/core` must stay runtime-neutral. Native role packages must not carry browser-only transports
-or transport artifacts. Transport packages own transport behavior and the artifacts needed for that
-transport.
-
-## Current Package State
-
-The published preview packages are available on npm as `1.0.0-preview.3.5` and are also tagged as
-`latest` and `preview`. TCP and QUIC package tarballs include their supported native artifacts for
-backend hosts. WebSocket remains the browser client transport package and does not depend on a Rust
-WebSocket artifact.
+Application endpoints stay `nnrp://` or `nnrps://`. Provider-local forms such as `unix://`,
+`npipe://`, `ws://`, and `wss://` are for explicit provider overrides, diagnostics, and conformance
+fixtures.
 
 ## Contents
 
@@ -47,4 +37,5 @@ WebSocket artifact.
 - [Core Types](./api/core)
 - [Client API](./api/client)
 - [Server API](./api/server)
-- [Transport Providers](./api/transport)
+- [Runtime Control & Objects](./api/runtime)
+- [Carrier Providers](./api/transport)

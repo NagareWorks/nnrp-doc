@@ -9,10 +9,10 @@ Client 代码按照同一套生命周期阅读：
 
 Native 和 browser 的包名不同，但 client session 的方法形态刻意保持一致。
 
-| 宿主         | Role package           | Transport package                             |
-| ------------ | ---------------------- | --------------------------------------------- |
-| Node.js/Deno | `@nnrp/native-client`  | `@nnrp/transport-tcp`、`@nnrp/transport-quic` |
-| Browser/edge | `@nnrp/browser-client` | `@nnrp/transport-websocket`                   |
+| 宿主         | Role package           | Transport package                        |
+| ------------ | ---------------------- | ---------------------------------------- |
+| Node.js/Deno | `@nnrp/native-client`  | TCP、QUIC、IPC 与 WebSocket 载体 package |
+| Browser/edge | `@nnrp/browser-client` | `@nnrp/transport-websocket`              |
 
 ## `openNativeClient`
 
@@ -32,8 +32,8 @@ import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
-  endpoint: "127.0.0.1:4433",
-  transportPolicy: "score",
+  endpoint: "nnrps://runtime.example/session/default",
+  transportPolicy: "auto",
   transports: [
     createQuicTransportProvider(),
     createTcpTransportProvider(),
@@ -77,8 +77,9 @@ const runtime = await openBrowserRuntime({
 
 ```ts
 const client = runtime.connect({
-  endpoint: "wss://example.test/nnrp",
-  transportPolicy: "score",
+  endpoint: "nnrps://runtime.example/session/default",
+  providerEndpoint: "wss://runtime.example/nnrp",
+  transportPolicy: "auto",
 });
 ```
 
@@ -134,16 +135,77 @@ const result = await session.submit({
 
 ## `ClientSession.cancel`
 
-取消 operation。
+发送 Preview4 `CANCEL` 帧。`NnrpClientSession` 与 `NnrpBrowserClientSession` 暴露完全相同的方法。
 
-| 参数        | 类型                                      | 必填 | 说明                 |
-| ----------- | ----------------------------------------- | ---: | -------------------- |
-| `operation` | `bigint \| number`                        |   是 | Operation id。       |
-| `options`   | [`NnrpCancelOptions`](#nnrpcanceloptions) |   否 | Reason 与 metadata。 |
+| 参数         | 类型                                                      | 必填 | 说明                                                                      |
+| ------------ | --------------------------------------------------------- | ---: | ------------------------------------------------------------------------- |
+| `metadata`   | [`ControlRequestMetadata`](./runtime#运行时控制-metadata) |   是 | 已冻结的 operation id、sequence、reason、role、flags 与 diagnostic 长度。 |
+| `diagnostic` | `Uint8Array`                                              |   否 | 长度等于 `metadata.diagnosticBytes` 的诊断字节。                          |
 
 | 返回            |
 | --------------- |
 | `Promise<void>` |
+
+## Preview4 Client 控制方法
+
+Native 与 browser session 使用同一套控制面。每个方法都编码对应的 NNRP message，并通过当前 runtime
+的一次粗粒度调用提交。
+
+| 方法                                        | Message                                       | Metadata                     | 可选 tail          |
+| ------------------------------------------- | --------------------------------------------- | ---------------------------- | ------------------ |
+| `abort(metadata, diagnostic?)`              | `Abort`                                       | `ControlRequestMetadata`     | diagnostic bytes   |
+| `updatePriority(metadata)`                  | `PriorityUpdate`                              | `SchedulingMetadata`         | 无                 |
+| `updateDeadline(metadata)`                  | `Deadline`                                    | `SchedulingMetadata`         | 无                 |
+| `expireAt(metadata)`                        | `ExpireAt`                                    | `SchedulingMetadata`         | 无                 |
+| `supersede(metadata, diagnostic?)`          | `Supersede`                                   | `SupersedeMetadata`          | diagnostic bytes   |
+| `updateBudget(metadata)`                    | `BudgetUpdate`                                | `BudgetMetadata`             | 无                 |
+| `negotiateCapabilities(metadata, body?)`    | `CapabilityNegotiation`                       | `CapabilityMetadata`         | capability entries |
+| `degradeProfile(metadata, body?)`           | `DegradeProfile`                              | `CapabilityMetadata`         | capability entries |
+| `sendRouteHint(metadata, body?)`            | `RouteHint`                                   | `RouteHintMetadata`          | typed hint body    |
+| `sendExecutionHint(metadata, body?)`        | `ExecutionHint`                               | `RouteHintMetadata`          | typed hint body    |
+| `sendTraceContext(metadata, body?)`         | `TraceContext`                                | `TraceContextMetadata`       | trace attributes   |
+| `sendControl(messageType, metadata, tail?)` | 任意允许 client 发送的 Preview4 control frame | 匹配的 runtime metadata 类型 | 声明的 tail        |
+
+`sendControl` 是 `ErrorRecoverable`、`RetryAfter` 与扩展安全控制路由的 typed escape hatch。
+`messageType` 与 metadata 类型不匹配时必须拒绝。
+
+## Preview4 Client 对象与缓存方法
+
+| 方法                                     | Message           | Metadata                   | 可选 tail          |
+| ---------------------------------------- | ----------------- | -------------------------- | ------------------ |
+| `declareObject(metadata, body?)`         | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata    |
+| `referenceObject(metadata, body?)`       | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata |
+| `releaseObject(metadata, diagnostic?)`   | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes   |
+| `patchObject(metadata, delta)`           | `ObjectPatch`     | `ObjectDeltaMetadata`      | delta bytes        |
+| `sendObjectDelta(metadata, delta)`       | `ObjectDelta`     | `ObjectDeltaMetadata`      | delta bytes        |
+| `referenceCache(metadata, body?)`        | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata     |
+| `reportCacheMiss(metadata, diagnostic?)` | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes   |
+| `invalidateCache(metadata)`              | `CacheInvalidate` | `CacheInvalidateMetadata`  | 无                 |
+
+对象与缓存方法返回 `Promise<void>`，不会在每次 submit 前隐式执行 cache lookup。
+
+## Preview4 Runtime Event
+
+`nextEvent()` 与 `events()` 为 `NnrpRuntimeEvent` 增加以下 discriminant：
+
+`progress`、`partial-result`、`backpressure`、`credit-update`、`capability-negotiation`、
+`degrade-profile`、`route-hint`、`execution-hint`、`trace-context`、`result-drop-reason`、
+`recoverable-error`、`retry-after`、`object-declare`、`object-ref`、`object-release`、`object-patch`、
+`object-delta`、`cache-reference`、`cache-miss`、`cache-invalidate`。
+
+同一个 operation 内的事件保持 wire order，不同 operation 的事件可以交错。取消后仍可观察
+`result-drop-reason`，但普通结果迭代会抑制该 operation 的迟到 `result` 与 `partial-result` payload。
+
+## Submit 取消
+
+`submit(request, options?)` 与 `submitNoWait(request, options?)` 接受 `NnrpSubmitOptions`：
+
+| 字段            | 类型                  | 必填 | 说明                                                                       |
+| --------------- | --------------------- | ---: | -------------------------------------------------------------------------- |
+| `signal`        | `NnrpAbortSignalLike` |   否 | 已 abort 的 signal 在 dispatch 前拒绝；dispatch 后 abort 会发送 `CANCEL`。 |
+| `timeoutMillis` | `number`              |   否 | 本地等待上限；SDK 在 dispatch 前发送 `DEADLINE`，超时后取消任务。          |
+
+这些 helper 与显式控制方法共用 control sequence allocator，不会创建旁路取消通道。
 
 ## `ClientSession.nextEvent`
 
@@ -159,26 +221,27 @@ const result = await session.submit({
 
 ## 运行时差异
 
-| 领域              | Native client                                        | Browser client                                                                            |
-| ----------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| 包                | `@nnrp/native-client`                                | `@nnrp/browser-client`                                                                    |
-| Runtime 打开方式  | `openNativeClient(options)` 直接返回已连接 client。  | `openBrowserRuntime(options)` 返回 runtime，然后 `runtime.connect(options)` 返回 client。 |
-| Transport package | TCP 与 QUIC package 携带 native transport artifact。 | WebSocket 是当前浏览器原生路径。                                                          |
-| Server API        | 不暴露。                                             | 不暴露。                                                                                  |
+| 领域              | Native client                                                        | Browser client                                                                            |
+| ----------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 包                | `@nnrp/native-client`                                                | `@nnrp/browser-client`                                                                    |
+| Runtime 打开方式  | `openNativeClient(options)` 直接返回已连接 client。                  | `openBrowserRuntime(options)` 返回 runtime，然后 `runtime.connect(options)` 返回 client。 |
+| Transport package | TCP、QUIC、IPC 与 WebSocket package 携带 native transport artifact。 | Browser client 使用 WebSocket Provider 与 browser-client WASM。                           |
+| Server API        | 不暴露。                                                             | 不暴露。                                                                                  |
 
 ## 选项类型
 
 ### `NnrpNativeClientOptions`
 
-| 字段              | 类型                                                    | 必填 | 说明                                                                     |
-| ----------------- | ------------------------------------------------------- | ---: | ------------------------------------------------------------------------ |
-| `endpoint`        | `string`                                                |   是 | 远端 NNRP endpoint。                                                     |
-| `transportPolicy` | [`NnrpTransportPolicy`](./core#数据类型)                |   否 | `score`、`tcp-only` 或 `quic-only` 等选择策略。                          |
-| `transports`      | `readonly NnrpTransportProvider[]`                      |   否 | 已安装 native transport provider。见 [Transport Provider](./transport)。 |
-| `sessionDefaults` | [`NnrpSessionOptions`](#nnrpsessionoptions)             |   否 | session 未设置字段时使用的默认值。                                       |
-| `environment`     | `Record<string, string>`                                |   否 | Artifact 查找或诊断用环境变量覆盖。                                      |
-| `platform`        | `string`                                                |   否 | 测试和受控打包校验用 platform 覆盖。                                     |
-| `ffi`             | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |   否 | 受控部署和测试用显式 native binding。                                    |
+| 字段               | 类型                                                    | 必填 | 说明                                                                     |
+| ------------------ | ------------------------------------------------------- | ---: | ------------------------------------------------------------------------ |
+| `endpoint`         | `string`                                                |   是 | 远端 NNRP endpoint。                                                     |
+| `providerEndpoint` | `string \| URL`                                         |   否 | 诊断、一致性测试或受控部署使用的显式载体本地 endpoint。                  |
+| `transportPolicy`  | [`NnrpTransportPolicy`](./core#数据类型)                |   否 | `auto`、`prefer-*` 或 `force-*` 选择策略。                               |
+| `transports`       | `readonly NnrpTransportProvider[]`                      |   否 | 已安装 native transport provider。见 [Transport Provider](./transport)。 |
+| `sessionDefaults`  | [`NnrpSessionOptions`](#nnrpsessionoptions)             |   否 | session 未设置字段时使用的默认值。                                       |
+| `environment`      | `Record<string, string>`                                |   否 | Artifact 查找或诊断用环境变量覆盖。                                      |
+| `platform`         | `string`                                                |   否 | 测试和受控打包校验用 platform 覆盖。                                     |
+| `ffi`              | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |   否 | 受控部署和测试用显式 native binding。                                    |
 
 ### `NnrpBrowserRuntimeOptions`
 
@@ -192,12 +255,13 @@ const result = await session.submit({
 
 ### `NnrpBrowserConnectOptions`
 
-| 字段                 | 类型                                                      | 必填 | 说明                               |
-| -------------------- | --------------------------------------------------------- | ---: | ---------------------------------- |
-| `endpoint`           | `string`                                                  |   是 | 远端 WebSocket endpoint。          |
-| `transportPolicy`    | [`NnrpTransportPolicy`](./core#数据类型)                  |   否 | Selection policy。                 |
-| `transportProviders` | `readonly NnrpBrowserTransportProvider[]`                 |   否 | 本连接允许的 browser provider。    |
-| `sessionDefaults`    | [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |   否 | session 未设置字段时使用的默认值。 |
+| 字段                 | 类型                                                      | 必填 | 说明                                         |
+| -------------------- | --------------------------------------------------------- | ---: | -------------------------------------------- |
+| `endpoint`           | `string`                                                  |   是 | 远端 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
+| `providerEndpoint`   | `string \| URL`                                           |   否 | 显式 `ws://` 或 `wss://` 载体本地 endpoint。 |
+| `transportPolicy`    | [`NnrpTransportPolicy`](./core#数据类型)                  |   否 | Selection policy。                           |
+| `transportProviders` | `readonly NnrpBrowserTransportProvider[]`                 |   否 | 本连接允许的 browser provider。              |
+| `sessionDefaults`    | [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |   否 | session 未设置字段时使用的默认值。           |
 
 ### `NnrpSessionOptions`
 
@@ -211,13 +275,6 @@ const result = await session.submit({
 ### `NnrpBrowserSessionOptions`
 
 与 [`NnrpSessionOptions`](#nnrpsessionoptions) 相同，但作用域是 browser client。
-
-### `NnrpCancelOptions`
-
-| 字段       | 类型                      | 必填 | 说明               |
-| ---------- | ------------------------- | ---: | ------------------ |
-| `reason`   | `string`                  |   否 | 人类可读取消原因。 |
-| `metadata` | `Record<string, unknown>` |   否 | 应用 metadata。    |
 
 ### `NnrpEventPollOptions`
 

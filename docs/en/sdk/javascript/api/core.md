@@ -61,10 +61,10 @@ Creates the default browser WASM capability manifest.
 
 Selects the highest-scored eligible transport candidate under a policy.
 
-| Parameter    | Type                                | Required | Description                          |
-| ------------ | ----------------------------------- | -------: | ------------------------------------ |
-| `candidates` | `readonly NnrpTransportCandidate[]` |      Yes | Candidate transports.                |
-| `policy`     | `NnrpTransportPolicy`               |       No | `score`, `tcp-only`, or `quic-only`. |
+| Parameter    | Type                                | Required | Description                                                               |
+| ------------ | ----------------------------------- | -------: | ------------------------------------------------------------------------- |
+| `candidates` | `readonly NnrpTransportCandidate[]` |      Yes | Candidate transports.                                                     |
+| `policy`     | `NnrpTransportPolicy`               |       No | `auto`, one of the `prefer-*` policies, or one of the `force-*` policies. |
 
 | Returns                  |
 | ------------------------ |
@@ -119,19 +119,6 @@ Normalizes an operation id.
 | -------- | ----------------------------------------------- |
 | `bigint` | `NnrpProtocolError` for negative or unsafe ids. |
 
-## `normalizeCancelRequest`
-
-Normalizes a cancel request.
-
-| Parameter   | Type                | Required | Description          |
-| ----------- | ------------------- | -------: | -------------------- |
-| `operation` | `bigint \| number`  |      Yes | Operation id.        |
-| `options`   | `NnrpCancelOptions` |       No | Reason and metadata. |
-
-| Returns             |
-| ------------------- |
-| `NnrpCancelRequest` |
-
 ## `validateEventPollOptions`
 
 Validates event polling options.
@@ -151,8 +138,8 @@ Validates event polling options.
 | Type                            | Description                                                                                                                    |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`.                                                                                          |
-| `NnrpTransportKind`             | `"tcp" \| "quic" \| "webtransport" \| "websocket"`; published preview3 transport packages cover TCP, QUIC, and WebSocket.      |
-| `NnrpTransportPolicy`           | `"score" \| "tcp-only" \| "quic-only"`.                                                                                        |
+| `NnrpTransportKind`             | `"tcp" \| "quic" \| "ipc" \| "websocket"`.                                                                                     |
+| `NnrpTransportPolicy`           | `"auto"`, `"prefer-quic"`, `"prefer-tcp"`, `"prefer-ipc"`, `"prefer-websocket"`, and the four corresponding `force-*` values.  |
 | `NnrpCapability`                | Capability claim such as `client.session`, `server.session`, `native.loader`, `wasm.loader`, `cache`, `schema`, or `recovery`. |
 | `NnrpCapabilityManifest`        | Protocol name/version, build mode, transports, and capabilities.                                                               |
 | `NnrpTransportCandidate`        | Candidate transport, availability, score, rejection reason, and diagnostic.                                                    |
@@ -167,7 +154,6 @@ Validates event polling options.
 | `NnrpSubmitRequest`    | Frame id, payload/tensors, input profile, submit mode, cache key, descriptor, and metadata. |
 | `NnrpResult`           | Frame id, optional payload, optional diagnostic, and metadata.                              |
 | `NnrpRuntimeEvent`     | Result, flow update, result hint, drop, close, or diagnostic event.                         |
-| `NnrpCancelOptions`    | Cancel reason and metadata.                                                                 |
 | `NnrpEventPollOptions` | Optional `timeoutMillis`.                                                                   |
 
 ### Errors

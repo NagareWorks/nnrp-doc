@@ -1,123 +1,116 @@
 # JavaScript/TypeScript Transport Provider API
 
-Transport packages are real provider boundaries. Install the transport packages that the application
-is allowed to use; runtime probing and policy selection choose the active path.
+NNRP calls this boundary a **carrier provider**. It is below the NNRP frame/session model, even when
+the carrier itself is an application protocol such as WebSocket. Transport packages are real
+provider boundaries: install only the carriers the application is allowed to use, and let the role
+package select among those providers.
 
-| Package                     | Host support                                                                | Artifact ownership                                           |
-| --------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `@nnrp/transport-tcp`       | Node.js/Deno native hosts                                                   | Native TCP provider behavior and packaged artifacts.         |
-| `@nnrp/transport-quic`      | Node.js/Deno native hosts                                                   | Native QUIC provider behavior and packaged artifacts.        |
-| `@nnrp/transport-websocket` | Browser/edge clients with a WebSocket implementation; client-side only path | WebSocket provider; no Rust native or browser WASM artifact. |
+## Package And Artifact Boundary
 
-## `createTcpTransportProvider`
+| Package                     | Host support                  | Owned implementation and artifacts                                                                                                                       |
+| --------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@nnrp/transport-tcp`       | Node.js/Deno                  | TCP provider plus the platform-specific Rust TCP library.                                                                                                |
+| `@nnrp/transport-quic`      | Node.js/Deno                  | QUIC provider plus the platform-specific Rust QUIC library.                                                                                              |
+| `@nnrp/transport-ipc`       | Node.js/Deno                  | IPC provider plus the platform-specific Rust IPC library.                                                                                                |
+| `@nnrp/transport-websocket` | Node.js/Deno and browser/edge | Native hosts use the Rust WebSocket library. Browsers use the host `WebSocket` I/O object and the runtime primitives supplied by `@nnrp/browser-client`. |
+| `@nnrp/browser-client`      | Browser/edge                  | The `nnrp-wasm-browser` runtime artifact. It contains browser-safe NNRP framing, control/object codecs, and the WebSocket carrier slot.                  |
 
-Creates a TCP transport provider.
+`@nnrp/native-client` and `@nnrp/native-server` never package transport libraries. TCP, QUIC, and
+IPC never package browser WASM. `@nnrp/transport-websocket` never duplicates the browser WASM owned
+by `@nnrp/browser-client`.
 
-| Parameter | Type                                                                  | Required | Description                                                            |
-| --------- | --------------------------------------------------------------------- | -------: | ---------------------------------------------------------------------- |
-| `options` | [`NnrpTcpTransportProviderOptions`](#nnrptcptransportprovideroptions) |       No | Availability, score, diagnostic override, and optional native binding. |
+## Endpoint Layers
 
-| Returns                    |
-| -------------------------- |
-| `NnrpTcpTransportProvider` |
+Application configuration uses one NNRP endpoint regardless of the selected carrier:
 
 ```ts
-import { createTcpTransportProvider } from "@nnrp/transport-tcp";
-
-const tcp = createTcpTransportProvider({ score: 70 });
+const client = await openNativeClient({
+  endpoint: "nnrps://runtime.example/session/default",
+  transportPolicy: "auto",
+  transports: [websocket, quic, tcp],
+});
 ```
 
-## `createQuicTransportProvider`
+| Endpoint layer         | Accepted forms                                               | Purpose                                                                        |
+| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Application endpoint   | `nnrp://`, `nnrps://`                                        | Normal client/server configuration and provider selection.                     |
+| Provider-local locator | TCP/QUIC host-port, `unix://`, `npipe://`, `ws://`, `wss://` | Conformance fixtures, diagnostics, or an explicit `providerEndpoint` override. |
 
-Creates a QUIC transport provider.
+Role packages resolve an application endpoint after provider selection. They must not require users
+to replace `nnrp://` with a carrier-specific scheme merely because a different package was selected.
 
-| Parameter | Type                                                                    | Required | Description                                                            |
-| --------- | ----------------------------------------------------------------------- | -------: | ---------------------------------------------------------------------- |
-| `options` | [`NnrpQuicTransportProviderOptions`](#nnrpquictransportprovideroptions) |       No | Availability, score, diagnostic override, and optional native binding. |
+## Provider Factories
 
-| Returns                     |
-| --------------------------- |
-| `NnrpQuicTransportProvider` |
+| Factory                                      | Package                     | Returns                          |
+| -------------------------------------------- | --------------------------- | -------------------------------- |
+| `createTcpTransportProvider(options?)`       | `@nnrp/transport-tcp`       | `NnrpTcpTransportProvider`       |
+| `createQuicTransportProvider(options?)`      | `@nnrp/transport-quic`      | `NnrpQuicTransportProvider`      |
+| `createIpcTransportProvider(options?)`       | `@nnrp/transport-ipc`       | `NnrpIpcTransportProvider`       |
+| `createWebSocketTransportProvider(options?)` | `@nnrp/transport-websocket` | `NnrpWebSocketTransportProvider` |
+
+Every native provider implements `probe`, `connect`, and `listen`. The browser WebSocket provider
+implements `probe` and `connect`; browser packages do not expose a server listener.
 
 ```ts
+import { createIpcTransportProvider } from "@nnrp/transport-ipc";
 import { createQuicTransportProvider } from "@nnrp/transport-quic";
-
-const quic = createQuicTransportProvider({ score: 90 });
-```
-
-## `createWebSocketTransportProvider`
-
-Creates a WebSocket transport provider. It uses the host's WebSocket implementation instead of a
-Rust transport artifact.
-
-| Parameter | Type                                                                              | Required | Description                                                                     |
-| --------- | --------------------------------------------------------------------------------- | -------: | ------------------------------------------------------------------------------- |
-| `options` | [`NnrpWebSocketTransportProviderOptions`](#nnrpwebsockettransportprovideroptions) |       No | Availability, score, diagnostic override, and optional `WebSocket` constructor. |
-
-| Returns                          |
-| -------------------------------- |
-| `NnrpWebSocketTransportProvider` |
-
-```ts
+import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 import { createWebSocketTransportProvider } from "@nnrp/transport-websocket";
 
+const ipc = createIpcTransportProvider();
+const quic = createQuicTransportProvider();
+const tcp = createTcpTransportProvider();
 const websocket = createWebSocketTransportProvider();
 ```
 
 ## Provider Selection
 
-Role packages receive providers explicitly:
+`NnrpTransportKind` is exactly `"tcp" | "quic" | "ipc" | "websocket"`. `NnrpTransportPolicy` is
+exactly:
 
 ```ts
-const client = await openNativeClient({
-  endpoint: "127.0.0.1:4433",
-  transportPolicy: "score",
-  transports: [
-    createQuicTransportProvider(),
-    createTcpTransportProvider(),
-  ],
-});
+type NnrpTransportPolicy =
+  | "auto"
+  | "prefer-quic"
+  | "prefer-tcp"
+  | "prefer-ipc"
+  | "prefer-websocket"
+  | "force-quic"
+  | "force-tcp"
+  | "force-ipc"
+  | "force-websocket";
 ```
 
-If several providers are installed and passed in, the runtime probes them and applies the transport
-policy. A provider package is not just a configuration switch; it owns the behavior and artifacts
-for its transport.
+One provider is selected directly. Two or more providers are probed and ranked by policy, measured
+path quality, provider cost, preference, and limits. A forced policy fails when that provider is not
+installed or unavailable; it never falls back to an uninstalled package.
 
-Browsers do not expose raw operating-system TCP or QUIC sockets. The current browser client accepts
-the WebSocket provider. TCP and QUIC providers are native host providers; WebSocket is a client-side
-provider and does not expose a server listener in this SDK.
+## Shared Provider Options
 
-## Artifact Boundary
+TCP, QUIC, IPC, and native WebSocket provider options share these fields:
 
-| Package                     | Includes native `.dll` / `.so` / `.dylib` | Includes browser WASM primitives | Notes                                                                        |
-| --------------------------- | ----------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
-| `@nnrp/native-client`       | No                                        | No                               | Client role only.                                                            |
-| `@nnrp/native-server`       | No                                        | No                               | Server role only.                                                            |
-| `@nnrp/browser-client`      | No                                        | Browser runtime primitives       | Browser role only.                                                           |
-| `@nnrp/transport-tcp`       | Yes                                       | No                               | TCP owns TCP artifacts for native hosts.                                     |
-| `@nnrp/transport-quic`      | Yes                                       | No                               | QUIC owns QUIC artifacts for native hosts.                                   |
-| `@nnrp/transport-websocket` | No                                        | No                               | Host WebSocket provider; Rust does not expose WebSocket transport artifacts. |
+| Field        | Type                                                    | Required | Description                                                       |
+| ------------ | ------------------------------------------------------- | -------: | ----------------------------------------------------------------- |
+| `available`  | `boolean`                                               |       No | Controlled availability override for tests and deployment policy. |
+| `score`      | `number`                                                |       No | Local score adjustment applied after capability filtering.        |
+| `diagnostic` | [`NnrpDiagnostic`](./core#data-types)                   |       No | Typed unavailable/degraded diagnostic.                            |
+| `binding`    | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled deployments and tests.     |
 
-## Option Types
+`NnrpWebSocketTransportProviderOptions` additionally accepts `WebSocket?: typeof WebSocket` for a
+browser/edge constructor override. `NnrpIpcTransportProviderOptions` accepts
+`platform?: "unix" | "windows"` only as a controlled test override; normal selection uses the host
+platform.
 
-### `NnrpTcpTransportProviderOptions`
+## Connection And Listen Options
 
-| Field        | Type                                                    | Required | Description                                        |
-| ------------ | ------------------------------------------------------- | -------: | -------------------------------------------------- |
-| `available`  | `boolean`                                               |       No | Local availability override.                       |
-| `score`      | `number`                                                |       No | Local transport score override.                    |
-| `diagnostic` | [`NnrpDiagnostic`](./core#data-types)                   |       No | Reason for unavailable or degraded provider state. |
-| `binding`    | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding override.                  |
+Role-package connect/listen options freeze these endpoint fields:
 
-### `NnrpQuicTransportProviderOptions`
+| Field              | Type                               | Required | Description                                 |
+| ------------------ | ---------------------------------- | -------: | ------------------------------------------- |
+| `endpoint`         | `string                            |     URL` | Yes                                         |
+| `providerEndpoint` | `string                            |     URL` | No                                          |
+| `transportPolicy`  | `NnrpTransportPolicy`              |       No | Defaults to `auto`.                         |
+| `transports`       | `readonly NnrpTransportProvider[]` |       No | Providers installed for this role instance. |
 
-Same shape as [`NnrpTcpTransportProviderOptions`](#nnrptcptransportprovideroptions), scoped to QUIC.
-
-### `NnrpWebSocketTransportProviderOptions`
-
-| Field        | Type                                  | Required | Description                                                   |
-| ------------ | ------------------------------------- | -------: | ------------------------------------------------------------- |
-| `available`  | `boolean`                             |       No | Local availability override.                                  |
-| `score`      | `number`                              |       No | Local transport score override.                               |
-| `diagnostic` | [`NnrpDiagnostic`](./core#data-types) |       No | Reason for unavailable or degraded provider state.            |
-| `WebSocket`  | `typeof WebSocket`                    |       No | Constructor override for tests or non-standard browser hosts. |
+Text WebSocket messages are protocol errors. NNRP data and control frames use WebSocket binary
+messages only.

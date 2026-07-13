@@ -50,10 +50,10 @@
 
 按策略选择评分最高的可用 transport candidate。
 
-| 参数         | 类型                                | 必填 | 说明                                 |
-| ------------ | ----------------------------------- | ---: | ------------------------------------ |
-| `candidates` | `readonly NnrpTransportCandidate[]` |   是 | 候选 transport。                     |
-| `policy`     | `NnrpTransportPolicy`               |   否 | `score`、`tcp-only` 或 `quic-only`。 |
+| 参数         | 类型                                | 必填 | 说明                                                |
+| ------------ | ----------------------------------- | ---: | --------------------------------------------------- |
+| `candidates` | `readonly NnrpTransportCandidate[]` |   是 | 候选 transport。                                    |
+| `policy`     | `NnrpTransportPolicy`               |   否 | `auto`、一种 `prefer-*` 策略或一种 `force-*` 策略。 |
 
 | 返回                     |
 | ------------------------ |
@@ -108,19 +108,6 @@
 | -------- | --------------------------------------------- |
 | `bigint` | 负数或 unsafe id 会抛出 `NnrpProtocolError`。 |
 
-## `normalizeCancelRequest`
-
-规范化 cancel request。
-
-| 参数        | 类型                | 必填 | 说明                 |
-| ----------- | ------------------- | ---: | -------------------- |
-| `operation` | `bigint \| number`  |   是 | Operation id。       |
-| `options`   | `NnrpCancelOptions` |   否 | Reason 和 metadata。 |
-
-| 返回                |
-| ------------------- |
-| `NnrpCancelRequest` |
-
 ## `validateEventPollOptions`
 
 校验事件轮询选项。
@@ -137,15 +124,15 @@
 
 ### Capability 与 Transport
 
-| 类型                            | 说明                                                                                                                  |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`。                                                                                |
-| `NnrpTransportKind`             | `"tcp" \| "quic" \| "webtransport" \| "websocket"`；preview3 已发布的 transport package 覆盖 TCP、QUIC 与 WebSocket。 |
-| `NnrpTransportPolicy`           | `"score" \| "tcp-only" \| "quic-only"`。                                                                              |
-| `NnrpCapability`                | `client.session`、`server.session`、`native.loader`、`wasm.loader`、`cache`、`schema`、`recovery` 等能力声明。        |
-| `NnrpCapabilityManifest`        | 协议名/版本、build mode、transports 和 capabilities。                                                                 |
-| `NnrpTransportCandidate`        | 候选 transport、可用性、score、拒绝原因和诊断。                                                                       |
-| `NnrpTransportSelectionSummary` | 被选中的 transport 和 rejected candidates。                                                                           |
+| 类型                            | 说明                                                                                                           |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`。                                                                         |
+| `NnrpTransportKind`             | `"tcp" \| "quic" \| "ipc" \| "websocket"`。                                                                    |
+| `NnrpTransportPolicy`           | `"auto"`、`"prefer-quic"`、`"prefer-tcp"`、`"prefer-ipc"`、`"prefer-websocket"` 以及四种对应的 `force-*` 值。  |
+| `NnrpCapability`                | `client.session`、`server.session`、`native.loader`、`wasm.loader`、`cache`、`schema`、`recovery` 等能力声明。 |
+| `NnrpCapabilityManifest`        | 协议名/版本、build mode、transports 和 capabilities。                                                          |
+| `NnrpTransportCandidate`        | 候选 transport、可用性、score、拒绝原因和诊断。                                                                |
+| `NnrpTransportSelectionSummary` | 被选中的 transport 和 rejected candidates。                                                                    |
 
 ### Submit、Result 与 Event
 
@@ -156,7 +143,6 @@
 | `NnrpSubmitRequest`    | Frame id、payload/tensors、input profile、submit mode、cache key、descriptor 和 metadata。 |
 | `NnrpResult`           | Frame id、可选 payload、可选 diagnostic 和 metadata。                                      |
 | `NnrpRuntimeEvent`     | Result、flow update、result hint、drop、close 或 diagnostic event。                        |
-| `NnrpCancelOptions`    | Cancel reason 和 metadata。                                                                |
 | `NnrpEventPollOptions` | 可选 `timeoutMillis`。                                                                     |
 
 ### 错误
