@@ -136,6 +136,12 @@ artifact 限制以上。
 候选没有 rank。`sample_count` 必须为正数，`success_count` 必须处于 `1..sample_count`，两个中位数只根据
 成功且参与评分的样本计算。
 
+原始 probe sample 归属于 `provider.id`，而不是 package 展示名。仅当 `failed` 与 `timed_out` 均为 false、
+`rtt_us` 存在且 `elapsed_us` 为正时，sample 才算成功。单个 sample 的有效吞吐为
+`floor(saturating_add(bytes_sent, bytes_received) * 1_000_000 / elapsed_us)`，并饱和到 `u64`。计算任一 median
+时，必须将成功 sample 的逐样本值升序排列；奇数个取中间值，偶数个取
+`lower + floor((upper - lower) / 2)`。实现不得先聚合 bytes 与 elapsed time 再计算吞吐 median。
+
 rejection 注册表精确固定为：`policy-disallowed`、`local-unavailable`、`peer-unsupported`、
 `limit-exceeded`、`probe-missing`、`probe-failed`。SDK 公共 API 不得暴露各语言私有的不透明 `score`；
 相同观测必须在所有实现中产生相同排序和诊断。
@@ -169,6 +175,10 @@ SDK API 表时，才算已经冻结。
 6. 剩余并列依次由显式 `prefer-*` 目标、`provider.preference_rank` 升序、`transport_id` 数值升序和
    `provider.id` 字节序升序打破。
 7. 排序后写入 `selection_rank`，选择 rank `0`。
+
+Probe sample 按 `(transport_id, provider.id)` 二元组匹配。Candidate 输出先列出成功排序的 candidates，再按
+数字 `transport_id` 与逐字节 `provider.id` 排列被拒绝 candidates。选择错误必须携带完整 candidate 列表，包括
+本地、对端、上限、缺少 probe 和 probe 失败诊断。
 
 `force-*` 绝不回退。`prefer-*` 是确定性并列裁决，不允许实现选择已经明确失败或质量显著更差的路径。
 Preview4 跨 SDK 契约是这套 comparator，而不是某个实现私有的加权公式。

@@ -36,6 +36,7 @@ nnrp-wasm = "1.0.0-preview.4.0"
 
 WASM 表面使用[传输策略与探测](/zh/protocol/v1/transport-strategy)冻结的 provider 元数据、candidate 诊断、拒绝原因
 注册表与确定性排序，不导出加权 score。
+Probe sample JSON 使用 `provider_id`；package 展示名不是选路身份。
 
 JSON 边界保持足够粗粒度，方便 JS/TS SDK 批处理，避免大量字段级 JS/WASM 往返。
 

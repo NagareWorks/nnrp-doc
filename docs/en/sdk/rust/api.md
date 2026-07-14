@@ -73,10 +73,12 @@ types from `nnrp-transport-provider`:
 | `TransportProviderMetadata` | `id`, `cost`, `preference_rank`, `limits`, `limitations` |
 | `TransportProviderDescriptor` | `name`, `version`, `transport_id`, `kind`, `available`, optional `library_path`, `metadata`, optional `diagnostic` |
 | `ProbeMetrics` | `sample_count`, `success_count`, `median_throughput_bytes_per_sec`, `median_rtt_us` |
+| `ProbeSample` | `transport_id`, `provider_id`, `elapsed_us`, optional `rtt_us`, `bytes_sent`, `bytes_received`, `timed_out`, `failed` |
 | `ProbeState` | `NotRun`, `Succeeded`, `Failed`, `Missing` |
 | `TransportCandidateDiagnostic` | `transport_id`, `provider`, `local_available`, `peer_supported`, `within_limits`, `probe_state`, optional `probe`, optional `selection_rank`, optional `rejection_reason`, optional `diagnostic` |
 | `TransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `ProbeMissing`, `ProbeFailed` |
 | `TransportSelection` | Selected descriptor plus the ordered `candidates` list; rank `0` is selected |
+| `TransportSelectionError` | `ForcedTransportUnavailable { transport_id, candidates }` or `NoViableTransport { candidates }` |
 
 The selection entry points are frozen as:
 
@@ -106,6 +108,9 @@ pub fn summarize_provider_probe(
 filtering leaves one eligible provider. `TransportProviderRegistry::select_with_probe` has the same arguments as
 `select_transport_with_probe` after `&self`. Multiple eligible providers without samples are reported as
 `ProbeMissing`; they are never ordered by an implementation-private shortcut.
+
+`ProbeSample.provider_id` is matched to `TransportProviderMetadata.id`. `TransportSelectionError.candidates` uses the
+same ordered diagnostic model as successful selection, so an error never discards provider evidence.
 
 Both selection functions use the comparator frozen in
 [Transport Strategy and Probing](/en/protocol/v1/transport-strategy). The public API exposes structured metrics and

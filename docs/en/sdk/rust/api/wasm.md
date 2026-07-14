@@ -37,6 +37,7 @@ nnrp-wasm = "1.0.0-preview.4.0"
 
 The WASM surface uses the provider metadata, candidate diagnostics, rejection registry, and deterministic ordering
 frozen in [Transport Strategy and Probing](/en/protocol/v1/transport-strategy). It does not export a weighted score.
+Probe sample JSON uses `provider_id`; package display names are not selection identities.
 
 The JSON boundary is intentionally coarse enough for JS/TS SDKs to batch work and avoid tiny
 field-by-field crossings.

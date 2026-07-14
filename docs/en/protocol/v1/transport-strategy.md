@@ -139,6 +139,13 @@ Every SDK exposes the same candidate information, with language-idiomatic casing
 ordered candidates. Rejected candidates have no rank. `sample_count` must be positive, `success_count` must be in
 `1..sample_count`, and both median values are computed from successful scored samples only.
 
+A raw probe sample belongs to `provider.id`, not a package display name. It is successful exactly when `failed` and
+`timed_out` are both false, `rtt_us` is present, and `elapsed_us` is positive. Its effective throughput is
+`floor(saturating_add(bytes_sent, bytes_received) * 1_000_000 / elapsed_us)`, saturated to `u64`. To compute either
+median, sort successful per-sample values ascending; use the middle value for an odd count and
+`lower + floor((upper - lower) / 2)` for an even count. Implementations must not aggregate bytes and elapsed time before
+computing the throughput median.
+
 The rejection registry is exact: `policy-disallowed`, `local-unavailable`, `peer-unsupported`,
 `limit-exceeded`, `probe-missing`, and `probe-failed`. Public SDK APIs must not expose a language-specific opaque
 `score`; identical observations must produce identical ordering and diagnostics across implementations.
@@ -172,6 +179,10 @@ Selection follows this sequence:
 6. Break remaining ties by the explicit `prefer-*` target, then `provider.preference_rank` ascending,
    `transport_id` numeric value ascending, and `provider.id` bytewise ascending.
 7. Assign `selection_rank` after ordering and select rank `0`.
+
+Probe samples are matched by the tuple `(transport_id, provider.id)`. Candidate output lists successfully ordered
+candidates first, then rejected candidates ordered by numeric `transport_id` and bytewise `provider.id`. Selection
+errors carry that complete candidate list, including local, peer, limit, missing-probe, and failed-probe diagnostics.
 
 `force-*` never falls back. `prefer-*` is a deterministic tie-break rather than permission to choose a measurably
 failed or inferior path. This comparator, not a private weighted formula, is the Preview4 cross-SDK contract.

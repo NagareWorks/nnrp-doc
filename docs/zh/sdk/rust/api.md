@@ -85,10 +85,12 @@ Rust SDK 是冻结选路契约的一等实现，不只是其他语言的产物�
 | `TransportProviderMetadata` | `id`、`cost`、`preference_rank`、`limits`、`limitations` |
 | `TransportProviderDescriptor` | `name`、`version`、`transport_id`、`kind`、`available`、可选 `library_path`、`metadata`、可选 `diagnostic` |
 | `ProbeMetrics` | `sample_count`、`success_count`、`median_throughput_bytes_per_sec`、`median_rtt_us` |
+| `ProbeSample` | `transport_id`、`provider_id`、`elapsed_us`、可选 `rtt_us`、`bytes_sent`、`bytes_received`、`timed_out`、`failed` |
 | `ProbeState` | `NotRun`、`Succeeded`、`Failed`、`Missing` |
 | `TransportCandidateDiagnostic` | `transport_id`、`provider`、`local_available`、`peer_supported`、`within_limits`、`probe_state`、可选 `probe`、可选 `selection_rank`、可选 `rejection_reason`、可选 `diagnostic` |
 | `TransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`ProbeMissing`、`ProbeFailed` |
 | `TransportSelection` | 选中的 descriptor 与有序 `candidates`；rank `0` 为最终选择 |
+| `TransportSelectionError` | `ForcedTransportUnavailable { transport_id, candidates }` 或 `NoViableTransport { candidates }` |
 
 选择入口冻结为：
 
@@ -118,6 +120,9 @@ pub fn summarize_provider_probe(
 一个可用 provider 时成功。`TransportProviderRegistry::select_with_probe` 在 `&self` 之后采用与
 `select_transport_with_probe` 相同的参数。多个可用 provider 没有 samples 时统一报告 `ProbeMissing`，不得通过
 实现私有的捷径排序。
+
+`ProbeSample.provider_id` 与 `TransportProviderMetadata.id` 匹配。`TransportSelectionError.candidates` 使用与成功
+选择相同的有序诊断模型，因此错误不得丢弃 provider 证据。
 
 两种选择函数都必须使用[传输策略与探测](/zh/protocol/v1/transport-strategy)冻结的 comparator。公开 API 暴露结构化
 metrics 与有序诊断；`ProbeScore`、`ProbeCandidateScore`、`ProbeSelection` 以及任何不透明加权 score 均不属于
