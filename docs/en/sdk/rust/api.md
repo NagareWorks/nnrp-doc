@@ -78,9 +78,39 @@ types from `nnrp-transport-provider`:
 | `TransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `ProbeMissing`, `ProbeFailed` |
 | `TransportSelection` | Selected descriptor plus the ordered `candidates` list; rank `0` is selected |
 
-`TransportProviderRegistry::select` and `select_transport_with_probe` use the comparator frozen in
+The selection entry points are frozen as:
+
+```rust
+pub fn select_transport(
+    providers: &[TransportProviderDescriptor],
+    remote: &RemoteTransportSupport,
+    policy: TransportPolicy,
+    requested_max_frame_bytes: Option<u64>,
+) -> Result<TransportSelection, TransportSelectionError>;
+
+pub fn select_transport_with_probe(
+    providers: &[TransportProviderDescriptor],
+    remote: &RemoteTransportSupport,
+    policy: TransportPolicy,
+    requested_max_frame_bytes: Option<u64>,
+    samples: &[ProbeSample],
+) -> Result<TransportSelection, TransportSelectionError>;
+
+pub fn summarize_provider_probe(
+    provider: &TransportProviderDescriptor,
+    samples: &[ProbeSample],
+) -> Option<ProbeMetrics>;
+```
+
+`TransportProviderRegistry::select` has the same arguments as `select_transport` after `&self` and succeeds only when
+filtering leaves one eligible provider. `TransportProviderRegistry::select_with_probe` has the same arguments as
+`select_transport_with_probe` after `&self`. Multiple eligible providers without samples are reported as
+`ProbeMissing`; they are never ordered by an implementation-private shortcut.
+
+Both selection functions use the comparator frozen in
 [Transport Strategy and Probing](/en/protocol/v1/transport-strategy). The public API exposes structured metrics and
-ordered diagnostics; no opaque weighted score is part of the Preview4 API.
+ordered diagnostics; `ProbeScore`, `ProbeCandidateScore`, `ProbeSelection`, and any opaque weighted score are not part
+of the Preview4 API.
 
 ## Runtime Control And Object/Cache Frames
 

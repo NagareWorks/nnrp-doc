@@ -25,8 +25,8 @@ nnrp-wasm = "1.0.0-preview.4.0"
 |---|---|
 | `nnrp_wasm_protocol_major()` | Returns protocol major version. |
 | `nnrp_wasm_wire_format()` | Returns wire format id. |
-| `selectTransportWithProbeJson(...)` | Applies provider/probe policy and returns selected provider JSON. |
-| `scoreProviderProbeJson(...)` | Scores one provider against policy and probe samples. |
+| `selectTransportWithProbeJson(providersJson, remoteTransportsJson, policy, requestedMaxFrameBytes, samplesJson)` | Applies the frozen provider/probe policy and returns `TransportSelection` JSON. `requestedMaxFrameBytes` is an absent value or a canonical decimal `u64` string. |
+| `summarizeProviderProbeJson(providerJson, samplesJson)` | Returns structured `ProbeMetrics` JSON for one provider. |
 | `encodeWebSocketBinaryFrameJson(...)` | Encodes a browser WebSocket binary-frame wrapper. |
 | `decodeWebSocketBinaryFrameJson(...)` | Decodes one browser WebSocket binary-frame wrapper. |
 | `decodeWebSocketBinaryFrameBatchJson(...)` | Decodes multiple browser binary frames. |
@@ -34,6 +34,9 @@ nnrp-wasm = "1.0.0-preview.4.0"
 | `decodeRuntimeControlMetadataJson(...)` | Decodes runtime-control metadata to JSON. |
 | `encodeRuntimeObjectMetadataJson(...)` | Encodes runtime object metadata from JSON. |
 | `decodeRuntimeObjectMetadataJson(...)` | Decodes runtime object metadata to JSON. |
+
+The WASM surface uses the provider metadata, candidate diagnostics, rejection registry, and deterministic ordering
+frozen in [Transport Strategy and Probing](/en/protocol/v1/transport-strategy). It does not export a weighted score.
 
 The JSON boundary is intentionally coarse enough for JS/TS SDKs to batch work and avoid tiny
 field-by-field crossings.

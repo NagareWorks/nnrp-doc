@@ -90,6 +90,35 @@ Rust SDK 是冻结选路契约的一等实现，不只是其他语言的产物�
 | `TransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`ProbeMissing`、`ProbeFailed` |
 | `TransportSelection` | 选中的 descriptor 与有序 `candidates`；rank `0` 为最终选择 |
 
-`TransportProviderRegistry::select` 和 `select_transport_with_probe` 必须使用
-[传输策略与探测](/zh/protocol/v1/transport-strategy)冻结的 comparator。Preview4 公共 API 只公开结构化
-metrics 与有序诊断，不公开不透明加权 score。
+选择入口冻结为：
+
+```rust
+pub fn select_transport(
+    providers: &[TransportProviderDescriptor],
+    remote: &RemoteTransportSupport,
+    policy: TransportPolicy,
+    requested_max_frame_bytes: Option<u64>,
+) -> Result<TransportSelection, TransportSelectionError>;
+
+pub fn select_transport_with_probe(
+    providers: &[TransportProviderDescriptor],
+    remote: &RemoteTransportSupport,
+    policy: TransportPolicy,
+    requested_max_frame_bytes: Option<u64>,
+    samples: &[ProbeSample],
+) -> Result<TransportSelection, TransportSelectionError>;
+
+pub fn summarize_provider_probe(
+    provider: &TransportProviderDescriptor,
+    samples: &[ProbeSample],
+) -> Option<ProbeMetrics>;
+```
+
+`TransportProviderRegistry::select` 在 `&self` 之后采用与 `select_transport` 相同的参数，并且只有在筛选后仅剩
+一个可用 provider 时成功。`TransportProviderRegistry::select_with_probe` 在 `&self` 之后采用与
+`select_transport_with_probe` 相同的参数。多个可用 provider 没有 samples 时统一报告 `ProbeMissing`，不得通过
+实现私有的捷径排序。
+
+两种选择函数都必须使用[传输策略与探测](/zh/protocol/v1/transport-strategy)冻结的 comparator。公开 API 暴露结构化
+metrics 与有序诊断；`ProbeScore`、`ProbeCandidateScore`、`ProbeSelection` 以及任何不透明加权 score 均不属于
+Preview4 API。
