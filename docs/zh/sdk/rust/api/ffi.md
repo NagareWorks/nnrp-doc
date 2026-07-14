@@ -22,6 +22,24 @@ Preview4 发布 transport-scoped native artifacts。角色是 client 还是 serv
 
 每个包包含 native library、`nnrp_ffi.h` 和 manifest。Manifest 声明 platform、architecture、transport、library name 和 exported symbols。下游 SDK 加载前必须校验 manifest。
 
+manifest 还必须包含以下精确 provider 元数据对象：
+
+```json
+{
+  "provider": {
+    "id": "nnrp.transport.tcp.native",
+    "cost": { "model_id": 0, "units": "0" },
+    "preference_rank": 2,
+    "limits": { "max_frame_bytes": "67108864" },
+    "limitations": ["requires-tcp", "native-host-only"]
+  }
+}
+```
+
+两个 `u64` 值使用规范十进制字符串，避免 JavaScript 丢失精度。字段缺失、出现未知 limitation、
+`max_frame_bytes` 为零，或 cost model 为 `0` 时 units 非零，都会使 artifact 无效。loader 必须在 provider
+和 candidate 诊断中保留该对象。
+
 ## ABI Types
 
 | 类型 | 说明 |

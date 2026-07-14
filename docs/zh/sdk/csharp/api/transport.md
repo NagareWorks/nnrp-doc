@@ -61,21 +61,43 @@ await using var transport = await NnrpTcpMessageTransport.ConnectAsync("127.0.0.
 
 ## Native Runtime Transport Provider
 
-`Nnrp.Transport.Tcp` 与 `Nnrp.Transport.Quic` 分别暴露 provider 和 runtime helper，把 package
-边界映射到 Rust native transport slot。它们与 [Client](./client#native-runtime-bridge) 中的 native
+`Nnrp.Transport.Tcp`、`Nnrp.Transport.Quic`、`Nnrp.Transport.Ipc` 与 `Nnrp.Transport.WebSocket`
+分别暴露 provider 和 runtime helper，把 package 边界映射到 Rust native transport slot。它们与 [Client](./client#native-runtime-bridge) 中的 native
 bridge host facade 配合使用。
 
 | 类型                              | 用途                                                  |
 | --------------------------------- | ----------------------------------------------------- |
 | `NnrpNativeTcpTransportProvider`  | TCP native runtime provider identity。                |
 | `NnrpNativeQuicTransportProvider` | QUIC native runtime provider identity。               |
+| `NnrpNativeIpcTransportProvider` | IPC native runtime provider identity。               |
+| `NnrpNativeWebSocketTransportProvider` | WebSocket native runtime provider identity。       |
 | `NnrpNativeTcpRuntime`            | 打开 TCP-backed session、connection 和 server host。  |
 | `NnrpNativeQuicRuntime`           | 打开 QUIC-backed session、connection 和 server host。 |
+| `NnrpNativeIpcRuntime`            | 打开 IPC-backed session、connection 和 server host。 |
+| `NnrpNativeWebSocketRuntime`      | 打开 WebSocket-backed session、connection 和 server host。 |
 
 ```csharp
 using var host = NnrpNativeTcpRuntime.OpenConnectionHost(
     new NnrpNativeTcpRuntimeConnectionHostOptions(connectionId: 1, connectionGeneration: 1));
 ```
+
+### Provider 选择模型
+
+| C# 类型 | 冻结属性 |
+|---|---|
+| `NnrpTransportProviderCost` | `ModelId: ushort`、`Units: ulong` |
+| `NnrpTransportProviderLimits` | `MaxFrameBytes: ulong` |
+| `NnrpTransportProviderLimitation` | `RequiresUdp`、`RequiresTcp`、`LocalHostOnly`、`NativeHostOnly`、`BrowserHostOnly`、`UnixDomainSocket`、`WindowsNamedPipe` |
+| `NnrpTransportProviderMetadata` | `Id`、`Cost`、`PreferenceRank`、`Limits`、`Limitations` |
+| `NnrpTransportProviderDescriptor` | `Name`、`Version`、`TransportId`、`Kind`、`Available`、`LibraryPath`、`Metadata`、`Diagnostic` |
+| `NnrpTransportProbeState` | `NotRun`、`Succeeded`、`Failed`、`Missing` |
+| `NnrpTransportProbeMetrics` | `SampleCount`、`SuccessCount`、`MedianThroughputBytesPerSecond`、`MedianRttMicroseconds` |
+| `NnrpTransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`ProbeMissing`、`ProbeFailed` |
+| `NnrpTransportCandidate` | `TransportId`、`Provider`、`LocalAvailable`、`PeerSupported`、`WithinLimits`、`ProbeState`、`Probe`、`SelectionRank`、`RejectionReason`、`Diagnostic` |
+| `NnrpTransportSelection` | `SelectedProvider`、有序 `Candidates`、`Policy`、`Diagnostic` |
+
+C# 必须校验每个 Rust artifact 的 provider 元数据，并使用[传输策略与探测](/zh/protocol/v1/transport-strategy)
+冻结的 comparator；不得公开 C# 私有的加权 score。
 
 ## 核心 Transport 类型
 

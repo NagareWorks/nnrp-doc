@@ -72,3 +72,24 @@ capability negotiation、route hint、cache reference 和 trace context。Wire �
 | Checksums | `SHA256SUMS` |
 
 下游 SDK 加载 native library 或 WASM 文件前，应先校验 artifact manifest。
+
+## Transport Provider 公共 API
+
+Rust SDK 是冻结选路契约的一等实现，不只是其他语言的产物后端。`nnrp-transport-provider` 精确公开以下类型：
+
+| 类型 | 冻结字段 |
+|---|---|
+| `ProviderCost` | `model_id: u16`、`units: u64` |
+| `ProviderLimits` | `max_frame_bytes: u64` |
+| `ProviderLimitation` | `RequiresUdp`、`RequiresTcp`、`LocalHostOnly`、`NativeHostOnly`、`BrowserHostOnly`、`UnixDomainSocket`、`WindowsNamedPipe` |
+| `TransportProviderMetadata` | `id`、`cost`、`preference_rank`、`limits`、`limitations` |
+| `TransportProviderDescriptor` | `name`、`version`、`transport_id`、`kind`、`available`、可选 `library_path`、`metadata`、可选 `diagnostic` |
+| `ProbeMetrics` | `sample_count`、`success_count`、`median_throughput_bytes_per_sec`、`median_rtt_us` |
+| `ProbeState` | `NotRun`、`Succeeded`、`Failed`、`Missing` |
+| `TransportCandidateDiagnostic` | `transport_id`、`provider`、`local_available`、`peer_supported`、`within_limits`、`probe_state`、可选 `probe`、可选 `selection_rank`、可选 `rejection_reason`、可选 `diagnostic` |
+| `TransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`ProbeMissing`、`ProbeFailed` |
+| `TransportSelection` | 选中的 descriptor 与有序 `candidates`；rank `0` 为最终选择 |
+
+`TransportProviderRegistry::select` 和 `select_transport_with_probe` 必须使用
+[传输策略与探测](/zh/protocol/v1/transport-strategy)冻结的 comparator。Preview4 公共 API 只公开结构化
+metrics 与有序诊断，不公开不透明加权 score。

@@ -92,9 +92,14 @@ TCP、QUIC、IPC 与 native WebSocket Provider 共享以下字段：
 | 字段         | 类型                                                    | 必填 | 说明                                  |
 | ------------ | ------------------------------------------------------- | ---: | ------------------------------------- |
 | `available`  | `boolean`                                               |   否 | 测试与部署策略使用的受控可用性覆盖。  |
-| `score`      | `number`                                                |   否 | 能力过滤后的本地分数调整。            |
+| `cost`       | `NnrpTransportProviderCost`                             |   否 | 与 artifact 原始值并存的部署成本覆盖。 |
+| `preferenceRank` | `number`                                            |   否 | 部署偏好覆盖；值越小越优先。          |
+| `maxFrameBytes` | `bigint`                                             |   否 | 只能降低、不能提高 artifact frame limit。 |
 | `diagnostic` | [`NnrpDiagnostic`](./core#数据类型)                     |   否 | 不可用或降级诊断。                    |
 | `binding`    | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |   否 | 受控部署与测试使用的 native binding。 |
+
+每个 provider 都公开已校验的 `NnrpTransportProviderMetadata`。多 provider 选择返回有序
+`NnrpTransportCandidate` 诊断并使用公共 comparator；provider 包不得注入私有 score。
 
 `NnrpWebSocketTransportProviderOptions` 额外接受 `WebSocket?: typeof WebSocket`，用于覆盖
 browser/edge 构造器。`NnrpIpcTransportProviderOptions` 只为受控测试接受

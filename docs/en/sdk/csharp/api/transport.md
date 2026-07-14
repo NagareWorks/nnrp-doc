@@ -69,21 +69,43 @@ var message = await transport.ReceiveAsync(ct);
 
 ## Native Runtime Transport Providers
 
-`Nnrp.Transport.Tcp` and `Nnrp.Transport.Quic` each expose a provider and runtime helper that map
-the package boundary to the Rust native transport slot. Use them with the native bridge host facades
+`Nnrp.Transport.Tcp`, `Nnrp.Transport.Quic`, `Nnrp.Transport.Ipc`, and `Nnrp.Transport.WebSocket`
+each expose a provider and runtime helper that map the package boundary to the Rust native transport slot. Use them with the native bridge host facades
 described in [Client](./client#native-runtime-bridge).
 
 | Type                              | Purpose                                                  |
 | --------------------------------- | -------------------------------------------------------- |
 | `NnrpNativeTcpTransportProvider`  | TCP provider identity for native runtime selection.      |
 | `NnrpNativeQuicTransportProvider` | QUIC provider identity for native runtime selection.     |
+| `NnrpNativeIpcTransportProvider` | IPC provider identity for native runtime selection.     |
+| `NnrpNativeWebSocketTransportProvider` | WebSocket provider identity for native runtime selection. |
 | `NnrpNativeTcpRuntime`            | Opens TCP-backed session, connection, and server hosts.  |
 | `NnrpNativeQuicRuntime`           | Opens QUIC-backed session, connection, and server hosts. |
+| `NnrpNativeIpcRuntime`            | Opens IPC-backed session, connection, and server hosts. |
+| `NnrpNativeWebSocketRuntime`      | Opens WebSocket-backed session, connection, and server hosts. |
 
 ```csharp
 using var host = NnrpNativeTcpRuntime.OpenConnectionHost(
     new NnrpNativeTcpRuntimeConnectionHostOptions(connectionId: 1, connectionGeneration: 1));
 ```
+
+### Provider selection model
+
+| C# type | Frozen properties |
+|---|---|
+| `NnrpTransportProviderCost` | `ModelId: ushort`, `Units: ulong` |
+| `NnrpTransportProviderLimits` | `MaxFrameBytes: ulong` |
+| `NnrpTransportProviderLimitation` | `RequiresUdp`, `RequiresTcp`, `LocalHostOnly`, `NativeHostOnly`, `BrowserHostOnly`, `UnixDomainSocket`, `WindowsNamedPipe` |
+| `NnrpTransportProviderMetadata` | `Id`, `Cost`, `PreferenceRank`, `Limits`, `Limitations` |
+| `NnrpTransportProviderDescriptor` | `Name`, `Version`, `TransportId`, `Kind`, `Available`, `LibraryPath`, `Metadata`, `Diagnostic` |
+| `NnrpTransportProbeState` | `NotRun`, `Succeeded`, `Failed`, `Missing` |
+| `NnrpTransportProbeMetrics` | `SampleCount`, `SuccessCount`, `MedianThroughputBytesPerSecond`, `MedianRttMicroseconds` |
+| `NnrpTransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `ProbeMissing`, `ProbeFailed` |
+| `NnrpTransportCandidate` | `TransportId`, `Provider`, `LocalAvailable`, `PeerSupported`, `WithinLimits`, `ProbeState`, `Probe`, `SelectionRank`, `RejectionReason`, `Diagnostic` |
+| `NnrpTransportSelection` | `SelectedProvider`, ordered `Candidates`, `Policy`, `Diagnostic` |
+
+C# validates provider metadata from each Rust artifact and uses the comparator frozen in
+[Transport Strategy and Probing](/en/protocol/v1/transport-strategy). It does not expose a C#-specific weighted score.
 
 ## Core Transport Types
 

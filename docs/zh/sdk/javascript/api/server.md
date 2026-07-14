@@ -59,7 +59,7 @@ const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
 
 | 参数      | 类型                                                              | 必填 | 说明                              |
 | --------- | ----------------------------------------------------------------- | ---: | --------------------------------- |
-| `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |   是 | Peer manifest 与可选 score 覆盖。 |
+| `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |   是 | Peer manifest、workload limit、providers、policy 与 probe metrics。 |
 
 | 返回                            |
 | ------------------------------- |
@@ -140,8 +140,10 @@ union，其中包括收到的控制帧、运行时对象帧与缓存帧。Server
 
 ### `NnrpTransportSelectionOptions`
 
-| 字段           | 类型                                        | 必填 | 说明                       |
-| -------------- | ------------------------------------------- | ---: | -------------------------- |
-| `peerManifest` | [`NnrpCapabilityManifest`](./core#数据类型) |   是 | Peer capability manifest。 |
-| `providers`    | `readonly NnrpTransportProvider[]`          |   否 | 需要评分的本地 provider。  |
-| `policy`       | [`NnrpTransportPolicy`](./core#数据类型)    |   否 | Selection policy 覆盖。    |
+| 字段                     | 类型                                                               | 必填 | 说明                                      |
+| ------------------------ | ------------------------------------------------------------------ | ---: | ----------------------------------------- |
+| `peerManifest`           | [`NnrpCapabilityManifest`](./core#数据类型)                        |   是 | Peer capability manifest。                |
+| `providers`              | `readonly NnrpTransportProvider[]`                                 |   否 | 需要考虑的本地 providers。                |
+| `policy`                 | [`NnrpTransportPolicy`](./core#数据类型)                            |   否 | Selection policy 覆盖。                   |
+| `requestedMaxFrameBytes` | `bigint`                                                           |   否 | 对照 provider limits 校验的 workload limit。 |
+| `probeMetricsByProviderId` | `Readonly<Record<string, NnrpTransportProbeMetrics>>`                  |   否 | 按 provider id 索引的测试/部署结构化观测。 |

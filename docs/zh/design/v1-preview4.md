@@ -78,6 +78,14 @@ Preview4 应先补 profile 族，而不是把所有场景塞进 token stream pro
 - `render.runtime`：帧 deadline、局部区域结果、drop reason 与 trace stage。
 - `cache.reference`：适合复用的场景下的 cache reference、miss、invalidate 与 lease。
 
+## Transport Provider 选择闭环
+
+Preview4 把 provider 选择收口为跨 SDK 契约，不再允许每个语言维护私有加权 score。官方 native 与 browser
+artifact 携带结构化 cost、preference、frame limit 与 limitation 元数据；Rust、Python、JavaScript/TypeScript
+和 C# 暴露相同的 provider observation、probe metrics、candidate diagnostics、rejection reason 与确定性
+comparator。规范字段、manifest 编码、公共类型映射和排序规则冻结在
+[传输策略与探测](/zh/protocol/v1/transport-strategy)。
+
 ## 线路级一致性测试
 
 Preview4 的一致性测试必须引入主动线路级 runner。SDK adapter 测试仍然有价值，但 adapter 由实现自己维护，容易把语义漂移藏在本地调用里。

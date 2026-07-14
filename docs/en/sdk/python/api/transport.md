@@ -68,7 +68,25 @@ print(selection.selected_transport_name, selection.diagnostic)
 | Application endpoint | `nnrp://runtime.example/session/default`, `nnrps://runtime.example/session/default` | Preferred for users and config files. |
 | Provider-local endpoint | `unix:///tmp/nnrp.sock`, `npipe://./pipe/nnrp`, `ws://host/nnrp`, `wss://host/nnrp` | Diagnostics, conformance fixtures, or explicit provider overrides. |
 
-`NativeTransportProvider` reports artifact path, manifest path, transport slots, enabled features, platform tag, cost/preference hints, and limitations. It is not a configuration switch; each provider is backed by the Rust artifact that owns the actual transport behavior.
+`NativeTransportProvider` reports artifact path, manifest path, transport slots, enabled features, platform tag, and
+the exact metadata below. It is not a configuration switch; each provider is backed by the Rust artifact that owns the
+actual transport behavior.
+
+| Python type | Frozen fields |
+|---|---|
+| `NativeTransportProviderCost` | `model_id: int`, `units: int` |
+| `NativeTransportProviderLimits` | `max_frame_bytes: int` |
+| `NativeTransportProviderLimitation` | `REQUIRES_UDP`, `REQUIRES_TCP`, `LOCAL_HOST_ONLY`, `NATIVE_HOST_ONLY`, `BROWSER_HOST_ONLY`, `UNIX_DOMAIN_SOCKET`, `WINDOWS_NAMED_PIPE` |
+| `NativeTransportProviderMetadata` | `id`, `cost`, `preference_rank`, `limits`, `limitations` |
+| `NativeTransportProvider` | `name`, `artifact_path`, `manifest_path`, `transport_slots`, `enabled_features`, `package`, `transport_scope`, `platform_tag`, `metadata` |
+| `NativeTransportProbeState` | `NOT_RUN`, `SUCCEEDED`, `FAILED`, `MISSING` |
+| `NativeTransportProbeMetrics` | `sample_count`, `success_count`, `median_throughput_bytes_per_sec`, `median_rtt_us` |
+| `NativeTransportRejectionReason` | `POLICY_DISALLOWED`, `LOCAL_UNAVAILABLE`, `PEER_UNSUPPORTED`, `LIMIT_EXCEEDED`, `PROBE_MISSING`, `PROBE_FAILED` |
+| `NativeTransportCandidateDiagnostic` | `transport_name`, `provider`, `local_available`, `peer_supported`, `within_limits`, `probe_state`, `probe`, `selection_rank`, `rejection_reason`, `diagnostic` |
+| `NativeTransportSelection` | `selected_provider`, ordered `candidates`, `policy`, `diagnostic` |
+
+Python exposes cost and limitations through the typed models above, validates the frozen provider object from the
+official Rust artifact, and follows the common deterministic comparator.
 
 ## Transport Artifact Boundary
 

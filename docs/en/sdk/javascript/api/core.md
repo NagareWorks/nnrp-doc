@@ -59,7 +59,7 @@ Creates the default browser WASM capability manifest.
 
 ## `selectTransport`
 
-Selects the highest-scored eligible transport candidate under a policy.
+Selects rank `0` from candidates ordered by the frozen transport comparator.
 
 | Parameter    | Type                                | Required | Description                                                               |
 | ------------ | ----------------------------------- | -------: | ------------------------------------------------------------------------- |
@@ -76,7 +76,7 @@ Builds transport candidates from local and peer manifests.
 
 | Parameter | Type                            | Required | Description                                         |
 | --------- | ------------------------------- | -------: | --------------------------------------------------- |
-| `options` | `NnrpTransportCandidateOptions` |      Yes | Local manifest, peer manifest, and optional scores. |
+| `options` | `NnrpTransportCandidateOptions` |      Yes | Local/peer manifests, provider metadata, requested frame limit, and optional probe metrics. |
 
 | Returns                             |
 | ----------------------------------- |
@@ -171,8 +171,73 @@ Validates event polling options.
 | `NnrpTransportPolicy`           | `"auto"`, `"prefer-quic"`, `"prefer-tcp"`, `"prefer-ipc"`, `"prefer-websocket"`, and the four corresponding `force-*` values.  |
 | `NnrpCapability`                | Capability claim such as `client.session`, `server.session`, `native.loader`, `wasm.loader`, `cache`, `schema`, or `recovery`. |
 | `NnrpCapabilityManifest`        | Protocol name/version, build mode, transports, and capabilities.                                                               |
-| `NnrpTransportCandidate`        | Candidate transport, availability, score, rejection reason, and diagnostic.                                                    |
+| `NnrpTransportProviderCost`     | Frozen provider `modelId` and `units`.                                                                                          |
+| `NnrpTransportProviderLimits`   | Frozen provider `maxFrameBytes`.                                                                                                |
+| `NnrpTransportProviderLimitation` | Union of the seven registered limitation strings.                                                                             |
+| `NnrpTransportProviderMetadata` | Provider id, cost, preference rank, limits, and registered limitations.                                                         |
+| `NnrpTransportProviderObservation` | Provider kind, metadata, local availability, and optional diagnostic.                                                       |
+| `NnrpTransportProbeState`       | `"not-run" \| "succeeded" \| "failed" \| "missing"`.                                                                    |
+| `NnrpTransportProbeMetrics`     | Sample/success counts, median throughput, and median RTT.                                                                       |
+| `NnrpTransportRejectionReason`  | Union of the six registered rejection strings.                                                                                  |
+| `NnrpTransportCandidate`        | Provider metadata, availability, peer/limit eligibility, probe state/metrics, selection rank, rejection reason, and diagnostic. |
 | `NnrpTransportSelectionSummary` | Selected transport plus rejected candidates.                                                                                   |
+
+`NnrpTransportCandidate` uses camelCase forms of the canonical fields frozen in
+[Transport Strategy and Probing](/en/protocol/v1/transport-strategy): `kind`, `provider`, `localAvailable`,
+`peerSupported`, `withinLimits`, `probeState`, optional `probe`, optional `selectionRank`, optional
+`rejectionReason`, and optional `diagnostic`. The public type has no opaque `score` field.
+
+```ts
+type NnrpTransportProviderLimitation =
+  | "requires-udp" | "requires-tcp" | "local-host-only"
+  | "native-host-only" | "browser-host-only"
+  | "unix-domain-socket" | "windows-named-pipe";
+type NnrpTransportProbeState = "not-run" | "succeeded" | "failed" | "missing";
+type NnrpTransportRejectionReason =
+  | "policy-disallowed" | "local-unavailable" | "peer-unsupported"
+  | "limit-exceeded" | "probe-missing" | "probe-failed";
+
+interface NnrpTransportProviderCost { readonly modelId: number; readonly units: bigint; }
+interface NnrpTransportProviderLimits { readonly maxFrameBytes: bigint; }
+interface NnrpTransportProviderMetadata {
+  readonly id: string;
+  readonly cost: NnrpTransportProviderCost;
+  readonly preferenceRank: number;
+  readonly limits: NnrpTransportProviderLimits;
+  readonly limitations: readonly NnrpTransportProviderLimitation[];
+}
+interface NnrpTransportProviderObservation {
+  readonly kind: NnrpTransportKind;
+  readonly metadata: NnrpTransportProviderMetadata;
+  readonly localAvailable: boolean;
+  readonly diagnostic?: NnrpDiagnostic;
+}
+interface NnrpTransportProbeMetrics {
+  readonly sampleCount: number;
+  readonly successCount: number;
+  readonly medianThroughputBytesPerSecond: bigint;
+  readonly medianRttMicroseconds: bigint;
+}
+interface NnrpTransportCandidate {
+  readonly kind: NnrpTransportKind;
+  readonly provider: NnrpTransportProviderMetadata;
+  readonly localAvailable: boolean;
+  readonly peerSupported: boolean;
+  readonly withinLimits: boolean;
+  readonly probeState: NnrpTransportProbeState;
+  readonly probe?: NnrpTransportProbeMetrics;
+  readonly selectionRank?: number;
+  readonly rejectionReason?: NnrpTransportRejectionReason;
+  readonly diagnostic?: NnrpDiagnostic;
+}
+interface NnrpTransportCandidateOptions {
+  readonly local: NnrpCapabilityManifest;
+  readonly peer: NnrpCapabilityManifest;
+  readonly providers: readonly NnrpTransportProviderObservation[];
+  readonly requestedMaxFrameBytes?: bigint;
+  readonly probeMetricsByProviderId?: Readonly<Record<string, NnrpTransportProbeMetrics>>;
+}
+```
 
 ### Submit, Result, and Events
 

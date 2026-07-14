@@ -68,7 +68,24 @@ print(selection.selected_transport_name, selection.diagnostic)
 | 应用侧 endpoint | `nnrp://runtime.example/session/default`、`nnrps://runtime.example/session/default` | 推荐暴露给用户和配置文件。 |
 | Provider-local endpoint | `unix:///tmp/nnrp.sock`、`npipe://./pipe/nnrp`、`ws://host/nnrp`、`wss://host/nnrp` | 诊断、conformance fixture 或显式 provider override。 |
 
-`NativeTransportProvider` 会报告 artifact path、manifest path、transport slot、enabled features、platform tag、cost/preference hint 和 limitation。它不是配置开关；每个 provider 都由对应 Rust artifact 拥有实际 transport 行为。
+`NativeTransportProvider` 会报告 artifact path、manifest path、transport slot、enabled features、platform tag 与
+下面精确冻结的元数据。它不是配置开关；每个 provider 都由对应 Rust artifact 拥有实际 transport 行为。
+
+| Python 类型 | 冻结字段 |
+|---|---|
+| `NativeTransportProviderCost` | `model_id: int`、`units: int` |
+| `NativeTransportProviderLimits` | `max_frame_bytes: int` |
+| `NativeTransportProviderLimitation` | `REQUIRES_UDP`、`REQUIRES_TCP`、`LOCAL_HOST_ONLY`、`NATIVE_HOST_ONLY`、`BROWSER_HOST_ONLY`、`UNIX_DOMAIN_SOCKET`、`WINDOWS_NAMED_PIPE` |
+| `NativeTransportProviderMetadata` | `id`、`cost`、`preference_rank`、`limits`、`limitations` |
+| `NativeTransportProvider` | `name`、`artifact_path`、`manifest_path`、`transport_slots`、`enabled_features`、`package`、`transport_scope`、`platform_tag`、`metadata` |
+| `NativeTransportProbeState` | `NOT_RUN`、`SUCCEEDED`、`FAILED`、`MISSING` |
+| `NativeTransportProbeMetrics` | `sample_count`、`success_count`、`median_throughput_bytes_per_sec`、`median_rtt_us` |
+| `NativeTransportRejectionReason` | `POLICY_DISALLOWED`、`LOCAL_UNAVAILABLE`、`PEER_UNSUPPORTED`、`LIMIT_EXCEEDED`、`PROBE_MISSING`、`PROBE_FAILED` |
+| `NativeTransportCandidateDiagnostic` | `transport_name`、`provider`、`local_available`、`peer_supported`、`within_limits`、`probe_state`、`probe`、`selection_rank`、`rejection_reason`、`diagnostic` |
+| `NativeTransportSelection` | `selected_provider`、有序 `candidates`、`policy`、`diagnostic` |
+
+Python 通过上述类型化模型公开 cost 与 limitations，必须校验官方 Rust artifact 里的冻结 provider 对象，
+并使用公共确定性 comparator。
 
 ## Transport Artifact 边界
 

@@ -28,6 +28,24 @@ Each package contains the native library, `nnrp_ffi.h`, and a manifest that decl
 architecture, transport, library name, and exported symbols. Downstream SDKs should validate the
 manifest before loading the library.
 
+The manifest also requires this exact provider metadata object:
+
+```json
+{
+  "provider": {
+    "id": "nnrp.transport.tcp.native",
+    "cost": { "model_id": 0, "units": "0" },
+    "preference_rank": 2,
+    "limits": { "max_frame_bytes": "67108864" },
+    "limitations": ["requires-tcp", "native-host-only"]
+  }
+}
+```
+
+The two `u64` values use canonical decimal strings so JavaScript does not lose precision. Missing fields, unknown
+limitation values, a zero `max_frame_bytes`, or non-zero cost units with cost model `0` make the artifact invalid.
+Loaders must preserve this object in provider and candidate diagnostics.
+
 ## ABI Types
 
 | Type | Description |

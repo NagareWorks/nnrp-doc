@@ -48,7 +48,7 @@
 
 ## `selectTransport`
 
-按策略选择评分最高的可用 transport candidate。
+从冻结 transport comparator 排出的 candidates 中选择 rank `0`。
 
 | 参数         | 类型                                | 必填 | 说明                                                |
 | ------------ | ----------------------------------- | ---: | --------------------------------------------------- |
@@ -65,7 +65,7 @@
 
 | 参数      | 类型                            | 必填 | 说明                                        |
 | --------- | ------------------------------- | ---: | ------------------------------------------- |
-| `options` | `NnrpTransportCandidateOptions` |   是 | 本地 manifest、peer manifest 和可选 score。 |
+| `options` | `NnrpTransportCandidateOptions` |   是 | 本地/peer manifest、provider 元数据、请求 frame limit 和可选 probe metrics。 |
 
 | 返回                                |
 | ----------------------------------- |
@@ -159,8 +159,72 @@
 | `NnrpTransportPolicy`           | `"auto"`、`"prefer-quic"`、`"prefer-tcp"`、`"prefer-ipc"`、`"prefer-websocket"` 以及四种对应的 `force-*` 值。  |
 | `NnrpCapability`                | `client.session`、`server.session`、`native.loader`、`wasm.loader`、`cache`、`schema`、`recovery` 等能力声明。 |
 | `NnrpCapabilityManifest`        | 协议名/版本、build mode、transports 和 capabilities。                                                          |
-| `NnrpTransportCandidate`        | 候选 transport、可用性、score、拒绝原因和诊断。                                                                |
+| `NnrpTransportProviderCost`     | 冻结的 provider `modelId` 与 `units`。                                                                          |
+| `NnrpTransportProviderLimits`   | 冻结的 provider `maxFrameBytes`。                                                                               |
+| `NnrpTransportProviderLimitation` | 七个已注册 limitation 字符串的 union。                                                                         |
+| `NnrpTransportProviderMetadata` | Provider id、cost、preference rank、limits 与已注册 limitations。                                              |
+| `NnrpTransportProviderObservation` | Provider kind、元数据、本地可用性与可选诊断。                                                             |
+| `NnrpTransportProbeState`       | `"not-run" \| "succeeded" \| "failed" \| "missing"`。                                                   |
+| `NnrpTransportProbeMetrics`     | 样本/成功数、吞吐中位数与 RTT 中位数。                                                                          |
+| `NnrpTransportRejectionReason`  | 六个已注册 rejection 字符串的 union。                                                                            |
+| `NnrpTransportCandidate`        | Provider 元数据、可用性、peer/limit eligibility、probe 状态/指标、selection rank、拒绝原因与诊断。             |
 | `NnrpTransportSelectionSummary` | 被选中的 transport 和 rejected candidates。                                                                    |
+
+`NnrpTransportCandidate` 使用[传输策略与探测](/zh/protocol/v1/transport-strategy)规范字段的 camelCase 形式：
+`kind`、`provider`、`localAvailable`、`peerSupported`、`withinLimits`、`probeState`、可选 `probe`、可选
+`selectionRank`、可选 `rejectionReason` 和可选 `diagnostic`。公共类型不含不透明 `score` 字段。
+
+```ts
+type NnrpTransportProviderLimitation =
+  | "requires-udp" | "requires-tcp" | "local-host-only"
+  | "native-host-only" | "browser-host-only"
+  | "unix-domain-socket" | "windows-named-pipe";
+type NnrpTransportProbeState = "not-run" | "succeeded" | "failed" | "missing";
+type NnrpTransportRejectionReason =
+  | "policy-disallowed" | "local-unavailable" | "peer-unsupported"
+  | "limit-exceeded" | "probe-missing" | "probe-failed";
+
+interface NnrpTransportProviderCost { readonly modelId: number; readonly units: bigint; }
+interface NnrpTransportProviderLimits { readonly maxFrameBytes: bigint; }
+interface NnrpTransportProviderMetadata {
+  readonly id: string;
+  readonly cost: NnrpTransportProviderCost;
+  readonly preferenceRank: number;
+  readonly limits: NnrpTransportProviderLimits;
+  readonly limitations: readonly NnrpTransportProviderLimitation[];
+}
+interface NnrpTransportProviderObservation {
+  readonly kind: NnrpTransportKind;
+  readonly metadata: NnrpTransportProviderMetadata;
+  readonly localAvailable: boolean;
+  readonly diagnostic?: NnrpDiagnostic;
+}
+interface NnrpTransportProbeMetrics {
+  readonly sampleCount: number;
+  readonly successCount: number;
+  readonly medianThroughputBytesPerSecond: bigint;
+  readonly medianRttMicroseconds: bigint;
+}
+interface NnrpTransportCandidate {
+  readonly kind: NnrpTransportKind;
+  readonly provider: NnrpTransportProviderMetadata;
+  readonly localAvailable: boolean;
+  readonly peerSupported: boolean;
+  readonly withinLimits: boolean;
+  readonly probeState: NnrpTransportProbeState;
+  readonly probe?: NnrpTransportProbeMetrics;
+  readonly selectionRank?: number;
+  readonly rejectionReason?: NnrpTransportRejectionReason;
+  readonly diagnostic?: NnrpDiagnostic;
+}
+interface NnrpTransportCandidateOptions {
+  readonly local: NnrpCapabilityManifest;
+  readonly peer: NnrpCapabilityManifest;
+  readonly providers: readonly NnrpTransportProviderObservation[];
+  readonly requestedMaxFrameBytes?: bigint;
+  readonly probeMetricsByProviderId?: Readonly<Record<string, NnrpTransportProbeMetrics>>;
+}
+```
 
 ### Submit、Result 与 Event
 

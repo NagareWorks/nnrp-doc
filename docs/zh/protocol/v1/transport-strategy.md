@@ -65,6 +65,114 @@ probe 不是只看一个 RTT 数字，而是至少要比较四类信号：
 3. 接近真实载荷时的有效吞吐：样本体量要尽量贴近真实提交，否则测出来的只是小包友好度。
 4. 退化信号：包括超时、重传、显式 `drop_hint`、服务端限速提示，以及连续 probe 的成功率。
 
+## 冻结的 Provider 元数据
+
+transport provider 元数据属于本地 artifact 元数据，不是 session 级 `CAPABILITY_NEGOTIATION` payload，
+实现不得在两者之间自行推导。每个官方 native 或 WASM provider artifact 的 manifest 必须携带一个
+`provider` 对象：
+
+```json
+{
+  "provider": {
+    "id": "nnrp.transport.quic.native",
+    "cost": { "model_id": 0, "units": "0" },
+    "preference_rank": 1,
+    "limits": { "max_frame_bytes": "67108864" },
+    "limitations": ["requires-udp", "native-host-only"]
+  }
+}
+```
+
+| 字段 | 类型 | 规则 |
+|---|---|---|
+| `id` | 非空 ASCII 字符串 | 稳定的 provider 标识。官方取值为 `nnrp.transport.<transport>.native` 和 `nnrp.transport.websocket.browser-wasm`。 |
+| `cost.model_id` | `u16` | 使用已冻结的 `cost_model_id` 注册表；`0` 表示未指定。 |
+| `cost.units` | 规范十进制 `u64` 字符串 | 在指定模型下的静态成本。`model_id` 为 `0` 时必须为 `"0"`。 |
+| `preference_rank` | `u16` | 路径质量与可比较成本相同时，值越小越优先。官方默认值为 IPC `0`、QUIC `1`、TCP `2`、WebSocket `3`。 |
+| `limits.max_frame_bytes` | 正规范十进制 `u64` 字符串 | provider 可接受的最大完整 NNRP packet。Preview4 官方 artifact 固定为 `"67108864"`。 |
+| `limitations` | 已注册字符串数组 | 稳定的部署限制；出现未知值时 artifact 无效。 |
+
+规范十进制 `u64` 字符串只能是 `"0"`，或以 `1` 开头的 ASCII 数字序列；符号、空白、小数点、指数记法和
+前导零均无效，解析值不得超过 `18446744073709551615`。
+
+Preview4 limitation 注册表精确固定为：`requires-udp`、`requires-tcp`、`local-host-only`、
+`native-host-only`、`browser-host-only`、`unix-domain-socket`、`windows-named-pipe`。SDK 可以应用部署侧
+cost 或 preference override，但诊断必须保留 artifact 原始值，并且不得把 `max_frame_bytes` 静默提高到
+artifact 限制以上。
+
+官方 artifact 使用下列精确默认值；全部使用 cost `{ "model_id": 0, "units": "0" }` 与
+`max_frame_bytes = "67108864"`：
+
+| Artifact | Provider id | Preference rank | Limitations |
+|---|---|---:|---|
+| Native TCP | `nnrp.transport.tcp.native` | 2 | `requires-tcp`、`native-host-only` |
+| Native QUIC | `nnrp.transport.quic.native` | 1 | `requires-udp`、`native-host-only` |
+| Unix Native IPC | `nnrp.transport.ipc.native` | 0 | `local-host-only`、`native-host-only`、`unix-domain-socket` |
+| Windows Native IPC | `nnrp.transport.ipc.native` | 0 | `local-host-only`、`native-host-only`、`windows-named-pipe` |
+| Native WebSocket | `nnrp.transport.websocket.native` | 3 | `requires-tcp`、`native-host-only` |
+| Browser WASM WebSocket | `nnrp.transport.websocket.browser-wasm` | 3 | `requires-tcp`、`browser-host-only` |
+
+## 冻结的 Candidate 诊断
+
+四个 SDK 必须暴露语义相同的 candidate 信息，只允许使用各语言惯用的命名风格：
+
+| 规范字段 | 类型 | 含义 |
+|---|---|---|
+| `transport_id` | `tcp | quic | ipc | websocket` | 当前候选 carrier。 |
+| `provider` | provider 元数据 | 上述完整元数据对象。 |
+| `local_available` | boolean | artifact 已加载且运行时前置条件通过。 |
+| `peer_supported` | boolean | peer capability 交集包含该 carrier。 |
+| `within_limits` | boolean | 请求的最大 frame 不超过 `limits.max_frame_bytes`。 |
+| `probe_state` | `not-run | succeeded | failed | missing` | 本次选择中的 probe 生命周期。 |
+| `probe.sample_count` | `u32` | 参与评分的样本数。 |
+| `probe.success_count` | `u32` | 成功样本数。 |
+| `probe.median_throughput_bytes_per_sec` | `u64` | 有效吞吐中位数。 |
+| `probe.median_rtt_us` | `u64` | 成功样本 RTT 中位数。 |
+| `selection_rank` | 可选 `u32` | 确定性排序后，在可用候选中的零基位置。 |
+| `rejection_reason` | 已注册字符串或无 | 不能选择该候选的原因。 |
+| `diagnostic` | 类型化诊断或无 | 实现侧结构化诊断。 |
+
+`probe` 只在 `probe_state = succeeded` 时存在。`selection_rank` 只为可用且已成功排序的候选提供；被拒绝
+候选没有 rank。`sample_count` 必须为正数，`success_count` 必须处于 `1..sample_count`，两个中位数只根据
+成功且参与评分的样本计算。
+
+rejection 注册表精确固定为：`policy-disallowed`、`local-unavailable`、`peer-unsupported`、
+`limit-exceeded`、`probe-missing`、`probe-failed`。SDK 公共 API 不得暴露各语言私有的不透明 `score`；
+相同观测必须在所有实现中产生相同排序和诊断。
+
+### 跨 SDK 类型映射
+
+| 规范模型 | Rust | Python | JavaScript / TypeScript | C# |
+|---|---|---|---|---|
+| Provider cost | `ProviderCost` | `NativeTransportProviderCost` | `NnrpTransportProviderCost` | `NnrpTransportProviderCost` |
+| Provider limits | `ProviderLimits` | `NativeTransportProviderLimits` | `NnrpTransportProviderLimits` | `NnrpTransportProviderLimits` |
+| Provider limitation | `ProviderLimitation` | `NativeTransportProviderLimitation` | `NnrpTransportProviderLimitation` | `NnrpTransportProviderLimitation` |
+| Provider metadata | `TransportProviderMetadata` | `NativeTransportProviderMetadata` | `NnrpTransportProviderMetadata` | `NnrpTransportProviderMetadata` |
+| Provider observation | `TransportProviderDescriptor` | `NativeTransportProvider` | `NnrpTransportProviderObservation` | `NnrpTransportProviderDescriptor` |
+| Probe state | `ProbeState` | `NativeTransportProbeState` | `NnrpTransportProbeState` | `NnrpTransportProbeState` |
+| Probe metrics | `ProbeMetrics` | `NativeTransportProbeMetrics` | `NnrpTransportProbeMetrics` | `NnrpTransportProbeMetrics` |
+| Candidate diagnostic | `TransportCandidateDiagnostic` | `NativeTransportCandidateDiagnostic` | `NnrpTransportCandidate` | `NnrpTransportCandidate` |
+| Rejection reason | `TransportRejectionReason` | `NativeTransportRejectionReason` | `NnrpTransportRejectionReason` | `NnrpTransportRejectionReason` |
+
+本表中的名称是具有约束力的公共 API 名称。TODO 项只有在每个公共字段都能映射到本规范模型或另一张精确
+SDK API 表时，才算已经冻结。
+
+## 冻结的确定性排序
+
+选择必须遵守以下顺序：
+
+1. 先拒绝不满足 policy、本地可用性、peer 支持或 provider limit 的候选。
+2. 只有一个可用候选时直接选择，并报告 `probe_state = not-run`。
+3. 存在两个或更多可用候选时全部 probe；仅当 `force-*` 已经把候选收敛为一个时跳过。
+4. 成功候选依次按 `success_count` 降序、吞吐中位数降序、RTT 中位数升序排列。
+5. 上述值相同时，仅在双方非零 `cost.model_id` 相等的情况下，按 `cost.units` 升序比较。
+6. 剩余并列依次由显式 `prefer-*` 目标、`provider.preference_rank` 升序、`transport_id` 数值升序和
+   `provider.id` 字节序升序打破。
+7. 排序后写入 `selection_rank`，选择 rank `0`。
+
+`force-*` 绝不回退。`prefer-*` 是确定性并列裁决，不允许实现选择已经明确失败或质量显著更差的路径。
+Preview4 跨 SDK 契约是这套 comparator，而不是某个实现私有的加权公式。
+
 ## 为什么 probe 不能只是 ping
 
 仅看 ICMP ping 或极小包 RTT，无法反映真实业务流量会遭遇的限速策略。很多网络对小包宽松，对大体量 UDP 或持续流量严格得多。

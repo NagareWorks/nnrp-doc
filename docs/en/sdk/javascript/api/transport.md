@@ -95,9 +95,14 @@ TCP, QUIC, IPC, and native WebSocket provider options share these fields:
 | Field        | Type                                                    | Required | Description                                                       |
 | ------------ | ------------------------------------------------------- | -------: | ----------------------------------------------------------------- |
 | `available`  | `boolean`                                               |       No | Controlled availability override for tests and deployment policy. |
-| `score`      | `number`                                                |       No | Local score adjustment applied after capability filtering.        |
+| `cost`       | `NnrpTransportProviderCost`                             |       No | Deployment cost override retained beside artifact metadata.       |
+| `preferenceRank` | `number`                                            |       No | Deployment preference override; lower values are preferred.       |
+| `maxFrameBytes` | `bigint`                                             |       No | May lower, but never increase, the artifact frame limit.           |
 | `diagnostic` | [`NnrpDiagnostic`](./core#data-types)                   |       No | Typed unavailable/degraded diagnostic.                            |
 | `binding`    | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled deployments and tests.     |
+
+Every provider exposes its validated `NnrpTransportProviderMetadata`. Multi-provider selection returns ordered
+`NnrpTransportCandidate` diagnostics and uses the common comparator; provider packages must not inject a private score.
 
 `NnrpWebSocketTransportProviderOptions` additionally accepts `WebSocket?: typeof WebSocket` for a
 browser/edge constructor override. `NnrpIpcTransportProviderOptions` accepts

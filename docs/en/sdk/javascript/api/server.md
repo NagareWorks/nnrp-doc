@@ -59,7 +59,7 @@ Selects a transport against a peer manifest.
 
 | Parameter | Type                                                              | Required | Description                                 |
 | --------- | ----------------------------------------------------------------- | -------: | ------------------------------------------- |
-| `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |      Yes | Peer manifest and optional score overrides. |
+| `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |      Yes | Peer manifest, workload limit, providers, policy, and probe metrics. |
 
 | Returns                         |
 | ------------------------------- |
@@ -142,8 +142,10 @@ The final `sendResult(result)` remains separate from partial-result and object-d
 
 ### `NnrpTransportSelectionOptions`
 
-| Field          | Type                                          | Required | Description                |
-| -------------- | --------------------------------------------- | -------: | -------------------------- |
-| `peerManifest` | [`NnrpCapabilityManifest`](./core#data-types) |      Yes | Peer capability manifest.  |
-| `providers`    | `readonly NnrpTransportProvider[]`            |       No | Local providers to score.  |
-| `policy`       | [`NnrpTransportPolicy`](./core#data-types)    |       No | Selection policy override. |
+| Field                    | Type                                                               | Required | Description                                      |
+| ------------------------ | ------------------------------------------------------------------ | -------: | ------------------------------------------------ |
+| `peerManifest`           | [`NnrpCapabilityManifest`](./core#data-types)                      |      Yes | Peer capability manifest.                        |
+| `providers`              | `readonly NnrpTransportProvider[]`                                 |       No | Local providers to consider.                     |
+| `policy`                 | [`NnrpTransportPolicy`](./core#data-types)                         |       No | Selection policy override.                       |
+| `requestedMaxFrameBytes` | `bigint`                                                           |       No | Workload limit checked against provider limits.  |
+| `probeMetricsByProviderId` | `Readonly<Record<string, NnrpTransportProbeMetrics>>`                  |       No | Structured test/deployment observations keyed by provider id. |

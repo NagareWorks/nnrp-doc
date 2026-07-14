@@ -60,6 +60,28 @@ Role packages such as client/server runtimes do not hide carrier implementations
 owns the behavior you need, then let provider policy select among registered providers when multiple carriers are
 available.
 
+### Provider and selection types
+
+The Rust SDK is a first-class implementation of the frozen provider-selection contract. It exposes these exact public
+types from `nnrp-transport-provider`:
+
+| Type | Frozen fields |
+|---|---|
+| `ProviderCost` | `model_id: u16`, `units: u64` |
+| `ProviderLimits` | `max_frame_bytes: u64` |
+| `ProviderLimitation` | `RequiresUdp`, `RequiresTcp`, `LocalHostOnly`, `NativeHostOnly`, `BrowserHostOnly`, `UnixDomainSocket`, `WindowsNamedPipe` |
+| `TransportProviderMetadata` | `id`, `cost`, `preference_rank`, `limits`, `limitations` |
+| `TransportProviderDescriptor` | `name`, `version`, `transport_id`, `kind`, `available`, optional `library_path`, `metadata`, optional `diagnostic` |
+| `ProbeMetrics` | `sample_count`, `success_count`, `median_throughput_bytes_per_sec`, `median_rtt_us` |
+| `ProbeState` | `NotRun`, `Succeeded`, `Failed`, `Missing` |
+| `TransportCandidateDiagnostic` | `transport_id`, `provider`, `local_available`, `peer_supported`, `within_limits`, `probe_state`, optional `probe`, optional `selection_rank`, optional `rejection_reason`, optional `diagnostic` |
+| `TransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `ProbeMissing`, `ProbeFailed` |
+| `TransportSelection` | Selected descriptor plus the ordered `candidates` list; rank `0` is selected |
+
+`TransportProviderRegistry::select` and `select_transport_with_probe` use the comparator frozen in
+[Transport Strategy and Probing](/en/protocol/v1/transport-strategy). The public API exposes structured metrics and
+ordered diagnostics; no opaque weighted score is part of the Preview4 API.
+
 ## Runtime Control And Object/Cache Frames
 
 Preview4 adds compact control-plane events used by scheduling, cancellation, progress, partial

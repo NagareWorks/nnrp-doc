@@ -88,6 +88,14 @@ Preview4 should add profile families before forcing every workload through the t
 - `cache.reference`: cache reference, miss, invalidation, and lease semantics for workloads that can
   actually reuse state.
 
+## Transport Provider Selection Closure
+
+Preview4 closes provider selection as a cross-SDK contract rather than leaving each language with a private weighted
+score. Official native and browser artifacts carry structured cost, preference, frame-limit, and limitation metadata.
+Rust, Python, JavaScript/TypeScript, and C# expose the same provider observations, probe metrics, candidate diagnostics,
+rejection reasons, and deterministic comparator. The normative fields, manifest encoding, public type mapping, and
+ordering rules are frozen in [Transport Strategy and Probing](/en/protocol/v1/transport-strategy).
+
 ## Wire-level Conformance
 
 Preview4 conformance must include an active wire-level runner. SDK adapter tests are still useful,
