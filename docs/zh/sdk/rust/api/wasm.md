@@ -6,14 +6,14 @@
 
 ```toml
 [dependencies]
-nnrp-wasm = "1.0.0-preview.4.0"
+nnrp-wasm = "1.0.0-preview.4.4"
 ```
 
 ## Artifact
 
 | 项目 | 值 |
 |---|---|
-| Release artifact | `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| Release artifact | `nnrp-wasm-browser-1.0.0-preview.4.4.zip` |
 | 内容 | `.wasm`、生成的 JS glue、`.d.ts`、manifest |
 | 用途 | 浏览器协议 primitives 与 binary-frame helpers |
 | 不包含 | Native `.dll` / `.so` / `.dylib` transport libraries |

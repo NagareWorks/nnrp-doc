@@ -15,6 +15,12 @@ TCP、QUIC、IPC 与 WebSocket 不隐藏在 role package 里。请为允许参�
 Role package 接受显式 FFI binding 以支持受控部署和测试。打包的 transport artifact 由对应的 transport
 package 拥有。
 
+Role binding 与 transport binding 是两个独立契约。`NnrpNativeFfiBinding` 在 carrier 完成选择后持有
+client 或 server runtime 操作。Carrier 包使用
+[`NnrpNativeTransportBinding`](./transport#nnrpnativetransportbinding) 完成 endpoint probe 以及 framed
+connection/listener 生命周期。Role binding 不得冒充 transport binding；transport 包缺失 Rust artifact 时，
+不得暗中回退到 JavaScript socket 实现。
+
 ### `NnrpNativeFfiBinding`
 
 | 属性                             | 类型                                                   | 必填 | 说明                                        |

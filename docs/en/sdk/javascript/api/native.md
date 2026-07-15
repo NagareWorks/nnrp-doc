@@ -15,6 +15,13 @@ TCP, QUIC, IPC, and WebSocket are not hidden inside the role packages. Install t
 Role packages accept explicit FFI bindings for controlled deployments and tests. Packaged transport
 artifacts are owned by the transport packages.
 
+Role bindings and transport bindings are separate contracts. `NnrpNativeFfiBinding` owns client or
+server runtime operations after a carrier has been selected. Carrier packages use
+[`NnrpNativeTransportBinding`](./transport#nnrpnativetransportbinding) for endpoint probing and
+framed connection/listener lifecycle. A role binding must not impersonate a transport binding, and
+a transport package must not fall back to a JavaScript socket implementation when its Rust artifact
+is missing.
+
 ### `NnrpNativeFfiBinding`
 
 | Property                         | Type                                                   | Required | Description                                   |

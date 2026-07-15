@@ -6,12 +6,12 @@
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.4.0"
-nnrp-runtime = "1.0.0-preview.4.0"
-nnrp-transport-tcp = "1.0.0-preview.4.0"
-nnrp-transport-quic = "1.0.0-preview.4.0"
-nnrp-transport-ipc = "1.0.0-preview.4.0"
-nnrp-transport-websocket = "1.0.0-preview.4.0"
+nnrp-core = "1.0.0-preview.4.4"
+nnrp-runtime = "1.0.0-preview.4.4"
+nnrp-transport-tcp = "1.0.0-preview.4.4"
+nnrp-transport-quic = "1.0.0-preview.4.4"
+nnrp-transport-ipc = "1.0.0-preview.4.4"
+nnrp-transport-websocket = "1.0.0-preview.4.4"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 

@@ -99,7 +99,7 @@ TCP, QUIC, IPC, and native WebSocket provider options share these fields:
 | `preferenceRank` | `number`                                            |       No | Deployment preference override; lower values are preferred.       |
 | `maxFrameBytes` | `bigint`                                             |       No | May lower, but never increase, the artifact frame limit.           |
 | `diagnostic` | [`NnrpDiagnostic`](./core#data-types)                   |       No | Typed unavailable/degraded diagnostic.                            |
-| `binding`    | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled deployments and tests.     |
+| `binding`    | `NnrpNativeTransportBinding`                            |       No | Explicit transport binding for controlled deployments and tests.  |
 
 Every provider exposes its validated `NnrpTransportProviderMetadata`. Multi-provider selection returns ordered
 `NnrpTransportCandidate` diagnostics and uses the common comparator; provider packages must not inject a private score.
@@ -109,13 +109,63 @@ browser/edge constructor override. `NnrpIpcTransportProviderOptions` accepts
 `platform?: "unix" | "windows"` only as a controlled test override; normal selection uses the host
 platform.
 
+### `NnrpNativeTransportBinding`
+
+Transport packages load their own transport-scoped Rust artifact when `binding` is omitted. The
+override is exported by `@nnrp/core` so tests and managed native loaders can provide the same
+behavior without importing a role package.
+
+| Property  | Type                                                                        | Required | Description |
+| --------- | --------------------------------------------------------------------------- | -------: | ----------- |
+| `mode`    | `"deno-ffi" \| "node-addon" \| "managed-ffi" \| "test"`             |      Yes | Binding implementation label. |
+| `probe`   | `(options: NnrpTransportProbeOptions) => Promise<NnrpTransportProbeMetrics>` |      Yes | Runs protocol `TRANSPORT_PROBE` / `TRANSPORT_PROBE_ACK` samples through the selected carrier. |
+| `connect` | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportConnection>`       |      Yes | Opens a Rust-owned framed connection. |
+| `listen`  | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportServer>`           |      Yes | Opens a Rust-owned framed listener. |
+
+`NnrpTransportEndpoint` freezes `endpoint: string | URL`, optional `maxPacketBytes: bigint`,
+optional `timeoutMillis: number`, and optional `security: NnrpTransportSecurity`. The zero/omitted
+defaults are 64 MiB and 30 seconds. `NnrpTransportSecurity` is exactly one of:
+
+```ts
+type NnrpTransportSecurity =
+  | {
+    readonly mode: "client";
+    readonly serverName: string;
+    readonly trustedCertificateDer: Uint8Array;
+  }
+  | {
+    readonly mode: "server";
+    readonly certificateDer: Uint8Array;
+    readonly privateKeyPkcs8Der: Uint8Array;
+  };
+```
+
+Plain TCP, IPC, and `ws://` endpoints reject `security`. QUIC and `wss://` require the matching
+client/server variant and never silently disable certificate verification.
+
+`NnrpTransportProbeOptions` extends `NnrpTransportEndpoint` with optional `sampleCount`,
+`payloadBytes`, and `timeoutMillis`. Defaults are 3 samples, 32 KiB, and 30 seconds. A provider may
+lower these values for deployment policy, but it must not synthesize successful metrics without a
+peer acknowledgement.
+
+`NnrpTransportConnection.send(packets)` accepts `Uint8Array | readonly Uint8Array[]` and preserves
+batch order. `receive(options?)` resolves to `readonly Uint8Array[]`; `options` may specify
+`maxPackets`, `maxBytes`, and `timeoutMillis`, whose defaults are 16, 64 MiB, and 30 seconds.
+`NnrpTransportServer.accept(options?)` resolves to a connection and accepts the same timeout field.
+Connections expose `kind`, normalized `endpoint`, and `connected`; servers expose `kind`, normalized
+`endpoint`, and `listening`.
+
+Connections send and receive only complete NNRP packets. Socket chunks, partial headers, and
+transport-library handles are not public JavaScript API. Closing a connection or listener is
+idempotent; using it after close rejects with a typed transport diagnostic.
+
 ## Connection And Listen Options
 
 Role-package connect/listen options freeze these endpoint fields:
 
 | Field              | Type                               | Required | Description                                 |
 | ------------------ | ---------------------------------- | -------: | ------------------------------------------- |
-| `endpoint`         | `string                            |     URL` | Yes                                         |
+| `endpoint`         | `string \| URL`                    |      Yes | Logical `nnrp://` endpoint or explicit provider endpoint. |
 | `providerEndpoint` | `string                            |     URL` | No                                          |
 | `transportPolicy`  | `NnrpTransportPolicy`              |       No | Defaults to `auto`.                         |
 | `transports`       | `readonly NnrpTransportProvider[]` |       No | Providers installed for this role instance. |

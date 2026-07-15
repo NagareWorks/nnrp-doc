@@ -9,9 +9,9 @@ all Rust symbols.
 | Item | Value |
 |---|---|
 | NNRP protocol line | NNRP/1 Preview4 |
-| Rust package version | `1.0.0-preview.4.0` |
+| Rust package version | `1.0.0-preview.4.4` |
 | Minimum Rust version | `1.82` |
-| GitHub release asset tag | `v1.0.0-preview.4.0` |
+| GitHub release asset tag | `v1.0.0-preview.4.4` |
 
 ## API Areas
 
@@ -28,18 +28,18 @@ all Rust symbols.
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.4.0"
-nnrp-runtime = "1.0.0-preview.4.0"
-nnrp-transport-provider = "1.0.0-preview.4.0"
-nnrp-transport-tcp = "1.0.0-preview.4.0"
-nnrp-transport-quic = "1.0.0-preview.4.0"
-nnrp-transport-ipc = "1.0.0-preview.4.0"
-nnrp-transport-websocket = "1.0.0-preview.4.0"
+nnrp-core = "1.0.0-preview.4.4"
+nnrp-runtime = "1.0.0-preview.4.4"
+nnrp-transport-provider = "1.0.0-preview.4.4"
+nnrp-transport-tcp = "1.0.0-preview.4.4"
+nnrp-transport-quic = "1.0.0-preview.4.4"
+nnrp-transport-ipc = "1.0.0-preview.4.4"
+nnrp-transport-websocket = "1.0.0-preview.4.4"
 
 # Optional downstream surfaces
-nnrp-ffi = "1.0.0-preview.4.0"
-nnrp-wasm = "1.0.0-preview.4.0"
-nnrp-conformance = "1.0.0-preview.4.0"
+nnrp-ffi = "1.0.0-preview.4.4"
+nnrp-wasm = "1.0.0-preview.4.4"
+nnrp-conformance = "1.0.0-preview.4.4"
 ```
 
 ## Transport Provider Boundary
@@ -54,7 +54,7 @@ belongs to provider packages.
 | `nnrp-transport-quic` | Quinn/Rustls QUIC connect/bind and QUIC probe identity | Native FFI transport artifacts are published as QUIC-scoped release zips |
 | `nnrp-transport-ipc` | Local IPC endpoints: Unix domain sockets and Windows named pipes | Native FFI transport artifacts are published as IPC-scoped release zips |
 | `nnrp-transport-websocket` | Native Rust WebSocket binary-frame carrier | Native FFI transport artifacts are published as WebSocket-scoped release zips |
-| `nnrp-wasm` | Browser WASM primitives and browser binary-frame helpers | Browser artifact is `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| `nnrp-wasm` | Browser WASM primitives and browser binary-frame helpers | Browser artifact is `nnrp-wasm-browser-1.0.0-preview.4.4.zip` |
 
 Role packages such as client/server runtimes do not hide carrier implementations. Install the transport package that
 owns the behavior you need, then let provider policy select among registered providers when multiple carriers are
@@ -128,9 +128,9 @@ Rust exposes them through client events, server send/receive helpers, and core m
 
 | Artifact family | Example |
 |---|---|
-| Native transport FFI | `nnrp-ffi-transport-tcp-native-linux-x86_64-1.0.0-preview.4.0.zip` |
-| Native QUIC FFI | `nnrp-ffi-transport-quic-native-windows-x86_64-1.0.0-preview.4.0.zip` |
-| Browser WASM | `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| Native transport FFI | `nnrp-ffi-transport-tcp-native-linux-x86_64-1.0.0-preview.4.4.zip` |
+| Native QUIC FFI | `nnrp-ffi-transport-quic-native-windows-x86_64-1.0.0-preview.4.4.zip` |
+| Browser WASM | `nnrp-wasm-browser-1.0.0-preview.4.4.zip` |
 | Checksums | `SHA256SUMS` |
 
 Downstream SDKs should validate the artifact manifest before loading native libraries or WASM files.

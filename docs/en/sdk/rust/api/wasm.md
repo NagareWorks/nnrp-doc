@@ -7,14 +7,14 @@ JavaScript/TypeScript SDK and it does not load native transport libraries.
 
 ```toml
 [dependencies]
-nnrp-wasm = "1.0.0-preview.4.0"
+nnrp-wasm = "1.0.0-preview.4.4"
 ```
 
 ## Artifact
 
 | Item | Value |
 |---|---|
-| Release artifact | `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| Release artifact | `nnrp-wasm-browser-1.0.0-preview.4.4.zip` |
 | Contents | `.wasm`, generated JS glue, `.d.ts`, manifest |
 | Use case | Browser protocol primitives and binary-frame helpers |
 | Not included | Native `.dll` / `.so` / `.dylib` transport libraries |

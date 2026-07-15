@@ -96,7 +96,7 @@ TCP、QUIC、IPC 与 native WebSocket Provider 共享以下字段：
 | `preferenceRank` | `number`                                            |   否 | 部署偏好覆盖；值越小越优先。          |
 | `maxFrameBytes` | `bigint`                                             |   否 | 只能降低、不能提高 artifact frame limit。 |
 | `diagnostic` | [`NnrpDiagnostic`](./core#数据类型)                     |   否 | 不可用或降级诊断。                    |
-| `binding`    | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |   否 | 受控部署与测试使用的 native binding。 |
+| `binding`    | `NnrpNativeTransportBinding`                            |   否 | 受控部署与测试使用的 transport binding。 |
 
 每个 provider 都公开已校验的 `NnrpTransportProviderMetadata`。多 provider 选择返回有序
 `NnrpTransportCandidate` 诊断并使用公共 comparator；provider 包不得注入私有 score。
@@ -105,13 +105,60 @@ TCP、QUIC、IPC 与 native WebSocket Provider 共享以下字段：
 browser/edge 构造器。`NnrpIpcTransportProviderOptions` 只为受控测试接受
 `platform?: "unix" | "windows"`；正常选择使用宿主平台。
 
+### `NnrpNativeTransportBinding`
+
+未提供 `binding` 时，transport 包加载自己持有的 transport-scoped Rust artifact。该 override
+由 `@nnrp/core` 导出，使测试和托管 native loader 无需依赖 role 包也能提供相同语义。
+
+| 属性      | 类型                                                                        | 必填 | 说明 |
+| --------- | --------------------------------------------------------------------------- | ---: | ---- |
+| `mode`    | `"deno-ffi" \| "node-addon" \| "managed-ffi" \| "test"`             |   是 | Binding 实现标签。 |
+| `probe`   | `(options: NnrpTransportProbeOptions) => Promise<NnrpTransportProbeMetrics>` |   是 | 通过所选 carrier 执行协议 `TRANSPORT_PROBE` / `TRANSPORT_PROBE_ACK` 样本。 |
+| `connect` | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportConnection>`       |   是 | 建立由 Rust 持有的 framed connection。 |
+| `listen`  | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportServer>`           |   是 | 建立由 Rust 持有的 framed listener。 |
+
+`NnrpTransportEndpoint` 冻结 `endpoint: string | URL`、可选 `maxPacketBytes: bigint`、可选
+`timeoutMillis: number` 和可选 `security: NnrpTransportSecurity`。零值或省略时分别使用 64 MiB 与
+30 秒。`NnrpTransportSecurity` 只能是以下两种之一：
+
+```ts
+type NnrpTransportSecurity =
+  | {
+    readonly mode: "client";
+    readonly serverName: string;
+    readonly trustedCertificateDer: Uint8Array;
+  }
+  | {
+    readonly mode: "server";
+    readonly certificateDer: Uint8Array;
+    readonly privateKeyPkcs8Der: Uint8Array;
+  };
+```
+
+Plain TCP、IPC 与 `ws://` endpoint 拒绝 `security`。QUIC 与 `wss://` 必须使用对应的 client/server
+variant，并且不得暗中关闭证书校验。
+
+`NnrpTransportProbeOptions` 扩展 `NnrpTransportEndpoint`，增加可选的 `sampleCount`、
+`payloadBytes` 和 `timeoutMillis`。默认值分别为 3 次、32 KiB 和 30 秒。部署策略可以降低这些值，
+但 Provider 不得在没有 peer acknowledgement 的情况下伪造成功指标。
+
+`NnrpTransportConnection.send(packets)` 接受 `Uint8Array | readonly Uint8Array[]` 并保持 batch 顺序。
+`receive(options?)` 返回 `readonly Uint8Array[]`；`options` 可设置 `maxPackets`、`maxBytes` 与
+`timeoutMillis`，默认值分别为 16、64 MiB 与 30 秒。`NnrpTransportServer.accept(options?)` 返回一条
+connection，并接受相同的 timeout 字段。Connection 暴露 `kind`、规范化 `endpoint` 和 `connected`；
+server 暴露 `kind`、规范化 `endpoint` 和 `listening`。
+
+Connection 只发送和接收完整 NNRP packet。Socket chunk、残缺 header 和 native transport library
+handle 都不是公开 JavaScript API。Connection 与 listener 的关闭操作幂等；关闭后继续使用必须以 typed
+transport diagnostic 拒绝。
+
 ## Connect 与 Listen 选项
 
 Role 包的 connect/listen 选项固定以下 endpoint 字段：
 
 | 字段               | 类型                               | 必填 | 说明                              |
 | ------------------ | ---------------------------------- | ---: | --------------------------------- |
-| `endpoint`         | `string                            | URL` | 是                                |
+| `endpoint`         | `string \| URL`                    |   是 | 逻辑 `nnrp://` endpoint 或显式 provider endpoint。 |
 | `providerEndpoint` | `string                            | URL` | 否                                |
 | `transportPolicy`  | `NnrpTransportPolicy`              |   否 | 默认为 `auto`。                   |
 | `transports`       | `readonly NnrpTransportProvider[]` |   否 | 当前 role 实例已安装的 Provider。 |

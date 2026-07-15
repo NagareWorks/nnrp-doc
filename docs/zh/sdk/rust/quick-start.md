@@ -9,23 +9,23 @@ WASM primitives。
 原生 TCP client/server：
 
 ```bash
-cargo add nnrp-core@1.0.0-preview.4.0 nnrp-runtime@1.0.0-preview.4.0 nnrp-transport-tcp@1.0.0-preview.4.0
+cargo add nnrp-core@1.0.0-preview.4.4 nnrp-runtime@1.0.0-preview.4.4 nnrp-transport-tcp@1.0.0-preview.4.4
 cargo add tokio --features macros,rt-multi-thread,net,io-util
 ```
 
 按需增加 transport 包：
 
 ```bash
-cargo add nnrp-transport-quic@1.0.0-preview.4.0
-cargo add nnrp-transport-ipc@1.0.0-preview.4.0
-cargo add nnrp-transport-websocket@1.0.0-preview.4.0
+cargo add nnrp-transport-quic@1.0.0-preview.4.4
+cargo add nnrp-transport-ipc@1.0.0-preview.4.4
+cargo add nnrp-transport-websocket@1.0.0-preview.4.4
 ```
 
 FFI 和浏览器 primitives 是单独边界：
 
 ```bash
-cargo add nnrp-ffi@1.0.0-preview.4.0
-cargo add nnrp-wasm@1.0.0-preview.4.0
+cargo add nnrp-ffi@1.0.0-preview.4.4
+cargo add nnrp-wasm@1.0.0-preview.4.4
 ```
 
 ## 客户端

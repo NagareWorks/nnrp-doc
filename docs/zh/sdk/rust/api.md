@@ -7,9 +7,9 @@
 | 项目 | 值 |
 |---|---|
 | NNRP 协议线 | NNRP/1 Preview4 |
-| Rust package version | `1.0.0-preview.4.0` |
+| Rust package version | `1.0.0-preview.4.4` |
 | 最低 Rust 版本 | `1.82` |
-| GitHub release asset tag | `v1.0.0-preview.4.0` |
+| GitHub release asset tag | `v1.0.0-preview.4.4` |
 
 ## API 区域
 
@@ -26,18 +26,18 @@
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.4.0"
-nnrp-runtime = "1.0.0-preview.4.0"
-nnrp-transport-provider = "1.0.0-preview.4.0"
-nnrp-transport-tcp = "1.0.0-preview.4.0"
-nnrp-transport-quic = "1.0.0-preview.4.0"
-nnrp-transport-ipc = "1.0.0-preview.4.0"
-nnrp-transport-websocket = "1.0.0-preview.4.0"
+nnrp-core = "1.0.0-preview.4.4"
+nnrp-runtime = "1.0.0-preview.4.4"
+nnrp-transport-provider = "1.0.0-preview.4.4"
+nnrp-transport-tcp = "1.0.0-preview.4.4"
+nnrp-transport-quic = "1.0.0-preview.4.4"
+nnrp-transport-ipc = "1.0.0-preview.4.4"
+nnrp-transport-websocket = "1.0.0-preview.4.4"
 
 # 可选下游表面
-nnrp-ffi = "1.0.0-preview.4.0"
-nnrp-wasm = "1.0.0-preview.4.0"
-nnrp-conformance = "1.0.0-preview.4.0"
+nnrp-ffi = "1.0.0-preview.4.4"
+nnrp-wasm = "1.0.0-preview.4.4"
+nnrp-conformance = "1.0.0-preview.4.4"
 ```
 
 ## Transport Provider 边界
@@ -51,7 +51,7 @@ NNRP wire protocol 下方的帧承载边界，不是在声明 OSI 网络分层�
 | `nnrp-transport-quic` | Quinn/Rustls QUIC connect/bind 与 QUIC probe identity | Native FFI transport artifact 以 QUIC 为粒度发布 |
 | `nnrp-transport-ipc` | 本地 IPC endpoint：Unix domain socket 与 Windows named pipe | Native FFI transport artifact 以 IPC 为粒度发布 |
 | `nnrp-transport-websocket` | 原生 Rust WebSocket binary-frame carrier | Native FFI transport artifact 以 WebSocket 为粒度发布 |
-| `nnrp-wasm` | 浏览器 WASM primitives 与 browser binary-frame helpers | 浏览器 artifact 是 `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| `nnrp-wasm` | 浏览器 WASM primitives 与 browser binary-frame helpers | 浏览器 artifact 是 `nnrp-wasm-browser-1.0.0-preview.4.4.zip` |
 
 client/server runtime 这种角色包不隐藏 carrier 实现。需要哪个 transport，就安装拥有该行为的 transport 包；多个 carrier 同时可用时，再交给 provider policy 选择。
 
@@ -66,9 +66,9 @@ capability negotiation、route hint、cache reference 和 trace context。Wire �
 
 | Artifact family | 示例 |
 |---|---|
-| Native transport FFI | `nnrp-ffi-transport-tcp-native-linux-x86_64-1.0.0-preview.4.0.zip` |
-| Native QUIC FFI | `nnrp-ffi-transport-quic-native-windows-x86_64-1.0.0-preview.4.0.zip` |
-| Browser WASM | `nnrp-wasm-browser-1.0.0-preview.4.0.zip` |
+| Native transport FFI | `nnrp-ffi-transport-tcp-native-linux-x86_64-1.0.0-preview.4.4.zip` |
+| Native QUIC FFI | `nnrp-ffi-transport-quic-native-windows-x86_64-1.0.0-preview.4.4.zip` |
+| Browser WASM | `nnrp-wasm-browser-1.0.0-preview.4.4.zip` |
 | Checksums | `SHA256SUMS` |
 
 下游 SDK 加载 native library 或 WASM 文件前，应先校验 artifact manifest。

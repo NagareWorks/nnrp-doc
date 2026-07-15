@@ -9,23 +9,23 @@ artifacts for native SDKs, and browser WASM primitives.
 For a native TCP client/server:
 
 ```bash
-cargo add nnrp-core@1.0.0-preview.4.0 nnrp-runtime@1.0.0-preview.4.0 nnrp-transport-tcp@1.0.0-preview.4.0
+cargo add nnrp-core@1.0.0-preview.4.4 nnrp-runtime@1.0.0-preview.4.4 nnrp-transport-tcp@1.0.0-preview.4.4
 cargo add tokio --features macros,rt-multi-thread,net,io-util
 ```
 
 Add only the transport packages your application uses:
 
 ```bash
-cargo add nnrp-transport-quic@1.0.0-preview.4.0
-cargo add nnrp-transport-ipc@1.0.0-preview.4.0
-cargo add nnrp-transport-websocket@1.0.0-preview.4.0
+cargo add nnrp-transport-quic@1.0.0-preview.4.4
+cargo add nnrp-transport-ipc@1.0.0-preview.4.4
+cargo add nnrp-transport-websocket@1.0.0-preview.4.4
 ```
 
 FFI and browser primitives are separate boundaries:
 
 ```bash
-cargo add nnrp-ffi@1.0.0-preview.4.0
-cargo add nnrp-wasm@1.0.0-preview.4.0
+cargo add nnrp-ffi@1.0.0-preview.4.4
+cargo add nnrp-wasm@1.0.0-preview.4.4
 ```
 
 ## Client
