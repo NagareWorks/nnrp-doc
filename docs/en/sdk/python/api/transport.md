@@ -11,10 +11,13 @@ Native provider:
 
 ```python
 from nnrp import (
+    NativeTransportClientSecurity,
+    NativeTransportServerSecurity,
     diagnose_native_transport_endpoint_support,
     diagnose_nnrp_endpoint_support,
     discover_native_transport_providers,
     native_transport_slot_names,
+    load_native_transport_binding,
     resolve_native_transport_provider,
     select_native_transport_provider,
 )
@@ -87,6 +90,123 @@ actual transport behavior.
 
 Python exposes cost and limitations through the typed models above, validates the frozen provider object from the
 official Rust artifact, and follows the common deterministic comparator.
+
+## Native Transport Binding
+
+`load_native_transport_binding()` loads the Rust artifact owned by one provider and returns the host-facing execution
+surface. The binding crosses FFI with ordered batches of complete NNRP packets; it does not expose socket chunks or raw
+native handles.
+
+```python
+binding = load_native_transport_binding("ipc")
+listener = await binding.listen("unix:///tmp/nnrp.sock")
+
+accepting = asyncio.create_task(listener.accept(timeout_ms=10_000))
+client = await binding.connect(listener.endpoint, timeout_ms=10_000)
+server = await accepting
+
+await client.send(packet.pack())
+received = await server.receive(max_packets=1, timeout_ms=10_000)
+```
+
+### `load_native_transport_binding`
+
+```python
+def load_native_transport_binding(
+    name: str,
+    *,
+    root: Path | str | None = None,
+    native_platform: NativePlatform | None = None,
+) -> NativeTransportBinding: ...
+```
+
+The artifact must advertise exactly the requested provider slot. Missing artifacts, missing ABI symbols, or a slot
+mismatch raise `NativeArtifactError`; there is no Python socket fallback for this API.
+
+### `NativeTransportBinding`
+
+```python
+@property
+def kind(self) -> str: ...
+
+async def probe(
+    self,
+    endpoint: str | NativeTransportEndpoint,
+    *,
+    security: NativeTransportClientSecurity | None = None,
+    sample_count: int = 0,
+    probe_payload_bytes: int = 0,
+    max_packet_bytes: int = 0,
+    timeout_ms: int = 0,
+) -> NativeTransportProbeMetrics: ...
+
+async def connect(
+    self,
+    endpoint: str | NativeTransportEndpoint,
+    *,
+    security: NativeTransportClientSecurity | None = None,
+    max_packet_bytes: int = 0,
+    timeout_ms: int = 0,
+) -> NativeTransportConnection: ...
+
+async def listen(
+    self,
+    endpoint: str | NativeTransportEndpoint,
+    *,
+    security: NativeTransportServerSecurity | None = None,
+    max_packet_bytes: int = 0,
+    timeout_ms: int = 0,
+) -> NativeTransportListener: ...
+```
+
+`0` selects the Rust ABI default for sample count, payload size, packet limit, or timeout. A provider rejects endpoint
+locators owned by a different provider.
+
+### Security Types
+
+| Type | Frozen fields |
+|---|---|
+| `NativeTransportClientSecurity` | `server_name: str`, `trusted_certificate_der: bytes` |
+| `NativeTransportServerSecurity` | `certificate_der: bytes`, `private_key_pkcs8_der: bytes` |
+
+Secure QUIC or WebSocket endpoints require the corresponding typed security value. TCP, IPC, and plain WebSocket
+endpoints use `None`.
+
+### Connection And Listener
+
+```python
+class NativeTransportConnection:
+    kind: str
+    endpoint: NativeTransportEndpoint
+    connected: bool
+
+    async def send(
+        self,
+        packets: bytes | bytearray | memoryview | Iterable[bytes | bytearray | memoryview],
+    ) -> None: ...
+
+    async def receive(
+        self,
+        *,
+        max_packets: int = 0,
+        max_bytes: int = 0,
+        timeout_ms: int = 0,
+    ) -> tuple[bytes, ...]: ...
+
+    async def close(self) -> None: ...
+
+class NativeTransportListener:
+    kind: str
+    endpoint: NativeTransportEndpoint
+    listening: bool
+
+    async def accept(self, *, timeout_ms: int = 0) -> NativeTransportConnection: ...
+    async def close(self) -> None: ...
+```
+
+`send()` preserves packet order. `receive()` returns complete serialized NNRP packets and releases the Rust-owned batch
+buffer before returning. Both close methods are idempotent. Blocking carrier work runs outside the Python event-loop
+thread.
 
 ## Transport Artifact Boundary
 

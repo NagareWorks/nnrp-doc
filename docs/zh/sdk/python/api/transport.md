@@ -11,10 +11,13 @@ Native provider：
 
 ```python
 from nnrp import (
+    NativeTransportClientSecurity,
+    NativeTransportServerSecurity,
     diagnose_native_transport_endpoint_support,
     diagnose_nnrp_endpoint_support,
     discover_native_transport_providers,
     native_transport_slot_names,
+    load_native_transport_binding,
     resolve_native_transport_provider,
     select_native_transport_provider,
 )
@@ -86,6 +89,120 @@ print(selection.selected_transport_name, selection.diagnostic)
 
 Python 通过上述类型化模型公开 cost 与 limitations，必须校验官方 Rust artifact 里的冻结 provider 对象，
 并使用公共确定性 comparator。
+
+## Native Transport Binding
+
+`load_native_transport_binding()` 加载指定 provider 自己拥有的 Rust artifact，并返回面向 host 的执行面。
+FFI 边界一次传递一批有序的完整 NNRP packet，不向用户暴露 socket chunk 或裸 native handle。
+
+```python
+binding = load_native_transport_binding("ipc")
+listener = await binding.listen("unix:///tmp/nnrp.sock")
+
+accepting = asyncio.create_task(listener.accept(timeout_ms=10_000))
+client = await binding.connect(listener.endpoint, timeout_ms=10_000)
+server = await accepting
+
+await client.send(packet.pack())
+received = await server.receive(max_packets=1, timeout_ms=10_000)
+```
+
+### `load_native_transport_binding`
+
+```python
+def load_native_transport_binding(
+    name: str,
+    *,
+    root: Path | str | None = None,
+    native_platform: NativePlatform | None = None,
+) -> NativeTransportBinding: ...
+```
+
+artifact 必须声明请求的 provider slot。artifact 缺失、ABI symbol 缺失或 slot 不匹配都会抛出
+`NativeArtifactError`；此 API 不会回退到 Python socket 实现。
+
+### `NativeTransportBinding`
+
+```python
+@property
+def kind(self) -> str: ...
+
+async def probe(
+    self,
+    endpoint: str | NativeTransportEndpoint,
+    *,
+    security: NativeTransportClientSecurity | None = None,
+    sample_count: int = 0,
+    probe_payload_bytes: int = 0,
+    max_packet_bytes: int = 0,
+    timeout_ms: int = 0,
+) -> NativeTransportProbeMetrics: ...
+
+async def connect(
+    self,
+    endpoint: str | NativeTransportEndpoint,
+    *,
+    security: NativeTransportClientSecurity | None = None,
+    max_packet_bytes: int = 0,
+    timeout_ms: int = 0,
+) -> NativeTransportConnection: ...
+
+async def listen(
+    self,
+    endpoint: str | NativeTransportEndpoint,
+    *,
+    security: NativeTransportServerSecurity | None = None,
+    max_packet_bytes: int = 0,
+    timeout_ms: int = 0,
+) -> NativeTransportListener: ...
+```
+
+sample count、payload size、packet limit 或 timeout 传 `0` 时使用 Rust ABI 默认值。provider 会拒绝属于其他
+provider 的 endpoint locator。
+
+### 安全配置类型
+
+| 类型 | 冻结字段 |
+|---|---|
+| `NativeTransportClientSecurity` | `server_name: str`、`trusted_certificate_der: bytes` |
+| `NativeTransportServerSecurity` | `certificate_der: bytes`、`private_key_pkcs8_der: bytes` |
+
+安全 QUIC 或 WebSocket endpoint 必须传对应的类型化安全配置；TCP、IPC 和普通 WebSocket 使用 `None`。
+
+### Connection 与 Listener
+
+```python
+class NativeTransportConnection:
+    kind: str
+    endpoint: NativeTransportEndpoint
+    connected: bool
+
+    async def send(
+        self,
+        packets: bytes | bytearray | memoryview | Iterable[bytes | bytearray | memoryview],
+    ) -> None: ...
+
+    async def receive(
+        self,
+        *,
+        max_packets: int = 0,
+        max_bytes: int = 0,
+        timeout_ms: int = 0,
+    ) -> tuple[bytes, ...]: ...
+
+    async def close(self) -> None: ...
+
+class NativeTransportListener:
+    kind: str
+    endpoint: NativeTransportEndpoint
+    listening: bool
+
+    async def accept(self, *, timeout_ms: int = 0) -> NativeTransportConnection: ...
+    async def close(self) -> None: ...
+```
+
+`send()` 保留 packet 顺序；`receive()` 返回完整序列化 NNRP packet，并在返回前释放 Rust-owned batch buffer。
+两个 close 方法都幂等。可能阻塞的 carrier 操作不会占用 Python event-loop 线程。
 
 ## Transport Artifact 边界
 
