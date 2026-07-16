@@ -223,21 +223,90 @@ acknowledgement；loader 不得根据 local availability 伪造成功 probe 指�
 Manifest 的 `exports` 列表必须包含上述十个 function。发布前必须加载每个 transport-scoped library，
 并通过该 library 执行真实 loopback。
 
+## 角色 Runtime 与 Carrier 所有权
+
+上面的 transport API 是诊断与自定义 carrier 接口。生产 client/server API 不会要求语言 SDK
+在 transport handle 与角色 handle 之间搬运 packet。provider 选择完成后，角色 runtime 会接管由选中
+transport-scoped library 打开的 connection 或 listener，并在 Rust 内部直接驱动它。
+
+Preview4 角色请求使用以下布局：
+
+```c
+typedef struct {
+  uint64_t connection_id;
+  uint32_t generation;
+  uint32_t reserved0;
+  NnrpHandle transport_connection;
+} NnrpClientConnectRequest;
+
+typedef struct {
+  uint64_t server_id;
+  uint32_t generation;
+  uint32_t reserved0;
+  NnrpHandle transport_listener;
+} NnrpServerBindRequest;
+
+typedef struct {
+  NnrpHandle server;
+  uint64_t session_handle_id;
+  uint32_t generation;
+  uint32_t timeout_ms;
+} NnrpServerAcceptRequest;
+
+typedef struct {
+  NnrpHandle scope;
+  uint32_t max_events;
+  uint32_t timeout_ms;
+  uint32_t flags;
+  uint32_t reserved0;
+} NnrpRoleEventPollRequest;
+```
+
+`nnrp_client_connect` 接管一个 `TransportConnection`；`nnrp_server_bind` 接管一个
+`TransportListener`。调用成功后 transport handle 被消费，后续直接 transport 调用必须返回
+`INVALID_HANDLE`；接管失败时所有权仍归调用方。接管后由角色 connection/server 负责关闭 carrier，
+关闭角色也必须关闭 carrier。角色请求和被接管 handle 必须来自同一个已加载 native library 实例；
+handle 不能跨 transport artifact 或同一 artifact 的重复加载实例传递。
+
+`nnrp_client_open_session` 执行真实 `SESSION_OPEN` / `SESSION_OPEN_ACK` 交换。
+`nnrp_server_accept` 接受 carrier connection，读取并校验 `SESSION_OPEN`，写回 ack，再返回 live
+server-session handle；它不能根据调用方传入的 profile/schema 值伪造 session。
+
+角色数据调用也必须实际经过 carrier：
+
+- `NnrpSubmitRequest.payload` 是完整 `FRAME_SUBMIT` metadata 加 body；runtime 校验并拆分它，写出一个
+  packet，并关联调用方给出的 operation/frame id。
+- `NnrpServerSendResultRequest.payload` 是完整 `RESULT_PUSH` metadata 加 body。
+- `NnrpRuntimeFrameSendRequest.payload` 是该 control/object/cache 消息的完整 metadata 加声明的
+  body 或 diagnostics。
+- `nnrp_client_await_events` 和 `nnrp_server_await_events` 接收
+  `NnrpRoleEventPollRequest`，从被接管 carrier 读取、解码完整 packet、更新 runtime 状态并返回 typed
+  events。`max_events = 0` 取 16，`timeout_ms = 0` 取 30 秒；`flags` 与 `reserved0` 必须为零。
+
+event payload 与发送侧一样使用完整 metadata-plus-body 表示，并由 `payload_owner` 持有。server 收到
+submit 时创建 operation handle，应用使用该 handle 发送 partial、terminal、drop 与 trace 输出。
+Preview4 不再提供公开的 `nnrp_server_receive_submit` 注入调用。
+
+粗粒度调用规则是强约束：每个公开 control/object/submit/result 操作只跨一次 ABI。socket read、packet
+framing、握手状态、flow state 与 packet decode 都留在同一个 Rust library 内。仅可保留名称明确的本地
+benchmark helper；它不能支撑 SDK client/server API 或 conformance harness。
+
 ## Exported Functions
 
 | Function | 说明 |
 |---|---|
 | `nnrp_current_protocol_version` | 返回当前 protocol version。 |
-| `nnrp_client_connect` | 创建 client connection handle。 |
-| `nnrp_client_open_session` | 创建 client session handle。 |
-| `nnrp_client_submit` | 提交一个 operation 并入队 event。 |
+| `nnrp_client_connect` | 接管选中的 carrier connection，并创建 client connection handle。 |
+| `nnrp_client_open_session` | 执行 wire handshake，并创建 live client session handle。 |
+| `nnrp_client_submit` | 通过被接管 carrier 编码并写出一个 operation。 |
 | `nnrp_client_cancel` | 入队 cancel/drop 相关 event。 |
-| `nnrp_client_await_event` | 从 connection/session 队列 poll 一个 event。 |
+| `nnrp_client_await_event` | 从被接管 carrier 读取并解码一个 event。 |
+| `nnrp_client_await_events` | 从被接管 carrier 读取并解码有界 event batch。 |
 | `nnrp_client_close` | 关闭 client session。 |
-| `nnrp_server_bind` | 创建 server handle。 |
-| `nnrp_server_accept` | 创建 server session handle。 |
-| `nnrp_server_receive_submit` | 接收 submit 并创建 operation handle。 |
-| `nnrp_server_send_result` | 入队 result output。 |
+| `nnrp_server_bind` | 接管选中的 carrier listener，并创建 server handle。 |
+| `nnrp_server_accept` | 接受 carrier connection、执行 wire handshake，并创建 live server session。 |
+| `nnrp_server_await_events` | 读取并解码入站 submit/control/object/cache events。 |
+| `nnrp_server_send_result` | 编码并写出 terminal result。 |
 | `nnrp_server_send_flow_update` | 入队 flow-control output。 |
 | `nnrp_server_close` | 关闭 server session。 |
 | `nnrp_control` | 校验并入队通用控制 request。 |

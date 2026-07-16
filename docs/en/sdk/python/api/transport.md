@@ -93,6 +93,23 @@ official Rust artifact, and follows the common deterministic comparator.
 
 ## Native Transport Binding
 
+### Role Runtime Adoption
+
+Production host APIs do not expose a Python packet pump between `NativeTransportConnection` and the
+native runtime. `connect_native_client_connection(...)` selects and opens one provider carrier, then
+transfers that carrier to the role runtime in the same transport-scoped Rust library. Native server
+bind/accept follows the same listener-ownership rule. Session handshake, submit/result traffic,
+control and object/cache frames, event decoding, and close all run inside Rust after transfer.
+
+Raw transport handles remain private. A successful transfer invalidates the packet-level connection
+or listener wrapper and makes the role connection/server its sole owner. Failed transfer leaves the
+packet-level object open for deterministic cleanup. A provider that cannot complete this transfer is
+not a valid production provider even if its standalone packet loopback succeeds.
+
+`NativeTransportBinding.connect()` and `.listen()` remain packet-level diagnostic, conformance, and
+custom-carrier APIs. They do not back a logical-only native client, and the Python SDK must not
+synthesize results or runtime events when no carrier-backed role session exists.
+
 `load_native_transport_binding()` loads the Rust artifact owned by one provider and returns the host-facing execution
 surface. The binding crosses FFI with ordered batches of complete NNRP packets; it does not expose socket chunks or raw
 native handles.

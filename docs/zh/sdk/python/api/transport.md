@@ -92,6 +92,22 @@ Python 通过上述类型化模型公开 cost 与 limitations，必须校验官�
 
 ## Native Transport Binding
 
+### 角色 Runtime 接管
+
+生产 host API 不会在 `NativeTransportConnection` 与 native runtime 之间暴露 Python packet pump。
+`connect_native_client_connection(...)` 选择并打开一个 provider carrier，然后把该 carrier 移交给同一个
+transport-scoped Rust library 内的角色 runtime。native server bind/accept 使用相同的 listener 所有权
+规则。移交后，session handshake、submit/result、control 与 object/cache frame、event decode 和 close
+都在 Rust 内执行。
+
+raw transport handle 保持私有。移交成功会使 packet-level connection/listener wrapper 失效，由角色
+connection/server 成为唯一所有者；移交失败时 packet-level object 保持打开，以便确定性清理。即使独立
+packet loopback 成功，只要 provider 不能完成角色接管，它就不是有效的生产 provider。
+
+`NativeTransportBinding.connect()` 与 `.listen()` 仍是 packet-level 诊断、conformance 和自定义 carrier
+API。它们不能支撑逻辑-only native client；没有 carrier-backed role session 时，Python SDK 不得合成
+result 或 runtime event。
+
 `load_native_transport_binding()` 加载指定 provider 自己拥有的 Rust artifact，并返回面向 host 的执行面。
 FFI 边界一次传递一批有序的完整 NNRP packet，不向用户暴露 socket chunk 或裸 native handle。
 

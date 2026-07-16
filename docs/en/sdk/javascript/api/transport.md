@@ -68,6 +68,23 @@ const websocket = createWebSocketTransportProvider();
 
 ## Provider Selection
 
+### Role Runtime Adoption
+
+Provider selection is part of the role connection lifecycle, not a capability-only check.
+`openNativeClient` and the native server runtime select a provider, open its carrier through that
+provider's transport-scoped Rust library, and transfer the carrier to the role runtime in the same
+library. The role runtime then performs session handshake, submit/result traffic, control frames,
+object/cache frames, event reads, and shutdown over that carrier.
+
+The transfer handle is internal to the provider and role packages. Applications receive typed
+clients, sessions, servers, and events; they never receive a raw native handle or implement a packet
+pump. A provider whose `connect`/`listen` works but whose carrier cannot be adopted by the role
+runtime is not usable by `openNativeClient` or the native server and must fail capability validation.
+
+Direct `provider.connect()` and `provider.listen()` remain available for diagnostics, conformance,
+and custom packet-level integrations. They are not the implementation behind a logical-only role
+session, and local result echoing is not a production fallback.
+
 `NnrpTransportKind` is exactly `"tcp" | "quic" | "ipc" | "websocket"`. `NnrpTransportPolicy` is
 exactly:
 

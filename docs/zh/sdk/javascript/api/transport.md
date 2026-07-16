@@ -66,6 +66,21 @@ const websocket = createWebSocketTransportProvider();
 
 ## Provider 选择
 
+### 角色 Runtime 接管
+
+provider 选择是角色连接生命周期的一部分，不是只做 capability 检查。`openNativeClient` 和 native
+server runtime 会选择 provider，通过该 provider 的 transport-scoped Rust library 打开 carrier，再把
+carrier 移交给同一个 library 内的角色 runtime。此后 session handshake、submit/result、control frame、
+object/cache frame、event read 与 shutdown 都实际经过该 carrier。
+
+移交 handle 只在 provider 包与角色包内部使用。应用只拿到 typed client、session、server 与 event；
+不会拿到 raw native handle，也不需要实现 packet pump。若某 provider 的 `connect`/`listen` 可用，但其
+carrier 无法被角色 runtime 接管，则它不能用于 `openNativeClient` 或 native server，并且必须在
+capability validation 阶段失败。
+
+直接调用 `provider.connect()` / `provider.listen()` 仍用于诊断、conformance 与自定义 packet-level
+integration。它们不能只给逻辑角色 session 当开关，本地 result echo 也不是生产 fallback。
+
 `NnrpTransportKind` 精确固定为 `"tcp" | "quic" | "ipc" | "websocket"`。 `NnrpTransportPolicy`
 精确固定为：
 

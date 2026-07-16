@@ -234,21 +234,96 @@ probe metrics from local availability.
 The manifest `exports` list must contain all ten functions above. Release validation loads each
 transport-scoped library and runs a real loopback through that library before publication.
 
+## Role Runtime And Carrier Ownership
+
+The transport API above is the diagnostic and custom-carrier surface. Production client/server APIs
+do not ask a language SDK to copy packets between transport handles and role handles. After provider
+selection, the role runtime adopts a connection or listener opened by the selected transport-scoped
+library and drives it inside Rust.
+
+The Preview4 role requests use these layouts:
+
+```c
+typedef struct {
+  uint64_t connection_id;
+  uint32_t generation;
+  uint32_t reserved0;
+  NnrpHandle transport_connection;
+} NnrpClientConnectRequest;
+
+typedef struct {
+  uint64_t server_id;
+  uint32_t generation;
+  uint32_t reserved0;
+  NnrpHandle transport_listener;
+} NnrpServerBindRequest;
+
+typedef struct {
+  NnrpHandle server;
+  uint64_t session_handle_id;
+  uint32_t generation;
+  uint32_t timeout_ms;
+} NnrpServerAcceptRequest;
+
+typedef struct {
+  NnrpHandle scope;
+  uint32_t max_events;
+  uint32_t timeout_ms;
+  uint32_t flags;
+  uint32_t reserved0;
+} NnrpRoleEventPollRequest;
+```
+
+`nnrp_client_connect` adopts one `TransportConnection`; `nnrp_server_bind` adopts one
+`TransportListener`. A successful call consumes the transport handle, so later direct transport
+calls with that handle fail with `INVALID_HANDLE`. A failed adoption leaves ownership with the
+caller. The role connection/server owns carrier shutdown after adoption, and closing the role also
+closes the carrier. A role request and the adopted handle must come from the same loaded native
+library instance; handles are never transferable across transport artifacts or duplicate loads.
+
+`nnrp_client_open_session` performs the real `SESSION_OPEN` / `SESSION_OPEN_ACK` exchange.
+`nnrp_server_accept` accepts a carrier connection, reads and validates `SESSION_OPEN`, writes the
+ack, and returns a live server-session handle. It does not manufacture a session from caller-supplied
+profile or schema values.
+
+Role data calls also operate on the carrier:
+
+- `NnrpSubmitRequest.payload` is complete `FRAME_SUBMIT` metadata followed by its body. The runtime
+  validates and splits it, writes one packet, and associates the supplied operation and frame ids.
+- `NnrpServerSendResultRequest.payload` is complete `RESULT_PUSH` metadata followed by its body.
+- `NnrpRuntimeFrameSendRequest.payload` is complete metadata followed by the declared body or
+  diagnostics for that control/object/cache message.
+- `nnrp_client_await_events` and `nnrp_server_await_events` accept
+  `NnrpRoleEventPollRequest`, read from the adopted carrier, decode complete packets, update runtime
+  state, and return typed events. `max_events = 0` selects 16 and `timeout_ms = 0` selects 30 seconds.
+  `flags` and `reserved0` must be zero.
+
+Event payloads use the same complete metadata-plus-body representation as sends and remain owned by
+`payload_owner`. Server receive events create operation handles for inbound submits; the application
+uses those handles for partial, terminal, drop, and trace output. There is no public
+`nnrp_server_receive_submit` injection call in Preview4.
+
+The coarse-call rule is strict: one public control/object/submit/result operation crosses the ABI
+once. Socket reads, packet framing, handshake state, flow state, and packet decoding remain in the
+same Rust library. Local completion helpers may exist only as explicitly named benchmark helpers;
+they cannot back SDK client/server APIs or conformance harnesses.
+
 ## Exported Functions
 
 | Function | Description |
 |---|---|
 | `nnrp_current_protocol_version` | Returns the current protocol version. |
-| `nnrp_client_connect` | Creates a client connection handle. |
-| `nnrp_client_open_session` | Creates a client session handle. |
-| `nnrp_client_submit` | Submits one operation and enqueues an event. |
+| `nnrp_client_connect` | Adopts a selected carrier connection and creates a client connection handle. |
+| `nnrp_client_open_session` | Performs the wire handshake and creates a live client session handle. |
+| `nnrp_client_submit` | Encodes and writes one operation through the adopted carrier. |
 | `nnrp_client_cancel` | Enqueues cancel/drop-related events. |
-| `nnrp_client_await_event` | Polls one event from a connection/session queue. |
+| `nnrp_client_await_event` | Reads and decodes one event from the adopted carrier. |
+| `nnrp_client_await_events` | Reads and decodes a bounded event batch from the adopted carrier. |
 | `nnrp_client_close` | Closes a client session. |
-| `nnrp_server_bind` | Creates a server handle. |
-| `nnrp_server_accept` | Creates a server session handle. |
-| `nnrp_server_receive_submit` | Receives submit and creates an operation handle. |
-| `nnrp_server_send_result` | Enqueues result output. |
+| `nnrp_server_bind` | Adopts a selected carrier listener and creates a server handle. |
+| `nnrp_server_accept` | Accepts a carrier connection, performs the wire handshake, and creates a live server session. |
+| `nnrp_server_await_events` | Reads and decodes inbound submit/control/object/cache events. |
+| `nnrp_server_send_result` | Encodes and writes terminal result output. |
 | `nnrp_server_send_flow_update` | Enqueues flow-control output. |
 | `nnrp_server_close` | Closes a server session. |
 | `nnrp_control` | Validates and enqueues a generic control request. |
