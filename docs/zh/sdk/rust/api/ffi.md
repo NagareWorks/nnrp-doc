@@ -68,11 +68,15 @@ Binding 在返回应用 event 前复制 payload，并且必须且只能调用一
 | `NnrpServerReceiveSubmitRequest` | 接收 submit 并创建 operation handle。 |
 | `NnrpServerSendResultRequest` | 发送 result bytes。 |
 | `NnrpControlRequest` | 发送或校验通用控制面 frame。 |
-| `NnrpRuntimeFrameSendRequest` | 通过 session 或 operation handle 发送一条 typed Preview4 控制、对象或缓存 frame。字段为 `handle`、`message_type`、`frame_id` 和 `payload`。 |
+| `NnrpRuntimeFrameSendRequest` | 通过 session 或 operation handle 发送一条 typed runtime、控制、对象、缓存或继承的 `FLOW_UPDATE` frame。字段为 `handle`、`message_type`、`frame_id` 和 `payload`。 |
 
 `NnrpRuntimeFrameSendRequest.payload` 包含完整编码后的 metadata 与声明 tail。
 `nnrp_runtime_frame_send` 在一次调用中校验 message type、metadata layout、声明长度、handle
-scope 和 client/server direction，并在返回前 snapshot payload；队列 event 不引用调用方内存。
+scope 和发送方 role。Preview4 runtime-control 与对象/缓存 frame 保持 frame registry 冻结的双向语义。
+函数在返回前 snapshot payload；解码后的 event 不引用调用方内存。
+
+对于 `FLOW_UPDATE`，`payload` 是完整编码的 `FlowUpdateMetadata`。FFI 不再暴露独立的
+client/server flow-update 发送函数；两种 role 都使用这一条 canonical carrier-backed 入口。
 
 ## Transport-Scoped FFI
 
@@ -303,18 +307,17 @@ benchmark helper；它不能支撑 SDK client/server API 或 conformance harness
 | `nnrp_client_connect` | 接管选中的 carrier connection，并创建 client connection handle。 |
 | `nnrp_client_open_session` | 执行 wire handshake，并创建 live client session handle。 |
 | `nnrp_client_submit` | 通过被接管 carrier 编码并写出一个 operation。 |
-| `nnrp_client_cancel` | 入队 cancel/drop 相关 event。 |
+| `nnrp_client_cancel` | 通过被接管 carrier 写出一条 `FRAME_CANCEL`。 |
 | `nnrp_client_await_event` | 从被接管 carrier 读取并解码一个 event。 |
 | `nnrp_client_await_events` | 从被接管 carrier 读取并解码有界 event batch。 |
-| `nnrp_client_close` | 关闭 client session。 |
+| `nnrp_client_close` | 发送 `SESSION_CLOSE`、等待 `SESSION_CLOSE_ACK`，然后关闭 client session carrier。 |
 | `nnrp_server_bind` | 接管选中的 carrier listener，并创建 server handle。 |
 | `nnrp_server_accept` | 接受 carrier connection、执行 wire handshake，并创建 live server session。 |
 | `nnrp_server_await_events` | 读取并解码入站 submit/control/object/cache events。 |
 | `nnrp_server_send_result` | 编码并写出 terminal result。 |
-| `nnrp_server_send_flow_update` | 入队 flow-control output。 |
-| `nnrp_server_close` | 关闭 server session。 |
-| `nnrp_control` | 校验并入队通用控制 request。 |
-| `nnrp_runtime_frame_send` | Preview4 控制、对象和缓存 frame 的角色中立粗粒度发送路径。 |
+| `nnrp_server_close` | 确认待处理的 `SESSION_CLOSE`，然后关闭 server session carrier。 |
+| `nnrp_control` | 非 Preview4 控制 request 的内部校验入口。 |
+| `nnrp_runtime_frame_send` | typed runtime、控制、对象、缓存与 `FLOW_UPDATE` frame 的角色中立粗粒度 carrier 发送路径。 |
 | `nnrp_transport_probe` | 使用协议 probe frame 测量一个 transport endpoint。 |
 | `nnrp_transport_connect` | 建立由 Rust 持有的 framed transport connection。 |
 | `nnrp_transport_listen` | 建立由 Rust 持有的 framed transport listener。 |
@@ -327,8 +330,9 @@ benchmark helper；它不能支撑 SDK client/server API 或 conformance harness
 | `nnrp_transport_server_security_config_create` | 创建 QUIC/WSS server security configuration。 |
 | `nnrp_dispatch_event` | 通过 callback 分发一个 borrowed event。 |
 
-`nnrp_control` 只作为 Rust-owned integration 内部处理非 Preview4 control code 的 ABI primitive。
-SDK 公开 API 使用 `nnrp_runtime_frame_send`，不得把原始 control-code routing 作为普通应用入口。
+`nnrp_control` 只作为 Rust-owned integration 内部处理非 Preview4 control code 的 primitive。
+SDK 公开 API 使用由 `nnrp_runtime_frame_send` 支撑的 typed 方法，不得把原始 control-code
+routing 作为普通应用入口。
 
 ## C# P/Invoke 示例
 

@@ -75,12 +75,17 @@ callback; it still releases the owner after copying.
 | `NnrpServerReceiveSubmitRequest` | Receives a submit and creates an operation handle. |
 | `NnrpServerSendResultRequest` | Sends result bytes. |
 | `NnrpControlRequest` | Sends or validates generic control-plane frames. |
-| `NnrpRuntimeFrameSendRequest` | Sends one typed Preview4 control, object, or cache frame through a session or operation handle. Fields are `handle`, `message_type`, `frame_id`, and `payload`. |
+| `NnrpRuntimeFrameSendRequest` | Sends one typed runtime, control, object, cache, or inherited `FLOW_UPDATE` frame through a session or operation handle. Fields are `handle`, `message_type`, `frame_id`, and `payload`. |
 
 `NnrpRuntimeFrameSendRequest.payload` contains the complete encoded metadata and declared tail.
 `nnrp_runtime_frame_send` validates the message type, metadata layout, declared lengths, handle
-scope, and client/server direction in one call. It snapshots the payload before returning; no
-queued event aliases caller-owned memory.
+scope, and sender role in one call. Preview4 runtime-control and object/cache frames keep the
+bidirectional semantics frozen in the frame registry. It snapshots the payload before returning;
+no decoded event aliases caller-owned memory.
+
+For `FLOW_UPDATE`, `payload` is the complete encoded `FlowUpdateMetadata`. The FFI does not expose
+separate client/server flow-update send functions; both roles use this canonical carrier-backed
+entry point.
 
 ## Transport-Scoped FFI
 
@@ -320,18 +325,17 @@ they cannot back SDK client/server APIs or conformance harnesses.
 | `nnrp_client_connect` | Adopts a selected carrier connection and creates a client connection handle. |
 | `nnrp_client_open_session` | Performs the wire handshake and creates a live client session handle. |
 | `nnrp_client_submit` | Encodes and writes one operation through the adopted carrier. |
-| `nnrp_client_cancel` | Enqueues cancel/drop-related events. |
+| `nnrp_client_cancel` | Writes one `FRAME_CANCEL` through the adopted carrier. |
 | `nnrp_client_await_event` | Reads and decodes one event from the adopted carrier. |
 | `nnrp_client_await_events` | Reads and decodes a bounded event batch from the adopted carrier. |
-| `nnrp_client_close` | Closes a client session. |
+| `nnrp_client_close` | Sends `SESSION_CLOSE`, waits for `SESSION_CLOSE_ACK`, then closes the client session carrier. |
 | `nnrp_server_bind` | Adopts a selected carrier listener and creates a server handle. |
 | `nnrp_server_accept` | Accepts a carrier connection, performs the wire handshake, and creates a live server session. |
 | `nnrp_server_await_events` | Reads and decodes inbound submit/control/object/cache events. |
 | `nnrp_server_send_result` | Encodes and writes terminal result output. |
-| `nnrp_server_send_flow_update` | Enqueues flow-control output. |
-| `nnrp_server_close` | Closes a server session. |
-| `nnrp_control` | Validates and enqueues a generic control request. |
-| `nnrp_runtime_frame_send` | Role-neutral coarse send path for Preview4 control, object, and cache frames. |
+| `nnrp_server_close` | Acknowledges a pending `SESSION_CLOSE`, then closes the server session carrier. |
+| `nnrp_control` | Internal validator for non-Preview4 control requests. |
+| `nnrp_runtime_frame_send` | Role-neutral coarse carrier send path for typed runtime, control, object, cache, and `FLOW_UPDATE` frames. |
 | `nnrp_transport_probe` | Measures one transport endpoint with protocol probe frames. |
 | `nnrp_transport_connect` | Opens a Rust-owned framed transport connection. |
 | `nnrp_transport_listen` | Opens a Rust-owned framed transport listener. |
@@ -344,9 +348,9 @@ they cannot back SDK client/server APIs or conformance harnesses.
 | `nnrp_transport_server_security_config_create` | Creates a QUIC/WSS server security configuration. |
 | `nnrp_dispatch_event` | Delivers one borrowed event through a callback. |
 
-`nnrp_control` remains an ABI-level compatibility primitive for non-Preview4 control codes inside
-Rust-owned integrations. SDK public APIs use `nnrp_runtime_frame_send`; they must not expose raw
-control-code routing as the normal application path.
+`nnrp_control` is an internal primitive for non-Preview4 control codes inside Rust-owned
+integrations. SDK public APIs use typed methods backed by `nnrp_runtime_frame_send`; they must not
+expose raw control-code routing as the normal application path.
 
 ## C# P/Invoke Example
 
