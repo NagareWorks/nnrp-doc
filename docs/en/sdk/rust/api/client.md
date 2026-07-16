@@ -110,6 +110,25 @@ let frame_id = session
 |---|---|
 | `Result<u32, RuntimeError>` | Returns after the frame is written; result is received later through events. |
 
+## `NnrpClientSession::submit_with_frame_id`
+
+Use this method when an embedding or coarse FFI boundary already owns the frame identifier. It performs the same
+validation and carrier write as `submit_nowait`; it does not bypass the session runtime.
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `frame_id` | `u32` | Yes | Non-zero and not below the next allocatable id | Frame identifier written into the NNRP common header. The first explicit id may skip ahead. |
+| `metadata` | [`FrameSubmitMetadata`](./core#framesubmitmetadata) | Yes | Valid submit metadata | Operation metadata. |
+| `body` | `Vec<u8>` | Yes | May be empty | Serialized request body. |
+
+| Returns | Errors |
+|---|---|
+| `Result<u32, RuntimeError>` | Returns the supplied id after the frame is written. Rejects zero, reuse, or backward movement and preserves the current allocator on failure. |
+
+A successful explicit submission advances the session allocator to `frame_id + 1`, so later `submit` and
+`submit_nowait` calls cannot reuse the explicit id. This is the canonical path used by the coarse native FFI submit
+call; bindings must not construct or write the packet themselves.
+
 ## `NnrpClientSession::await_event`
 
 Use this method for Preview4 sessions. It can receive normal results plus runtime-control,

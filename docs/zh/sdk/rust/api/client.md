@@ -109,6 +109,24 @@ let frame_id = session
 |---|---|
 | `Result<u32, RuntimeError>` | 写入 frame 后返回；结果后续从 event 接收。 |
 
+## `NnrpClientSession::submit_with_frame_id`
+
+当 embedding 或粗粒度 FFI 边界已经持有 frame identifier 时使用该方法。它执行与 `submit_nowait`
+相同的校验和 carrier 写入，不绕过 session runtime。
+
+| 参数 | 类型 | 必填 | 取值范围 | 说明 |
+|---|---|---:|---|---|
+| `frame_id` | `u32` | 是 | 非零且不小于下一个可分配 id | 写入 NNRP common header 的 frame identifier；首次显式 id 可以向前跳号。 |
+| `metadata` | [`FrameSubmitMetadata`](./core#framesubmitmetadata) | 是 | 有效 submit metadata | Operation metadata。 |
+| `body` | `Vec<u8>` | 是 | 可为空 | 序列化后的请求 body。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<u32, RuntimeError>` | frame 写入后返回传入的 id。拒绝零值、复用或回退，失败时不修改当前 allocator。 |
+
+显式提交成功后，session allocator 前进到 `frame_id + 1`，后续 `submit` 与 `submit_nowait` 不会复用该
+id。粗粒度 native FFI submit 必须使用这条 canonical 路径；binding 不得自行构造或写出 packet。
+
 ## `NnrpClientSession::await_event`
 
 Preview4 应用优先使用这个方法。它能接收普通 result，也能接收 runtime-control、object/cache 和调度事件。
