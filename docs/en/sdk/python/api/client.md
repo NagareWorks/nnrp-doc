@@ -335,6 +335,7 @@ Frame submission request.
 
 | Field                 | Type                                           | Required | Description                                                              |
 | --------------------- | ---------------------------------------------- | -------: | ------------------------------------------------------------------------ |
+| `operation_id`        | `int`                                          |      Yes | Non-zero `u64` lifecycle id, independent from `frame_id`.                |
 | `frame_id`            | `int`                                          |      Yes | Unique frame id while in flight.                                         |
 | `tile_ids`            | `tuple[int, ...]`                              |       No | Tile ids included in the request.                                        |
 | `sections`            | `tuple[TensorSectionData, ...]`                |       No | Tensor payload sections. See [packet types](./packet#tensorsectiondata). |

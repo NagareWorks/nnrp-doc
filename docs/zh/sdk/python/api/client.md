@@ -312,6 +312,7 @@ finally:
 
 | 字段                  | 类型                                           | 必填 | 说明                                                             |
 | --------------------- | ---------------------------------------------- | ---: | ---------------------------------------------------------------- |
+| `operation_id`        | `int`                                          |   是 | 非零 `u64` 生命周期 id，与 `frame_id` 独立。                     |
 | `frame_id`            | `int`                                          |   是 | in-flight 内唯一。                                               |
 | `tile_ids`            | `tuple[int, ...]`                              |   否 | 提交的 tile id。                                                 |
 | `sections`            | `tuple[TensorSectionData, ...]`                |   否 | Tensor sections，见 [packet types](./packet#tensorsectiondata)。 |

@@ -274,8 +274,9 @@ server-session handle；它不能根据调用方传入的 profile/schema 值伪�
 
 角色数据调用也必须实际经过 carrier：
 
-- `NnrpSubmitRequest.payload` 是完整 `FRAME_SUBMIT` metadata 加 body；runtime 校验并拆分它，写出一个
-  packet，并关联调用方给出的 operation/frame id。
+- `NnrpSubmitRequest.payload` 是完整 `FRAME_SUBMIT` metadata 加 body；runtime 校验并拆分它，要求
+  `metadata.operation_id == request.operation_id`，写出一个 packet，并保持 operation id 与
+  `request.frame_id` 相互独立。
 - `NnrpServerSendResultRequest.payload` 是完整 `RESULT_PUSH` metadata 加 body。
 - `NnrpRuntimeFrameSendRequest.payload` 是该 control/object/cache 消息的完整 metadata 加声明的
   body 或 diagnostics。
@@ -286,6 +287,9 @@ server-session handle；它不能根据调用方传入的 profile/schema 值伪�
 event payload 与发送侧一样使用完整 metadata-plus-body 表示，并由 `payload_owner` 持有。server 收到
 submit 时创建 operation handle，应用使用该 handle 发送 partial、terminal、drop 与 trace 输出。
 Preview4 不再提供公开的 `nnrp_server_receive_submit` 注入调用。
+
+Server-side operation handle 同时保存两个 wire identity。Handle 的数值只在本地有效，禁止用它替换
+partial、control、trace 或 drop metadata 中的 `FRAME_SUBMIT.operation_id`。
 
 粗粒度调用规则是强约束：每个公开 control/object/submit/result 操作只跨一次 ABI。socket read、packet
 framing、握手状态、flow state 与 packet decode 都留在同一个 Rust library 内。仅可保留名称明确的本地

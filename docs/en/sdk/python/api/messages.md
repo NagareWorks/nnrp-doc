@@ -114,6 +114,7 @@ All control message metadata classes implement `.pack() -> bytes` and `@classmet
 
 | Field | Type | Description |
 |---|---|---|
+| `operation_id` | `int` | Non-zero `u64` operation identity; independent from packet `frame_id`. |
 | `input_profile` | `InputProfile` | Input data format |
 | `submit_mode` | `SubmitMode` | Submission mode |
 | `budget_policy` | `BudgetPolicy` | Allowed degradation policy |
@@ -122,6 +123,9 @@ All control message metadata classes implement `.pack() -> bytes` and `@classmet
 | `section_count` | `int` | Tensor section count |
 | `inference_budget_ms` | `int` | Max inference budget (ms) |
 | `deadline_ms` | `int` | Absolute deadline (ms) |
+
+The encoded field occupies bytes `40..47` of the fixed 72-byte metadata. See
+[Data Plane and Operation Identity](/en/protocol/v1/data-plane).
 
 ### `ResultPushMetadata`
 

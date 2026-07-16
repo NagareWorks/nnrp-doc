@@ -765,6 +765,7 @@ const zhSidebar = {
       items: [
         { text: "快速上手", link: "/zh/protocol/v1/quick-start" },
         { text: "会话与操作模型", link: "/zh/protocol/v1/operation-model" },
+        { text: "数据面与 Operation 标识", link: "/zh/protocol/v1/data-plane" },
         { text: "传输策略与探测", link: "/zh/protocol/v1/transport-strategy" },
         { text: "核心对象与流程", link: "/zh/core-concepts" },
         { text: "缓存能力与租约", link: "/zh/protocol/v1/cache-and-lease" },
@@ -893,6 +894,7 @@ const enSidebar = {
       items: [
         { text: "Quick Start", link: "/en/protocol/v1/quick-start" },
         { text: "Session and Operation Model", link: "/en/protocol/v1/operation-model" },
+        { text: "Data Plane and Operation Identity", link: "/en/protocol/v1/data-plane" },
         { text: "Transport Strategy and Probing", link: "/en/protocol/v1/transport-strategy" },
         { text: "Core Objects and Flow", link: "/en/core-concepts" },
         { text: "Cache Capabilities and Leases", link: "/en/protocol/v1/cache-and-lease" },

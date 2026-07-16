@@ -118,6 +118,7 @@ public sealed class FrameSubmitMessage
 {
     public uint SessionId { get; init; }
     public uint FrameId { get; init; }
+    public ulong OperationId { get; init; }
     public InputProfile InputProfile { get; init; }
     public SubmitMode SubmitMode { get; init; }
     public BudgetPolicy BudgetPolicy { get; init; }
@@ -132,6 +133,8 @@ public sealed class FrameSubmitMessage
     public NnrpFramedMessage ToFramedMessage();
 }
 ```
+
+`OperationId` 来自 72 字节 `FRAME_SUBMIT` metadata 的 offset 40，必须非零，并与 `FrameId` 独立。
 
 ### `FrameCancelMessage`
 

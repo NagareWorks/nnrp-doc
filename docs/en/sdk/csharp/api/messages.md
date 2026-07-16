@@ -107,6 +107,7 @@ public static NnrpFramedMessage BuildFrom(NnrpProtocolFailure failure);
 
 | Property | Type | Description |
 |---|---|---|
+| `OperationId` | `ulong` | Non-zero wire operation identity from metadata offset 40 |
 | `InputProfile` | `InputProfile` | Input data format |
 | `SubmitMode` | `SubmitMode` | Submission mode |
 | `BudgetPolicy` | `BudgetPolicy` | Allowed degradation |

@@ -34,9 +34,13 @@ that `nnrp-runtime`, transport providers, FFI bindings, WASM helpers, and confor
 | Field Group | Description |
 |---|---|
 | Profile and schema | Selects which standard or application profile interprets the body. |
-| Operation identity | Correlates submit, result, cancellation, and runtime feedback. |
+| Operation identity | `operation_id: u64` is non-zero and independent from the common-header `frame_id: u32`. |
 | Priority and deadline | Provides scheduling hints without forcing JSON/protobuf control envelopes. |
 | Object/cache hints | Allows transports and runtimes to coordinate large payload references. |
+
+The canonical 72-byte offsets are frozen in
+[Data Plane and Operation Identity](/en/protocol/v1/data-plane). Rust must encode
+`tile_index_bytes` at offset 32 and `operation_id` at offset 40.
 
 ## `ResultPushMetadata`
 

@@ -31,9 +31,12 @@ nnrp-core = "1.0.0-preview.4.4"
 | 字段组 | 说明 |
 |---|---|
 | Profile 与 schema | 选择解释 body 的标准或应用 profile。 |
-| Operation identity | 关联 submit、result、cancellation 和 runtime feedback。 |
+| Operation identity | `operation_id: u64` 非零，并与公共头的 `frame_id: u32` 独立。 |
 | Priority 与 deadline | 提供调度 hint，不要求额外 JSON/protobuf control envelope。 |
 | Object/cache hints | 允许 transport 和 runtime 协调大 payload reference。 |
+
+Canonical 72 字节 offset 见[数据面与 Operation 标识](/zh/protocol/v1/data-plane)。Rust 必须在
+offset 32 编码 `tile_index_bytes`，在 offset 40 编码 `operation_id`。
 
 ## `ResultPushMetadata`
 

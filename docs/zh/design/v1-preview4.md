@@ -30,6 +30,10 @@ flowchart LR
 
 Preview4 保留 preview3 建立的粗粒度 FFI 与运行时边界。新增的是这些边界之上的协议语义，而不是把边界调用拆成更多细碎字段级调用。
 
+Preview4 同时闭合 submit 热路径上的 operation identity。固定 72 字节的 `FRAME_SUBMIT` metadata 在
+offset 40 携带非零 `operation_id: u64`，公共头继续携带独立的 `frame_id: u32`。完整布局与关联规则见
+[数据面与 Operation 标识](/zh/protocol/v1/data-plane)。
+
 ## Runtime Object 生命周期
 
 重载荷应该可以被命名、引用、增量更新和释放。面向小响应的 token JSON profile 仍然有效，但它不能成为 tensor、图像区域、工具

@@ -36,6 +36,11 @@ flowchart LR
 Preview4 keeps the coarse FFI and runtime boundaries introduced in preview3. The new work adds
 semantics above those boundaries, not more per-field boundary calls.
 
+Preview4 also closes operation identity on the submit hot path. The fixed 72-byte `FRAME_SUBMIT`
+metadata carries a non-zero `operation_id: u64` at offset 40, while the common header keeps the
+independent `frame_id: u32`. The complete layout and correlation rules are frozen in
+[Data Plane and Operation Identity](/en/protocol/v1/data-plane).
+
 ## Runtime Object Lifecycle
 
 Heavy payloads should be named, referenced, patched, and released. A token-oriented JSON profile is

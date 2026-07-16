@@ -209,6 +209,7 @@ Inline tensor submit request.
 
 | Property                       | Type                                           | Required | Description                                    |
 | ------------------------------ | ---------------------------------------------- | -------: | ---------------------------------------------- |
+| `OperationId`                  | `ulong`                                        |      Yes | Non-zero lifecycle id, independent from `FrameId`. |
 | `FrameId`                      | `uint`                                         |      Yes | Unique frame id while in flight.               |
 | `SourceWidth` / `SourceHeight` | `ushort`                                       |      Yes | Source dimensions.                             |
 | `TileWidth` / `TileHeight`     | `ushort`                                       |      Yes | Tile dimensions.                               |

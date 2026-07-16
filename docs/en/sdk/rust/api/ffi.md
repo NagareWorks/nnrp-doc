@@ -289,7 +289,8 @@ profile or schema values.
 Role data calls also operate on the carrier:
 
 - `NnrpSubmitRequest.payload` is complete `FRAME_SUBMIT` metadata followed by its body. The runtime
-  validates and splits it, writes one packet, and associates the supplied operation and frame ids.
+  validates and splits it, requires `metadata.operation_id == request.operation_id`, writes one
+  packet, and preserves that operation id independently from `request.frame_id`.
 - `NnrpServerSendResultRequest.payload` is complete `RESULT_PUSH` metadata followed by its body.
 - `NnrpRuntimeFrameSendRequest.payload` is complete metadata followed by the declared body or
   diagnostics for that control/object/cache message.
@@ -302,6 +303,9 @@ Event payloads use the same complete metadata-plus-body representation as sends 
 `payload_owner`. Server receive events create operation handles for inbound submits; the application
 uses those handles for partial, terminal, drop, and trace output. There is no public
 `nnrp_server_receive_submit` injection call in Preview4.
+
+The server-side operation handle stores both wire identities. Its numeric handle id is local and
+MUST NOT replace `FRAME_SUBMIT.operation_id` in partial, control, trace, or drop metadata.
 
 The coarse-call rule is strict: one public control/object/submit/result operation crosses the ABI
 once. Socket reads, packet framing, handshake state, flow state, and packet decoding remain in the

@@ -163,6 +163,7 @@ await client.CloseAsync("shutdown", cancellationToken: ct);
 
 | 属性 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
+| `OperationId` | `ulong` | 是 | 非零生命周期 id，与 `FrameId` 独立。 |
 | `FrameId` | `uint` | 是 | in-flight 内唯一。 |
 | `SourceWidth` / `SourceHeight` | `ushort` | 是 | 源尺寸。 |
 | `TileWidth` / `TileHeight` | `ushort` | 是 | tile 尺寸。 |

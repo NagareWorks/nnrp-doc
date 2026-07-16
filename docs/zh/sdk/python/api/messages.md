@@ -188,6 +188,7 @@ from nnrp.core import (
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
+| `operation_id` | `int` | 非零 `u64` operation identity；与 packet `frame_id` 独立。 |
 | `input_profile` | `InputProfile` | 输入数据格式 |
 | `submit_mode` | `SubmitMode` | 提交模式（内联/引用/混合） |
 | `budget_policy` | `BudgetPolicy` | 允许的预算降质策略 |
@@ -196,6 +197,9 @@ from nnrp.core import (
 | `section_count` | `int` | Tensor 分区数 |
 | `inference_budget_ms` | `int` | 最大推理预算（毫秒） |
 | `deadline_ms` | `int` | 绝对截止时间（毫秒） |
+
+该字段固定编码在 72 字节 metadata 的 `40..47`。见
+[数据面与 Operation 标识](/zh/protocol/v1/data-plane)。
 
 ### `ResultPushMetadata`
 

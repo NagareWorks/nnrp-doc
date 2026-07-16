@@ -232,7 +232,7 @@ interface NnrpTransportCandidateOptions {
 | ---------------------- | ------------------------------------------------------------------------------------------ |
 | `NnrpInputProfile`     | 标准 profile：`tensor`、`token`、`structured_event`、`tool_delta`。                        |
 | `NnrpSubmitMode`       | `"inline" \| "object-reference"`。                                                         |
-| `NnrpSubmitRequest`    | Frame id、payload/tensors、input profile、submit mode、cache key、descriptor 和 metadata。 |
+| `NnrpSubmitRequest`    | 非零 `operationId: bigint`、独立的 `frameId`、payload/tensors、profile、submit mode、cache key、descriptor 与 metadata。 |
 | `NnrpResult`           | Frame id、可选 payload、可选 diagnostic 和 metadata。                                      |
 | `NnrpRuntimeEvent`     | Result、flow update、result hint、drop、close 或 diagnostic event。                        |
 | `NnrpEventPollOptions` | 可选 `timeoutMillis`。                                                                     |

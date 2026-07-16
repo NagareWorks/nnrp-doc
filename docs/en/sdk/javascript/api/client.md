@@ -106,7 +106,7 @@ browser clients use the browser runtime path, but the request shape is shared.
 
 | Parameter | Type                                     | Required | Description                                                                 |
 | --------- | ---------------------------------------- | -------: | --------------------------------------------------------------------------- |
-| `request` | [`NnrpSubmitRequest`](./core#data-types) |      Yes | Frame id, payload/tensors, profile, cache/schema metadata, and submit mode. |
+| `request` | [`NnrpSubmitRequest`](./core#data-types) |      Yes | Non-zero operation id, independent frame id, payload/tensors, profile, cache/schema metadata, and submit mode. |
 
 | Returns               |
 | --------------------- |

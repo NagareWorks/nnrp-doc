@@ -106,7 +106,7 @@ runtime path，但 request 形态共享。
 
 | 参数      | 类型                                   | 必填 | 说明                                                                       |
 | --------- | -------------------------------------- | ---: | -------------------------------------------------------------------------- |
-| `request` | [`NnrpSubmitRequest`](./core#数据类型) |   是 | Frame id、payload/tensors、profile、cache/schema metadata 与 submit mode。 |
+| `request` | [`NnrpSubmitRequest`](./core#数据类型) |   是 | 非零 operation id、独立 frame id、payload/tensors、profile、cache/schema metadata 与 submit mode。 |
 
 | 返回                  |
 | --------------------- |

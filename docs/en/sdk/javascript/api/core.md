@@ -245,7 +245,7 @@ interface NnrpTransportCandidateOptions {
 | ---------------------- | ------------------------------------------------------------------------------------------- |
 | `NnrpInputProfile`     | One of the standard profiles: `tensor`, `token`, `structured_event`, or `tool_delta`.       |
 | `NnrpSubmitMode`       | `"inline" \| "object-reference"`.                                                           |
-| `NnrpSubmitRequest`    | Frame id, payload/tensors, input profile, submit mode, cache key, descriptor, and metadata. |
+| `NnrpSubmitRequest`    | Non-zero `operationId: bigint`, independent `frameId`, payload/tensors, profile, submit mode, cache key, descriptor, and metadata. |
 | `NnrpResult`           | Frame id, optional payload, optional diagnostic, and metadata.                              |
 | `NnrpRuntimeEvent`     | Result, flow update, result hint, drop, close, or diagnostic event.                         |
 | `NnrpEventPollOptions` | Optional `timeoutMillis`.                                                                   |
