@@ -334,7 +334,6 @@ they cannot back SDK client/server APIs or conformance harnesses.
 | `nnrp_server_await_events` | Reads and decodes inbound submit/control/object/cache events. |
 | `nnrp_server_send_result` | Encodes and writes terminal result output. |
 | `nnrp_server_close` | Acknowledges a pending `SESSION_CLOSE`, then closes the server session carrier. |
-| `nnrp_control` | Internal validator for non-Preview4 control requests. |
 | `nnrp_runtime_frame_send` | Role-neutral coarse carrier send path for typed runtime, control, object, cache, and `FLOW_UPDATE` frames. |
 | `nnrp_transport_probe` | Measures one transport endpoint with protocol probe frames. |
 | `nnrp_transport_connect` | Opens a Rust-owned framed transport connection. |
@@ -348,9 +347,9 @@ they cannot back SDK client/server APIs or conformance harnesses.
 | `nnrp_transport_server_security_config_create` | Creates a QUIC/WSS server security configuration. |
 | `nnrp_dispatch_event` | Delivers one borrowed event through a callback. |
 
-`nnrp_control` is an internal primitive for non-Preview4 control codes inside Rust-owned
-integrations. SDK public APIs use typed methods backed by `nnrp_runtime_frame_send`; they must not
-expose raw control-code routing as the normal application path.
+Inherited `RESULT_HINT` and Preview4 typed control frames use `nnrp_runtime_frame_send`. SDK public
+APIs expose typed methods over that carrier-backed entrypoint and do not expose raw control-code
+routing.
 
 ## C# P/Invoke Example
 

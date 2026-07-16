@@ -316,7 +316,6 @@ benchmark helper；它不能支撑 SDK client/server API 或 conformance harness
 | `nnrp_server_await_events` | 读取并解码入站 submit/control/object/cache events。 |
 | `nnrp_server_send_result` | 编码并写出 terminal result。 |
 | `nnrp_server_close` | 确认待处理的 `SESSION_CLOSE`，然后关闭 server session carrier。 |
-| `nnrp_control` | 非 Preview4 控制 request 的内部校验入口。 |
 | `nnrp_runtime_frame_send` | typed runtime、控制、对象、缓存与 `FLOW_UPDATE` frame 的角色中立粗粒度 carrier 发送路径。 |
 | `nnrp_transport_probe` | 使用协议 probe frame 测量一个 transport endpoint。 |
 | `nnrp_transport_connect` | 建立由 Rust 持有的 framed transport connection。 |
@@ -330,9 +329,8 @@ benchmark helper；它不能支撑 SDK client/server API 或 conformance harness
 | `nnrp_transport_server_security_config_create` | 创建 QUIC/WSS server security configuration。 |
 | `nnrp_dispatch_event` | 通过 callback 分发一个 borrowed event。 |
 
-`nnrp_control` 只作为 Rust-owned integration 内部处理非 Preview4 control code 的 primitive。
-SDK 公开 API 使用由 `nnrp_runtime_frame_send` 支撑的 typed 方法，不得把原始 control-code
-routing 作为普通应用入口。
+继承的 `RESULT_HINT` 与 Preview4 typed control frame 统一通过 `nnrp_runtime_frame_send` 发送。
+SDK 公开 API 在这个 carrier-backed 入口上提供 typed 方法，不暴露原始 control-code routing。
 
 ## C# P/Invoke 示例
 
