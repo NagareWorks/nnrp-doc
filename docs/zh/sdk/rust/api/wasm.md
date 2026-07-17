@@ -40,6 +40,12 @@ Probe sample JSON 使用 `provider_id`；package 展示名不是选路身份。
 
 JSON 边界保持足够粗粒度，方便 JS/TS SDK 批处理，避免大量字段级 JS/WASM 往返。
 
+runtime-control 与 runtime-object JSON 边界中，所有在线路上声明为 `u64` 的字段都使用规范无符号十进制
+字符串，包括标识符、序列号、预算、限制、cache key word、lease、trace 标识符、offset、length 与时间戳。
+值只能包含 ASCII 数字、不能带符号，并且零值只能写成 `"0"`。bridge 会拒绝这些字段上的 JSON number，
+避免 JavaScript 静默丢失精度。高层 JavaScript/TypeScript SDK 负责在十进制字符串与 `bigint` 之间映射；
+线路上的 `u32`、`u16`、`u8` 和 `i16` 字段仍使用 JSON number。
+
 ## 浏览器 Transport 边界
 
 浏览器不能打开 raw TCP socket，也不能加载 native link library。浏览器构建中：

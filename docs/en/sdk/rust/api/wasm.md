@@ -42,6 +42,14 @@ Probe sample JSON uses `provider_id`; package display names are not selection id
 The JSON boundary is intentionally coarse enough for JS/TS SDKs to batch work and avoid tiny
 field-by-field crossings.
 
+Every wire field declared as `u64` is represented by a canonical unsigned decimal string at the
+runtime-control and runtime-object JSON boundary. This applies to identifiers, sequences, budgets,
+limits, cache key words, leases, trace identifiers, offsets, lengths, and timestamps. Values must
+contain ASCII digits only, have no sign, and use `"0"` as the only zero representation. The bridge
+rejects JSON numbers for these fields so JavaScript cannot silently lose precision. The high-level
+JavaScript/TypeScript SDK maps these decimal strings to and from `bigint`; wire `u32`, `u16`, `u8`,
+and `i16` fields remain JSON numbers.
+
 ## Browser Transport Boundary
 
 Browsers cannot open raw TCP sockets or load native link libraries. In browser builds:
