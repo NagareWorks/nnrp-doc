@@ -55,9 +55,19 @@ Preview4 wheel 携带 transport-scoped native artifacts。生产 host API 应通
 ```python
 from nnrp.client import NativeClientSessionOpenOptions, connect_native_client_connection
 
-with connect_native_client_connection(require_native=True, transport="tcp") as connection:
+with connect_native_client_connection(
+    "nnrps://runtime.example/session/default",
+    require_native=True,
+    transport="tcp",
+) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=1))
-    result = connection.submit_and_poll_result(session, operation_id=1, frame_id=1, payload=b"hello")
+    result = connection.submit_and_poll_result(
+        session,
+        operation_id=1,
+        frame_id=1,
+        payload=b"hello",
+        timeout_ms=30_000,
+    )
     print(result.payload)
 ```
 

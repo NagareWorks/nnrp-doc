@@ -94,6 +94,11 @@ Python 通过上述类型化模型公开 cost 与 limitations，必须校验官�
 
 ### 角色 Runtime 接管
 
+| Endpoint 层级 | 接受形式 | 用途 |
+|---|---|---|
+| 应用 endpoint | `nnrp://`、`nnrps://` | 常规 client/server 配置与 Provider 选择。 |
+| Provider-local locator | TCP/QUIC authority、`unix://`、`npipe://`、`ws://`、`wss://` | IPC、WebSocket、一致性测试、诊断或受控部署使用的显式 `provider_endpoint` 覆盖。 |
+
 生产 host API 不会在 `NativeTransportConnection` 与 native runtime 之间暴露 Python packet pump。
 `connect_native_client_connection(...)` 选择并打开一个 provider carrier，然后把该 carrier 移交给同一个
 transport-scoped Rust library 内的角色 runtime。native server bind/accept 使用相同的 listener 所有权
@@ -229,7 +234,7 @@ class NativeTransportListener:
 | `ipc` | 是 | 无 Python packet adapter |
 | `websocket` | 是 | 无 Python packet adapter；WebSocket binary frame helper 在 [运行时控制与对象](./runtime) |
 
-生产代码需要打开 runtime session 时，优先使用 `connect_native_client_connection(require_native=True, transport=...)`。只有协议测试、诊断工具或自定义 transport 才直接使用下面的 packet adapter。
+生产代码需要打开 runtime session 时，优先使用 `connect_native_client_connection("nnrps://...", require_native=True, transport=...)`。只有协议测试、诊断工具或自定义 transport 才直接使用下面的 packet adapter。
 
 ---
 

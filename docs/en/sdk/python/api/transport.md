@@ -95,6 +95,11 @@ official Rust artifact, and follows the common deterministic comparator.
 
 ### Role Runtime Adoption
 
+| Endpoint layer | Accepted forms | Purpose |
+|---|---|---|
+| Application endpoint | `nnrp://`, `nnrps://` | Normal client/server configuration and provider selection. |
+| Provider-local locator | TCP/QUIC authority, `unix://`, `npipe://`, `ws://`, `wss://` | Explicit `provider_endpoint` override for IPC, WebSocket, conformance, diagnostics, or controlled deployment. |
+
 Production host APIs do not expose a Python packet pump between `NativeTransportConnection` and the
 native runtime. `connect_native_client_connection(...)` selects and opens one provider carrier, then
 transfers that carrier to the role runtime in the same transport-scoped Rust library. Native server
@@ -234,7 +239,7 @@ thread.
 | `ipc` | Yes | No Python packet adapter |
 | `websocket` | Yes | No Python packet adapter; WebSocket binary frame helpers live in [Runtime Control & Objects](./runtime) |
 
-When production code needs runtime sessions, prefer `connect_native_client_connection(require_native=True, transport=...)`. Use the packet adapters below only for protocol tests, diagnostic tooling, or custom transports.
+When production code needs runtime sessions, prefer `connect_native_client_connection("nnrps://...", require_native=True, transport=...)`. Use the packet adapters below only for protocol tests, diagnostic tooling, or custom transports.
 
 ---
 

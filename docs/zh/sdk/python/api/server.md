@@ -6,23 +6,63 @@ Server 文档按使用路径组织：接受 session、接收提交、发送结�
 
 ```python
 from nnrp.server import (
+    NativeServerAcceptOptions,
     ServerProfile,
     ServerSession,
     ServerSessionAcceptResolution,
     ReceivedSubmit,
     accept_server_connection,
     accept_server_session,
+    listen_native_server,
 )
 ```
 
 ## Server 使用流程
 
+生产 host 使用 Rust 接管的 role 路径：
+
+1. 用 `nnrp://` 或 `nnrps://` 应用 endpoint 调用 [`listen_native_server`](#listen-native-server)。
+2. 调用 `NativeServer.accept()`，由 Rust 接受 carrier 并完成 NNRP 握手。
+3. 从返回的 `NativeRuntimeServerSession` 接收 submit/control/object/cache event。
+4. 通过该 session 发送 progress、partial、terminal、drop 与 trace 输出。
+5. 关闭 session 与 server context。
+
+Packet transport helper 只用于诊断和自定义 carrier：
+
 1. 构造 [`ServerProfile`](#serverprofile)。
-2. 用 `serve_tcp` 或 `serve_quic` 打开 listener。
+2. 用 packet transport adapter（例如 `serve_tcp` 或 `serve_quic`）打开 listener。
 3. 对每个 listener 调用 [`accept_server_session`](#accept-server-session)，或在已经预读首包、已经接受 connection 的 runtime 中调用 [`accept_server_connection`](#accept-server-connection)。
 4. 循环调用 [`ServerSession.receive_submit`](#serversession-receive-submit)。
 5. 用 [`send_result`](#serversession-send-result) 或 [`send_result_drop`](#serversession-send-result-drop) 回答每一帧。
 6. 对端断开或应用拒绝继续处理时关闭 session。
+
+## `listen_native_server`
+
+选择已安装的 Preview4 Provider，打开 listener，将 listener 所有权移交给 Rust server runtime，
+并返回 `NativeServer` context manager。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `endpoint` | `str \| NnrpEndpoint` | 是 | 本地 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
+| `provider_endpoint` | `str \| NativeTransportEndpoint \| None` | 否 | 显式 carrier-local bind locator；IPC 与 WebSocket 必须提供。 |
+| `transport_policy` | `TransportPolicy \| str \| int` | 否 | Provider 选择策略，默认 `auto`。 |
+| `transport` | `str \| None` | 否 | 显式选择 `tcp`、`quic`、`ipc` 或 `websocket`。 |
+| `security` | `NativeTransportServerSecurity \| None` | 否 | Provider 持有的证书与私钥配置。 |
+| `options` | `NativeServerOptions \| None` | 否 | Native server id 与 generation。 |
+| `require_native` | `bool` | 否 | 生产代码设为 `True`，native 不可用时直接失败。 |
+
+`NativeServer.accept(options=None)` 接收包含 `session_handle_id`、`session_generation` 和
+`timeout_ms` 的 `NativeServerAcceptOptions`，并返回 carrier-backed
+`NativeRuntimeServerSession`。它不会创建 synthetic local submit。
+
+```python
+with listen_native_server(
+    "nnrp://0.0.0.0:4433/runtime/default",
+    require_native=True,
+    transport="tcp",
+) as server:
+    session = server.accept(NativeServerAcceptOptions(timeout_ms=30_000))
+```
 
 ## `NativeRuntimeServerSession` Preview4 Frame
 

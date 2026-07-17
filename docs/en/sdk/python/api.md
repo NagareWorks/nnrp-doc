@@ -33,7 +33,7 @@ pip install --pre "nnrp-py==1.0.0rc4"
 
 The top-level `nnrp` package also exports native runtime helpers such as `load_native_runtime`, `load_native_client`, `probe_native_artifact`, `NativeRuntimeBackend`, `NativeRuntimeClient`, `NativeRuntimeConnection`, `NativeRuntimeSession`, `NativeSchemaCodec`, `NativeRecoveryCodec`, and cache/session diagnostic types.
 
-Preview4 wheels use transport-scoped native artifacts. Entrypoints such as `load_native_runtime(..., transport="tcp")` and `load_native_client(..., transport="ipc")` validate the artifact manifest, ABI `1.11.x`, protocol version, and transport slot. Production host code should prefer `nnrp.client.connect_native_client_connection(require_native=True, transport=...)`.
+Preview4 wheels use transport-scoped native artifacts. Entrypoints such as `load_native_runtime(..., transport="tcp")` and `load_native_client(..., transport="ipc")` validate the artifact manifest, ABI `3.0.x`, protocol version, and transport slot. Production host code should prefer `nnrp.client.connect_native_client_connection("nnrps://...", require_native=True, transport=...)`.
 
 ## Native Transport Providers
 

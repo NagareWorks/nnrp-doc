@@ -21,8 +21,8 @@ from nnrp.client import (
 
 生产 host 路径使用 Rust-backed native runtime：
 
-1. 选择或发现 native transport provider。
-2. 调用 [`connect_native_client_connection`](#connect-native-client-connection)。
+1. 提供 `nnrp://` 或 `nnrps://` 应用 endpoint。
+2. 调用 [`connect_native_client_connection`](#connect-native-client-connection)，由 SDK 选择已安装 Provider 并打开 carrier。
 3. 通过 [`NativeClientConnection.open_session`](#nativeclientconnection-open-session) 打开 session。
 4. 用粗粒度 native 方法提交、轮询结果、发送运行时控制帧。
 5. 调用 `close()` 释放 connection 和 session。
@@ -39,24 +39,39 @@ Packet transport helper 仍然公开，但主要用于 smoke、诊断和自定�
 
 ## `connect_native_client_connection`
 
-加载已安装的 preview4 native artifact，创建 native runtime connection，并返回 `NativeClientConnection` 上下文管理器。
+根据应用 endpoint 选择已安装的 Preview4 Provider，打开 Provider carrier，将其所有权移交给
+Rust role runtime，完成 NNRP 握手，并返回 `NativeClientConnection` 上下文管理器。常规 host
+配置中，Provider-local locator 不得替代应用 endpoint。
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
-| `options` | `NativeClientSessionOptions \| None` | 否 | Connection id、generation、transport id 等底层 session 选项。 |
+| `endpoint` | `str \| NnrpEndpoint` | 是 | 远端 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
+| `provider_endpoint` | `str \| NativeTransportEndpoint \| None` | 否 | IPC、WebSocket、一致性测试、诊断或受控部署使用的显式 carrier-local locator。 |
+| `transport_policy` | `TransportPolicy \| str \| int` | 否 | Provider 选择策略，默认 `auto`。 |
+| `transport` | `str \| None` | 否 | 显式选择 `tcp`、`quic`、`ipc` 或 `websocket`。 |
+| `security` | `NativeTransportClientSecurity \| None` | 否 | Provider 持有的 TLS 或对端校验配置。 |
+| `options` | `NativeClientConnectionOptions \| None` | 否 | Native connection id 与 generation。 |
 | `artifact_path` | `Path \| str \| None` | 否 | 显式 native library 路径；通常不需要。 |
 | `root` | `Path \| str \| None` | 否 | Native artifact 根目录。 |
 | `native_platform` | `NativePlatform \| None` | 否 | 诊断或测试时覆盖平台选择。 |
-| `transport` | `str \| None` | 否 | `tcp`、`quic`、`ipc` 或 `websocket`；为空时按默认 artifact 解析。 |
 | `library` | `Any \| None` | 否 | 测试注入用 library。 |
 | `fallback` | `NativeRuntimeBackend \| None` | 否 | 测试或诊断 fallback。 |
 | `require_native` | `bool` | 否 | 生产路径建议设为 `True`，native 不可用时直接失败。 |
 
 ```python
-with connect_native_client_connection(require_native=True, transport="tcp") as connection:
+with connect_native_client_connection(
+    "nnrps://runtime.example/session/default",
+    require_native=True,
+    transport="tcp",
+) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
     result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, payload=b"payload")
 ```
+
+TCP 与 QUIC 使用应用 endpoint 的 authority，authority 未提供端口时默认使用 `4433`。IPC 必须
+提供匹配的 `unix://` 或 `npipe://` `provider_endpoint`；WebSocket 必须提供匹配的 `ws://` 或
+`wss://` 覆盖。Provider-local locator 与最终选择的 Provider 不匹配时必须拒绝。只有 role adoption
+成功后 carrier 所有权才移入 Rust；失败时 Python 仍可关闭 carrier wrapper。
 
 ## `NativeClientConnection`
 
@@ -80,10 +95,10 @@ Native client connection 是 preview4 Python host API 的主入口。它不让 P
 | `operation_id` | `int` | 是 | Operation id。 |
 | `frame_id` | `int` | 是 | Frame id。 |
 | `payload` | `bytes \| bytearray \| memoryview` | 否 | Submit payload。 |
-| `result_payload` | `bytes \| bytearray \| memoryview \| None` | 否 | 测试或 loopback 结果 payload。 |
 | `parent_operation_id` | `int \| None` | 否 | 父 operation。 |
 | `operation_group_id` | `int \| None` | 否 | Operation 分组。 |
 | `max_events` | `int \| None` | 否 | 本次 poll 最多处理事件数。 |
+| `timeout_ms` | `int` | 否 | Native role event poll 的最长等待时间；`0` 表示非阻塞 poll。 |
 
 | 返回 |
 |---|

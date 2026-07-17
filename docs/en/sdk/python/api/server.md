@@ -7,19 +7,31 @@ send results or drops, then close. Message and packet pages remain the low-level
 
 ```python
 from nnrp.server import (
+    NativeServerAcceptOptions,
     ServerProfile,
     ServerSession,
     ServerSessionAcceptResolution,
     ReceivedSubmit,
     accept_server_connection,
     accept_server_session,
+    listen_native_server,
 )
 ```
 
 ## Server Workflow
 
+Production hosts use the Rust-owned role path:
+
+1. Call [`listen_native_server`](#listen-native-server) with an `nnrp://` or `nnrps://` application endpoint.
+2. Call `NativeServer.accept()`; Rust accepts the carrier and completes the NNRP handshake.
+3. Receive submit/control/object/cache events from the accepted `NativeRuntimeServerSession`.
+4. Send progress, partial, terminal, drop, and trace output through that session.
+5. Close the session and server context.
+
+Packet transport helpers are reserved for diagnostics and custom carriers:
+
 1. Create a [`ServerProfile`](#serverprofile).
-2. Open a listener with a transport adapter, such as `serve_tcp` or `serve_quic`.
+2. Open a listener with a packet transport adapter, such as `serve_tcp` or `serve_quic`.
 3. Call [`accept_server_session`](#accept-server-session) for each listener, or
    [`accept_server_connection`](#accept-server-connection) when a runtime already accepted the
    connection or prefetched the first control packet.
@@ -27,6 +39,34 @@ from nnrp.server import (
 5. Send one response per frame with [`send_result`](#serversession-send-result) or
    [`send_result_drop`](#serversession-send-result-drop).
 6. Close the session when the peer disconnects or the application rejects further work.
+
+## `listen_native_server`
+
+Selects an installed Preview4 provider, opens its listener, transfers listener ownership to the
+Rust server runtime, and returns a `NativeServer` context manager.
+
+| Parameter | Type | Required | Description |
+|---|---|---:|---|
+| `endpoint` | `str \| NnrpEndpoint` | Yes | Local `nnrp://` or `nnrps://` application endpoint. |
+| `provider_endpoint` | `str \| NativeTransportEndpoint \| None` | No | Explicit carrier-local bind locator; required for IPC and WebSocket. |
+| `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
+| `transport` | `str \| None` | No | Explicit `tcp`, `quic`, `ipc`, or `websocket` selection. |
+| `security` | `NativeTransportServerSecurity \| None` | No | Provider-owned certificate and private-key configuration. |
+| `options` | `NativeServerOptions \| None` | No | Native server id and generation. |
+| `require_native` | `bool` | No | Production code sets `True`; missing native support is an error. |
+
+`NativeServer.accept(options=None)` takes `NativeServerAcceptOptions` containing
+`session_handle_id`, `session_generation`, and `timeout_ms`, and returns a carrier-backed
+`NativeRuntimeServerSession`. It never creates a synthetic local submit.
+
+```python
+with listen_native_server(
+    "nnrp://0.0.0.0:4433/runtime/default",
+    require_native=True,
+    transport="tcp",
+) as server:
+    session = server.accept(NativeServerAcceptOptions(timeout_ms=30_000))
+```
 
 ## `NativeRuntimeServerSession` Preview4 Frames
 

@@ -25,8 +25,8 @@ from nnrp.client import (
 
 Production host code uses the Rust-backed native runtime:
 
-1. Select or discover a native transport provider.
-2. Call [`connect_native_client_connection`](#connect-native-client-connection).
+1. Provide an `nnrp://` or `nnrps://` application endpoint.
+2. Call [`connect_native_client_connection`](#connect-native-client-connection); the SDK selects an installed provider and opens its carrier.
 3. Open a session with [`NativeClientConnection.open_session`](#nativeclientconnection-open-session).
 4. Use coarse native methods for submit, polling, and runtime-control frames.
 5. Call `close()` to release the connection and sessions.
@@ -44,24 +44,41 @@ Packet transport helpers remain public, but they are mainly for smoke tests, dia
 
 ## `connect_native_client_connection`
 
-Loads an installed preview4 native artifact, creates a native runtime connection, and returns a `NativeClientConnection` context manager.
+Selects an installed Preview4 provider for an application endpoint, opens the provider carrier,
+transfers that carrier to the Rust role runtime, completes the NNRP handshake, and returns a
+`NativeClientConnection` context manager. A provider-local locator never replaces the application
+endpoint in normal host configuration.
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
-| `options` | `NativeClientSessionOptions \| None` | No | Low-level connection id, generation, and transport id options. |
+| `endpoint` | `str \| NnrpEndpoint` | Yes | Remote `nnrp://` or `nnrps://` application endpoint. |
+| `provider_endpoint` | `str \| NativeTransportEndpoint \| None` | No | Explicit carrier-local locator for IPC, WebSocket, diagnostics, conformance, or controlled deployment. |
+| `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
+| `transport` | `str \| None` | No | Explicit `tcp`, `quic`, `ipc`, or `websocket` selection. |
+| `security` | `NativeTransportClientSecurity \| None` | No | Provider-owned TLS or peer verification configuration. |
+| `options` | `NativeClientConnectionOptions \| None` | No | Native connection id and generation options. |
 | `artifact_path` | `Path \| str \| None` | No | Explicit native library path; usually unnecessary. |
 | `root` | `Path \| str \| None` | No | Native artifact root. |
 | `native_platform` | `NativePlatform \| None` | No | Platform override for diagnostics or tests. |
-| `transport` | `str \| None` | No | `tcp`, `quic`, `ipc`, or `websocket`; omitted means default artifact resolution. |
 | `library` | `Any \| None` | No | Test-injected library. |
 | `fallback` | `NativeRuntimeBackend \| None` | No | Test or diagnostic fallback. |
 | `require_native` | `bool` | No | Recommended as `True` for production; fails when native runtime is unavailable. |
 
 ```python
-with connect_native_client_connection(require_native=True, transport="tcp") as connection:
+with connect_native_client_connection(
+    "nnrps://runtime.example/session/default",
+    require_native=True,
+    transport="tcp",
+) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
     result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, payload=b"payload")
 ```
+
+TCP and QUIC resolve the application authority and default to port `4433` when the authority omits
+a port. IPC requires a matching `unix://` or `npipe://` `provider_endpoint`; WebSocket requires a
+matching `ws://` or `wss://` override. The SDK rejects a provider-local locator that does not belong
+to the selected provider. Carrier ownership moves into Rust only after successful role adoption;
+failure leaves the carrier wrapper closable by Python.
 
 ## `NativeClientConnection`
 
@@ -85,10 +102,10 @@ with connect_native_client_connection(require_native=True, transport="tcp") as c
 | `operation_id` | `int` | Yes | Operation id. |
 | `frame_id` | `int` | Yes | Frame id. |
 | `payload` | `bytes \| bytearray \| memoryview` | No | Submit payload. |
-| `result_payload` | `bytes \| bytearray \| memoryview \| None` | No | Test or loopback result payload. |
 | `parent_operation_id` | `int \| None` | No | Parent operation. |
 | `operation_group_id` | `int \| None` | No | Operation group. |
 | `max_events` | `int \| None` | No | Maximum events processed by this poll. |
+| `timeout_ms` | `int` | No | Maximum time the native role event poll may wait; `0` performs a non-blocking poll. |
 
 | Returns |
 |---|
