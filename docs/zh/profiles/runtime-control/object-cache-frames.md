@@ -79,15 +79,17 @@ metadata。多取值字段统一使用[运行时控制取值注册表](./value-r
 
 | Offset | 字段                 | 类型  | 必填 | 含义                             |
 | ------ | -------------------- | ----- | ---- | -------------------------------- |
-| `0`    | `cache_key_hi`       | `u64` | 是   | 缓存身份高 64 位。               |
-| `8`    | `cache_key_lo`       | `u64` | 是   | 缓存身份低 64 位。               |
-| `16`   | `profile_id`         | `u16` | 是   | 定义解释方式的 profile。         |
-| `18`   | `reuse_scope`        | `u16` | 是   | 见取值注册表里的 `reuse_scope`。 |
-| `20`   | `lease_id`           | `u64` | 否   | Lease anchor。                   |
-| `28`   | `producer_trace_id`  | `u64` | 否   | Producer trace ID。              |
-| `36`   | `expiration_hint_ms` | `u32` | 否   | 过期提示。                       |
-| `40`   | `metadata_bytes`     | `u32` | 否   | 可选 metadata body 长度。        |
-| `44`   | `flags`              | `u32` | 是   | 见取值注册表里的 flag masks。    |
+| `0`    | `cache_namespace`    | `u32` | 是   | 规范缓存身份的 namespace。       |
+| `4`    | `profile_id`         | `u16` | 是   | 定义解释方式的 profile。         |
+| `6`    | `reuse_scope`        | `u16` | 是   | 见取值注册表里的 `reuse_scope`。 |
+| `8`    | `cache_key_hi`       | `u64` | 是   | 缓存身份高 64 位。               |
+| `16`   | `cache_key_lo`       | `u64` | 是   | 缓存身份低 64 位。               |
+| `24`   | `lease_id`           | `u64` | 否   | Lease anchor。                   |
+| `32`   | `producer_trace_id`  | `u64` | 否   | Producer trace ID。              |
+| `40`   | `expiration_hint_ms` | `u32` | 否   | 过期提示。                       |
+| `44`   | `metadata_bytes`     | `u32` | 否   | 可选 metadata body 长度。        |
+| `48`   | `flags`              | `u32` | 是   | 见取值注册表里的 flag masks。    |
+| `52`   | `reserved`           | `u32` | 是   | 必须为零。                       |
 
 ## Cache Miss Metadata
 
@@ -95,12 +97,13 @@ metadata。多取值字段统一使用[运行时控制取值注册表](./value-r
 
 | Offset | 字段               | 类型  | 必填 | 含义                             |
 | ------ | ------------------ | ----- | ---- | -------------------------------- |
-| `0`    | `cache_key_hi`     | `u64` | 是   | 缓存身份高 64 位。               |
-| `8`    | `cache_key_lo`     | `u64` | 是   | 缓存身份低 64 位。               |
-| `16`   | `miss_reason`      | `u16` | 是   | 见取值注册表里的 `miss_reason`。 |
-| `18`   | `profile_id`       | `u16` | 否   | 拒绝解释的 profile。             |
-| `20`   | `diagnostic_bytes` | `u32` | 否   | 可选诊断 body 长度。             |
-| `24`   | `reserved`         | `u64` | 是   | 必须为零。                       |
+| `0`    | `cache_namespace`  | `u32` | 是   | 规范缓存身份的 namespace。       |
+| `4`    | `profile_id`       | `u16` | 否   | 拒绝解释的 profile。             |
+| `6`    | `miss_reason`      | `u16` | 是   | 见取值注册表里的 `miss_reason`。 |
+| `8`    | `cache_key_hi`     | `u64` | 是   | 缓存身份高 64 位。               |
+| `16`   | `cache_key_lo`     | `u64` | 是   | 缓存身份低 64 位。               |
+| `24`   | `diagnostic_bytes` | `u32` | 否   | 可选诊断 body 长度。             |
+| `28`   | `reserved`         | `u32` | 是   | 必须为零。                       |
 
 ## 一致性测试要求
 

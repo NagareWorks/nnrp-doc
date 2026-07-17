@@ -104,7 +104,9 @@ Preview4 复用已有的 NNRP/1 `CacheInvalidate` frame，不再定义第二种 
 | `decodeCacheInvalidateMetadata` | `Uint8Array`              | `CacheInvalidateMetadata` |
 
 `CacheInvalidateMetadata` 的冻结字段为 `invalidateScope`、`cacheNamespace`、`cacheKeyHi`、
-`cacheKeyLo`、`reasonCode`。`CacheLease` 是本地校验状态，冻结字段为 `objectId`、
+`cacheKeyLo`、`reasonCode`。`cacheNamespace` 类型为 `number`，两个 key word 类型均为 `bigint`。
+`CachePutMetadata`、`CacheAckMetadata` 和 `ObjectReferenceBlock` 使用相同身份字段宽度。
+`CacheLease` 是本地校验状态，冻结字段为 `objectId`、
 `objectVersion`、`leaseId`、`ownerScope`、`ownerId`、`grantedAtMillis`、`ttlMillis`。
 
 ## 高层 Runtime Frame 契约
@@ -231,8 +233,8 @@ lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
 | `ObjectReferenceMetadata`  | `ObjectRef`                  | `objectId`, `operationId`, `objectVersion`, `offset`, `length`, `flags`, `metadataBytes`                                                                                        |
 | `ObjectReleaseMetadata`    | `ObjectRelease`              | `objectId`, `operationId`, `releaseReason`, `sourceRole`, `flags`, `diagnosticBytes`                                                                                            |
 | `ObjectDeltaMetadata`      | `ObjectPatch`, `ObjectDelta` | `objectId`, `deltaSequence`, `regionOffset`, `regionBytes`, `deltaBytes`, `flags`, `metadataBytes`                                                                              |
-| `CacheReferenceMetadata`   | `CacheReference`             | `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                                               |
-| `CacheMissMetadata`        | `CacheMiss`                  | `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                                        |
+| `CacheReferenceMetadata`   | `CacheReference`             | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                             |
+| `CacheMissMetadata`        | `CacheMiss`                  | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                     |
 
 ## 运行时枚举
 

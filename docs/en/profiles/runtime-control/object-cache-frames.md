@@ -79,15 +79,17 @@ Used by `CACHE_REFERENCE`.
 
 | Offset | Field                | Type  | Required | Meaning                                    |
 | ------ | -------------------- | ----- | -------- | ------------------------------------------ |
-| `0`    | `cache_key_hi`       | `u64` | Yes      | High 64 bits of cache identity.            |
-| `8`    | `cache_key_lo`       | `u64` | Yes      | Low 64 bits of cache identity.             |
-| `16`   | `profile_id`         | `u16` | Yes      | Profile that defines interpretation.       |
-| `18`   | `reuse_scope`        | `u16` | Yes      | See `reuse_scope` in the value registries. |
-| `20`   | `lease_id`           | `u64` | No       | Lease anchor.                              |
-| `28`   | `producer_trace_id`  | `u64` | No       | Trace ID of producer.                      |
-| `36`   | `expiration_hint_ms` | `u32` | No       | Expiration hint.                           |
-| `40`   | `metadata_bytes`     | `u32` | No       | Optional metadata body length.             |
-| `44`   | `flags`              | `u32` | Yes      | See flag masks in the value registries.    |
+| `0`    | `cache_namespace`    | `u32` | Yes      | Namespace of the canonical cache identity. |
+| `4`    | `profile_id`         | `u16` | Yes      | Profile that defines interpretation.       |
+| `6`    | `reuse_scope`        | `u16` | Yes      | See `reuse_scope` in the value registries. |
+| `8`    | `cache_key_hi`       | `u64` | Yes      | High 64 bits of cache identity.            |
+| `16`   | `cache_key_lo`       | `u64` | Yes      | Low 64 bits of cache identity.             |
+| `24`   | `lease_id`           | `u64` | No       | Lease anchor.                              |
+| `32`   | `producer_trace_id`  | `u64` | No       | Trace ID of producer.                      |
+| `40`   | `expiration_hint_ms` | `u32` | No       | Expiration hint.                           |
+| `44`   | `metadata_bytes`     | `u32` | No       | Optional metadata body length.             |
+| `48`   | `flags`              | `u32` | Yes      | See flag masks in the value registries.    |
+| `52`   | `reserved`           | `u32` | Yes      | Must be zero.                              |
 
 ## Cache Miss Metadata
 
@@ -95,12 +97,13 @@ Used by `CACHE_MISS`.
 
 | Offset | Field              | Type  | Required | Meaning                                    |
 | ------ | ------------------ | ----- | -------- | ------------------------------------------ |
-| `0`    | `cache_key_hi`     | `u64` | Yes      | High 64 bits of cache identity.            |
-| `8`    | `cache_key_lo`     | `u64` | Yes      | Low 64 bits of cache identity.             |
-| `16`   | `miss_reason`      | `u16` | Yes      | See `miss_reason` in the value registries. |
-| `18`   | `profile_id`       | `u16` | No       | Profile that rejected interpretation.      |
-| `20`   | `diagnostic_bytes` | `u32` | No       | Optional diagnostic body length.           |
-| `24`   | `reserved`         | `u64` | Yes      | Must be zero.                              |
+| `0`    | `cache_namespace`  | `u32` | Yes      | Namespace of the canonical cache identity. |
+| `4`    | `profile_id`       | `u16` | No       | Profile that rejected interpretation.      |
+| `6`    | `miss_reason`      | `u16` | Yes      | See `miss_reason` in the value registries. |
+| `8`    | `cache_key_hi`     | `u64` | Yes      | High 64 bits of cache identity.            |
+| `16`   | `cache_key_lo`     | `u64` | Yes      | Low 64 bits of cache identity.             |
+| `24`   | `diagnostic_bytes` | `u32` | No       | Optional diagnostic body length.           |
+| `28`   | `reserved`         | `u32` | Yes      | Must be zero.                              |
 
 ## Conformance Requirement
 

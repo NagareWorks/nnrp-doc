@@ -71,6 +71,23 @@ Rust metadata 名称与 [运行时控制 Profiles](/zh/profiles/runtime-control/
 | Cache miss | 报告请求的 cache key 不可用。 |
 | Cache invalidate | 失效过期 object/cache state。 |
 
+所有 Rust cache 类型统一使用同一个 `CacheObjectId` 身份：
+
+```rust
+pub struct CacheObjectId {
+    pub cache_namespace: u32,
+    pub cache_key_hi: u64,
+    pub cache_key_lo: u64,
+    pub object_kind: CacheObjectKind,
+}
+```
+
+`CachePutMetadata`、`CacheAckMetadata`、`CacheInvalidateMetadata`、`CacheReferenceMetadata`、
+`CacheMissMetadata` 和 `ObjectReferenceBlock` 均暴露相同的 `cache_namespace: u32`、
+`cache_key_hi: u64`、`cache_key_lo: u64` 字段。固定布局冻结在
+[缓存能力与租约](/zh/protocol/v1/cache-and-lease)和
+[运行时对象与缓存 Metadata](/zh/profiles/runtime-control/object-cache-frames)。
+
 ## 常见问题
 
 ::: warning

@@ -109,7 +109,9 @@ invalidation message.
 | `decodeCacheInvalidateMetadata` | `Uint8Array`              | `CacheInvalidateMetadata` |
 
 `CacheInvalidateMetadata` has the frozen fields `invalidateScope`, `cacheNamespace`, `cacheKeyHi`,
-`cacheKeyLo`, and `reasonCode`. `CacheLease` is local validated state with `objectId`,
+`cacheKeyLo`, and `reasonCode`. `cacheNamespace` is a `number`; both key words are `bigint`.
+`CachePutMetadata`, `CacheAckMetadata`, and `ObjectReferenceBlock` use the same identity widths.
+`CacheLease` is local validated state with `objectId`,
 `objectVersion`, `leaseId`, `ownerScope`, `ownerId`, `grantedAtMillis`, and `ttlMillis`.
 
 ## High-Level Runtime Frame Contract
@@ -252,8 +254,8 @@ below. A metadata object is valid only for the message types listed in its row.
 | `ObjectReferenceMetadata`  | `ObjectRef`                  | `objectId`, `operationId`, `objectVersion`, `offset`, `length`, `flags`, `metadataBytes`                                                                                        |
 | `ObjectReleaseMetadata`    | `ObjectRelease`              | `objectId`, `operationId`, `releaseReason`, `sourceRole`, `flags`, `diagnosticBytes`                                                                                            |
 | `ObjectDeltaMetadata`      | `ObjectPatch`, `ObjectDelta` | `objectId`, `deltaSequence`, `regionOffset`, `regionBytes`, `deltaBytes`, `flags`, `metadataBytes`                                                                              |
-| `CacheReferenceMetadata`   | `CacheReference`             | `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                                               |
-| `CacheMissMetadata`        | `CacheMiss`                  | `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                                        |
+| `CacheReferenceMetadata`   | `CacheReference`             | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                             |
+| `CacheMissMetadata`        | `CacheMiss`                  | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                     |
 
 ## Runtime Enums
 

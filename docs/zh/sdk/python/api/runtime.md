@@ -173,8 +173,8 @@ payload。
 | `ObjectReferenceMetadata` | `OBJECT_REF` | `object_id`, `operation_id`, `object_version`, `offset`, `length`, `flags`, `metadata_bytes` |
 | `ObjectReleaseMetadata` | `OBJECT_RELEASE` | `object_id`, `operation_id`, `release_reason`, `source_role`, `flags`, `diagnostic_bytes` |
 | `ObjectDeltaMetadata` | `OBJECT_PATCH`, `OBJECT_DELTA` | `object_id`, `delta_sequence`, `region_offset`, `region_bytes`, `delta_bytes`, `flags`, `metadata_bytes` |
-| `CacheReferenceMetadata` | `CACHE_REFERENCE` | `cache_key_hi`, `cache_key_lo`, `profile_id`, `reuse_scope`, `lease_id`, `producer_trace_id`, `expiration_hint_ms`, `metadata_bytes`, `flags` |
-| `CacheMissMetadata` | `CACHE_MISS` | `cache_key_hi`, `cache_key_lo`, `miss_reason`, `profile_id`, `diagnostic_bytes` |
+| `CacheReferenceMetadata` | `CACHE_REFERENCE` | `cache_namespace`, `cache_key_hi`, `cache_key_lo`, `profile_id`, `reuse_scope`, `lease_id`, `producer_trace_id`, `expiration_hint_ms`, `metadata_bytes`, `flags` |
+| `CacheMissMetadata` | `CACHE_MISS` | `cache_namespace`, `cache_key_hi`, `cache_key_lo`, `miss_reason`, `profile_id`, `diagnostic_bytes` |
 
 ## 运行时枚举
 

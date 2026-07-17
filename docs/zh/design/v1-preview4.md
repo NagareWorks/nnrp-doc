@@ -71,6 +71,11 @@ sequenceDiagram
 | `BUDGET_UPDATE` | 在会话中更新 compute、token、memory 或 bandwidth 预算。 |
 | `ERROR_RECOVERABLE` / `RETRY_AFTER` | 区分可重试压力与终止失败。 |
 
+Preview4 同时把所有缓存 key 表达统一为一个规范身份：
+`(cache_namespace:u32, cache_key_hi:u64, cache_key_lo:u64)`。控制面缓存消息、热路径
+object-reference block、runtime cache-reference frame、一致性测试向量和 SDK API 都必须保留
+完整 128 位 key；旧 preview 的 cache wire layout 不再有效。
+
 ## Profile 扩展
 
 Preview4 应先补 profile 族，而不是把所有场景塞进 token stream profile：

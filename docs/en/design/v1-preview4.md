@@ -79,6 +79,11 @@ sequenceDiagram
 | `BUDGET_UPDATE` | Update compute, token, memory, or bandwidth budgets during a session. |
 | `ERROR_RECOVERABLE` / `RETRY_AFTER` | Distinguish retryable pressure from terminal failure. |
 
+Preview4 also replaces every cache-key representation with one canonical identity:
+`(cache_namespace:u32, cache_key_hi:u64, cache_key_lo:u64)`. Control-plane cache messages,
+hot-path object-reference blocks, runtime cache-reference frames, conformance vectors, and SDK APIs
+must preserve all 128 key bits; no previous-preview cache wire layout remains valid.
+
 ## Profile Expansion
 
 Preview4 should add profile families before forcing every workload through the token stream profile:

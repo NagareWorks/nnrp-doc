@@ -76,6 +76,23 @@ The Rust metadata names mirror the wire profiles documented under
 | Cache miss | Reports that a requested cache key is unavailable. |
 | Cache invalidate | Invalidates stale object/cache state. |
 
+Every Rust cache type uses the same `CacheObjectId` identity:
+
+```rust
+pub struct CacheObjectId {
+    pub cache_namespace: u32,
+    pub cache_key_hi: u64,
+    pub cache_key_lo: u64,
+    pub object_kind: CacheObjectKind,
+}
+```
+
+`CachePutMetadata`, `CacheAckMetadata`, `CacheInvalidateMetadata`, `CacheReferenceMetadata`,
+`CacheMissMetadata`, and `ObjectReferenceBlock` expose the same `cache_namespace: u32`,
+`cache_key_hi: u64`, and `cache_key_lo: u64` fields. The fixed layouts are frozen in
+[Cache Capabilities and Leases](/en/protocol/v1/cache-and-lease) and
+[Runtime Object and Cache Metadata](/en/profiles/runtime-control/object-cache-frames).
+
 ## Common Pitfalls
 
 ::: warning

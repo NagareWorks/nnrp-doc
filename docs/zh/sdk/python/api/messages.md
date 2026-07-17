@@ -155,28 +155,39 @@ from nnrp.core import (
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
+| `cache_namespace` | `int` | 无符号 32 位 namespace |
+| `cache_key_hi` | `int` | key 高 64 位，不得截断 |
+| `cache_key_lo` | `int` | key 低 64 位，不得截断 |
 | `object_kind` | `CacheObjectKind` | 对象类型 |
-| `object_key` | `int` | 对象键（uint32） |
-| `namespace_id` | `int` | 命名空间 ID |
-| `flags` | `CachePutFlags` | 存储标志 |
-| `body_len` | `int` | 对象字节数 |
+| `ttl_ms` | `int` | 请求的租约 TTL |
+| `object_bytes` | `int` | 对象 body 长度 |
+| `codec_bitmap` | `int` | 允许的 codec |
+| `flags` | `CachePutFlags` | 写入与续租 flags |
 
 ### `CacheAckMetadata`
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `object_kind` | `CacheObjectKind` | 对象类型 |
-| `object_key` | `int` | 对象键 |
+| `cache_namespace` | `int` | 无符号 32 位 namespace |
+| `cache_key_hi` | `int` | key 高 64 位，不得截断 |
+| `cache_key_lo` | `int` | key 低 64 位，不得截断 |
 | `status` | `CacheAckStatus` | 存储结果 |
+| `accepted_ttl_ms` | `int` | 实际授予的租约 TTL |
+| `max_object_bytes` | `int` | 接收方对象大小上限 |
+| `detail_code` | `int` | 状态详情 |
 
 ### `CacheInvalidateMetadata`
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `scope` | `CacheInvalidateScope` | 失效范围 |
-| `object_kind` | `CacheObjectKind` | 对象类型（`OBJECT_KIND` 范围时有效） |
-| `namespace_id` | `int` | 命名空间 ID |
-| `object_key` | `int` | 对象键（`OBJECT_KEY` 范围时有效） |
+| `invalidate_scope` | `CacheInvalidateScope` | 失效范围 |
+| `cache_namespace` | `int` | 无符号 32 位 namespace selector |
+| `cache_key_hi` | `int` | key 高 64 位或 object-kind selector |
+| `cache_key_lo` | `int` | key 低 64 位 |
+| `reason_code` | `int` | 失效原因 |
+
+`ObjectReferenceBlock`、`CacheReferenceMetadata` 和 `CacheMissMetadata` 同样暴露
+`cache_namespace`、`cache_key_hi`、`cache_key_lo` 这一组规范身份字段。
 
 ---
 

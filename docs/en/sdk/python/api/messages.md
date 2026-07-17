@@ -108,6 +108,51 @@ All control message metadata classes implement `.pack() -> bytes` and `@classmet
 
 ---
 
+## Cache Metadata
+
+All cache keys use `cache_namespace: int` plus two unsigned 64-bit words. Python exposes those
+words as `int` without truncation.
+
+### `CachePutMetadata`
+
+| Field | Type | Description |
+|---|---|---|
+| `cache_namespace` | `int` | Unsigned 32-bit namespace. |
+| `cache_key_hi` | `int` | High unsigned 64-bit key word. |
+| `cache_key_lo` | `int` | Low unsigned 64-bit key word. |
+| `object_kind` | `CacheObjectKind` | Cached object kind. |
+| `ttl_ms` | `int` | Requested lease TTL. |
+| `object_bytes` | `int` | Object body length. |
+| `codec_bitmap` | `int` | Permitted codecs. |
+| `flags` | `CachePutFlags` | Put and renewal flags. |
+
+### `CacheAckMetadata`
+
+| Field | Type | Description |
+|---|---|---|
+| `cache_namespace` | `int` | Unsigned 32-bit namespace. |
+| `cache_key_hi` | `int` | High unsigned 64-bit key word. |
+| `cache_key_lo` | `int` | Low unsigned 64-bit key word. |
+| `status` | `CacheAckStatus` | Store result. |
+| `accepted_ttl_ms` | `int` | Granted lease TTL. |
+| `max_object_bytes` | `int` | Receiver object-size ceiling. |
+| `detail_code` | `int` | Status detail. |
+
+### `CacheInvalidateMetadata`
+
+| Field | Type | Description |
+|---|---|---|
+| `invalidate_scope` | `CacheInvalidateScope` | Invalidation scope. |
+| `cache_namespace` | `int` | Unsigned 32-bit namespace selector. |
+| `cache_key_hi` | `int` | High unsigned 64-bit key word or object-kind selector. |
+| `cache_key_lo` | `int` | Low unsigned 64-bit key word. |
+| `reason_code` | `int` | Invalidation reason. |
+
+`ObjectReferenceBlock`, `CacheReferenceMetadata`, and `CacheMissMetadata` expose the same
+`cache_namespace`, `cache_key_hi`, and `cache_key_lo` identity.
+
+---
+
 ## Data Message Metadata
 
 ### `FrameSubmitMetadata`
