@@ -62,6 +62,7 @@ Preview4 将 fixed metadata 冻结为 72 字节：
 1. Client 在编码 submit 前分配两个标识。
 2. Server 接受 submit 时记录两个标识，并将它们绑定到本地 operation handle。
 3. Partial result 与 operation-scope control frame 在 fixed metadata 中使用 `operation_id`。
-4. `RESULT_PUSH` 与 `RESULT_DROP` 继续使用 `header.frame_id` 关联。
-5. 只有对应 terminal event 已交付或持久记录后，才释放 operation 生命周期状态。
-
+4. 每个 operation-scope 消息必须在 `header.frame_id` 中携带其 metadata `operation_id` 已绑定的
+   frame 标识；接收端必须拒绝未知 operation 或不匹配的标识对。
+5. `RESULT_PUSH` 与 `RESULT_DROP` 继续使用 `header.frame_id` 关联。
+6. 只有对应 terminal event 已交付或持久记录后，才释放 operation 生命周期状态。

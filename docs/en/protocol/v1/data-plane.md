@@ -66,7 +66,8 @@ Preview4 `FRAME_SUBMIT`.
 2. A server records both identities when it accepts the submit and binds them to its local
    operation handle.
 3. Partial results and operation-scoped control frames use `operation_id` in fixed metadata.
-4. `RESULT_PUSH` and `RESULT_DROP` retain `header.frame_id` correlation.
-5. A terminal result releases lifecycle state only after the corresponding terminal event has
+4. Every operation-scoped message MUST carry the `header.frame_id` bound to its metadata
+   `operation_id`; a receiver MUST reject an unknown operation or a mismatched pair.
+5. `RESULT_PUSH` and `RESULT_DROP` retain `header.frame_id` correlation.
+6. A terminal result releases lifecycle state only after the corresponding terminal event has
    been delivered or durably recorded.
-
