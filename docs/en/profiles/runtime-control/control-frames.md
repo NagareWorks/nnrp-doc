@@ -36,7 +36,7 @@ Used by `PRIORITY_UPDATE`, `DEADLINE`, and `EXPIRE_AT`.
 | `8`    | `control_sequence` | `u64` | Yes                          | Monotonic sequence within the sender.      |
 | `16`   | `priority_class`   | `u16` | For `PRIORITY_UPDATE`        | New priority class.                        |
 | `18`   | `priority_delta`   | `i16` | No                           | Relative priority adjustment.              |
-| `20`   | `deadline_unix_ms` | `u64` | For `DEADLINE` / `EXPIRE_AT` | Absolute deadline or expiration timestamp. |
+| `20`   | `deadline_unix_ms` | `u64` | For `DEADLINE` / `EXPIRE_AT` | Non-zero absolute Unix deadline or expiration timestamp in milliseconds; `0` is invalid/unset. |
 | `28`   | `flags`            | `u32` | Yes                          | See flag masks in the value registries.    |
 
 ## Supersede Metadata

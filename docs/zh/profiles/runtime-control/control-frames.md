@@ -36,7 +36,7 @@ metadata。多取值字段统一使用[运行时控制取值注册表](./value-r
 | `8`    | `control_sequence` | `u64` | 是                            | 发送方内单调递增序号。        |
 | `16`   | `priority_class`   | `u16` | `PRIORITY_UPDATE` 必填        | 新优先级。                    |
 | `18`   | `priority_delta`   | `i16` | 否                            | 相对优先级调整。              |
-| `20`   | `deadline_unix_ms` | `u64` | `DEADLINE` / `EXPIRE_AT` 必填 | 绝对 deadline 或过期时间戳。  |
+| `20`   | `deadline_unix_ms` | `u64` | `DEADLINE` / `EXPIRE_AT` 必填 | 非零的绝对 Unix 毫秒 deadline 或过期时间戳；`0` 表示非法或未设置。 |
 | `28`   | `flags`            | `u32` | 是                            | 见取值注册表里的 flag masks。 |
 
 ## Supersede Metadata
