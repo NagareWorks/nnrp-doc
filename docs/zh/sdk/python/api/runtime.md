@@ -105,8 +105,10 @@ payload。
 
 `NativeRuntimeEvent.to_runtime_frame()` 对 Preview4 runtime frame 返回
 `NativeRuntimeFrameEvent`，对 submit/result/lifecycle event 返回 `None`。
-`NativeRuntimeConnection.poll_runtime_frames()` 和 `iter_runtime_frames()` 跳过非 runtime event，
-直接返回解码后的类型。
+Rust ABI 的 role event 以 session 为作用域，因此
+`NativeRuntimeSession.poll_runtime_frames()` 和 `iter_runtime_frames()` 跳过非 runtime event，
+直接返回解码后的类型。Client connection 不提供 connection-wide event pump，因为存在多个
+session 时无法保持无歧义的事件所有权。
 
 ## `encode_websocket_binary_frame`
 

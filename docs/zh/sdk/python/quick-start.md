@@ -65,10 +65,10 @@ with connect_native_client_connection(
         session,
         operation_id=1,
         frame_id=1,
-        payload=b"hello",
+        body=b"hello",
         timeout_ms=30_000,
     )
-    print(result.payload)
+    print(result.body)
 ```
 
 如果安装包包含多个 transport artifact，可以让 SDK 发现并选择 provider：

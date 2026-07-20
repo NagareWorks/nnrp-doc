@@ -67,10 +67,10 @@ with connect_native_client_connection(
         session,
         operation_id=1,
         frame_id=1,
-        payload=b"hello",
+        body=b"hello",
         timeout_ms=30_000,
     )
-    print(result.payload)
+    print(result.body)
 ```
 
 When the installation contains several transport artifacts, the SDK can discover and select providers:

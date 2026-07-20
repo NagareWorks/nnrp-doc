@@ -151,8 +151,6 @@ typed metadata。SDK 拒绝 `operation_id` 与方法参数不一致的 metadata�
 | `negotiate_runtime_capabilities` | `CAPABILITY_NEGOTIATION` |
 | `degrade_runtime_profile` | `DEGRADE_PROFILE` |
 
-Event pump helper 包括 `dispatch_events`、`dispatch_credit_updates`、`dispatch_result_hints`、`dispatch_structured_events`、`dispatch_tool_deltas` 和 `dispatch_workflow_states`。
-
 ## `NativeRuntimeSession` Preview4 Frame
 
 `NativeClientConnection.open_session()` 返回的 session 持有高层 Preview4 发送接口。普通应用
@@ -175,6 +173,24 @@ Event pump helper 包括 `dispatch_events`、`dispatch_credit_updates`、`dispat
 
 每个方法返回 `None`，校验声明长度，并只调用一次粗粒度 Rust runtime。底层与角色无关的
 frame-send 原语仅供 SDK 内部使用，不在 `NativeRuntimeSession` 上公开。
+
+### Session 作用域事件泵
+
+Rust role event 归属于单个 session，因此 Python SDK 只在 `NativeRuntimeSession` 上提供接收和
+分发方法，不提供 connection-wide queue：
+
+| 方法 | 返回 |
+|---|---|
+| `poll_event()` / `poll_events(max_events=None, event_kind=None)` | 持有自身 buffer 的原始 `NativeRuntimeEvent` 快照。 |
+| `poll_credit_updates(max_events=None)` | 已解码的 credit 与 backpressure 更新。 |
+| `poll_result_hints(max_events=None)` | 已解码的 result hint。 |
+| `poll_payload_family_events(...)` | 已解码的 payload-family event。 |
+| `poll_runtime_frames(max_events=None)` | 已解码的 Preview4 runtime frame。 |
+| `dispatch_events(...)` 与 typed `dispatch_*` 变体 | 同一 session 上的同步 callback 分发。 |
+| `async_poll_event()` 与 typed `iter_*` 变体 | 同一 session event source 的异步封装。 |
+
+事件泵使用 session handle 执行一次有界 native poll，并在返回前复制和释放 native-owned buffer。
+应用打开多个 session 时必须分别 poll；connection 层不会重新分配事件归属。
 
 ## `connect_client_control`
 

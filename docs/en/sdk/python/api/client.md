@@ -158,8 +158,6 @@ The application-facing result does not expose the FFI payload containing seriali
 | `negotiate_runtime_capabilities` | `CAPABILITY_NEGOTIATION` |
 | `degrade_runtime_profile` | `DEGRADE_PROFILE` |
 
-Event pump helpers include `dispatch_events`, `dispatch_credit_updates`, `dispatch_result_hints`, `dispatch_structured_events`, `dispatch_tool_deltas`, and `dispatch_workflow_states`.
-
 ## `NativeRuntimeSession` Preview4 Frames
 
 The session returned by `NativeClientConnection.open_session()` owns the high-level Preview4 send
@@ -183,6 +181,25 @@ surface. Applications use these methods instead of constructing frames with the 
 Every method returns `None`, validates declared lengths, and performs one coarse call to the
 Rust-owned runtime. The underlying role-neutral frame-send primitive is internal to the SDK and is
 not exposed on `NativeRuntimeSession`.
+
+### Session-scoped event pump
+
+Rust role events are owned by one session. The Python SDK therefore exposes receive and dispatch
+methods on `NativeRuntimeSession`, never as a connection-wide queue:
+
+| Method | Result |
+|---|---|
+| `poll_event()` / `poll_events(max_events=None, event_kind=None)` | Raw owned `NativeRuntimeEvent` snapshots. |
+| `poll_credit_updates(max_events=None)` | Decoded credit and backpressure updates. |
+| `poll_result_hints(max_events=None)` | Decoded result hints. |
+| `poll_payload_family_events(...)` | Decoded payload-family events. |
+| `poll_runtime_frames(max_events=None)` | Decoded Preview4 runtime frames. |
+| `dispatch_events(...)` and typed `dispatch_*` variants | Synchronous callback dispatch for the same session. |
+| `async_poll_event()` and typed `iter_*` variants | Async wrappers over the same session event source. |
+
+The event pump uses the session handle in one bounded native poll. It copies and releases native-owned
+buffers before returning. Applications with several sessions poll each session explicitly; events are
+never reassigned by a connection-level router.
 
 ## `connect_client_control`
 

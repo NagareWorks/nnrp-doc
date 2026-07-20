@@ -110,8 +110,10 @@ typed metadata object. Object patch and delta events split their tail into `meta
 the native owned payload before returning the event.
 
 `NativeRuntimeEvent.to_runtime_frame()` returns a `NativeRuntimeFrameEvent` for Preview4 runtime
-frames and `None` for submit/result/lifecycle events. `NativeRuntimeConnection.poll_runtime_frames()`
-and `iter_runtime_frames()` skip non-runtime events and return the decoded type directly.
+frames and `None` for submit/result/lifecycle events. Role events are session-scoped in the Rust ABI,
+so `NativeRuntimeSession.poll_runtime_frames()` and `iter_runtime_frames()` skip non-runtime events
+and return the decoded type directly. The client connection does not expose a connection-wide event
+pump because it cannot preserve unambiguous ownership when several sessions are open.
 
 ## `encode_websocket_binary_frame`
 
