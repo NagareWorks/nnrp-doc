@@ -89,6 +89,40 @@ exposes these application-facing methods:
 [`NativeRuntimeFrameEvent`](./runtime#nativeruntimeframeevent). No application-facing server method
 accepts a raw `control_code`.
 
+### `NativeRuntimeServerSession.receive_submit`
+
+```python
+def receive_submit(
+    self,
+    *,
+    timeout_ms: int = 0,
+    max_events: int = 1,
+) -> NativeRuntimeServerOperation: ...
+```
+
+The returned operation exposes the wire identities and decoded request without exposing an FFI
+buffer:
+
+| Field | Type | Description |
+|---|---|---|
+| `operation_id` | `int` | Non-zero wire operation identity from `FRAME_SUBMIT`. |
+| `frame_id` | `int` | Wire frame identity from the packet header. |
+| `metadata` | `FrameSubmitMetadata` | Decoded submit metadata. |
+| `body` | `bytes` | Owned application body after the fixed metadata prefix. |
+
+### `NativeRuntimeServerOperation.send_result`
+
+```python
+def send_result(
+    self,
+    metadata: ResultPushMetadata,
+    body: bytes = b"",
+) -> None: ...
+```
+
+The SDK validates and packs `ResultPushMetadata` together with `body`, then performs one coarse
+native call. Callers never prepend serialized metadata or pass an FFI-shaped result payload.
+
 ## `accept_server_session`
 
 Accepts a connection, validates `CLIENT_HELLO`, sends `SERVER_HELLO_ACK`, and returns an active

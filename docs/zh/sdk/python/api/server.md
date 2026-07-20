@@ -85,6 +85,39 @@ Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Se
 [`NativeRuntimeFrameEvent`](./runtime#nativeruntimeframeevent)。应用侧 server 方法不接收原始
 `control_code`。
 
+### `NativeRuntimeServerSession.receive_submit`
+
+```python
+def receive_submit(
+    self,
+    *,
+    timeout_ms: int = 0,
+    max_events: int = 1,
+) -> NativeRuntimeServerOperation: ...
+```
+
+返回的 operation 直接提供 wire identity 和已解码请求，不向应用暴露 FFI buffer：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `operation_id` | `int` | 来自 `FRAME_SUBMIT` 的非零 wire operation identity。 |
+| `frame_id` | `int` | 来自 packet header 的 wire frame identity。 |
+| `metadata` | `FrameSubmitMetadata` | 已解码的 submit metadata。 |
+| `body` | `bytes` | 固定 metadata 前缀之后、由 Python 持有的应用 body。 |
+
+### `NativeRuntimeServerOperation.send_result`
+
+```python
+def send_result(
+    self,
+    metadata: ResultPushMetadata,
+    body: bytes = b"",
+) -> None: ...
+```
+
+SDK 校验并拼装 `ResultPushMetadata` 与 `body`，随后只执行一次粗粒度 native 调用。调用方
+不需要预先序列化 metadata，也不接触 FFI 形态的 result payload。
+
 ## `accept_server_session`
 
 接受连接、校验 `CLIENT_HELLO`、发送 `SERVER_HELLO_ACK`，并返回活跃 [`ServerSession`](#serversession)。
