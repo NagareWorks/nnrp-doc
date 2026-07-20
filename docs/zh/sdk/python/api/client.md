@@ -65,7 +65,7 @@ with connect_native_client_connection(
     transport="tcp",
 ) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
-    result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, payload=b"payload")
+    result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, body=b"payload")
 ```
 
 TCP 与 QUIC 使用应用 endpoint 的 authority，authority 未提供端口时默认使用 `4433`。IPC 必须
@@ -107,10 +107,17 @@ profile/schema 组合时才覆盖这些字段。
 | `session` | `NativeRuntimeSession` | 是 | 已打开的 native session。 |
 | `operation_id` | `int` | 是 | Operation id。 |
 | `frame_id` | `int` | 是 | Frame id。 |
-| `payload` | `bytes \| bytearray \| memoryview` | 否 | Submit payload。 |
+| `metadata` | `FrameSubmitMetadata \| None` | 否 | Typed submit metadata；默认生成 canonical token metadata。 |
+| `body` | `bytes \| bytearray \| memoryview` | 否 | Submit metadata 之后的应用 body。 |
 | `parent_operation_id` | `int \| None` | 否 | 父 operation。 |
 | `operation_group_id` | `int \| None` | 否 | Operation 分组。 |
 | `max_events` | `int \| None` | 否 | 本次 poll 最多处理事件数。 |
+
+`NativeRuntimeSession.submit()` 与 `submit_operation()` 使用同一套 `metadata` + `body` 契约。
+未传 `metadata` 时，SDK 使用给定的非零 `operation_id` 构造 canonical token submit metadata：
+`TOKEN_CHUNK`、一个 payload frame、inline mode、25 ms latency budget。其他 profile 传入自己的
+typed metadata。SDK 拒绝 `operation_id` 与方法参数不一致的 metadata，随后拼装 metadata 与 body，
+只跨一次 FFI。
 | `timeout_ms` | `int` | 否 | Native role event poll 的最长等待时间；`0` 表示非阻塞 poll。 |
 
 | 返回 |

@@ -71,7 +71,7 @@ with connect_native_client_connection(
     transport="tcp",
 ) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
-    result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, payload=b"payload")
+    result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, body=b"payload")
 ```
 
 TCP and QUIC resolve the application authority and default to port `4433` when the authority omits
@@ -114,10 +114,17 @@ Applications override them only when selecting another installed profile/schema 
 | `session` | `NativeRuntimeSession` | Yes | Open native session. |
 | `operation_id` | `int` | Yes | Operation id. |
 | `frame_id` | `int` | Yes | Frame id. |
-| `payload` | `bytes \| bytearray \| memoryview` | No | Submit payload. |
+| `metadata` | `FrameSubmitMetadata \| None` | No | Typed submit metadata; defaults to canonical token metadata. |
+| `body` | `bytes \| bytearray \| memoryview` | No | Application body after submit metadata. |
 | `parent_operation_id` | `int \| None` | No | Parent operation. |
 | `operation_group_id` | `int \| None` | No | Operation group. |
 | `max_events` | `int \| None` | No | Maximum events processed by this poll. |
+
+`NativeRuntimeSession.submit()` and `submit_operation()` use the same `metadata` plus `body`
+contract. When `metadata` is omitted, the SDK builds the canonical token submit metadata with the
+given non-zero `operation_id`, `TOKEN_CHUNK`, one payload frame, inline mode, and a 25 ms latency
+budget. Custom profiles pass their own typed metadata. The SDK rejects metadata whose
+`operation_id` does not equal the method argument, packs metadata and body, and crosses the FFI once.
 | `timeout_ms` | `int` | No | Maximum time the native role event poll may wait; `0` performs a non-blocking poll. |
 
 | Returns |
