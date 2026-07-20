@@ -124,6 +124,17 @@ typed metadata。SDK 拒绝 `operation_id` 与方法参数不一致的 metadata�
 |---|
 | `NativeRuntimeResult` |
 
+对于 `RESULT_PUSH`，`NativeRuntimeResult` 提供：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `metadata` | `ResultPushMetadata` | 已解码的固定 result metadata。 |
+| `body` | `bytes` | Metadata 前缀之后、由 Python 持有的应用 result body。 |
+| `operation_id` | `int` | 已关联的 wire operation identity。 |
+| `frame_id` | `int` | 已关联的 wire frame identity。 |
+
+应用侧 result 不暴露包含序列化 metadata 的 FFI payload。
+
 ### Runtime control helper
 
 | 方法 | 消息类型 |

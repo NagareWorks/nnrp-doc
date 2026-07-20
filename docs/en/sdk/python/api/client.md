@@ -131,6 +131,17 @@ budget. Custom profiles pass their own typed metadata. The SDK rejects metadata 
 |---|
 | `NativeRuntimeResult` |
 
+For `RESULT_PUSH`, `NativeRuntimeResult` exposes:
+
+| Field | Type | Description |
+|---|---|---|
+| `metadata` | `ResultPushMetadata` | Decoded fixed result metadata. |
+| `body` | `bytes` | Owned application result body after the metadata prefix. |
+| `operation_id` | `int` | Correlated wire operation identity. |
+| `frame_id` | `int` | Correlated wire frame identity. |
+
+The application-facing result does not expose the FFI payload containing serialized metadata.
+
 ### Runtime control helpers
 
 | Method | Message type |
