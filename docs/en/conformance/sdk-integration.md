@@ -241,6 +241,12 @@ Use wire-level conformance when the runner must bypass SDK-owned adapters and ex
 endpoint directly. The target manifest declares the endpoint mode, transport addresses, selected
 wire scenarios, and execution limits.
 
+TLS-enabled target transports also declare the frozen `security` object. Its certificate and key
+paths are relative to the target manifest. The runner uses the trusted certificate and server name
+when connecting to an implementation endpoint, and uses the certificate/private-key pair when the
+suite owns the listener. `suite_as_proxy` treats the declared endpoint as its implementation-server
+upstream and keeps the proxy front endpoint internal to the suite.
+
 ```bash
 cargo run \
   --manifest-path <path-to-nnrp-conformance>/Cargo.toml \

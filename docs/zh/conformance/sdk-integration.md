@@ -263,6 +263,10 @@ cargo run \
   --results /tmp/wire-results.json
 ```
 
+启用 TLS 的 target transport 还必须声明冻结的 `security` 对象。证书和私钥路径相对 target manifest 解析。runner 连接实现侧 endpoint 时使用
+受信任证书和 server name；suite 持有 listener 时使用证书和私钥。`suite_as_proxy` 把声明的 endpoint 作为实现侧 server 上游地址，proxy
+前端 endpoint 只由 suite 内部持有。
+
 Adapter execution 验证 SDK 易用面和实现仓库自有行为。线路级 execution 验证公共协议边界：帧顺序、终态、传输绑定与证据输出。
 
 ---

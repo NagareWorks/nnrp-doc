@@ -279,7 +279,7 @@ The suite manifest is the root of one wire baseline:
   "suite_version": "0.1.0",
   "status": "frozen",
   "scenario_manifests": ["scenarios/runtime-control.json"],
-  "modes": ["client", "server", "proxy"],
+  "modes": ["suite_as_client", "suite_as_server", "suite_as_proxy"],
   "transports": ["tcp", "quic", "ipc", "websocket"]
 }
 ```
@@ -294,9 +294,20 @@ transport endpoints the suite may use:
   "protocol_version": "nnrp-1-preview4",
   "suite_version": "0.1.0",
   "wire_conformance": {
-    "modes": ["client", "server"],
+    "modes": ["suite_as_client", "suite_as_server", "suite_as_proxy"],
     "transports": [
-      { "name": "tcp", "endpoint": "127.0.0.1:19091", "tls": false }
+      { "name": "tcp", "endpoint": "127.0.0.1:19091", "tls": false },
+      {
+        "name": "quic",
+        "endpoint": "127.0.0.1:19092",
+        "tls": true,
+        "security": {
+          "server_name": "localhost",
+          "trusted_certificate_der_path": "certs/server.der",
+          "certificate_der_path": "certs/server.der",
+          "private_key_pkcs8_der_path": "certs/server-key.der"
+        }
+      }
     ],
     "capabilities": ["control.cancel_abort", "control.trace_context"],
     "limits": {
@@ -306,6 +317,18 @@ transport endpoints the suite may use:
   }
 }
 ```
+
+Transport security rules are frozen as follows:
+
+- `security` is required when `tls` is `true` and forbidden when `tls` is `false`.
+- QUIC and `wss` transports set `tls` to `true`; plain TCP, IPC, and `ws` set it to `false`.
+- All security paths are resolved relative to the target manifest, not the current working directory.
+- `server_name` and `trusted_certificate_der_path` authenticate the implementation server in
+  `suite_as_client` and `suite_as_proxy` modes.
+- `certificate_der_path` and `private_key_pkcs8_der_path` configure the suite listener in
+  `suite_as_server` mode. The implementation client trusts `trusted_certificate_der_path`.
+- In `suite_as_proxy`, the declared endpoint is the implementation server upstream. The suite creates
+  and owns its ephemeral front endpoint and probe client.
 
 Runner flow:
 

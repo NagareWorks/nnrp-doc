@@ -268,7 +268,7 @@ Suite manifest 是某条线路级测试 baseline 的入口：
   "suite_version": "0.1.0",
   "status": "frozen",
   "scenario_manifests": ["scenarios/runtime-control.json"],
-  "modes": ["client", "server", "proxy"],
+  "modes": ["suite_as_client", "suite_as_server", "suite_as_proxy"],
   "transports": ["tcp", "quic", "ipc", "websocket"]
 }
 ```
@@ -282,9 +282,20 @@ Target manifest 由实现仓库维护，用来声明 runner 可以使用哪些�
   "protocol_version": "nnrp-1-preview4",
   "suite_version": "0.1.0",
   "wire_conformance": {
-    "modes": ["client", "server"],
+    "modes": ["suite_as_client", "suite_as_server", "suite_as_proxy"],
     "transports": [
-      { "name": "tcp", "endpoint": "127.0.0.1:19091", "tls": false }
+      { "name": "tcp", "endpoint": "127.0.0.1:19091", "tls": false },
+      {
+        "name": "quic",
+        "endpoint": "127.0.0.1:19092",
+        "tls": true,
+        "security": {
+          "server_name": "localhost",
+          "trusted_certificate_der_path": "certs/server.der",
+          "certificate_der_path": "certs/server.der",
+          "private_key_pkcs8_der_path": "certs/server-key.der"
+        }
+      }
     ],
     "capabilities": ["control.cancel_abort", "control.trace_context"],
     "limits": {
@@ -294,6 +305,16 @@ Target manifest 由实现仓库维护，用来声明 runner 可以使用哪些�
   }
 }
 ```
+
+传输安全规则冻结如下：
+
+- `tls` 为 `true` 时必须提供 `security`，`tls` 为 `false` 时禁止提供。
+- QUIC 和 `wss` transport 的 `tls` 为 `true`；明文 TCP、IPC 和 `ws` 为 `false`。
+- 所有安全材料路径都相对 target manifest 解析，不依赖当前工作目录。
+- `suite_as_client` 和 `suite_as_proxy` 使用 `server_name` 与 `trusted_certificate_der_path` 认证实现侧 server。
+- `suite_as_server` 使用 `certificate_der_path` 与 `private_key_pkcs8_der_path` 配置 suite listener；实现侧 client 信任
+  `trusted_certificate_der_path`。
+- `suite_as_proxy` 中声明的 endpoint 是实现侧 server 的上游地址；临时前端 endpoint 和探测 client 由 suite 自己创建并持有。
 
 Runner 执行链路：
 

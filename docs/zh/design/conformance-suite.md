@@ -183,7 +183,7 @@ preview4 工作流开始，suite 还要定义线路级主动一致性测试契�
 
 线路级契约冻结以下公共边界：
 
-1. target manifest 声明实现标识、协议版本、runner 模式、传输端点、选中的线路级 capability 和执行限制。
+1. target manifest 声明实现标识、协议版本、runner 模式、传输端点、传输安全材料、选中的线路级 capability 和执行限制。
 2. suite 可以扮演 NNRP client，主动连接实现侧 server。
 3. suite 可以扮演 NNRP server，接受实现侧 client。
 4. suite 可以扮演 proxy，注入帧顺序、超时、背压、关闭和恢复行为。
@@ -191,6 +191,12 @@ preview4 工作流开始，suite 还要定义线路级主动一致性测试契�
 
 这个 contract 验证的是 frame/session 边界上的协议行为。它不得要求私有 SDK API、业务 runtime 对象或仓库本地 harness 约定。公共 target
 surface 只有声明的 endpoint 和选中的协议角色。
+
+在 `suite_as_proxy` 模式下，manifest 声明的 endpoint 是实现侧 server 的上游地址。suite 自己维护临时前端 endpoint 和探测 client，因此
+target manifest 不声明第二个 proxy 地址。启用 TLS 的 transport 必须在 `security` 对象中声明 `server_name`、
+`trusted_certificate_der_path`、`certificate_der_path` 和 `private_key_pkcs8_der_path`，所有路径都相对 target manifest 解析。前两项用于
+suite 作为 client 或 proxy 时认证实现侧 server，后两项用于 suite 作为 server 时配置 listener。QUIC 和安全 WebSocket target 必须提供全部
+四项；明文 TCP、IPC 和 `ws` target 不得提供 `security`。
 
 线路级一致性测试对 preview4 控制帧尤其重要，例如 cancellation、priority update、deadline、partial result、backpressure、route
 hint、cache reference、trace context 和 result drop reason。这些语义只有在独立客户端与服务端能在线路上观察到一致行为时才成立。

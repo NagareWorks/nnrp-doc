@@ -185,7 +185,7 @@ preview4 workstream, the suite therefore also defines a wire-level active confor
 The wire-level contract freezes these public boundaries:
 
 1. A target manifest declares the implementation identity, protocol version, runner modes, transport
-   endpoints, selected wire capabilities, and execution limits.
+   endpoints, transport security material, selected wire capabilities, and execution limits.
 2. The suite may act as an NNRP client and connect to an implementation server.
 3. The suite may act as an NNRP server and accept an implementation client.
 4. The suite may act as a proxy to inject frame ordering, timeout, backpressure, close, and recovery
@@ -196,6 +196,15 @@ The wire-level contract freezes these public boundaries:
 This contract validates protocol behavior at the frame/session boundary. It must not require private
 SDK APIs, business runtime objects, or repository-local harness conventions. The only public target
 surface is the declared endpoint and the selected protocol role.
+
+For `suite_as_proxy`, the declared endpoint is the implementation server upstream. The suite owns an
+ephemeral front endpoint and its probe client, so the target manifest does not declare a second proxy
+address. TLS-enabled transports declare `server_name`, `trusted_certificate_der_path`,
+`certificate_der_path`, and `private_key_pkcs8_der_path` in a `security` object. Paths are resolved
+relative to the target manifest. The first two fields authenticate an implementation server when the
+suite acts as client or proxy; the latter two configure the suite listener when it acts as server.
+QUIC and secure WebSocket targets must provide all four fields. Plain TCP, IPC, and `ws` targets must
+not provide `security`.
 
 Wire-level conformance is especially important for preview4 control frames such as cancellation,
 priority updates, deadlines, partial results, backpressure, route hints, cache references, trace
