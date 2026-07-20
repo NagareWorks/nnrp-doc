@@ -79,6 +79,19 @@ Native client connection 是 preview4 Python host API 的主入口。它不让 P
 
 ### `NativeClientConnection.open_session`
 
+`NativeClientSessionOpenOptions` 的冻结默认值如下：
+
+| 字段 | 默认值 | 说明 |
+|---|---:|---|
+| `requested_session_id` | `1` | 初始 wire session id 请求值。 |
+| `session_generation` | `1` | 本地 handle generation。 |
+| `profile_id` | `2`（`STANDARD_PROFILE_TOKEN`） | 标准 token profile。 |
+| `schema_id` | `0x00001001`（`TOKEN_DELTA_SCHEMA_ID`） | Token-delta schema。 |
+| `schema_version` | `3`（`TOKEN_DELTA_SCHEMA_VERSION`） | Token-delta schema version。 |
+
+无参数 `open_session()` 必须使用这一组值，与 Rust runtime 默认契约一致。只有在选择其他已安装
+profile/schema 组合时才覆盖这些字段。
+
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
 | `options` | `NativeClientSessionOpenOptions \| None` | 否 | Session id、generation、profile、schema 等打开参数。 |

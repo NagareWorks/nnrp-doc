@@ -86,6 +86,19 @@ failure leaves the carrier wrapper closable by Python.
 
 ### `NativeClientConnection.open_session`
 
+`NativeClientSessionOpenOptions` has these frozen defaults:
+
+| Field | Default | Description |
+|---|---:|---|
+| `requested_session_id` | `1` | Initial wire session id request. |
+| `session_generation` | `1` | Local handle generation. |
+| `profile_id` | `2` (`STANDARD_PROFILE_TOKEN`) | Standard token profile. |
+| `schema_id` | `0x00001001` (`TOKEN_DELTA_SCHEMA_ID`) | Token-delta schema. |
+| `schema_version` | `3` (`TOKEN_DELTA_SCHEMA_VERSION`) | Token-delta schema version. |
+
+The no-argument `open_session()` path uses exactly these values, matching the Rust runtime default.
+Applications override them only when selecting another installed profile/schema pair.
+
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
 | `options` | `NativeClientSessionOpenOptions \| None` | No | Session id, generation, profile, and schema open options. |
