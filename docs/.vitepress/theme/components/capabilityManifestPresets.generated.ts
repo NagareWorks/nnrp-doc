@@ -683,14 +683,14 @@ export const capabilityVersionPresets = [
         }
       },
       {
-        "token": "control.retry_after",
+        "token": "control.recoverable_error",
         "layers": "L1",
         "categories": [
           "experimental"
         ],
         "description": {
-          "zh": "区分可重试压力与终止失败，并携带 retry-after 时间。",
-          "en": "Distinguishes retryable pressure from terminal failure and carries retry-after timing."
+          "zh": "区分可恢复错误与终止失败，并在需要时携带 retry-after 时间。",
+          "en": "Distinguishes recoverable errors from terminal failures and carries retry-after timing when required."
         }
       }
     ]

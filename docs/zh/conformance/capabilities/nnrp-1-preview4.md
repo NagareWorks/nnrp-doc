@@ -35,7 +35,7 @@
 | `control.degrade_profile` | L1 | optional | 通常与 `control.budget_update` 同时声明。 | 在会话中协商更便宜的执行 profile。 |
 | `control.budget_update` | L1 | optional | 通常与 `control.degrade_profile` 同时声明。 | 更新 compute、token、memory 或 bandwidth budget。 |
 | `control.supersede` | L1 | experimental | 通常与 `control.result_drop_reason` 同时声明。 | 用新操作替换过期操作，并保留 trace 连续性与迟到结果可丢弃语义。 |
-| `control.retry_after` | L1 | experimental | 无 | 区分可重试压力与终止失败，并携带 retry-after 时间。 |
+| `control.recoverable_error` | L1 | experimental | 无 | 区分可恢复错误与终止失败，并在需要时携带 retry-after 时间。 |
 
 ## 线路级一致性测试
 

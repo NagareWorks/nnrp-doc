@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-10T15:06:27.786Z",
+  "generated_at": "2026-07-22T20:03:44.519Z",
   "source": "local nnrp-conformance checkout",
   "presets": [
     {
@@ -682,14 +682,14 @@
           }
         },
         {
-          "token": "control.retry_after",
+          "token": "control.recoverable_error",
           "layers": "L1",
           "categories": [
             "experimental"
           ],
           "description": {
-            "zh": "区分可重试压力与终止失败，并携带 retry-after 时间。",
-            "en": "Distinguishes retryable pressure from terminal failure and carries retry-after timing."
+            "zh": "区分可恢复错误与终止失败，并在需要时携带 retry-after 时间。",
+            "en": "Distinguishes recoverable errors from terminal failures and carries retry-after timing when required."
           }
         }
       ]

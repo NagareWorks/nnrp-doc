@@ -39,7 +39,7 @@ below.
 | `control.degrade_profile` | L1 | optional | Usually with `control.budget_update`. | Negotiate a cheaper execution profile during a session. |
 | `control.budget_update` | L1 | optional | Usually with `control.degrade_profile`. | Update compute, token, memory, or bandwidth budgets during a session. |
 | `control.supersede` | L1 | experimental | Usually with `control.result_drop_reason`. | Replace obsolete operations while preserving trace continuity and droppable late-result semantics. |
-| `control.retry_after` | L1 | experimental | none | Distinguish retryable pressure from terminal failure and carry retry-after timing. |
+| `control.recoverable_error` | L1 | experimental | none | Distinguish recoverable errors from terminal failures and carry retry-after timing when required. |
 
 ## Wire-level conformance
 
