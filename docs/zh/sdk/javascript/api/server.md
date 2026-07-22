@@ -8,7 +8,7 @@ Server API 位于 `@nnrp/native-server`。Browser package 不暴露 server entry
 
 | 参数      | 类型                                                      | 必填 | 说明                                                                                |
 | --------- | --------------------------------------------------------- | ---: | ----------------------------------------------------------------------------------- |
-| `options` | [`NnrpBackendRuntimeOptions`](#nnrpbackendruntimeoptions) |   否 | Transport policy、已安装 transport provider、环境/platform 覆盖与可选 FFI binding。 |
+| `options` | [`NnrpBackendRuntimeOptions`](#nnrpbackendruntimeoptions) |   否 | Transport policy、已安装 transport provider 与可选 FFI binding。 |
 
 | 返回                          |
 | ----------------------------- |
@@ -40,19 +40,6 @@ const runtime = await openBackendRuntime({
 const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
 ```
 
-## `NnrpBackendRuntime.connect`
-
-从已有 backend runtime 创建 native client。适用于同一个 backend 进程同时管理 server 与 client
-生命周期的场景。
-
-| 参数      | 类型                                        | 必填 | 说明                                                                               |
-| --------- | ------------------------------------------- | ---: | ---------------------------------------------------------------------------------- |
-| `options` | [`NnrpConnectOptions`](#nnrpconnectoptions) |   是 | Endpoint、可选 transport policy、可选 transport provider 与可选 session defaults。 |
-
-| 返回         |
-| ------------ |
-| `NnrpClient` |
-
 ## `NnrpBackendRuntime.selectTransport`
 
 根据 peer manifest 选择 transport。
@@ -64,6 +51,17 @@ const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
 | 返回                            |
 | ------------------------------- |
 | `NnrpTransportSelectionSummary` |
+
+## Runtime、Listener 与 Session 生命周期
+
+| 方法                                   | 参数                                                                    | 返回值                       | 说明                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------- |
+| `NnrpBackendRuntime.close()`           | 无                                                                      | `Promise<void>`              | 关闭 accepted session、listener 与显式 FFI seam。       |
+| `NnrpServer.accept()`                  | 无                                                                      | `Promise<NnrpServerSession>` | 接受一个 carrier-backed NNRP session。                  |
+| `NnrpServer.close()`                   | 无                                                                      | `Promise<void>`              | 关闭 listener 及其拥有的 accepted session。             |
+| `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions)        | `Promise<NnrpRuntimeEvent>`  | 读取下一条有序 submit、control、object 或 cache event。  |
+| `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#数据类型)                                  | `Promise<void>`              | 为当前 operation 发送唯一终态结果。                     |
+| `NnrpServerSession.close()`            | 无                                                                      | `Promise<void>`              | 只关闭一次 accepted role session。                      |
 
 ## Preview4 Server Session 方法
 
@@ -103,7 +101,7 @@ union，其中包括收到的控制帧、运行时对象帧与缓存帧。Server
 
 | 包                                                                                                   | 拥有                                                          | 不能拥有                                                          |
 | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `@nnrp/native-server`                                                                                | Server runtime、listen lifecycle、backend runtime lifecycle。 | TCP/QUIC artifact、browser code 或 client-only top-level helper。 |
+| `@nnrp/native-server`                                                                                | Server runtime、listen lifecycle、backend runtime lifecycle。 | Transport artifact、browser code、client session 或 connect API。 |
 | `@nnrp/native-client`                                                                                | Client runtime 与 session lifecycle。                         | Server listener API。                                             |
 | `@nnrp/transport-tcp` / `@nnrp/transport-quic` / `@nnrp/transport-ipc` / `@nnrp/transport-websocket` | Transport 行为与打包的 native artifact。                      | Server 或 client role lifecycle。                                 |
 
@@ -114,29 +112,18 @@ union，其中包括收到的控制帧、运行时对象帧与缓存帧。Server
 | 字段              | 类型                                                    | 必填 | 说明                                                                     |
 | ----------------- | ------------------------------------------------------- | ---: | ------------------------------------------------------------------------ |
 | `transportPolicy` | [`NnrpTransportPolicy`](./core#数据类型)                |   否 | 默认选择策略。                                                           |
-| `transports`      | `readonly NnrpTransportProvider[]`                      |   否 | 已安装 native transport provider。见 [Transport Provider](./transport)。 |
-| `environment`     | `Record<string, string>`                                |   否 | Artifact 查找或诊断用环境变量覆盖。                                      |
-| `platform`        | `string`                                                |   否 | 测试和受控打包校验用 platform 覆盖。                                     |
-| `ffi`             | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |   否 | 受控部署和测试用显式 native binding。                                    |
+| `transports`      | `readonly NnrpNativeTransportProvider[]`                |   否 | 已安装 native transport provider。见 [Transport Provider](./transport)。 |
+| `ffi`             | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |   否 | 受控集成和测试用显式 native binding。                                    |
 
 ### `NnrpListenOptions`
 
 | 字段               | 类型                                     | 必填 | 说明                                    |
 | ------------------ | ---------------------------------------- | ---: | --------------------------------------- |
-| `endpoint`         | `string`                                 |   是 | 本地监听 endpoint。                     |
+| `endpoint`         | `string \| URL`                          |   是 | 本地监听的 NNRP 应用 endpoint。          |
 | `providerEndpoint` | `string \| URL`                          |   否 | 显式载体本地 bind endpoint。            |
+| `security`         | `NnrpTransportServerSecurity`             |   否 | QUIC 或 `wss://` 证书与私钥配置。       |
 | `transportPolicy`  | [`NnrpTransportPolicy`](./core#数据类型) |   否 | Listener 选择策略。                     |
-| `transports`       | `readonly NnrpTransportProvider[]`       |   否 | 本 listener 允许的 transport provider。 |
-
-### `NnrpConnectOptions`
-
-| 字段               | 类型                                                | 必填 | 说明                               |
-| ------------------ | --------------------------------------------------- | ---: | ---------------------------------- |
-| `endpoint`         | `string`                                            |   是 | 远端 endpoint。                    |
-| `providerEndpoint` | `string \| URL`                                     |   否 | 显式载体本地 connect endpoint。    |
-| `transportPolicy`  | [`NnrpTransportPolicy`](./core#数据类型)            |   否 | Connection 选择策略。              |
-| `transports`       | `readonly NnrpTransportProvider[]`                  |   否 | 本连接允许的 transport provider。  |
-| `sessionDefaults`  | [`NnrpSessionOptions`](./client#nnrpsessionoptions) |   否 | session 未设置字段时使用的默认值。 |
+| `transports`       | `readonly NnrpNativeTransportProvider[]` |   否 | 本 listener 允许的 transport provider。 |
 
 ### `NnrpTransportSelectionOptions`
 

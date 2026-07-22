@@ -137,21 +137,26 @@ browser/edge 构造器。`NnrpIpcTransportProviderOptions` 只为受控测试接
 30 秒。`NnrpTransportSecurity` 只能是以下两种之一：
 
 ```ts
-type NnrpTransportSecurity =
-  | {
-    readonly mode: "client";
-    readonly serverName: string;
-    readonly trustedCertificateDer: Uint8Array;
-  }
-  | {
-    readonly mode: "server";
-    readonly certificateDer: Uint8Array;
-    readonly privateKeyPkcs8Der: Uint8Array;
-  };
+interface NnrpTransportClientSecurity {
+  readonly mode: "client";
+  readonly serverName: string;
+  readonly trustedCertificateDer: Uint8Array;
+}
+
+interface NnrpTransportServerSecurity {
+  readonly mode: "server";
+  readonly certificateDer: Uint8Array;
+  readonly privateKeyPkcs8Der: Uint8Array;
+}
+
+type NnrpTransportSecurity = NnrpTransportClientSecurity | NnrpTransportServerSecurity;
 ```
 
 Plain TCP、IPC 与 `ws://` endpoint 拒绝 `security`。QUIC 与 `wss://` 必须使用对应的 client/server
 variant，并且不得暗中关闭证书校验。
+
+高层 native role API 使用相同的强类型配置：client connect options 只接受
+`NnrpTransportClientSecurity`，server listen options 只接受 `NnrpTransportServerSecurity`。
 
 `NnrpTransportProbeOptions` 扩展 `NnrpTransportEndpoint`，增加可选的 `sampleCount`、
 `payloadBytes` 和 `timeoutMillis`。默认值分别为 3 次、32 KiB 和 30 秒。部署策略可以降低这些值，

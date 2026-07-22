@@ -8,7 +8,7 @@ Creates a native backend runtime without immediately starting a listener.
 
 | Parameter | Type                                                      | Required | Description                                                                                                |
 | --------- | --------------------------------------------------------- | -------: | ---------------------------------------------------------------------------------------------------------- |
-| `options` | [`NnrpBackendRuntimeOptions`](#nnrpbackendruntimeoptions) |       No | Transport policy, installed transport providers, environment/platform overrides, and optional FFI binding. |
+| `options` | [`NnrpBackendRuntimeOptions`](#nnrpbackendruntimeoptions) |       No | Transport policy, installed transport providers, and optional FFI binding. |
 
 | Returns                       |
 | ----------------------------- |
@@ -40,19 +40,6 @@ Creates a backend server listener.
 const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
 ```
 
-## `NnrpBackendRuntime.connect`
-
-Creates a native client from an existing backend runtime. Use this when a backend process owns both
-server and client lifecycle.
-
-| Parameter | Type                                        | Required | Description                                                                                       |
-| --------- | ------------------------------------------- | -------: | ------------------------------------------------------------------------------------------------- |
-| `options` | [`NnrpConnectOptions`](#nnrpconnectoptions) |      Yes | Endpoint, optional transport policy, optional transport providers, and optional session defaults. |
-
-| Returns      |
-| ------------ |
-| `NnrpClient` |
-
 ## `NnrpBackendRuntime.selectTransport`
 
 Selects a transport against a peer manifest.
@@ -64,6 +51,17 @@ Selects a transport against a peer manifest.
 | Returns                         |
 | ------------------------------- |
 | `NnrpTransportSelectionSummary` |
+
+## Runtime, Listener, And Session Lifecycle
+
+| Method                             | Parameters                                                                 | Returns                       | Description                                                     |
+| ---------------------------------- | -------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
+| `NnrpBackendRuntime.close()`       | None                                                                       | `Promise<void>`               | Closes accepted sessions, listeners, and the explicit FFI seam. |
+| `NnrpServer.accept()`              | None                                                                       | `Promise<NnrpServerSession>`  | Accepts one carrier-backed NNRP session.                         |
+| `NnrpServer.close()`               | None                                                                       | `Promise<void>`               | Closes the listener and every accepted session it owns.         |
+| `NnrpServerSession.receive(options?)` | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions)          | `Promise<NnrpRuntimeEvent>`   | Reads the next ordered submit, control, object, or cache event.  |
+| `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#data-types)                                  | `Promise<void>`               | Sends the one terminal result for the current operation.        |
+| `NnrpServerSession.close()`        | None                                                                       | `Promise<void>`               | Closes the accepted role session exactly once.                  |
 
 ## Preview4 Server Session Methods
 
@@ -105,7 +103,7 @@ The final `sendResult(result)` remains separate from partial-result and object-d
 
 | Package                                                                                              | Owns                                                         | Must not own                                                        |
 | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `@nnrp/native-server`                                                                                | Server runtime, listen lifecycle, backend runtime lifecycle. | TCP/QUIC artifacts, browser code, or client-only top-level helpers. |
+| `@nnrp/native-server`                                                                                | Server runtime, listen lifecycle, backend runtime lifecycle. | Transport artifacts, browser code, client sessions, or connect APIs. |
 | `@nnrp/native-client`                                                                                | Client runtime and session lifecycle.                        | Server listener APIs.                                               |
 | `@nnrp/transport-tcp` / `@nnrp/transport-quic` / `@nnrp/transport-ipc` / `@nnrp/transport-websocket` | Transport behavior and packaged native artifacts.            | Server or client role lifecycle.                                    |
 
@@ -116,29 +114,18 @@ The final `sendResult(result)` remains separate from partial-result and object-d
 | Field             | Type                                                    | Required | Description                                                                   |
 | ----------------- | ------------------------------------------------------- | -------: | ----------------------------------------------------------------------------- |
 | `transportPolicy` | [`NnrpTransportPolicy`](./core#data-types)              |       No | Default selection policy.                                                     |
-| `transports`      | `readonly NnrpTransportProvider[]`                      |       No | Installed native transport providers. See [Transport Providers](./transport). |
-| `environment`     | `Record<string, string>`                                |       No | Environment override for artifact lookup or diagnostics.                      |
-| `platform`        | `string`                                                |       No | Platform override for tests and controlled packaging checks.                  |
-| `ffi`             | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled deployments and tests.                 |
+| `transports`      | `readonly NnrpNativeTransportProvider[]`                |       No | Installed native transport providers. See [Transport Providers](./transport). |
+| `ffi`             | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled integration and tests.                 |
 
 ### `NnrpListenOptions`
 
 | Field              | Type                                       | Required | Description                                    |
 | ------------------ | ------------------------------------------ | -------: | ---------------------------------------------- |
-| `endpoint`         | `string`                                   |      Yes | Local endpoint to listen on.                   |
+| `endpoint`         | `string \| URL`                             |      Yes | Local NNRP application endpoint to listen on.  |
 | `providerEndpoint` | `string \| URL`                            |       No | Explicit carrier-local bind endpoint.          |
+| `security`         | `NnrpTransportServerSecurity`               |       No | QUIC or `wss://` certificate and private key.  |
 | `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types) |       No | Selection policy for the listener.             |
-| `transports`       | `readonly NnrpTransportProvider[]`         |       No | Transport providers allowed for this listener. |
-
-### `NnrpConnectOptions`
-
-| Field              | Type                                                | Required | Description                                      |
-| ------------------ | --------------------------------------------------- | -------: | ------------------------------------------------ |
-| `endpoint`         | `string`                                            |      Yes | Remote endpoint.                                 |
-| `providerEndpoint` | `string \| URL`                                     |       No | Explicit carrier-local connect endpoint.         |
-| `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types)          |       No | Selection policy for the connection.             |
-| `transports`       | `readonly NnrpTransportProvider[]`                  |       No | Transport providers allowed for this connection. |
-| `sessionDefaults`  | [`NnrpSessionOptions`](./client#nnrpsessionoptions) |       No | Defaults applied when sessions omit values.      |
+| `transports`       | `readonly NnrpNativeTransportProvider[]`   |       No | Transport providers allowed for this listener. |
 
 ### `NnrpTransportSelectionOptions`
 

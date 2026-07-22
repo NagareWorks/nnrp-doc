@@ -144,21 +144,26 @@ optional `timeoutMillis: number`, and optional `security: NnrpTransportSecurity`
 defaults are 64 MiB and 30 seconds. `NnrpTransportSecurity` is exactly one of:
 
 ```ts
-type NnrpTransportSecurity =
-  | {
-    readonly mode: "client";
-    readonly serverName: string;
-    readonly trustedCertificateDer: Uint8Array;
-  }
-  | {
-    readonly mode: "server";
-    readonly certificateDer: Uint8Array;
-    readonly privateKeyPkcs8Der: Uint8Array;
-  };
+interface NnrpTransportClientSecurity {
+  readonly mode: "client";
+  readonly serverName: string;
+  readonly trustedCertificateDer: Uint8Array;
+}
+
+interface NnrpTransportServerSecurity {
+  readonly mode: "server";
+  readonly certificateDer: Uint8Array;
+  readonly privateKeyPkcs8Der: Uint8Array;
+}
+
+type NnrpTransportSecurity = NnrpTransportClientSecurity | NnrpTransportServerSecurity;
 ```
 
 Plain TCP, IPC, and `ws://` endpoints reject `security`. QUIC and `wss://` require the matching
 client/server variant and never silently disable certificate verification.
+
+The high-level native role APIs carry the same typed value: client connect options accept only
+`NnrpTransportClientSecurity`, while server listen options accept only `NnrpTransportServerSecurity`.
 
 `NnrpTransportProbeOptions` extends `NnrpTransportEndpoint` with optional `sampleCount`,
 `payloadBytes`, and `timeoutMillis`. Defaults are 3 samples, 32 KiB, and 30 seconds. A provider may

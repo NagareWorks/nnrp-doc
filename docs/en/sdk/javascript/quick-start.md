@@ -58,6 +58,7 @@ const client = await openNativeClient({
 const session = client.openSession({ inputProfile: "tensor" });
 
 const result = await session.submit({
+  operationId: 1n,
   frameId: 1,
   payload: new Uint8Array([1, 2, 3]),
   inputProfile: "tensor",
