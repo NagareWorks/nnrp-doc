@@ -116,6 +116,21 @@ Decodes concatenated binary frames from local buffers and conformance fixtures.
 |---|
 | `IReadOnlyList<DecodedRuntimeFrame>` |
 
+## `NnrpPreview4CapabilityTokens`
+
+`NnrpPreview4CapabilityTokens` is the C# projection of the frozen Preview4 capability and transport
+catalog. The constants retain the exact protocol strings; SDK code must not derive or rename them.
+
+| Constant group | C# constants | Frozen values |
+| --- | --- | --- |
+| Control | `ControlCancelAbort`, `ControlSupersede`, `ControlPriorityUpdate`, `ControlDeadlineExpire`, `ControlProgressPartial`, `ControlCreditBackpressure`, `ControlCapabilityCosts`, `ControlRouteExecutionHint`, `ControlTraceContext`, `ControlResultDropReason`, `ControlDegradeProfile`, `ControlBudgetUpdate`, `ControlRecoverableError` | `control.cancel_abort`, `control.supersede`, `control.priority_update`, `control.deadline_expire`, `control.progress_partial`, `control.credit_backpressure`, `control.capability_costs`, `control.route_execution_hint`, `control.trace_context`, `control.result_drop_reason`, `control.degrade_profile`, `control.budget_update`, `control.recoverable_error` |
+| Runtime object and cache | `ObjectLifecycle`, `ObjectDelta`, `ObjectCost`, `ObjectOwnership`, `CacheReference` | `object.lifecycle`, `object.delta`, `object.cost`, `object.ownership`, `cache.reference` |
+| Transport | `TransportTcp`, `TransportQuic`, `TransportIpc`, `TransportWebSocket` | `tcp`, `quic`, `ipc`, `websocket` |
+
+The class also exposes read-only `Control`, `RuntimeObjectAndCache`, `Transports`, and
+`AllCapabilities` collections. `AllCapabilities` excludes transport names because transport availability
+is reported separately from protocol capability claims.
+
 ## Runtime Control Metadata
 
 | Type | Message types | Frozen properties |

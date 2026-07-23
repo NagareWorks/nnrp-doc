@@ -115,6 +115,20 @@ var payload = NnrpRuntimeControl.Encode(
 |---|
 | `IReadOnlyList<DecodedRuntimeFrame>` |
 
+## `NnrpPreview4CapabilityTokens`
+
+`NnrpPreview4CapabilityTokens` 是 Preview4 冻结 capability 与 transport 目录的 C# 映射。常量必须
+保留协议原始字符串；SDK 代码不得自行推导或改名。
+
+| 常量分组 | C# 常量 | 冻结值 |
+| --- | --- | --- |
+| 控制面 | `ControlCancelAbort`、`ControlSupersede`、`ControlPriorityUpdate`、`ControlDeadlineExpire`、`ControlProgressPartial`、`ControlCreditBackpressure`、`ControlCapabilityCosts`、`ControlRouteExecutionHint`、`ControlTraceContext`、`ControlResultDropReason`、`ControlDegradeProfile`、`ControlBudgetUpdate`、`ControlRecoverableError` | `control.cancel_abort`、`control.supersede`、`control.priority_update`、`control.deadline_expire`、`control.progress_partial`、`control.credit_backpressure`、`control.capability_costs`、`control.route_execution_hint`、`control.trace_context`、`control.result_drop_reason`、`control.degrade_profile`、`control.budget_update`、`control.recoverable_error` |
+| 运行时对象与缓存 | `ObjectLifecycle`、`ObjectDelta`、`ObjectCost`、`ObjectOwnership`、`CacheReference` | `object.lifecycle`、`object.delta`、`object.cost`、`object.ownership`、`cache.reference` |
+| 传输 | `TransportTcp`、`TransportQuic`、`TransportIpc`、`TransportWebSocket` | `tcp`、`quic`、`ipc`、`websocket` |
+
+该类还公开只读 `Control`、`RuntimeObjectAndCache`、`Transports` 和 `AllCapabilities` 集合。
+`AllCapabilities` 不包含 transport 名称，因为 transport 可用性与协议 capability 声明分开上报。
+
 ## 运行时控制 Metadata
 
 | 类型 | 消息类型 | 冻结属性 |
