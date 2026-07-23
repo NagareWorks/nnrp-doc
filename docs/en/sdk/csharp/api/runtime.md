@@ -149,6 +149,11 @@ is reported separately from protocol capability claims.
 | `RecoverableErrorMetadata` | `ErrorRecoverable` | `ErrorCode`, `ErrorScope`, `RecoveryAction`, `SourceRole`, `Flags`, `RetryAfterMs`, `RelatedSessionId`, `RelatedFrameId`, `RelatedViewId`, `DiagnosticBytes` |
 | `RetryAfterMetadata` | `RetryAfter` | `ScopeId`, `ControlSequence`, `RetryAfterMs`, `JitterMs`, `ReasonCode`, `SourceRole`, `Flags`, `DiagnosticBytes` |
 
+`SupersedeMetadata.DropReasonCode` and `ResultDropReasonMetadata.DropReasonCode` are
+`NnrpResultDropReasonCode`, not raw `ushort` values. Encoders and decoders reject the reserved
+`0x000a..0x7fff` range; `0x8000..0xffff` remains available for private extensions as frozen by the
+runtime-control value registry.
+
 ## Runtime Object Metadata
 
 | Type | Message types | Frozen properties |
@@ -213,6 +218,9 @@ Both helpers validate `MetadataBytes` and `DeltaBytes` before acquiring the nati
 
 | Enum | Members |
 |---|---|
+| `NnrpOperationState : byte` | `Accepted = 0`, `Running = 1`, `Partial = 2`, `WaitingTool = 3`, `Superseded = 4`, `Cancelled = 5`, `Failed = 6`, `Completed = 7` |
+| `NnrpResultTerminalState : byte` | `Success = 0`, `Cancelled = 1`, `Dropped = 2`, `Error = 3` |
+| `NnrpResultDropReasonCode : ushort` | `None = 0`, `DeadlineExpired = 1`, `Superseded = 2`, `PeerCancelled = 3`, `Backpressure = 4`, `CapabilityMismatch = 5`, `BudgetExceeded = 6`, `ObjectInvalidated = 7`, `TransportClosed = 8`, `ConformanceInjection = 9` |
 | `RuntimeObjectKind` | `Unspecified`, `Tensor`, `TokenBlock`, `ImageTile`, `FeatureMap`, `ToolResult`, `TraceSegment`, `OpaqueBytes`, `DocumentChunk`, `AudioChunk`, `VideoChunk`, `RoutePlan`, `CacheManifest` |
 | `RuntimeRole` | `Unspecified`, `Client`, `Server`, `Runtime`, `Subagent`, `Tool`, `Scheduler`, `ConformanceRunner` |
 | `MemoryLocationHint` | `Unspecified`, `HostMemory`, `DeviceMemory`, `SharedMemory`, `RemoteMemory`, `MmapFile`, `ObjectStore` |
@@ -220,6 +228,11 @@ Both helpers validate `MetadataBytes` and `DeltaBytes` before acquiring the nati
 | `ObjectReleaseReason` | `Completed`, `Cancelled`, `Expired`, `Replaced`, `Invalidated`, `OwnerClosed`, `LeaseExpired`, `ConformanceInjection` |
 | `CacheReuseScope` | `Operation`, `Session`, `Connection`, `Global`, `Tenant`, `Profile` |
 | `CacheMissReason` | `Unknown`, `NotFound`, `Expired`, `Invalidated`, `SchemaMismatch`, `ProducerUnavailable`, `LeaseRequired`, `PermissionDenied` |
+
+`NnrpOperationState` and `NnrpResultTerminalState` mirror the canonical Rust `OperationState` and
+`ResultTerminalState` registries exactly. The terminal mapping is `Completed -> Success`,
+`Cancelled -> Cancelled`, `Superseded -> Dropped`, and `Failed -> Error`; non-terminal operation
+states have no terminal result state.
 
 ## `RuntimeFrameHeader`
 

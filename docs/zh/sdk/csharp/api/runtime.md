@@ -147,6 +147,10 @@ var payload = NnrpRuntimeControl.Encode(
 | `RecoverableErrorMetadata` | `ErrorRecoverable` | `ErrorCode`, `ErrorScope`, `RecoveryAction`, `SourceRole`, `Flags`, `RetryAfterMs`, `RelatedSessionId`, `RelatedFrameId`, `RelatedViewId`, `DiagnosticBytes` |
 | `RetryAfterMetadata` | `RetryAfter` | `ScopeId`, `ControlSequence`, `RetryAfterMs`, `JitterMs`, `ReasonCode`, `SourceRole`, `Flags`, `DiagnosticBytes` |
 
+`SupersedeMetadata.DropReasonCode` 和 `ResultDropReasonMetadata.DropReasonCode` 的类型固定为
+`NnrpResultDropReasonCode`，不再暴露裸 `ushort`。编码器与解码器必须拒绝保留范围
+`0x000a..0x7fff`；根据运行时控制取值注册表，`0x8000..0xffff` 仍用于私有扩展。
+
 ## 运行时对象 Metadata
 
 | 类型 | 消息类型 | 冻结属性 |
@@ -211,6 +215,9 @@ var payload = NnrpRuntimeControl.Encode(
 
 | 枚举 | 成员 |
 |---|---|
+| `NnrpOperationState : byte` | `Accepted = 0`、`Running = 1`、`Partial = 2`、`WaitingTool = 3`、`Superseded = 4`、`Cancelled = 5`、`Failed = 6`、`Completed = 7` |
+| `NnrpResultTerminalState : byte` | `Success = 0`、`Cancelled = 1`、`Dropped = 2`、`Error = 3` |
+| `NnrpResultDropReasonCode : ushort` | `None = 0`、`DeadlineExpired = 1`、`Superseded = 2`、`PeerCancelled = 3`、`Backpressure = 4`、`CapabilityMismatch = 5`、`BudgetExceeded = 6`、`ObjectInvalidated = 7`、`TransportClosed = 8`、`ConformanceInjection = 9` |
 | `RuntimeObjectKind` | `Unspecified`, `Tensor`, `TokenBlock`, `ImageTile`, `FeatureMap`, `ToolResult`, `TraceSegment`, `OpaqueBytes`, `DocumentChunk`, `AudioChunk`, `VideoChunk`, `RoutePlan`, `CacheManifest` |
 | `RuntimeRole` | `Unspecified`, `Client`, `Server`, `Runtime`, `Subagent`, `Tool`, `Scheduler`, `ConformanceRunner` |
 | `MemoryLocationHint` | `Unspecified`, `HostMemory`, `DeviceMemory`, `SharedMemory`, `RemoteMemory`, `MmapFile`, `ObjectStore` |
@@ -218,6 +225,10 @@ var payload = NnrpRuntimeControl.Encode(
 | `ObjectReleaseReason` | `Completed`, `Cancelled`, `Expired`, `Replaced`, `Invalidated`, `OwnerClosed`, `LeaseExpired`, `ConformanceInjection` |
 | `CacheReuseScope` | `Operation`, `Session`, `Connection`, `Global`, `Tenant`, `Profile` |
 | `CacheMissReason` | `Unknown`, `NotFound`, `Expired`, `Invalidated`, `SchemaMismatch`, `ProducerUnavailable`, `LeaseRequired`, `PermissionDenied` |
+
+`NnrpOperationState` 与 `NnrpResultTerminalState` 严格映射 canonical Rust 的 `OperationState` 和
+`ResultTerminalState` 注册表。终态映射固定为 `Completed -> Success`、`Cancelled -> Cancelled`、
+`Superseded -> Dropped`、`Failed -> Error`；非终态 operation 不存在 terminal result state。
 
 ## `RuntimeFrameHeader`
 
