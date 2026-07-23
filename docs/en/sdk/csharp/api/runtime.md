@@ -148,6 +148,24 @@ Decodes concatenated binary frames from local buffers and conformance fixtures.
 `CacheNamespace` is `uint`; both cache-key words are `ulong`. `CachePutMetadata`, `CacheAckMetadata`,
 `CacheInvalidateMetadata`, and `ObjectReferenceBlock` use the same widths and names.
 
+## Local Cache Lease State
+
+`NnrpCacheLease` is the validated C# value for a granted lease. It is not a wire payload or a native handle.
+
+| C# property | Type | Protocol field |
+|---|---|---|
+| `ObjectId` | `NnrpCacheObjectId` | `object_id` |
+| `ObjectVersion` | `ulong` | `object_version` |
+| `LeaseId` | `ulong` | `lease_id` |
+| `OwnerScope` | `CacheLeaseOwnerScope` | `owner_scope` |
+| `OwnerId` | `ulong` | `owner_id` |
+| `GrantedAtMilliseconds` | `ulong` | `granted_at_ms` |
+| `TtlMilliseconds` | `uint` | `ttl_ms` |
+
+`NnrpCacheObjectId` contains `CacheNamespace: uint`, `CacheKeyHigh: ulong`, `CacheKeyLow: ulong`,
+and `ObjectKind: CacheObjectKind`. `CacheLeaseOwnerScope` is `Connection = 0`, `Session = 1`, or
+`Operation = 2`. Use `ExpiresAtMilliseconds`, `TryValidateLiveAt`, and `TryValidateVersion` for local validation.
+
 ## Runtime Enums
 
 | Enum | Members |

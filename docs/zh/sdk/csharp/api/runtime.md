@@ -147,6 +147,24 @@ var payload = NnrpRuntimeControl.Encode(
 `CacheNamespace` 类型为 `uint`，两个 cache-key word 类型均为 `ulong`。`CachePutMetadata`、
 `CacheAckMetadata`、`CacheInvalidateMetadata` 和 `ObjectReferenceBlock` 使用相同字段宽度与命名。
 
+## 本地缓存租约状态
+
+`NnrpCacheLease` 是已经授予租约的 C# 本地校验值，不是 wire payload，也不是 native handle。
+
+| C# 属性 | 类型 | 协议字段 |
+|---|---|---|
+| `ObjectId` | `NnrpCacheObjectId` | `object_id` |
+| `ObjectVersion` | `ulong` | `object_version` |
+| `LeaseId` | `ulong` | `lease_id` |
+| `OwnerScope` | `CacheLeaseOwnerScope` | `owner_scope` |
+| `OwnerId` | `ulong` | `owner_id` |
+| `GrantedAtMilliseconds` | `ulong` | `granted_at_ms` |
+| `TtlMilliseconds` | `uint` | `ttl_ms` |
+
+`NnrpCacheObjectId` 包含 `CacheNamespace: uint`、`CacheKeyHigh: ulong`、`CacheKeyLow: ulong`
+和 `ObjectKind: CacheObjectKind`。`CacheLeaseOwnerScope` 的取值为 `Connection = 0`、`Session = 1`
+或 `Operation = 2`。本地校验应使用 `ExpiresAtMilliseconds`、`TryValidateLiveAt` 和 `TryValidateVersion`。
+
 ## 运行时枚举
 
 | 枚举 | 成员 |

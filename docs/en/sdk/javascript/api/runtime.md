@@ -111,8 +111,25 @@ invalidation message.
 `CacheInvalidateMetadata` has the frozen fields `invalidateScope`, `cacheNamespace`, `cacheKeyHi`,
 `cacheKeyLo`, and `reasonCode`. `cacheNamespace` is a `number`; both key words are `bigint`.
 `CachePutMetadata`, `CacheAckMetadata`, and `ObjectReferenceBlock` use the same identity widths.
-`CacheLease` is local validated state with `objectId`,
-`objectVersion`, `leaseId`, `ownerScope`, `ownerId`, `grantedAtMillis`, and `ttlMillis`.
+
+### Local Cache Lease State
+
+`CacheLease` is the validated TypeScript value for a granted lease. It is not a wire payload or a native/WASM handle.
+
+| TypeScript field | Type | Protocol field |
+|---|---|---|
+| `objectId` | `CacheObjectId` | `object_id` |
+| `objectVersion` | `bigint` | `object_version` |
+| `leaseId` | `bigint` | `lease_id` |
+| `ownerScope` | `CacheLeaseOwnerScope` | `owner_scope` |
+| `ownerId` | `bigint` | `owner_id` |
+| `grantedAtMillis` | `bigint` | `granted_at_ms` |
+| `ttlMillis` | `number` (`u32`) | `ttl_ms` |
+
+`CacheObjectId` contains `cacheNamespace: number` (`u32`), `cacheKeyHi: bigint`,
+`cacheKeyLo: bigint`, and `objectKind: NnrpCacheObjectKind` (`u32`).
+`CacheLeaseOwnerScope` is `Connection = 0`, `Session = 1`, or `Operation = 2`.
+Use `expiresAtMillis`, `isExpiredAt`, and `validateVersion` for local validation.
 
 ## High-Level Runtime Frame Contract
 

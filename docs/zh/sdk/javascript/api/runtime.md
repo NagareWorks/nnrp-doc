@@ -106,8 +106,25 @@ Preview4 复用已有的 NNRP/1 `CacheInvalidate` frame，不再定义第二种 
 `CacheInvalidateMetadata` 的冻结字段为 `invalidateScope`、`cacheNamespace`、`cacheKeyHi`、
 `cacheKeyLo`、`reasonCode`。`cacheNamespace` 类型为 `number`，两个 key word 类型均为 `bigint`。
 `CachePutMetadata`、`CacheAckMetadata` 和 `ObjectReferenceBlock` 使用相同身份字段宽度。
-`CacheLease` 是本地校验状态，冻结字段为 `objectId`、
-`objectVersion`、`leaseId`、`ownerScope`、`ownerId`、`grantedAtMillis`、`ttlMillis`。
+
+### 本地缓存租约状态
+
+`CacheLease` 是已经授予租约的 TypeScript 本地校验值，不是 wire payload，也不是 native/WASM handle。
+
+| TypeScript 字段 | 类型 | 协议字段 |
+|---|---|---|
+| `objectId` | `CacheObjectId` | `object_id` |
+| `objectVersion` | `bigint` | `object_version` |
+| `leaseId` | `bigint` | `lease_id` |
+| `ownerScope` | `CacheLeaseOwnerScope` | `owner_scope` |
+| `ownerId` | `bigint` | `owner_id` |
+| `grantedAtMillis` | `bigint` | `granted_at_ms` |
+| `ttlMillis` | `number`（`u32`） | `ttl_ms` |
+
+`CacheObjectId` 包含 `cacheNamespace: number`（`u32`）、`cacheKeyHi: bigint`、
+`cacheKeyLo: bigint` 和 `objectKind: NnrpCacheObjectKind`（`u32`）。
+`CacheLeaseOwnerScope` 的取值为 `Connection = 0`、`Session = 1` 或 `Operation = 2`。
+本地校验应使用 `expiresAtMillis`、`isExpiredAt` 和 `validateVersion`。
 
 ## 高层 Runtime Frame 契约
 

@@ -34,10 +34,10 @@ flowchart LR
 NNRP/1 的控制面与热路径统一使用同一种缓存身份：
 
 ```text
-(cache_namespace: u32, cache_key_hi: u64, cache_key_lo: u64)
+(cache_namespace: u32, cache_key_hi: u64, cache_key_lo: u64, object_kind: u32 enum)
 ```
 
-两个 key 字段共同组成一个不透明的 128 位值。实现不得截断任一字段，也不得派生第二套传输层私有 key。namespace 用于限定分配和批量失效范围；即使 key 全局唯一，它仍然是缓存身份的一部分。
+两个 key 字段共同组成一个不透明的 128 位值。实现不得截断任一字段，也不得派生第二套传输层私有 key。namespace 用于限定分配和批量失效范围；即使 key 全局唯一，它仍然是缓存身份的一部分。`object_kind` 用于避免不同对象族的相同 key 在本地对象表和租约表中发生别名冲突。24 字节热路径 Object Reference Block 使用经过校验的 `u16` 枚举投影；这个紧凑 wire 字段不会收窄规范本地身份或 FFI 表示。
 
 `CACHE_INVALIDATE` 按 scope 使用字段：
 
@@ -47,6 +47,22 @@ NNRP/1 的控制面与热路径统一使用同一种缓存身份：
 | `namespace` | `cache_namespace` | `cache_key_hi`、`cache_key_lo` |
 | `object_kind` | `cache_namespace`；`cache_key_hi` 低 32 位携带 `u32` object-kind code | `cache_key_hi` 高 32 位、整个 `cache_key_lo` |
 | `object_key` | 完整缓存身份 | 无 |
+
+## 本地缓存租约状态
+
+所有 SDK 对已经授予的缓存租约统一使用下面的校验值模型。这个模型是本地 runtime 状态，不是第二套 wire layout，也不是 native pointer 或 handle。
+
+| 语义字段 | 宽度 | 含义 |
+| --- | --- | --- |
+| `object_id` | 结构化值 | 规范的 `(cache_namespace, cache_key_hi, cache_key_lo, object_kind)` 身份。 |
+| `object_version` | `u64` | 该租约覆盖的准确对象版本。 |
+| `lease_id` | `u64` | runtime 签发的租约身份。 |
+| `owner_scope` | `u8` enum | `connection = 0`、`session = 1` 或 `operation = 2`。 |
+| `owner_id` | `u64` | `owner_scope` 所选命名空间中的标识符。 |
+| `granted_at_ms` | `u64` | 租约授予时的 runtime 单调时钟时间戳。 |
+| `ttl_ms` | `u32` | 授予的租约生命周期，单位为毫秒。 |
+
+SDK 可以暴露符合语言习惯的字段名，但必须保留上述值和宽度。到期时间按 `saturating_add(granted_at_ms, ttl_ms)` 计算；仅当 `now_ms < expires_at_ms` 时租约有效。使用租约访问不等于 `object_version` 的对象版本时，必须返回 `version_mismatch`。因此 TTL 为零的租约会立即到期。
 
 ## 缓存 wire metadata
 

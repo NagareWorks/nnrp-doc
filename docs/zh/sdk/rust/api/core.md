@@ -88,6 +88,23 @@ pub struct CacheObjectId {
 [缓存能力与租约](/zh/protocol/v1/cache-and-lease)和
 [运行时对象与缓存 Metadata](/zh/profiles/runtime-control/object-cache-frames)。
 
+### `CacheLease`
+
+`CacheLease` 是经过校验的本地租约值，不是 wire payload，也不是 FFI handle。
+
+| Rust 字段 | 类型 | 协议字段 |
+|---|---|---|
+| `object_id` | `CacheObjectId` | `object_id` |
+| `object_version` | `u64` | `object_version` |
+| `lease_id` | `u64` | `lease_id` |
+| `owner_scope` | `CacheLeaseOwnerScope` | `owner_scope` |
+| `owner_id` | `u64` | `owner_id` |
+| `granted_at_ms` | `u64` | `granted_at_ms` |
+| `ttl_ms` | `u32` | `ttl_ms` |
+
+`CacheLeaseOwnerScope` 的取值为 `Connection = 0`、`Session = 1` 或 `Operation = 2`。
+应用应使用 `expires_at_ms`、`validate_live_at` 与 `validate_version`，不要重复实现租约时间运算。
+
 ## 常见问题
 
 ::: warning

@@ -207,6 +207,25 @@ All integer fields are unsigned unless the field name says otherwise.
 | `CacheReferenceMetadata` | `CACHE_REFERENCE` | `cache_namespace`, `cache_key_hi`, `cache_key_lo`, `profile_id`, `reuse_scope`, `lease_id`, `producer_trace_id`, `expiration_hint_ms`, `metadata_bytes`, `flags` |
 | `CacheMissMetadata` | `CACHE_MISS` | `cache_namespace`, `cache_key_hi`, `cache_key_lo`, `miss_reason`, `profile_id`, `diagnostic_bytes` |
 
+## Local Cache Lease State
+
+`CacheLeaseDescriptor` is the validated Python value for a granted lease. It is not a wire payload or a native handle.
+
+| Python field | Type | Protocol field |
+|---|---|---|
+| `identity` | `CacheObjectIdentity` | `object_id` |
+| `object_version` | `int` (`u64`) | `object_version` |
+| `lease_id` | `int` (`u64`) | `lease_id` |
+| `owner_scope` | `CacheLeaseOwnerScope` | `owner_scope` |
+| `owner_id` | `int` (`u64`) | `owner_id` |
+| `granted_at_ms` | `int` (`u64`) | `granted_at_ms` |
+| `ttl_ms` | `int` (`u32`) | `ttl_ms` |
+
+`CacheObjectIdentity` contains `cache_namespace: int` (`u32`), `cache_key_hi: int` (`u64`),
+`cache_key_lo: int` (`u64`), and `object_kind: CacheObjectKind` (`u32`).
+`CacheLeaseOwnerScope` is `CONNECTION = 0`, `SESSION = 1`, or `OPERATION = 2`.
+Use `expires_at_ms`, `is_expired`, and `validate_version` for local validation.
+
 ## Runtime Enums
 
 ### `RuntimeObjectKind`

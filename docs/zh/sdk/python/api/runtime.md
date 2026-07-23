@@ -178,6 +178,25 @@ session 时无法保持无歧义的事件所有权。
 | `CacheReferenceMetadata` | `CACHE_REFERENCE` | `cache_namespace`, `cache_key_hi`, `cache_key_lo`, `profile_id`, `reuse_scope`, `lease_id`, `producer_trace_id`, `expiration_hint_ms`, `metadata_bytes`, `flags` |
 | `CacheMissMetadata` | `CACHE_MISS` | `cache_namespace`, `cache_key_hi`, `cache_key_lo`, `miss_reason`, `profile_id`, `diagnostic_bytes` |
 
+## 本地缓存租约状态
+
+`CacheLeaseDescriptor` 是已经授予租约的 Python 本地校验值，不是 wire payload，也不是 native handle。
+
+| Python 字段 | 类型 | 协议字段 |
+|---|---|---|
+| `identity` | `CacheObjectIdentity` | `object_id` |
+| `object_version` | `int`（`u64`） | `object_version` |
+| `lease_id` | `int`（`u64`） | `lease_id` |
+| `owner_scope` | `CacheLeaseOwnerScope` | `owner_scope` |
+| `owner_id` | `int`（`u64`） | `owner_id` |
+| `granted_at_ms` | `int`（`u64`） | `granted_at_ms` |
+| `ttl_ms` | `int`（`u32`） | `ttl_ms` |
+
+`CacheObjectIdentity` 包含 `cache_namespace: int`（`u32`）、`cache_key_hi: int`（`u64`）、
+`cache_key_lo: int`（`u64`）和 `object_kind: CacheObjectKind`（`u32`）。
+`CacheLeaseOwnerScope` 的取值为 `CONNECTION = 0`、`SESSION = 1` 或 `OPERATION = 2`。
+本地校验应使用 `expires_at_ms`、`is_expired` 和 `validate_version`。
+
 ## 运行时枚举
 
 | 枚举 | 成员 |

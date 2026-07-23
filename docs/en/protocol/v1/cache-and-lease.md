@@ -34,10 +34,10 @@ During the handshake both sides negotiate a cache capability ceiling. When the s
 NNRP/1 uses one cache identity in every control-plane and hot-path representation:
 
 ```text
-(cache_namespace: u32, cache_key_hi: u64, cache_key_lo: u64)
+(cache_namespace: u32, cache_key_hi: u64, cache_key_lo: u64, object_kind: u32 enum)
 ```
 
-The two key words form one opaque 128-bit value. Implementations must not truncate either word or derive a second, transport-local key. A namespace scopes allocation and bulk invalidation; it remains part of the identity even when the key is globally unique.
+The two key words form one opaque 128-bit value. Implementations must not truncate either word or derive a second, transport-local key. A namespace scopes allocation and bulk invalidation; it remains part of the identity even when the key is globally unique. `object_kind` prevents equal keys for different object families from aliasing in local object and lease tables. The 24-byte hot-path object-reference block uses a validated `u16` projection of this enum; that compact wire field does not narrow the canonical local identity or FFI representation.
 
 `CACHE_INVALIDATE` applies its fields as follows:
 
@@ -47,6 +47,22 @@ The two key words form one opaque 128-bit value. Implementations must not trunca
 | `namespace` | `cache_namespace` | `cache_key_hi`, `cache_key_lo` |
 | `object_kind` | `cache_namespace`; `cache_key_hi` carries the `u32` object-kind code in its low 32 bits | High 32 bits of `cache_key_hi`, all of `cache_key_lo` |
 | `object_key` | Full cache identity | None |
+
+## Local cache lease state
+
+Every SDK uses the following validated value model for a granted cache lease. This model is local runtime state, not a second wire layout and not a native pointer or handle.
+
+| Semantic field | Width | Meaning |
+| --- | --- | --- |
+| `object_id` | structured | Canonical `(cache_namespace, cache_key_hi, cache_key_lo, object_kind)` identity. |
+| `object_version` | `u64` | Exact object version covered by the lease. |
+| `lease_id` | `u64` | Runtime-issued lease identity. |
+| `owner_scope` | `u8` enum | `connection = 0`, `session = 1`, or `operation = 2`. |
+| `owner_id` | `u64` | Identifier in the namespace selected by `owner_scope`. |
+| `granted_at_ms` | `u64` | Monotonic runtime timestamp at which the lease was granted. |
+| `ttl_ms` | `u32` | Granted lease lifetime in milliseconds. |
+
+SDKs may expose idiomatic field names, but must preserve the values and widths above. The expiration timestamp is `saturating_add(granted_at_ms, ttl_ms)`. A lease is live only while `now_ms < expires_at_ms`, and using it for an object version other than `object_version` must fail with `version_mismatch`. A zero TTL is therefore immediately expired.
 
 ## Cache wire metadata
 

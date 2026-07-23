@@ -93,6 +93,23 @@ pub struct CacheObjectId {
 [Cache Capabilities and Leases](/en/protocol/v1/cache-and-lease) and
 [Runtime Object and Cache Metadata](/en/profiles/runtime-control/object-cache-frames).
 
+### `CacheLease`
+
+`CacheLease` is the validated local lease value. It is not a wire payload or an FFI handle.
+
+| Rust field | Type | Protocol field |
+|---|---|---|
+| `object_id` | `CacheObjectId` | `object_id` |
+| `object_version` | `u64` | `object_version` |
+| `lease_id` | `u64` | `lease_id` |
+| `owner_scope` | `CacheLeaseOwnerScope` | `owner_scope` |
+| `owner_id` | `u64` | `owner_id` |
+| `granted_at_ms` | `u64` | `granted_at_ms` |
+| `ttl_ms` | `u32` | `ttl_ms` |
+
+`CacheLeaseOwnerScope` is `Connection = 0`, `Session = 1`, or `Operation = 2`.
+Use `expires_at_ms`, `validate_live_at`, and `validate_version` instead of duplicating lease arithmetic in an application.
+
 ## Common Pitfalls
 
 ::: warning
