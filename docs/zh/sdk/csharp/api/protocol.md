@@ -133,39 +133,36 @@ public enum SessionState
 
 ---
 
-## `NnrpCacheKey`
+## 缓存对象身份
 
-缓存对象键（`readonly struct`，值类型相等语义）。
-
-```csharp
-public readonly struct NnrpCacheKey : IEquatable<NnrpCacheKey>
-{
-    public CacheObjectKind Kind { get; }
-    public uint Key { get; }
-    public uint NamespaceId { get; }
-
-    public NnrpCacheKey(CacheObjectKind kind, uint key, uint namespaceId = 0);
-}
-```
+Preview 4 只使用 [`NnrpCacheObjectId`](./runtime.md#本地缓存租约状态) 表示托管侧缓存身份。它包含协议定义的
+`CacheNamespace`、两个 64 位 cache-key word 和 `ObjectKind`。`CachePutMetadata`、
+`CacheAckMetadata`、`CacheInvalidateMetadata` 使用完全相同的字段；SDK 不再定义另一套更窄的缓存键。
 
 ---
 
 ## `NnrpCacheStore`
 
-客户端本地缓存存储（类），管理已上传的缓存对象生命周期。
+线程安全的服务端本地缓存实现（`sealed class`），由 `NnrpServerSession` 使用。它不是客户端上传队列，
+也不能代表远端一定命中缓存。
 
 ```csharp
 public sealed class NnrpCacheStore
 {
-    public NnrpCacheStore(int maxEntries = 256, long maxBytes = 8 * 1024 * 1024);
+    public NnrpCacheStore(int maxEntries = 256, long maxObjectBytes = 16 * 1024 * 1024);
 
-    public bool TryGet(NnrpCacheKey key, out ReadOnlyMemory<byte> data);
-    public void Put(NnrpCacheKey key, ReadOnlyMemory<byte> data, CachePutFlags flags = CachePutFlags.None);
-    public void Invalidate(NnrpCacheKey key);
-    public void InvalidateAll();
+    public NnrpCacheResult TryGet(NnrpCacheObjectId objectId);
+    public NnrpCacheResult TryPut(
+        NnrpCacheObjectId objectId,
+        ReadOnlyMemory<byte> objectBytes,
+        uint ttlMilliseconds);
+    public bool TryInvalidate(NnrpCacheObjectId objectId);
+    public void Clear();
+    public void EvictExpired();
 
     public int Count { get; }
-    public long BytesUsed { get; }
+    public int MaxEntries { get; set; }
+    public long MaxObjectBytes { get; set; }
 }
 ```
 
@@ -173,24 +170,15 @@ public sealed class NnrpCacheStore
 
 ## 典型使用场景
 
-### 缓存预热与复用
+### 服务端缓存处理
 
 ```csharp
-// 上传静态背景层到服务端缓存
-var key = new NnrpCacheKey { KindId = CacheObjectKind.BackgroundTile, ObjectId = bgHash };
-await session.PutCacheAsync(key, bgTensorData, CachePutFlags.Persistent);
-
-// 后续帧直接引用缓存，减少带宽
-var req = new NnrpSubmitRequest
-{
-    FrameId      = frameId,
-    InputProfile = InputProfile.ChangedTilesLuma,
-    SubmitMode   = SubmitMode.Reference,   // 引用缓存，不重复传输
-    BudgetPolicy = BudgetPolicy.AllowPartial,
-    CacheRefs    = new[] { key },
-    Sections     = new[] { deltaSection }, // 只传变化量
-};
+var cache = new NnrpCacheStore(maxEntries: 512, maxObjectBytes: 64 * 1024 * 1024);
+var session = new NnrpServerSession(profile, transport, cacheStore: cache);
 ```
+
+`NnrpServerSession` 校验 `CachePutMetadata`，按规范的 `NnrpCacheObjectId` 存储对象，并发送
+`CacheAckMetadata`。引用与失效操作使用同样的身份字段宽度，应用不需要转换到更窄的本地 key。
 
 ### 低层包头构造与验证
 
@@ -212,11 +200,11 @@ buffer.Write(payload);
 ## 常见坑点
 
 ::: warning
-1. **`NnrpCacheStore` 是本地客户端缓存，不等于服务端缓存。** 向服务端引用缓存对象前，必须先调用 `PutCacheAsync()` 将数据上传到服务端；仅更新本地 `CacheStore` 不会同步服务端。
+1. **`NnrpCacheStore` 是服务端本地状态。** 客户端不能根据自身状态推断命中；必须处理 `CacheAck`、`CacheMiss`、租约和失效消息。
 
-2. **`SubmitMode.Reference` 依赖服务端缓存命中。** 若服务端因重启或淘汰策略清空了缓存，引用提交会返回 `ErrorCode.CacheMiss`，客户端须降级为 `SubmitMode.Inline`。
+2. **缓存身份不可截断。** `CacheNamespace` 为 32 位，两个 cache-key word 均为 64 位。
 
 3. **`NnrpPacketHeader.PayloadSize` 单位是字节。** 不要传入 Section 数量或 Tile 数量。
 
-4. **`NnrpCacheStore(maxEntries, maxBytes)` 两个限制取其先。** 默认 256 条 / 8 MiB；对大 Tensor 场景适当增大 `maxBytes`。
+4. **存储限制彼此独立。** `MaxEntries` 限制条目数，`MaxObjectBytes` 限制单个对象大小；二者都不是总字节配额。
 :::

@@ -364,7 +364,7 @@ Tensor 在推理管道中的角色（由服务端 Profile 定义）。
 
 ## 缓存枚举
 
-### `CacheObjectKind : ushort`
+### `CacheObjectKind : uint`
 
 | 成员 | 值 | 说明 |
 |---|---|---|

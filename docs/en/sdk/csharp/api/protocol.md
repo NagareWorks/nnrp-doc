@@ -130,60 +130,51 @@ public class NnrpSessionStateMachine
 
 ---
 
-## `NnrpCacheKey`
+## Cache Object Identity
 
-Cache object key (`readonly struct`, `IEquatable<NnrpCacheKey>`).
-
-| Property | Type | Description |
-|---|---|---|
-| `Kind` | `CacheObjectKind` | Object type |
-| `Id` | `ulong` | Object ID |
-
-```csharp
-public static NnrpCacheKey For(CacheObjectKind kind, ulong id);
-```
+Preview 4 uses [`NnrpCacheObjectId`](./runtime.md#local-cache-lease-state) as the only managed cache
+identity. It contains the protocol `CacheNamespace`, two 64-bit cache-key words, and `ObjectKind`.
+Cache messages expose the same fields through `CachePutMetadata`, `CacheAckMetadata`, and
+`CacheInvalidateMetadata`; the SDK does not define a second, narrower cache-key type.
 
 ---
 
 ## `NnrpCacheStore`
 
-Thread-safe LRU cache store (`sealed class`).
+Thread-safe server-local cache store (`sealed class`). It is an application-side implementation used
+by `NnrpServerSession`; it is not a client upload queue and it does not imply a remote cache hit.
 
 ```csharp
-public NnrpCacheStore(int maxEntries, long maxBytes);
+public NnrpCacheStore(int maxEntries = 256, long maxObjectBytes = 16 * 1024 * 1024);
 
-public bool TryGet(NnrpCacheKey key, out ReadOnlyMemory<byte> data);
-public bool Put(NnrpCacheKey key, ReadOnlyMemory<byte> data, CachePutFlags flags = CachePutFlags.None);
-public int Invalidate(NnrpCacheKey key);
-public int InvalidateByKind(CacheObjectKind kind);
-public int InvalidateAll();
+public NnrpCacheResult TryGet(NnrpCacheObjectId objectId);
+public NnrpCacheResult TryPut(
+    NnrpCacheObjectId objectId,
+    ReadOnlyMemory<byte> objectBytes,
+    uint ttlMilliseconds);
+public bool TryInvalidate(NnrpCacheObjectId objectId);
+public void Clear();
+public void EvictExpired();
 
 public int Count { get; }
-public long BytesUsed { get; }
+public int MaxEntries { get; set; }
+public long MaxObjectBytes { get; set; }
 ```
 
 ---
 
 ## Typical Use Cases
 
-### Cache Pre-warming and Reuse
+### Server Cache Handling
 
 ```csharp
-// Upload a static background tile to the server cache
-var key = new NnrpCacheKey { KindId = CacheObjectKind.BackgroundTile, ObjectId = bgHash };
-await session.PutCacheAsync(key, bgTensorData, CachePutFlags.Persistent);
-
-// Subsequent frames reference the cache to reduce bandwidth
-var req = new NnrpSubmitRequest
-{
-    FrameId      = frameId,
-    InputProfile = InputProfile.ChangedTilesLuma,
-    SubmitMode   = SubmitMode.Reference,   // reference server cache, skip re-transmission
-    BudgetPolicy = BudgetPolicy.AllowPartial,
-    CacheRefs    = new[] { key },
-    Sections     = new[] { deltaSection }, // only transmit the delta
-};
+var cache = new NnrpCacheStore(maxEntries: 512, maxObjectBytes: 64 * 1024 * 1024);
+var session = new NnrpServerSession(profile, transport, cacheStore: cache);
 ```
+
+`NnrpServerSession` validates `CachePutMetadata`, stores the object under its canonical
+`NnrpCacheObjectId`, and emits `CacheAckMetadata`. References and invalidations use the same identity
+widths; applications do not translate them through a smaller local key.
 
 ### Low-Level Header Construction (debugging / adapters)
 
@@ -204,11 +195,11 @@ buffer.Write(payload);
 ## Common Pitfalls
 
 ::: warning
-1. **`NnrpCacheStore` is client-local, not server-side cache.** You must call `PutCacheAsync()` first to push data to the server before using `SubmitMode.Reference`.
+1. **`NnrpCacheStore` is server-local state.** A client must not infer a hit from its own state; honor `CacheAck`, `CacheMiss`, lease, and invalidation messages.
 
-2. **`SubmitMode.Reference` requires a server cache hit.** If the server evicts the entry, the submit returns `ErrorCode.CacheMiss` — fall back to `SubmitMode.Inline`.
+2. **Cache identities are not truncated.** `CacheNamespace` is 32-bit and each cache-key word is 64-bit.
 
 3. **`NnrpPacketHeader.PayloadSize` is in bytes**, not section count or tile count.
 
-4. **`NnrpCacheStore` evicts on whichever limit is hit first** — `maxEntries` or `maxBytes`. Increase `maxBytes` for large tensors.
+4. **Store limits are independent.** `MaxEntries` limits entry count and `MaxObjectBytes` limits one object; neither is a total-byte quota.
 :::
