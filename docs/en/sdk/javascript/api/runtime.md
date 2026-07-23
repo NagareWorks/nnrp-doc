@@ -274,6 +274,21 @@ below. A metadata object is valid only for the message types listed in its row.
 | `CacheReferenceMetadata`   | `CacheReference`             | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                             |
 | `CacheMissMetadata`        | `CacheMiss`                  | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                     |
 
+## `CachePolicyOptions`
+
+`CachePolicyOptions` is a local opt-in value and never performs an implicit lookup or emits a frame.
+
+| TypeScript field | Type | Default |
+| --- | --- | --- |
+| `enabled` | `boolean` | `false` |
+| `reuseScope` | `CacheReuseScope | undefined` | `undefined` |
+| `expirationHintMs` | `bigint` | `0n` |
+| `invalidationReason` | `CachePolicyInvalidationReason` | `Explicit` |
+
+`CachePolicyInvalidationReason` has `Explicit`, `DependencyInvalidated`, `LeaseExpired`,
+`VersionMismatch`, and `SchemaMismatch`. Enabling requires `reuseScope`; disabling requires
+`reuseScope === undefined` and `expirationHintMs === 0n`.
+
 ## Runtime Enums
 
 | Enum                  | Members                                                                                                                                                                                  |

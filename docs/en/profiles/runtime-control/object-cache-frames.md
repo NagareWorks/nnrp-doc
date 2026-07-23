@@ -105,6 +105,25 @@ Used by `CACHE_MISS`.
 | `24`   | `diagnostic_bytes` | `u32` | No       | Optional diagnostic body length.           |
 | `28`   | `reserved`         | `u32` | Yes      | Must be zero.                              |
 
+## Local SDK Cache Policy Contract
+
+SDKs expose a local `CachePolicyOptions` value so applications must opt into cache reuse explicitly.
+This value is not a wire payload, is never serialized automatically, and does not perform an implicit
+lookup. Applications and profiles remain responsible for emitting `CACHE_REFERENCE`, `CACHE_MISS`,
+and `CACHE_INVALIDATE` frames.
+
+| Semantic field | Type | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` | `bool` | `false` | When `true`, `reuse_scope` is required. |
+| `reuse_scope` | optional `CacheReuseScope` | none | Must be absent when `enabled` is `false`. |
+| `expiration_hint_ms` | `u64` | `0` | Must be zero when `enabled` is `false`; SDKs narrow explicitly when writing a `u32` wire hint. |
+| `invalidation_reason` | `CachePolicyInvalidationReason` | `explicit` | Local reason propagated only when the application emits an invalidation. |
+
+`CachePolicyInvalidationReason` has the frozen semantic members `explicit`, `dependency_invalidated`,
+`lease_expired`, `version_mismatch`, and `schema_mismatch`. Language bindings use their conventional
+casing but must preserve these meanings. Disabled policy values must not carry a reuse scope or a
+non-zero expiration hint.
+
 ## Conformance Requirement
 
 Wire-level conformance must exercise these profiles by exchanging NNRP frames directly. SDK adapter

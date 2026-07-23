@@ -165,6 +165,34 @@ var payload = NnrpRuntimeControl.Encode(
 和 `ObjectKind: CacheObjectKind`。`CacheLeaseOwnerScope` 的取值为 `Connection = 0`、`Session = 1`
 或 `Operation = 2`。本地校验应使用 `ExpiresAtMilliseconds`、`TryValidateLiveAt` 和 `TryValidateVersion`。
 
+## `CachePolicyOptions`
+
+`CachePolicyOptions` 是 runtime-control profile 定义的本地显式启用策略。它本身不会执行查询，
+也不会自动序列化缓存帧。
+
+| C# 属性 | 类型 | 默认值 |
+| --- | --- | --- |
+| `Enabled` | `bool` | `false` |
+| `ReuseScope` | `CacheReuseScope?` | `null` |
+| `ExpirationHintMilliseconds` | `ulong` | `0` |
+| `InvalidationReason` | `CachePolicyInvalidationReason` | `Explicit` |
+
+`CachePolicyInvalidationReason` 包含 `Explicit`、`DependencyInvalidated`、`LeaseExpired`、
+`VersionMismatch` 和 `SchemaMismatch`。启用策略时必须提供 `ReuseScope`；禁用时要求
+`ReuseScope == null` 且 `ExpirationHintMilliseconds == 0`。
+
+## Native Object Delta Metadata Copies
+
+`NnrpNativeRuntimeObjects` 负责 Rust-backed metadata buffer helper。两个方法都返回必须释放的
+`NnrpNativeObjectMetadataBuffer`。
+
+| 方法 | 参数 | Payload 布局 |
+| --- | --- | --- |
+| `AcquireObjectPatchMetadataCopy` | `ObjectDeltaMetadata metadata`, `byte[] metadataTail`, `byte[] delta` | `ObjectPatch` metadata + metadata tail + delta bytes |
+| `AcquireObjectDeltaMetadataCopy` | `ObjectDeltaMetadata metadata`, `byte[] metadataTail`, `byte[] delta` | `ObjectDelta` metadata + metadata tail + delta bytes |
+
+两个 helper 都会在申请 native-owned copy 前校验 `MetadataBytes` 和 `DeltaBytes`。
+
 ## 运行时枚举
 
 | 枚举 | 成员 |

@@ -105,6 +105,23 @@ metadata。多取值字段统一使用[运行时控制取值注册表](./value-r
 | `24`   | `diagnostic_bytes` | `u32` | 否   | 可选诊断 body 长度。             |
 | `28`   | `reserved`         | `u32` | 是   | 必须为零。                       |
 
+## SDK 本地缓存策略约定
+
+SDK 暴露本地 `CachePolicyOptions` 值，要求应用显式启用缓存复用。该值不是线路 payload，
+不会被自动序列化，也不会触发隐式缓存查询。应用和 profile 仍须显式发送
+`CACHE_REFERENCE`、`CACHE_MISS` 和 `CACHE_INVALIDATE` 帧。
+
+| 语义字段 | 类型 | 默认值 | 校验规则 |
+| --- | --- | --- | --- |
+| `enabled` | `bool` | `false` | 为 `true` 时必须提供 `reuse_scope`。 |
+| `reuse_scope` | 可选 `CacheReuseScope` | 无 | `enabled` 为 `false` 时必须缺省。 |
+| `expiration_hint_ms` | `u64` | `0` | `enabled` 为 `false` 时必须为零；写入线路上的 `u32` hint 时必须显式收窄并校验。 |
+| `invalidation_reason` | `CachePolicyInvalidationReason` | `explicit` | 仅在应用显式发送失效帧时传播。 |
+
+`CachePolicyInvalidationReason` 冻结为 `explicit`、`dependency_invalidated`、`lease_expired`、
+`version_mismatch` 和 `schema_mismatch`。语言绑定使用各自惯用命名风格，但必须保持这些语义。
+禁用策略不得携带 reuse scope 或非零 expiration hint。
+
 ## 一致性测试要求
 
 线路级一致性测试必须通过直接交换 NNRP 帧验证这些 profile。SDK adapter manifest

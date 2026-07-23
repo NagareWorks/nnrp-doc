@@ -253,6 +253,21 @@ lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
 | `CacheReferenceMetadata`   | `CacheReference`             | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                             |
 | `CacheMissMetadata`        | `CacheMiss`                  | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                     |
 
+## `CachePolicyOptions`
+
+`CachePolicyOptions` 是本地显式启用值，不会执行隐式查询或自动发送帧。
+
+| TypeScript 字段 | 类型 | 默认值 |
+| --- | --- | --- |
+| `enabled` | `boolean` | `false` |
+| `reuseScope` | `CacheReuseScope | undefined` | `undefined` |
+| `expirationHintMs` | `bigint` | `0n` |
+| `invalidationReason` | `CachePolicyInvalidationReason` | `Explicit` |
+
+`CachePolicyInvalidationReason` 包含 `Explicit`、`DependencyInvalidated`、`LeaseExpired`、
+`VersionMismatch` 和 `SchemaMismatch`。启用时必须提供 `reuseScope`；禁用时要求
+`reuseScope === undefined` 且 `expirationHintMs === 0n`。
+
 ## 运行时枚举
 
 | 枚举                  | 成员                                                                                                                                                                                     |

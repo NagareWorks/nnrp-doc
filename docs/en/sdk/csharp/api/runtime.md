@@ -166,6 +166,34 @@ Decodes concatenated binary frames from local buffers and conformance fixtures.
 and `ObjectKind: CacheObjectKind`. `CacheLeaseOwnerScope` is `Connection = 0`, `Session = 1`, or
 `Operation = 2`. Use `ExpiresAtMilliseconds`, `TryValidateLiveAt`, and `TryValidateVersion` for local validation.
 
+## `CachePolicyOptions`
+
+`CachePolicyOptions` is the local opt-in policy described by the runtime-control profile. It never
+performs a lookup or serializes a cache frame by itself.
+
+| C# property | Type | Default |
+| --- | --- | --- |
+| `Enabled` | `bool` | `false` |
+| `ReuseScope` | `CacheReuseScope?` | `null` |
+| `ExpirationHintMilliseconds` | `ulong` | `0` |
+| `InvalidationReason` | `CachePolicyInvalidationReason` | `Explicit` |
+
+`CachePolicyInvalidationReason` has `Explicit`, `DependencyInvalidated`, `LeaseExpired`,
+`VersionMismatch`, and `SchemaMismatch`. Enabling the policy requires `ReuseScope`; disabling it
+requires `ReuseScope == null` and `ExpirationHintMilliseconds == 0`.
+
+## Native Object Delta Metadata Copies
+
+`NnrpNativeRuntimeObjects` owns the Rust-backed metadata buffer helpers. Both methods return an
+`NnrpNativeObjectMetadataBuffer` that must be disposed.
+
+| Method | Parameters | Payload layout |
+| --- | --- | --- |
+| `AcquireObjectPatchMetadataCopy` | `ObjectDeltaMetadata metadata`, `byte[] metadataTail`, `byte[] delta` | `ObjectPatch` metadata + metadata tail + delta bytes |
+| `AcquireObjectDeltaMetadataCopy` | `ObjectDeltaMetadata metadata`, `byte[] metadataTail`, `byte[] delta` | `ObjectDelta` metadata + metadata tail + delta bytes |
+
+Both helpers validate `MetadataBytes` and `DeltaBytes` before acquiring the native-owned copy.
+
 ## Runtime Enums
 
 | Enum | Members |

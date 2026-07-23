@@ -226,6 +226,21 @@ All integer fields are unsigned unless the field name says otherwise.
 `CacheLeaseOwnerScope` is `CONNECTION = 0`, `SESSION = 1`, or `OPERATION = 2`.
 Use `expires_at_ms`, `is_expired`, and `validate_version` for local validation.
 
+## `CachePolicyOptions`
+
+`CachePolicyOptions` is a local opt-in value and never performs an implicit lookup or emits a frame.
+
+| Python field | Type | Default |
+| --- | --- | --- |
+| `enabled` | `bool` | `False` |
+| `reuse_scope` | `CacheReuseScope | None` | `None` |
+| `expiration_hint_ms` | `int` (`u64`) | `0` |
+| `invalidation_reason` | `CacheInvalidationReason` | `EXPLICIT` |
+
+`CacheInvalidationReason` has `EXPLICIT`, `DEPENDENCY_INVALIDATED`, `LEASE_EXPIRED`,
+`VERSION_MISMATCH`, and `SCHEMA_MISMATCH`. Enabling requires `reuse_scope`; disabling requires
+`reuse_scope is None` and `expiration_hint_ms == 0`.
+
 ## Runtime Enums
 
 ### `RuntimeObjectKind`

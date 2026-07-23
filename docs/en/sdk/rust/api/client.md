@@ -203,6 +203,20 @@ The wire definitions for these frames live in [Runtime Control Profiles](/en/pro
 | `allow_resume` | `bool` | `false` | Enables recovery semantics. |
 | `cache_hints` | `Vec<CacheObjectKind>` | Empty | Cache object kinds expected by this client. |
 
+## `CachePolicyOptions`
+
+`CachePolicyOptions` is a local opt-in value and never performs an implicit lookup or emits a frame.
+
+| Rust field | Type | Default |
+| --- | --- | --- |
+| `enabled` | `bool` | `false` |
+| `reuse_scope` | `Option<CacheReuseScope>` | `None` |
+| `expiration_hint_ms` | `u64` | `0` |
+| `invalidation_reason` | `CachePolicyInvalidationReason` | `Explicit` |
+
+`CachePolicyInvalidationReason` has `Explicit`, `DependencyInvalidated`, `LeaseExpired`,
+`VersionMismatch`, and `SchemaMismatch`. `CachePolicyOptions::validate` enforces the shared contract.
+
 ## `NnrpClientEvent`
 
 | Variant | Data | Description |

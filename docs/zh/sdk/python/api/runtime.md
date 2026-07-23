@@ -197,6 +197,21 @@ session 时无法保持无歧义的事件所有权。
 `CacheLeaseOwnerScope` 的取值为 `CONNECTION = 0`、`SESSION = 1` 或 `OPERATION = 2`。
 本地校验应使用 `expires_at_ms`、`is_expired` 和 `validate_version`。
 
+## `CachePolicyOptions`
+
+`CachePolicyOptions` 是本地显式启用值，不会执行隐式查询或自动发送帧。
+
+| Python 字段 | 类型 | 默认值 |
+| --- | --- | --- |
+| `enabled` | `bool` | `False` |
+| `reuse_scope` | `CacheReuseScope | None` | `None` |
+| `expiration_hint_ms` | `int` (`u64`) | `0` |
+| `invalidation_reason` | `CacheInvalidationReason` | `EXPLICIT` |
+
+`CacheInvalidationReason` 包含 `EXPLICIT`、`DEPENDENCY_INVALIDATED`、`LEASE_EXPIRED`、
+`VERSION_MISMATCH` 和 `SCHEMA_MISMATCH`。启用时必须提供 `reuse_scope`；禁用时要求
+`reuse_scope is None` 且 `expiration_hint_ms == 0`。
+
 ## 运行时枚举
 
 | 枚举 | 成员 |

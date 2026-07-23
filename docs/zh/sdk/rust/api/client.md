@@ -200,6 +200,20 @@ match session.await_event().await? {
 | `allow_resume` | `bool` | `false` | 启用恢复语义。 |
 | `cache_hints` | `Vec<CacheObjectKind>` | 空 | Client 预计使用的 cache object kinds。 |
 
+## `CachePolicyOptions`
+
+`CachePolicyOptions` 是本地显式启用值，不会执行隐式查询或自动发送帧。
+
+| Rust 字段 | 类型 | 默认值 |
+| --- | --- | --- |
+| `enabled` | `bool` | `false` |
+| `reuse_scope` | `Option<CacheReuseScope>` | `None` |
+| `expiration_hint_ms` | `u64` | `0` |
+| `invalidation_reason` | `CachePolicyInvalidationReason` | `Explicit` |
+
+`CachePolicyInvalidationReason` 包含 `Explicit`、`DependencyInvalidated`、`LeaseExpired`、
+`VersionMismatch` 和 `SchemaMismatch`。`CachePolicyOptions::validate` 执行共享校验规则。
+
 ## `NnrpClientEvent`
 
 | Variant | 数据 | 说明 |
