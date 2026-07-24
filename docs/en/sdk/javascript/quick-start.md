@@ -75,14 +75,20 @@ Use `@nnrp/native-server` when the application exposes an NNRP endpoint.
 
 ```ts
 import { openBackendRuntime } from "@nnrp/native-server";
+import { createIpcTransportProvider } from "@nnrp/transport-ipc";
 import { createTcpTransportProvider } from "@nnrp/transport-tcp";
 
 const runtime = await openBackendRuntime({
-  transportPolicy: "force-tcp",
-  transports: [createTcpTransportProvider()],
+  transportPolicy: "auto",
+  transports: [createTcpTransportProvider(), createIpcTransportProvider()],
 });
 
-const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
+const server = runtime.listen({
+  endpoint: "nnrp://0.0.0.0:4433",
+  providerEndpoints: {
+    ipc: "unix:///run/nnrp.sock",
+  },
+});
 
 // Accept and handle sessions in the server adapter.
 

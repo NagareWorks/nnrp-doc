@@ -18,8 +18,8 @@ The package names differ by host, but the client session methods intentionally s
 
 Opens a native client in Node.js or Deno.
 
-| Parameter | Type                                                  | Required | Description                                                                                                                            |
-| --------- | ----------------------------------------------------- | -------: | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Parameter | Type                                                  | Required | Description                                                                                            |
+| --------- | ----------------------------------------------------- | -------: | ------------------------------------------------------------------------------------------------------ |
 | `options` | [`NnrpNativeClientOptions`](#nnrpnativeclientoptions) |      Yes | Endpoint, transport policy, installed transport providers, session defaults, and optional FFI binding. |
 
 | Returns               | Throws                                                        |
@@ -103,18 +103,18 @@ const session = client.openSession({ inputProfile: "tensor" });
 
 These methods have the same shape on `NnrpClient` and `NnrpBrowserClient`.
 
-| Method                                  | Parameters                                                                                           | Returns                     | Description                                                  |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------ |
-| `nextSessionEvent(sessionId, options?)` | `sessionId: string`, [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)                        | `Promise<NnrpRuntimeEvent>` | Reads the next event for one session.                        |
-| `close()`                               | None                                                                                                 | `Promise<void>`             | Closes owned sessions, the role connection, and the runtime. |
+| Method                                  | Parameters                                                                     | Returns                     | Description                                                  |
+| --------------------------------------- | ------------------------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------ |
+| `nextSessionEvent(sessionId, options?)` | `sessionId: string`, [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>` | Reads the next event for one session.                        |
+| `close()`                               | None                                                                           | `Promise<void>`             | Closes owned sessions, the role connection, and the runtime. |
 
 ## `ClientSession.submit`
 
 Submits a request and waits for a result. Native clients use the native submit/result hot path;
 browser clients use the browser runtime path, but the request shape is shared.
 
-| Parameter | Type                                     | Required | Description                                                                 |
-| --------- | ---------------------------------------- | -------: | --------------------------------------------------------------------------- |
+| Parameter | Type                                     | Required | Description                                                                                                    |
+| --------- | ---------------------------------------- | -------: | -------------------------------------------------------------------------------------------------------------- |
 | `request` | [`NnrpSubmitRequest`](./core#data-types) |      Yes | Non-zero operation id, independent frame id, payload/tensors, profile, cache/schema metadata, and submit mode. |
 
 | Returns               |
@@ -133,7 +133,8 @@ const result = await session.submit({
 
 ## `ClientSession.submitNoWait`
 
-Submits a request and returns the operation id. Native and browser client sessions both expose this method.
+Submits a request and returns the operation id. Native and browser client sessions both expose this
+method.
 
 | Parameter | Type                                     | Required | Description     |
 | --------- | ---------------------------------------- | -------: | --------------- |
@@ -182,19 +183,21 @@ control routing. It rejects a metadata type that does not match `messageType`.
 
 ## Preview4 Client Object And Cache Methods
 
-| Method                                   | Message           | Metadata                   | Optional tail      |
-| ---------------------------------------- | ----------------- | -------------------------- | ------------------ |
-| `declareObject(metadata, body?)`         | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata    |
-| `referenceObject(metadata, body?)`       | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata |
-| `releaseObject(metadata, diagnostic?)`   | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes   |
-| `patchObject(metadata, delta)`           | `ObjectPatch`     | `ObjectDeltaMetadata`      | delta bytes        |
-| `sendObjectDelta(metadata, delta)`       | `ObjectDelta`     | `ObjectDeltaMetadata`      | delta bytes        |
-| `referenceCache(metadata, body?)`        | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata     |
-| `reportCacheMiss(metadata, diagnostic?)` | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes   |
-| `invalidateCache(metadata)`              | `CacheInvalidate` | `CacheInvalidateMetadata`  | none               |
+| Method                                            | Message           | Metadata                   | Optional tail             |
+| ------------------------------------------------- | ----------------- | -------------------------- | ------------------------- |
+| `declareObject(metadata, body?)`                  | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata           |
+| `referenceObject(metadata, body?)`                | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata        |
+| `releaseObject(metadata, diagnostic?)`            | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes          |
+| `patchObject(metadata, delta, metadataBody?)`     | `ObjectPatch`     | `ObjectDeltaMetadata`      | metadata body, then delta |
+| `sendObjectDelta(metadata, delta, metadataBody?)` | `ObjectDelta`     | `ObjectDeltaMetadata`      | metadata body, then delta |
+| `referenceCache(metadata, body?)`                 | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata            |
+| `reportCacheMiss(metadata, diagnostic?)`          | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes          |
+| `invalidateCache(metadata)`                       | `CacheInvalidate` | `CacheInvalidateMetadata`  | none                      |
 
-Object and cache methods return `Promise<void>`. They do not perform an implicit cache lookup before
-each submit.
+For object patch and delta methods, `metadataBody.byteLength` must equal `metadata.metadataBytes`
+and `delta.byteLength` must equal `metadata.deltaBytes`. The wire tail is the metadata body followed
+by the delta bytes. Object and cache methods return `Promise<void>`. They do not perform an implicit
+cache lookup before each submit.
 
 ## Preview4 Runtime Events
 
@@ -215,10 +218,10 @@ After cancellation, `result-drop-reason` remains observable, while late `result`
 
 `submit(request, options?)` and `submitNoWait(request, options?)` accept `NnrpSubmitOptions`:
 
-| Field           | Type                  | Required | Description                                                                                         |
-| --------------- | --------------------- | -------: | --------------------------------------------------------------------------------------------------- |
+| Field           | Type                                       | Required | Description                                                                                         |
+| --------------- | ------------------------------------------ | -------: | --------------------------------------------------------------------------------------------------- |
 | `signal`        | [`NnrpAbortSignalLike`](./core#data-types) |       No | An already-aborted signal rejects before dispatch; an abort after dispatch sends `CANCEL`.          |
-| `timeoutMillis` | `number`              |       No | Local wait bound. The SDK sends `DEADLINE` before dispatch and cancels work when the bound expires. |
+| `timeoutMillis` | `number`                                   |       No | Local wait bound. The SDK sends `DEADLINE` before dispatch and cancels work when the bound expires. |
 
 These helpers use the same control sequence allocator as explicit control methods; they do not
 invent an out-of-band cancellation channel.
@@ -237,15 +240,15 @@ Reads the next runtime event.
 
 ## Client Session Lifecycle And Results
 
-| Method                       | Parameters                                                                                 | Returns                               | Description                                                                 |
-| ---------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------- | --------------------------------------------------------------------------- |
-| `inFlightFrames()`           | None                                                                                       | `readonly number[]`                   | Returns frame ids that have not reached terminal state.                     |
-| `completeEvent(event)`       | [`event: NnrpRuntimeEvent`](./runtime#typed-runtime-frame-events)                          | `void`                                | Applies terminal bookkeeping for an externally consumed event.             |
-| `nextResult(options?)`       | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)                                  | `Promise<NnrpResult>`                 | Skips non-result events and returns the next terminal result.               |
-| `migrate(request)`           | [`request: NnrpSessionMigrationRequest`](./core#data-types)                                | `Promise<void>`                       | Requests session migration; unsupported runtimes return a typed diagnostic. |
-| `patch(request)`             | [`request: NnrpSessionPatchRequest`](./core#data-types)                                    | `Promise<NnrpSessionPatchResult>`     | Applies mutable session metadata, profile, cadence, quality, or credits.    |
-| `events(options?)`           | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)                                  | `AsyncIterable<NnrpRuntimeEvent>`     | Iterates events until the session closes or polling fails.                  |
-| `close()`                    | None                                                                                       | `Promise<void>`                       | Closes the role session and releases its in-flight state.                   |
+| Method                 | Parameters                                                        | Returns                           | Description                                                                 |
+| ---------------------- | ----------------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- |
+| `inFlightFrames()`     | None                                                              | `readonly number[]`               | Returns frame ids that have not reached terminal state.                     |
+| `completeEvent(event)` | [`event: NnrpRuntimeEvent`](./runtime#typed-runtime-frame-events) | `void`                            | Applies terminal bookkeeping for an externally consumed event.              |
+| `nextResult(options?)` | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `Promise<NnrpResult>`             | Skips non-result events and returns the next terminal result.               |
+| `migrate(request)`     | [`request: NnrpSessionMigrationRequest`](./core#data-types)       | `Promise<void>`                   | Requests session migration; unsupported runtimes return a typed diagnostic. |
+| `patch(request)`       | [`request: NnrpSessionPatchRequest`](./core#data-types)           | `Promise<NnrpSessionPatchResult>` | Applies mutable session metadata, profile, cadence, quality, or credits.    |
+| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `AsyncIterable<NnrpRuntimeEvent>` | Iterates events until the session closes or polling fails.                  |
+| `close()`              | None                                                              | `Promise<void>`                   | Closes the role session and releases its in-flight state.                   |
 
 ## Runtime Differences
 
@@ -264,7 +267,7 @@ Reads the next runtime event.
 | ------------------ | ------------------------------------------------------- | -------: | --------------------------------------------------------------------------------------- |
 | `endpoint`         | `string \| URL`                                         |      Yes | Remote NNRP endpoint.                                                                   |
 | `providerEndpoint` | `string \| URL`                                         |       No | Explicit carrier-local endpoint for diagnostics, conformance, or controlled deployment. |
-| `security`         | `NnrpTransportClientSecurity`                            |       No | QUIC or `wss://` peer verification configuration.                                       |
+| `security`         | `NnrpTransportClientSecurity`                           |       No | QUIC or `wss://` peer verification configuration.                                       |
 | `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types)              |       No | `auto`, `prefer-*`, or `force-*` selection policy.                                      |
 | `transports`       | `readonly NnrpNativeTransportProvider[]`                |       No | Installed native transport providers. See [Transport Providers](./transport).           |
 | `sessionDefaults`  | [`NnrpSessionOptions`](#nnrpsessionoptions)             |       No | Defaults applied when sessions omit values.                                             |
@@ -292,15 +295,15 @@ Reads the next runtime event.
 
 ### `NnrpSessionOptions`
 
-| Field                  | Type                                     | Required | Description                                                    |
-| ---------------------- | ---------------------------------------- | -------: | -------------------------------------------------------------- |
-| `sessionId`            | `string`                                 |       No | Caller-visible session identity.                               |
-| `inputProfile`         | [`NnrpInputProfile`](./core#data-types) |       No | Input profile such as `tensor`, `token`, or `tool_delta`.       |
-| `targetCadence`        | `number`                                 |       No | Requested cadence.                                             |
-| `qualityTier`          | `number`                                 |       No | Application quality tier.                                      |
-| `metadata`             | `Readonly<Record<string, string>>`       |       No | Application metadata attached to the session.                  |
-| `submitCapacityPolicy` | `"reject" \| "await"`                  |       No | Behavior when local submit credits are exhausted.              |
-| `initialCredits`       | `number`                                 |       No | Initial local submit credits for client-side capacity control. |
+| Field                  | Type                                    | Required | Description                                                    |
+| ---------------------- | --------------------------------------- | -------: | -------------------------------------------------------------- |
+| `sessionId`            | `string`                                |       No | Caller-visible session identity.                               |
+| `inputProfile`         | [`NnrpInputProfile`](./core#data-types) |       No | Input profile such as `tensor`, `token`, or `tool_delta`.      |
+| `targetCadence`        | `number`                                |       No | Requested cadence.                                             |
+| `qualityTier`          | `number`                                |       No | Application quality tier.                                      |
+| `metadata`             | `Readonly<Record<string, string>>`      |       No | Application metadata attached to the session.                  |
+| `submitCapacityPolicy` | `"reject" \| "await"`                   |       No | Behavior when local submit credits are exhausted.              |
+| `initialCredits`       | `number`                                |       No | Initial local submit credits for client-side capacity control. |
 
 ### `NnrpBrowserSessionOptions`
 
@@ -308,7 +311,7 @@ Same shape as [`NnrpSessionOptions`](#nnrpsessionoptions), scoped to browser cli
 
 ### `NnrpEventPollOptions`
 
-| Field           | Type                                          | Required | Description                         |
-| --------------- | --------------------------------------------- | -------: | ----------------------------------- |
-| `timeoutMillis` | `number`                                      |       No | Maximum event wait in milliseconds. |
-| `signal`        | [`NnrpAbortSignalLike`](./core#data-types)    |       No | Cancels the pending event wait.     |
+| Field           | Type                                       | Required | Description                         |
+| --------------- | ------------------------------------------ | -------: | ----------------------------------- |
+| `timeoutMillis` | `number`                                   |       No | Maximum event wait in milliseconds. |
+| `signal`        | [`NnrpAbortSignalLike`](./core#data-types) |       No | Cancels the pending event wait.     |

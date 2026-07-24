@@ -6,8 +6,8 @@ Server APIs live in `@nnrp/native-server`. Browser packages do not expose server
 
 Creates a native backend runtime without immediately starting a listener.
 
-| Parameter | Type                                                      | Required | Description                                                                                                |
-| --------- | --------------------------------------------------------- | -------: | ---------------------------------------------------------------------------------------------------------- |
+| Parameter | Type                                                      | Required | Description                                                                |
+| --------- | --------------------------------------------------------- | -------: | -------------------------------------------------------------------------- |
 | `options` | [`NnrpBackendRuntimeOptions`](#nnrpbackendruntimeoptions) |       No | Transport policy, installed transport providers, and optional FFI binding. |
 
 | Returns                       |
@@ -26,7 +26,8 @@ const runtime = await openBackendRuntime({
 
 ## `NnrpBackendRuntime.listen`
 
-Creates a backend server listener.
+Creates one logical backend server listener. The logical listener owns every eligible carrier
+listener allowed by its transport policy and installed providers.
 
 | Parameter | Type                                      | Required | Description                                                                  |
 | --------- | ----------------------------------------- | -------: | ---------------------------------------------------------------------------- |
@@ -37,15 +38,31 @@ Creates a backend server listener.
 | `NnrpServer` |
 
 ```ts
-const server = runtime.listen({ endpoint: "nnrp://0.0.0.0:4433" });
+const server = runtime.listen({
+  endpoint: "nnrp://0.0.0.0:4433",
+  providerEndpoints: {
+    ipc: "unix:///run/nnrp.sock",
+    websocket: "wss://0.0.0.0:8443/nnrp",
+  },
+});
 ```
+
+`force-*` opens exactly the forced eligible carrier listener. `auto` and `prefer-*` open every
+eligible carrier listener; a preference only provides a stable order when accepted sessions become
+available simultaneously. It does not disable other listeners, and the server does not invent peer
+probe data. The connecting peer chooses the carrier it uses.
+
+Opening the listener set is atomic. If any configured eligible listener cannot open, the runtime
+closes listeners already opened for this call and rejects the first `accept()`. A carrier that
+cannot derive a bind locator from `endpoint` requires an entry in `providerEndpoints`; it is never
+omitted silently.
 
 ## `NnrpBackendRuntime.selectTransport`
 
 Selects a transport against a peer manifest.
 
-| Parameter | Type                                                              | Required | Description                                 |
-| --------- | ----------------------------------------------------------------- | -------: | ------------------------------------------- |
+| Parameter | Type                                                              | Required | Description                                                          |
+| --------- | ----------------------------------------------------------------- | -------: | -------------------------------------------------------------------- |
 | `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |      Yes | Peer manifest, workload limit, providers, policy, and probe metrics. |
 
 | Returns                         |
@@ -54,14 +71,14 @@ Selects a transport against a peer manifest.
 
 ## Runtime, Listener, And Session Lifecycle
 
-| Method                             | Parameters                                                                 | Returns                       | Description                                                     |
-| ---------------------------------- | -------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
-| `NnrpBackendRuntime.close()`       | None                                                                       | `Promise<void>`               | Closes accepted sessions, listeners, and the explicit FFI seam. |
-| `NnrpServer.accept()`              | None                                                                       | `Promise<NnrpServerSession>`  | Accepts one carrier-backed NNRP session.                         |
-| `NnrpServer.close()`               | None                                                                       | `Promise<void>`               | Closes the listener and every accepted session it owns.         |
-| `NnrpServerSession.receive(options?)` | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions)          | `Promise<NnrpRuntimeEvent>`   | Reads the next ordered submit, control, object, or cache event.  |
-| `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#data-types)                                  | `Promise<void>`               | Sends the one terminal result for the current operation.        |
-| `NnrpServerSession.close()`        | None                                                                       | `Promise<void>`               | Closes the accepted role session exactly once.                  |
+| Method                                 | Parameters                                                        | Returns                      | Description                                                     |
+| -------------------------------------- | ----------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------- |
+| `NnrpBackendRuntime.close()`           | None                                                              | `Promise<void>`              | Closes accepted sessions, listeners, and the explicit FFI seam. |
+| `NnrpServer.accept()`                  | None                                                              | `Promise<NnrpServerSession>` | Accepts the next session from the owned carrier-listener set.   |
+| `NnrpServer.close()`                   | None                                                              | `Promise<void>`              | Closes every owned carrier listener and accepted session.       |
+| `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>`  | Reads the next ordered submit, control, object, or cache event. |
+| `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#data-types)                         | `Promise<void>`              | Sends the one terminal result for the current operation.        |
+| `NnrpServerSession.close()`            | None                                                              | `Promise<void>`              | Closes the accepted role session exactly once.                  |
 
 ## Preview4 Server Session Methods
 
@@ -86,26 +103,29 @@ the carrier provider.
 
 ## Preview4 Server Object And Cache Methods
 
-| Method                                   | Message           | Metadata                   | Optional tail      |
-| ---------------------------------------- | ----------------- | -------------------------- | ------------------ |
-| `declareObject(metadata, body?)`         | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata    |
-| `referenceObject(metadata, body?)`       | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata |
-| `releaseObject(metadata, diagnostic?)`   | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes   |
-| `patchObject(metadata, delta)`           | `ObjectPatch`     | `ObjectDeltaMetadata`      | delta bytes        |
-| `sendObjectDelta(metadata, delta)`       | `ObjectDelta`     | `ObjectDeltaMetadata`      | delta bytes        |
-| `referenceCache(metadata, body?)`        | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata     |
-| `reportCacheMiss(metadata, diagnostic?)` | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes   |
-| `invalidateCache(metadata)`              | `CacheInvalidate` | `CacheInvalidateMetadata`  | none               |
+| Method                                            | Message           | Metadata                   | Optional tail             |
+| ------------------------------------------------- | ----------------- | -------------------------- | ------------------------- |
+| `declareObject(metadata, body?)`                  | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata           |
+| `referenceObject(metadata, body?)`                | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata        |
+| `releaseObject(metadata, diagnostic?)`            | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes          |
+| `patchObject(metadata, delta, metadataBody?)`     | `ObjectPatch`     | `ObjectDeltaMetadata`      | metadata body, then delta |
+| `sendObjectDelta(metadata, delta, metadataBody?)` | `ObjectDelta`     | `ObjectDeltaMetadata`      | metadata body, then delta |
+| `referenceCache(metadata, body?)`                 | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata            |
+| `reportCacheMiss(metadata, diagnostic?)`          | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes          |
+| `invalidateCache(metadata)`                       | `CacheInvalidate` | `CacheInvalidateMetadata`  | none                      |
 
-The final `sendResult(result)` remains separate from partial-result and object-delta frames.
+For object patch and delta methods, `metadataBody.byteLength` must equal `metadata.metadataBytes`
+and `delta.byteLength` must equal `metadata.deltaBytes`. The wire tail is the metadata body followed
+by the delta bytes. The final `sendResult(result)` remains separate from partial-result and
+object-delta frames.
 
 ## Boundary Rules
 
-| Package                                                                                              | Owns                                                         | Must not own                                                        |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Package                                                                                              | Owns                                                         | Must not own                                                         |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------- |
 | `@nnrp/native-server`                                                                                | Server runtime, listen lifecycle, backend runtime lifecycle. | Transport artifacts, browser code, client sessions, or connect APIs. |
-| `@nnrp/native-client`                                                                                | Client runtime and session lifecycle.                        | Server listener APIs.                                               |
-| `@nnrp/transport-tcp` / `@nnrp/transport-quic` / `@nnrp/transport-ipc` / `@nnrp/transport-websocket` | Transport behavior and packaged native artifacts.            | Server or client role lifecycle.                                    |
+| `@nnrp/native-client`                                                                                | Client runtime and session lifecycle.                        | Server listener APIs.                                                |
+| `@nnrp/transport-tcp` / `@nnrp/transport-quic` / `@nnrp/transport-ipc` / `@nnrp/transport-websocket` | Transport behavior and packaged native artifacts.            | Server or client role lifecycle.                                     |
 
 ## Option Types
 
@@ -119,20 +139,20 @@ The final `sendResult(result)` remains separate from partial-result and object-d
 
 ### `NnrpListenOptions`
 
-| Field              | Type                                       | Required | Description                                    |
-| ------------------ | ------------------------------------------ | -------: | ---------------------------------------------- |
-| `endpoint`         | `string \| URL`                             |      Yes | Local NNRP application endpoint to listen on.  |
-| `providerEndpoint` | `string \| URL`                            |       No | Explicit carrier-local bind endpoint.          |
-| `security`         | `NnrpTransportServerSecurity`               |       No | QUIC or `wss://` certificate and private key.  |
-| `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types) |       No | Selection policy for the listener.             |
-| `transports`       | `readonly NnrpNativeTransportProvider[]`   |       No | Transport providers allowed for this listener. |
+| Field               | Type                                                          | Required | Description                                               |
+| ------------------- | ------------------------------------------------------------- | -------: | --------------------------------------------------------- |
+| `endpoint`          | `string \| URL`                                               |      Yes | Local NNRP endpoint shared by the logical listener set.   |
+| `providerEndpoints` | `Readonly<Partial<Record<NnrpTransportKind, string \| URL>>>` |       No | Carrier-local bind locators keyed by transport kind.      |
+| `security`          | `NnrpTransportServerSecurity`                                 |       No | QUIC or `wss://` certificate and private key.             |
+| `transportPolicy`   | [`NnrpTransportPolicy`](./core#data-types)                    |       No | Listener-set eligibility and stable preference policy.    |
+| `transports`        | `readonly NnrpNativeTransportProvider[]`                      |       No | Transport providers allowed in this logical listener set. |
 
 ### `NnrpTransportSelectionOptions`
 
-| Field                    | Type                                                               | Required | Description                                      |
-| ------------------------ | ------------------------------------------------------------------ | -------: | ------------------------------------------------ |
-| `peerManifest`           | [`NnrpCapabilityManifest`](./core#data-types)                      |      Yes | Peer capability manifest.                        |
-| `providers`              | `readonly NnrpTransportProvider[]`                                 |       No | Local providers to consider.                     |
-| `policy`                 | [`NnrpTransportPolicy`](./core#data-types)                         |       No | Selection policy override.                       |
-| `requestedMaxFrameBytes` | `bigint`                                                           |       No | Workload limit checked against provider limits.  |
-| `probeMetricsByProviderId` | `Readonly<Record<string, NnrpTransportProbeMetrics>>`                  |       No | Structured test/deployment observations keyed by provider id. |
+| Field                      | Type                                                  | Required | Description                                                   |
+| -------------------------- | ----------------------------------------------------- | -------: | ------------------------------------------------------------- |
+| `peerManifest`             | [`NnrpCapabilityManifest`](./core#data-types)         |      Yes | Peer capability manifest.                                     |
+| `providers`                | `readonly NnrpTransportProvider[]`                    |       No | Local providers to consider.                                  |
+| `policy`                   | [`NnrpTransportPolicy`](./core#data-types)            |       No | Selection policy override.                                    |
+| `requestedMaxFrameBytes`   | `bigint`                                              |       No | Workload limit checked against provider limits.               |
+| `probeMetricsByProviderId` | `Readonly<Record<string, NnrpTransportProbeMetrics>>` |       No | Structured test/deployment observations keyed by provider id. |

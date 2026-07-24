@@ -31,16 +31,18 @@ const client = await openNativeClient({
 });
 ```
 
-| Endpoint layer         | Accepted forms                                               | Purpose                                                                        |
-| ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| Application endpoint   | `nnrp://`, `nnrps://`                                        | Normal client/server configuration and provider selection.                     |
-| Provider-local locator | TCP/QUIC host-port, `unix://`, `npipe://`, `ws://`, `wss://` | Conformance fixtures, diagnostics, or an explicit `providerEndpoint` override. |
+| Endpoint layer         | Accepted forms                                               | Purpose                                                                                   |
+| ---------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Application endpoint   | `nnrp://`, `nnrps://`                                        | Normal client/server configuration and provider selection.                                |
+| Provider-local locator | TCP/QUIC host-port, `unix://`, `npipe://`, `ws://`, `wss://` | Conformance fixtures, diagnostics, or explicit client/server provider endpoint overrides. |
 
 Role packages resolve an application endpoint after provider selection. They must not require users
 to replace `nnrp://` with a carrier-specific scheme merely because a different package was selected.
-TCP and QUIC use the application authority and default to port `4433` when no port is present. IPC
-requires `unix://` or `npipe://`; WebSocket requires `ws://` or `wss://` through `providerEndpoint`.
-An explicit locator for one carrier is rejected when another carrier is selected.
+TCP and QUIC use the application authority and default to port `4433` when no port is present. A
+client uses the singular `providerEndpoint` override. A server logical listener uses
+`providerEndpoints`, keyed by transport kind, because `auto` and `prefer-*` may bind IPC and
+WebSocket alongside TCP or QUIC. IPC requires `unix://` or `npipe://`; WebSocket requires `ws://` or
+`wss://`. An explicit locator that does not match its carrier is rejected.
 
 ## Provider Factories
 
@@ -79,7 +81,8 @@ object/cache frames, event reads, and shutdown over that carrier.
 The transfer handle is internal to the provider and role packages. Applications receive typed
 clients, sessions, servers, and events; they never receive a raw native handle or implement a packet
 pump. A provider whose `connect`/`listen` works but whose carrier cannot be adopted by the role
-runtime is not usable by `openNativeClient` or the native server and must fail capability validation.
+runtime is not usable by `openNativeClient` or the native server and must fail capability
+validation.
 
 Direct `provider.connect()` and `provider.listen()` remain available for diagnostics, conformance,
 and custom packet-level integrations. They are not the implementation behind a logical-only role
@@ -109,17 +112,18 @@ installed or unavailable; it never falls back to an uninstalled package.
 
 TCP, QUIC, IPC, and native WebSocket provider options share these fields:
 
-| Field        | Type                                                    | Required | Description                                                       |
-| ------------ | ------------------------------------------------------- | -------: | ----------------------------------------------------------------- |
-| `available`  | `boolean`                                               |       No | Controlled availability override for tests and deployment policy. |
-| `cost`       | `NnrpTransportProviderCost`                             |       No | Deployment cost override retained beside artifact metadata.       |
-| `preferenceRank` | `number`                                            |       No | Deployment preference override; lower values are preferred.       |
-| `maxFrameBytes` | `bigint`                                             |       No | May lower, but never increase, the artifact frame limit.           |
-| `diagnostic` | [`NnrpDiagnostic`](./core#data-types)                   |       No | Typed unavailable/degraded diagnostic.                            |
-| `binding`    | `NnrpNativeTransportBinding`                            |       No | Explicit transport binding for controlled deployments and tests.  |
+| Field            | Type                                  | Required | Description                                                       |
+| ---------------- | ------------------------------------- | -------: | ----------------------------------------------------------------- |
+| `available`      | `boolean`                             |       No | Controlled availability override for tests and deployment policy. |
+| `cost`           | `NnrpTransportProviderCost`           |       No | Deployment cost override retained beside artifact metadata.       |
+| `preferenceRank` | `number`                              |       No | Deployment preference override; lower values are preferred.       |
+| `maxFrameBytes`  | `bigint`                              |       No | May lower, but never increase, the artifact frame limit.          |
+| `diagnostic`     | [`NnrpDiagnostic`](./core#data-types) |       No | Typed unavailable/degraded diagnostic.                            |
+| `binding`        | `NnrpNativeTransportBinding`          |       No | Explicit transport binding for controlled deployments and tests.  |
 
-Every provider exposes its validated `NnrpTransportProviderMetadata`. Multi-provider selection returns ordered
-`NnrpTransportCandidate` diagnostics and uses the common comparator; provider packages must not inject a private score.
+Every provider exposes its validated `NnrpTransportProviderMetadata`. Multi-provider selection
+returns ordered `NnrpTransportCandidate` diagnostics and uses the common comparator; provider
+packages must not inject a private score.
 
 `NnrpWebSocketTransportProviderOptions` additionally accepts `WebSocket?: typeof WebSocket` for a
 browser/edge constructor override. `NnrpIpcTransportProviderOptions` accepts
@@ -132,12 +136,12 @@ Transport packages load their own transport-scoped Rust artifact when `binding` 
 override is exported by `@nnrp/core` so tests and managed native loaders can provide the same
 behavior without importing a role package.
 
-| Property  | Type                                                                        | Required | Description |
-| --------- | --------------------------------------------------------------------------- | -------: | ----------- |
-| `mode`    | `"deno-ffi" \| "node-addon" \| "managed-ffi" \| "test"`             |      Yes | Binding implementation label. |
+| Property  | Type                                                                         | Required | Description                                                                                   |
+| --------- | ---------------------------------------------------------------------------- | -------: | --------------------------------------------------------------------------------------------- |
+| `mode`    | `"deno-ffi" \| "node-addon" \| "managed-ffi" \| "test"`                      |      Yes | Binding implementation label.                                                                 |
 | `probe`   | `(options: NnrpTransportProbeOptions) => Promise<NnrpTransportProbeMetrics>` |      Yes | Runs protocol `TRANSPORT_PROBE` / `TRANSPORT_PROBE_ACK` samples through the selected carrier. |
-| `connect` | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportConnection>`       |      Yes | Opens a Rust-owned framed connection. |
-| `listen`  | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportServer>`           |      Yes | Opens a Rust-owned framed listener. |
+| `connect` | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportConnection>`       |      Yes | Opens a Rust-owned framed connection.                                                         |
+| `listen`  | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportServer>`           |      Yes | Opens a Rust-owned framed listener.                                                           |
 
 `NnrpTransportEndpoint` freezes `endpoint: string | URL`, optional `maxPacketBytes: bigint`,
 optional `timeoutMillis: number`, and optional `security: NnrpTransportSecurity`. The zero/omitted
@@ -163,7 +167,8 @@ Plain TCP, IPC, and `ws://` endpoints reject `security`. QUIC and `wss://` requi
 client/server variant and never silently disable certificate verification.
 
 The high-level native role APIs carry the same typed value: client connect options accept only
-`NnrpTransportClientSecurity`, while server listen options accept only `NnrpTransportServerSecurity`.
+`NnrpTransportClientSecurity`, while server listen options accept only
+`NnrpTransportServerSecurity`.
 
 `NnrpTransportProbeOptions` extends `NnrpTransportEndpoint` with optional `sampleCount`,
 `payloadBytes`, and `timeoutMillis`. Defaults are 3 samples, 32 KiB, and 30 seconds. A provider may
@@ -183,14 +188,19 @@ idempotent; using it after close rejects with a typed transport diagnostic.
 
 ## Connection And Listen Options
 
-Role-package connect/listen options freeze these endpoint fields:
+Client connection options freeze these endpoint fields:
 
-| Field              | Type                               | Required | Description                                 |
-| ------------------ | ---------------------------------- | -------: | ------------------------------------------- |
+| Field              | Type                               | Required | Description                                               |
+| ------------------ | ---------------------------------- | -------: | --------------------------------------------------------- |
 | `endpoint`         | `string \| URL`                    |      Yes | Logical `nnrp://` endpoint or explicit provider endpoint. |
-| `providerEndpoint` | `string                            |     URL` | No                                          |
-| `transportPolicy`  | `NnrpTransportPolicy`              |       No | Defaults to `auto`.                         |
-| `transports`       | `readonly NnrpTransportProvider[]` |       No | Providers installed for this role instance. |
+| `providerEndpoint` | `string \| URL`                    |       No | One explicit carrier-local endpoint override.             |
+| `transportPolicy`  | `NnrpTransportPolicy`              |       No | Defaults to `auto`.                                       |
+| `transports`       | `readonly NnrpTransportProvider[]` |       No | Providers installed for this role instance.               |
+
+Server listen options replace the singular override with
+`providerEndpoints: Readonly<Partial<Record<NnrpTransportKind, string | URL>>>`. A logical server
+listener can therefore own one bind locator per eligible carrier without exposing carrier-specific
+schemes as the application endpoint.
 
 Text WebSocket messages are protocol errors. NNRP data and control frames use WebSocket binary
 messages only.

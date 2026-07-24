@@ -18,8 +18,8 @@ Native 和 browser 的包名不同，但 client session 的方法形态刻意保
 
 在 Node.js 或 Deno 中打开 native client。
 
-| 参数      | 类型                                                  | 必填 | 说明                                                                                                            |
-| --------- | ----------------------------------------------------- | ---: | --------------------------------------------------------------------------------------------------------------- |
+| 参数      | 类型                                                  | 必填 | 说明                                                                                         |
+| --------- | ----------------------------------------------------- | ---: | -------------------------------------------------------------------------------------------- |
 | `options` | [`NnrpNativeClientOptions`](#nnrpnativeclientoptions) |   是 | Endpoint、transport policy、已安装 transport provider、session defaults 与可选 FFI binding。 |
 
 | 返回                  | 可能抛出                                                       |
@@ -103,18 +103,18 @@ const session = client.openSession({ inputProfile: "tensor" });
 
 以下方法在 `NnrpClient` 与 `NnrpBrowserClient` 上保持相同形态。
 
-| 方法                                    | 参数                                                                                                 | 返回值                      | 说明                                               |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------- |
-| `nextSessionEvent(sessionId, options?)` | `sessionId: string`、[`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)                       | `Promise<NnrpRuntimeEvent>` | 读取指定 session 的下一个 event。                  |
-| `close()`                               | 无                                                                                                   | `Promise<void>`             | 关闭所拥有的 session、role connection 与 runtime。 |
+| 方法                                    | 参数                                                                           | 返回值                      | 说明                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------ | --------------------------- | -------------------------------------------------- |
+| `nextSessionEvent(sessionId, options?)` | `sessionId: string`、[`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>` | 读取指定 session 的下一个 event。                  |
+| `close()`                               | 无                                                                             | `Promise<void>`             | 关闭所拥有的 session、role connection 与 runtime。 |
 
 ## `ClientSession.submit`
 
 提交请求并等待 result。Native client 走 native submit/result hot path；browser client 走 browser
 runtime path，但 request 形态共享。
 
-| 参数      | 类型                                   | 必填 | 说明                                                                       |
-| --------- | -------------------------------------- | ---: | -------------------------------------------------------------------------- |
+| 参数      | 类型                                   | 必填 | 说明                                                                                               |
+| --------- | -------------------------------------- | ---: | -------------------------------------------------------------------------------------------------- |
 | `request` | [`NnrpSubmitRequest`](./core#数据类型) |   是 | 非零 operation id、独立 frame id、payload/tensors、profile、cache/schema metadata 与 submit mode。 |
 
 | 返回                  |
@@ -181,17 +181,19 @@ Native 与 browser session 使用同一套控制面。每个方法都编码对�
 
 ## Preview4 Client 对象与缓存方法
 
-| 方法                                     | Message           | Metadata                   | 可选 tail          |
-| ---------------------------------------- | ----------------- | -------------------------- | ------------------ |
-| `declareObject(metadata, body?)`         | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata    |
-| `referenceObject(metadata, body?)`       | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata |
-| `releaseObject(metadata, diagnostic?)`   | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes   |
-| `patchObject(metadata, delta)`           | `ObjectPatch`     | `ObjectDeltaMetadata`      | delta bytes        |
-| `sendObjectDelta(metadata, delta)`       | `ObjectDelta`     | `ObjectDeltaMetadata`      | delta bytes        |
-| `referenceCache(metadata, body?)`        | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata     |
-| `reportCacheMiss(metadata, diagnostic?)` | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes   |
-| `invalidateCache(metadata)`              | `CacheInvalidate` | `CacheInvalidateMetadata`  | 无                 |
+| 方法                                              | Message           | Metadata                   | 可选 tail                |
+| ------------------------------------------------- | ----------------- | -------------------------- | ------------------------ |
+| `declareObject(metadata, body?)`                  | `ObjectDeclare`   | `ObjectDescriptorMetadata` | object metadata          |
+| `referenceObject(metadata, body?)`                | `ObjectRef`       | `ObjectReferenceMetadata`  | reference metadata       |
+| `releaseObject(metadata, diagnostic?)`            | `ObjectRelease`   | `ObjectReleaseMetadata`    | diagnostic bytes         |
+| `patchObject(metadata, delta, metadataBody?)`     | `ObjectPatch`     | `ObjectDeltaMetadata`      | metadata body 后接 delta |
+| `sendObjectDelta(metadata, delta, metadataBody?)` | `ObjectDelta`     | `ObjectDeltaMetadata`      | metadata body 后接 delta |
+| `referenceCache(metadata, body?)`                 | `CacheReference`  | `CacheReferenceMetadata`   | cache metadata           |
+| `reportCacheMiss(metadata, diagnostic?)`          | `CacheMiss`       | `CacheMissMetadata`        | diagnostic bytes         |
+| `invalidateCache(metadata)`                       | `CacheInvalidate` | `CacheInvalidateMetadata`  | 无                       |
 
+Object patch 与 delta 方法要求 `metadataBody.byteLength` 等于 `metadata.metadataBytes`，且
+`delta.byteLength` 等于 `metadata.deltaBytes`。Wire tail 依次拼接 metadata body 与 delta bytes。
 对象与缓存方法返回 `Promise<void>`，不会在每次 submit 前隐式执行 cache lookup。
 
 ## Preview4 Runtime Event
@@ -212,10 +214,10 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 
 `submit(request, options?)` 与 `submitNoWait(request, options?)` 接受 `NnrpSubmitOptions`：
 
-| 字段            | 类型                  | 必填 | 说明                                                                       |
-| --------------- | --------------------- | ---: | -------------------------------------------------------------------------- |
+| 字段            | 类型                                     | 必填 | 说明                                                                       |
+| --------------- | ---------------------------------------- | ---: | -------------------------------------------------------------------------- |
 | `signal`        | [`NnrpAbortSignalLike`](./core#数据类型) |   否 | 已 abort 的 signal 在 dispatch 前拒绝；dispatch 后 abort 会发送 `CANCEL`。 |
-| `timeoutMillis` | `number`              |   否 | 本地等待上限；SDK 在 dispatch 前发送 `DEADLINE`，超时后取消任务。          |
+| `timeoutMillis` | `number`                                 |   否 | 本地等待上限；SDK 在 dispatch 前发送 `DEADLINE`，超时后取消任务。          |
 
 这些 helper 与显式控制方法共用 control sequence allocator，不会创建旁路取消通道。
 
@@ -233,15 +235,15 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 
 ## Client Session 生命周期与结果方法
 
-| 方法                         | 参数                                                                                       | 返回值                            | 说明                                                        |
-| ---------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------- | ----------------------------------------------------------- |
-| `inFlightFrames()`           | 无                                                                                         | `readonly number[]`               | 返回尚未进入终态的 frame id。                               |
-| `completeEvent(event)`       | [`event: NnrpRuntimeEvent`](./runtime#typed-runtime-frame-event)                           | `void`                            | 为外部消费的 event 执行终态记账。                           |
-| `nextResult(options?)`       | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)                                  | `Promise<NnrpResult>`             | 跳过非结果 event，返回下一个终态结果。                       |
-| `migrate(request)`           | [`request: NnrpSessionMigrationRequest`](./core#数据类型)                                  | `Promise<void>`                   | 请求 session 迁移；不支持的 runtime 返回 typed diagnostic。 |
-| `patch(request)`             | [`request: NnrpSessionPatchRequest`](./core#数据类型)                                      | `Promise<NnrpSessionPatchResult>` | 修改 session metadata、profile、cadence、quality 或 credit。 |
-| `events(options?)`           | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)                                  | `AsyncIterable<NnrpRuntimeEvent>` | 持续迭代 event，直到 session 关闭或 polling 失败。           |
-| `close()`                    | 无                                                                                         | `Promise<void>`                   | 关闭 role session 并释放其 in-flight 状态。                  |
+| 方法                   | 参数                                                             | 返回值                            | 说明                                                         |
+| ---------------------- | ---------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------ |
+| `inFlightFrames()`     | 无                                                               | `readonly number[]`               | 返回尚未进入终态的 frame id。                                |
+| `completeEvent(event)` | [`event: NnrpRuntimeEvent`](./runtime#typed-runtime-frame-event) | `void`                            | 为外部消费的 event 执行终态记账。                            |
+| `nextResult(options?)` | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `Promise<NnrpResult>`             | 跳过非结果 event，返回下一个终态结果。                       |
+| `migrate(request)`     | [`request: NnrpSessionMigrationRequest`](./core#数据类型)        | `Promise<void>`                   | 请求 session 迁移；不支持的 runtime 返回 typed diagnostic。  |
+| `patch(request)`       | [`request: NnrpSessionPatchRequest`](./core#数据类型)            | `Promise<NnrpSessionPatchResult>` | 修改 session metadata、profile、cadence、quality 或 credit。 |
+| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `AsyncIterable<NnrpRuntimeEvent>` | 持续迭代 event，直到 session 关闭或 polling 失败。           |
+| `close()`              | 无                                                               | `Promise<void>`                   | 关闭 role session 并释放其 in-flight 状态。                  |
 
 ## 运行时差异
 
@@ -260,7 +262,7 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 | ------------------ | ------------------------------------------------------- | ---: | ------------------------------------------------------------------------ |
 | `endpoint`         | `string \| URL`                                         |   是 | 远端 NNRP endpoint。                                                     |
 | `providerEndpoint` | `string \| URL`                                         |   否 | 诊断、一致性测试或受控部署使用的显式载体本地 endpoint。                  |
-| `security`         | `NnrpTransportClientSecurity`                            |   否 | QUIC 或 `wss://` peer 证书验证配置。                                     |
+| `security`         | `NnrpTransportClientSecurity`                           |   否 | QUIC 或 `wss://` peer 证书验证配置。                                     |
 | `transportPolicy`  | [`NnrpTransportPolicy`](./core#数据类型)                |   否 | `auto`、`prefer-*` 或 `force-*` 选择策略。                               |
 | `transports`       | `readonly NnrpNativeTransportProvider[]`                |   否 | 已安装 native transport provider。见 [Transport Provider](./transport)。 |
 | `sessionDefaults`  | [`NnrpSessionOptions`](#nnrpsessionoptions)             |   否 | session 未设置字段时使用的默认值。                                       |
@@ -288,15 +290,15 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 
 ### `NnrpSessionOptions`
 
-| 字段                   | 类型                                     | 必填 | 说明                                                   |
-| ---------------------- | ---------------------------------------- | ---: | ------------------------------------------------------ |
-| `sessionId`            | `string`                                 |   否 | 调用方可见的 session identity。                        |
-| `inputProfile`         | [`NnrpInputProfile`](./core#数据类型)    |   否 | `tensor`、`token` 或 `tool_delta` 等 input profile。    |
-| `targetCadence`        | `number`                                 |   否 | 请求 cadence。                                         |
-| `qualityTier`          | `number`                                 |   否 | 应用质量层级。                                         |
-| `metadata`             | `Readonly<Record<string, string>>`       |   否 | 附加到 session 的应用 metadata。                       |
-| `submitCapacityPolicy` | `"reject" \| "await"`                  |   否 | 本地 submit credit 耗尽时的处理方式。                  |
-| `initialCredits`       | `number`                                 |   否 | Client 侧容量控制使用的初始 submit credit。            |
+| 字段                   | 类型                                  | 必填 | 说明                                                 |
+| ---------------------- | ------------------------------------- | ---: | ---------------------------------------------------- |
+| `sessionId`            | `string`                              |   否 | 调用方可见的 session identity。                      |
+| `inputProfile`         | [`NnrpInputProfile`](./core#数据类型) |   否 | `tensor`、`token` 或 `tool_delta` 等 input profile。 |
+| `targetCadence`        | `number`                              |   否 | 请求 cadence。                                       |
+| `qualityTier`          | `number`                              |   否 | 应用质量层级。                                       |
+| `metadata`             | `Readonly<Record<string, string>>`    |   否 | 附加到 session 的应用 metadata。                     |
+| `submitCapacityPolicy` | `"reject" \| "await"`                 |   否 | 本地 submit credit 耗尽时的处理方式。                |
+| `initialCredits`       | `number`                              |   否 | Client 侧容量控制使用的初始 submit credit。          |
 
 ### `NnrpBrowserSessionOptions`
 
@@ -304,7 +306,7 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 
 ### `NnrpEventPollOptions`
 
-| 字段            | 类型                                      | 必填 | 说明                       |
-| --------------- | ----------------------------------------- | ---: | -------------------------- |
-| `timeoutMillis` | `number`                                  |   否 | Event 最大等待毫秒数。     |
-| `signal`        | [`NnrpAbortSignalLike`](./core#数据类型)  |   否 | 取消尚未完成的 event wait。 |
+| 字段            | 类型                                     | 必填 | 说明                        |
+| --------------- | ---------------------------------------- | ---: | --------------------------- |
+| `timeoutMillis` | `number`                                 |   否 | Event 最大等待毫秒数。      |
+| `signal`        | [`NnrpAbortSignalLike`](./core#数据类型) |   否 | 取消尚未完成的 event wait。 |
