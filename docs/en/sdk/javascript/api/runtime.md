@@ -21,6 +21,7 @@ import {
   encodeCacheInvalidateMetadata,
   encodeRuntimeControlMetadata,
   encodeRuntimeObjectMetadata,
+  encodeRuntimeObjectMetadataSegments,
   encodeWebSocketBinaryFrame,
   NnrpMessageType,
 } from "@nnrp/core";
@@ -84,6 +85,24 @@ Encodes object, object-reference, object-delta, cache-reference, and cache-miss 
 | Returns      |
 | ------------ |
 | `Uint8Array` |
+
+## `encodeRuntimeObjectMetadataSegments`
+
+Encodes runtime object metadata and ordered tail segments directly into one owned payload. This helper avoids an
+intermediate concatenated buffer when object metadata and a large delta are supplied separately.
+
+| Parameter      | Type                                                | Required | Description                                                                                                           |
+| -------------- | --------------------------------------------------- | -------: | --------------------------------------------------------------------------------------------------------------------- |
+| `messageType`  | [`NnrpMessageType`](#nnrpmessagetype)               |      Yes | Any runtime object or cache message type accepted by [`encodeRuntimeObjectMetadata`](#encoderuntimeobjectmetadata). |
+| `metadata`     | [Runtime object metadata](#runtime-object-metadata) |      Yes | Metadata matching `messageType`; declared tail lengths apply to the sum of all segments.                            |
+| `tailSegments` | `readonly Uint8Array[]`                             |      Yes | Tail segments in exact wire order, copied directly into the returned owned payload.                                 |
+
+| Returns      |
+| ------------ |
+| `Uint8Array` |
+
+For `ObjectPatch` and `ObjectDelta`, pass `[metadataBody, delta]`. Segment order remains semantic when either segment
+is empty.
 
 ## `decodeRuntimeObjectMetadata`
 

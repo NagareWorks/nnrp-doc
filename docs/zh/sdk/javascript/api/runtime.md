@@ -17,6 +17,7 @@ import {
   encodeCacheInvalidateMetadata,
   encodeRuntimeControlMetadata,
   encodeRuntimeObjectMetadata,
+  encodeRuntimeObjectMetadataSegments,
   encodeWebSocketBinaryFrame,
   NnrpMessageType,
 } from "@nnrp/core";
@@ -80,6 +81,23 @@ const payload = encodeRuntimeControlMetadata(NnrpMessageType.Progress, {
 | 返回         |
 | ------------ |
 | `Uint8Array` |
+
+## `encodeRuntimeObjectMetadataSegments`
+
+把运行时对象 metadata 与有序 tail segment 直接编码到一个独立 payload。对象 metadata 与大块 delta 分开提供时，
+该 helper 不需要先构造中间拼接缓冲区。
+
+| 参数           | 类型                                        | 必填 | 说明                                                                                           |
+| -------------- | ------------------------------------------- | ---: | ---------------------------------------------------------------------------------------------- |
+| `messageType`  | [`NnrpMessageType`](#nnrpmessagetype)       |   是 | [`encodeRuntimeObjectMetadata`](#encoderuntimeobjectmetadata) 接受的运行时对象或缓存消息类型。 |
+| `metadata`     | [运行时对象 metadata](#运行时对象-metadata) |   是 | 与 `messageType` 匹配；声明的 tail 长度应用于所有 segment 的长度总和。                          |
+| `tailSegments` | `readonly Uint8Array[]`                     |   是 | 按 wire 顺序排列的 tail segment；每段直接复制到返回的独立 payload。                             |
+
+| 返回         |
+| ------------ |
+| `Uint8Array` |
+
+`ObjectPatch` 与 `ObjectDelta` 必须传 `[metadataBody, delta]`。即使其中一段为空，segment 顺序仍有语义。
 
 ## `decodeRuntimeObjectMetadata`
 
