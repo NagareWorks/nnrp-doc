@@ -258,6 +258,32 @@ typedef struct {
 } NnrpServerAcceptRequest;
 
 typedef struct {
+  NnrpHandle server;
+  uint64_t accept_handle_id;
+  uint32_t generation;
+  uint32_t reserved0;
+} NnrpServerAcceptBeginRequest;
+
+typedef struct {
+  NnrpHandle accept;
+  uint32_t timeout_ms;
+  uint32_t flags;
+} NnrpServerAcceptWaitRequest;
+
+typedef struct {
+  NnrpHandle accept;
+  uint64_t session_handle_id;
+  uint32_t generation;
+  uint32_t reserved0;
+} NnrpServerAcceptClaimRequest;
+
+typedef struct {
+  NnrpHandle session;
+  uint32_t active_transport_id;
+  uint32_t reserved0;
+} NnrpServerAcceptResult;
+
+typedef struct {
   NnrpHandle scope;
   uint32_t max_events;
   uint32_t timeout_ms;
@@ -275,6 +301,25 @@ handle 不能跨 transport artifact 或同一 artifact 的重复加载实例传�
 `nnrp_client_open_session` 执行真实 `SESSION_OPEN` / `SESSION_OPEN_ACK` 交换。
 `nnrp_server_accept` 接受 carrier connection，读取并校验 `SESSION_OPEN`，写回 ack，再返回 live
 server-session handle；它不能根据调用方传入的 profile/schema 值伪造 session。
+
+多 provider host 使用持久化 server-accept ticket API，因为 transport-scoped native library 各自拥有
+独立 handle store，不能跨 library 传递 Rust listener 对象。Host 使用 `nnrp_server_accept_begin` 为每个
+owned provider server 启动一个 ticket。Rust 持续持有 carrier accept 与 NNRP handshake future，直到
+session 就绪、listener 发生致命失败或 ticket 被 release。`nnrp_server_accept_wait` 在 ticket 可 claim
+时返回 `OK`，等待超时时返回 `WOULD_BLOCK`；wait 超时禁止取消或重启底层 accept。`flags` 必须为零。
+
+任一 ticket 就绪后，host 按稳定 provider 顺序检查全部 ticket，并对首个 ready ticket 调用
+`nnrp_server_accept_claim`。只有 claim 才绑定调用方提供的 session handle id 与 generation。
+`NnrpServerAcceptResult.active_transport_id` 返回实际 carrier transport；binding 禁止根据 provider
+preference 推断该值。未 claim 的 ticket 保留给下一次逻辑 `accept`。被拒绝的 peer handshake 由所属
+Rust server 丢弃，不得让逻辑 listener set 失败，ticket 应继续 accept。Provider listener 的致命失败
+保留在 ticket 上，并要求 host 关闭完整逻辑 server。逻辑 server 关闭时必须调用
+`nnrp_server_accept_release`，取消并关闭未 claim ticket。
+
+每个 provider server handle 最多存在一个 live accept ticket。Ticket handle 使用
+`NNRP_HANDLE_SERVER_ACCEPT = 13`。Begin、wait、claim、release 必须与 server handle 来自同一个已加载
+native library 实例。Ticket 生命周期属于 accept/control-plane 边界，不改变 submit、result、runtime
+frame 与 event 热路径。
 
 角色数据调用也必须实际经过 carrier：
 
@@ -313,6 +358,10 @@ benchmark helper；它不能支撑 SDK client/server API 或 conformance harness
 | `nnrp_client_close` | 发送 `SESSION_CLOSE`、等待 `SESSION_CLOSE_ACK`，然后关闭 client session carrier。 |
 | `nnrp_server_bind` | 接管选中的 carrier listener，并创建 server handle。 |
 | `nnrp_server_accept` | 接受 carrier connection、执行 wire handshake，并创建 live server session。 |
+| `nnrp_server_accept_begin` | 启动一个由 Rust 持有的持久 carrier accept 与 handshake ticket。 |
+| `nnrp_server_accept_wait` | 等待 ticket 就绪，超时不取消底层 accept。 |
+| `nnrp_server_accept_claim` | 绑定请求的 session handle，并返回实际接受 transport。 |
+| `nnrp_server_accept_release` | 取消并关闭未 claim 的 accept ticket。 |
 | `nnrp_server_await_events` | 读取并解码入站 submit/control/object/cache events。 |
 | `nnrp_server_send_result` | 编码并写出 terminal result。 |
 | `nnrp_server_close` | 确认待处理的 `SESSION_CLOSE`，然后关闭 server session carrier。 |

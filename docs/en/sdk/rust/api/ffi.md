@@ -271,6 +271,32 @@ typedef struct {
 } NnrpServerAcceptRequest;
 
 typedef struct {
+  NnrpHandle server;
+  uint64_t accept_handle_id;
+  uint32_t generation;
+  uint32_t reserved0;
+} NnrpServerAcceptBeginRequest;
+
+typedef struct {
+  NnrpHandle accept;
+  uint32_t timeout_ms;
+  uint32_t flags;
+} NnrpServerAcceptWaitRequest;
+
+typedef struct {
+  NnrpHandle accept;
+  uint64_t session_handle_id;
+  uint32_t generation;
+  uint32_t reserved0;
+} NnrpServerAcceptClaimRequest;
+
+typedef struct {
+  NnrpHandle session;
+  uint32_t active_transport_id;
+  uint32_t reserved0;
+} NnrpServerAcceptResult;
+
+typedef struct {
   NnrpHandle scope;
   uint32_t max_events;
   uint32_t timeout_ms;
@@ -290,6 +316,29 @@ library instance; handles are never transferable across transport artifacts or d
 `nnrp_server_accept` accepts a carrier connection, reads and validates `SESSION_OPEN`, writes the
 ack, and returns a live server-session handle. It does not manufacture a session from caller-supplied
 profile or schema values.
+
+Multi-provider hosts use the persistent server-accept ticket API because transport-scoped native
+libraries have independent handle stores and cannot exchange Rust listener objects. A host starts
+one ticket per owned provider server with `nnrp_server_accept_begin`. Rust keeps the carrier accept
+and NNRP handshake future alive until it completes, the listener fails terminally, or the ticket is
+released. `nnrp_server_accept_wait` returns `OK` when the ticket is claimable and `WOULD_BLOCK` when
+its timeout expires; timing out a wait MUST NOT cancel or restart the underlying accept. Its
+`flags` field must be zero.
+
+After any ticket becomes claimable, the host checks all tickets in stable provider order and calls
+`nnrp_server_accept_claim` for the first ready ticket. Claim is the only step that assigns the
+caller-owned session handle id and generation. It returns the actual carrier transport in
+`NnrpServerAcceptResult.active_transport_id`; bindings MUST NOT infer that value from provider
+preference. Unclaimed tickets remain valid for the next logical `accept` call. A rejected peer
+handshake is discarded inside the owning Rust server and does not fail the logical listener set;
+the ticket continues accepting. A terminal provider-listener failure is retained by the ticket and
+must cause the host to close the complete logical server. `nnrp_server_accept_release` cancels and
+closes an unclaimed ticket and is required during logical-server shutdown.
+
+Only one live accept ticket is permitted per provider server handle. Ticket handles use
+`NNRP_HANDLE_SERVER_ACCEPT = 13`. Begin, wait, claim, and release must use the same loaded native
+library instance as the server handle. This ticket lifecycle is an accept/control-plane boundary;
+submit, result, runtime-frame, and event hot paths remain unchanged.
 
 Role data calls also operate on the carrier:
 
@@ -331,6 +380,10 @@ they cannot back SDK client/server APIs or conformance harnesses.
 | `nnrp_client_close` | Sends `SESSION_CLOSE`, waits for `SESSION_CLOSE_ACK`, then closes the client session carrier. |
 | `nnrp_server_bind` | Adopts a selected carrier listener and creates a server handle. |
 | `nnrp_server_accept` | Accepts a carrier connection, performs the wire handshake, and creates a live server session. |
+| `nnrp_server_accept_begin` | Starts one persistent Rust-owned carrier accept and handshake ticket. |
+| `nnrp_server_accept_wait` | Waits for ticket readiness without cancelling the underlying accept on timeout. |
+| `nnrp_server_accept_claim` | Assigns the requested session handle and returns the actual accepted transport. |
+| `nnrp_server_accept_release` | Cancels and closes an unclaimed accept ticket. |
 | `nnrp_server_await_events` | Reads and decodes inbound submit/control/object/cache events. |
 | `nnrp_server_send_result` | Encodes and writes terminal result output. |
 | `nnrp_server_close` | Acknowledges a pending `SESSION_CLOSE`, then closes the server session carrier. |
