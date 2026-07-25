@@ -10,9 +10,11 @@ Use the high-level client/session APIs for applications. Low-level packet builde
 tests, diagnostics, and custom transports.
 
 ```python
+from nnrp import NativeTransportClientSecurity, TransportPolicy
 from nnrp.client import (
     ClientProfile,
     ClientSession,
+    NativeClientProviderRoute,
     NativeClientSessionOpenOptions,
     SubmitRequest,
     connect_client_control,

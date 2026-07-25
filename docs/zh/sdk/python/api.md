@@ -32,7 +32,7 @@ pip install --pre "nnrp-py==1.0.0rc4"
 
 顶层 `nnrp` 包也导出了 native runtime helper，例如 `load_native_runtime`、`load_native_client`、`probe_native_artifact`、`NativeRuntimeBackend`、`NativeRuntimeClient`、`NativeRuntimeConnection`、`NativeRuntimeSession`、`NativeSchemaCodec`、`NativeRecoveryCodec`，以及缓存、session 和诊断相关类型。
 
-Preview4 wheel 使用 transport-scoped native artifact。`load_native_runtime(..., transport="tcp")`、`load_native_client(..., transport="ipc")` 这类入口会校验 artifact manifest、ABI `3.0.x`、协议版本和 transport slot。生产路径应优先使用 `nnrp.client.connect_native_client_connection("nnrps://...", provider_routes=...)`。
+Preview4 wheel 使用 transport-scoped native artifact。`load_native_runtime(..., transport="tcp")`、`load_native_client(..., transport="ipc")` 这类入口会校验 artifact manifest、ABI `4.1.x`、协议版本和 transport slot。生产路径应优先使用 `nnrp.client.connect_native_client_connection("nnrps://...", provider_routes=...)`。
 
 ## Native Transport Provider
 

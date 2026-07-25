@@ -5,8 +5,10 @@ Server 文档按使用路径组织：接受 session、接收提交、发送结�
 ## 导入
 
 ```python
+from nnrp import NativeTransportServerSecurity, TransportPolicy
 from nnrp.server import (
     NativeServerAcceptOptions,
+    NativeServerProviderRoute,
     ServerProfile,
     ServerSession,
     ServerSessionAcceptResolution,

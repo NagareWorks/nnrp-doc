@@ -6,9 +6,11 @@ Client
 ## 导入
 
 ```python
+from nnrp import NativeTransportClientSecurity, TransportPolicy
 from nnrp.client import (
     ClientProfile,
     ClientSession,
+    NativeClientProviderRoute,
     NativeClientSessionOpenOptions,
     SubmitRequest,
     connect_client_control,
