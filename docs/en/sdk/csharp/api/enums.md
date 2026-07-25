@@ -1,419 +1,114 @@
-# C# — Enums & Constants
+# C# - Enums And Constants
 
-Enums are defined in the `Nnrp.Core` namespace and shared across all other namespaces.
-
-## Import
+The C# SDK uses the frozen NNRP/1 Preview4 names and numeric values. Public role APIs expose typed
+enums; callers must not send arbitrary integers for protocol fields.
 
 ```csharp
 using Nnrp.Core;
+using Nnrp.Runtime;
 ```
-
----
-
-## Wire Format
-
-### `WireFormat`
-
-| Member | Value | Description |
-|---|---|---|
-| `Current` | `0` | Only supported wire format (NNRP/1) |
-
----
 
 ## Message Types
 
-### `MessageType`
-
-| Member | Value | Direction | Description |
-|---|---|---|---|
-| `ClientHello` | `0x01` | C→S | Connection setup |
-| `ServerHelloAck` | `0x02` | S→C | Handshake acknowledgement |
-| `SessionPatch` | `0x03` | C→S | Session parameter update request |
-| `SessionPatchAck` | `0x04` | S→C | Session parameter update result |
-| `Close` | `0x05` | Both | Graceful close |
-| `Error` | `0x06` | Both | Protocol error notification |
-| `FrameSubmit` | `0x10` | C→S | Submit a frame |
-| `FrameCancel` | `0x11` | C→S | Cancel a frame |
-| `ResultPush` | `0x12` | S→C | Push inference result |
-| `ResultDrop` | `0x13` | S→C | Notify result dropped |
-| `CachePut` | `0x14` | C→S | Store a cache object |
-| `CacheAck` | `0x15` | S→C | Cache store result |
-| `CacheInvalidate` | `0x16` | C→S | Invalidate cache |
-| `FlowUpdate` | `0x17` | Both | Flow control window update |
-| `ResultHint` | `0x18` | S→C | Server hint |
-| `TransportProbe` | `0x19` | Both | Transport path probe |
-| `TransportProbeAck` | `0x1A` | Both | Path probe acknowledgement |
-| `SessionMigrate` | `0x1B` | S→C | Session migration notification |
-| `SessionMigrateAck` | `0x1C` | C→S | Session migration confirmation |
-| `Ping` | `0x20` | Both | Keep-alive probe |
-| `Pong` | `0x21` | Both | Keep-alive response |
-| `Cancel` | `0x30` | Both | Cancel an operation |
-| `Abort` | `0x31` | Both | Abort an operation scope |
-| `PriorityUpdate` | `0x32` | Both | Update operation priority |
-| `Deadline` | `0x33` | Both | Set operation deadline |
-| `ExpireAt` | `0x34` | Both | Set operation expiration |
-| `Supersede` | `0x35` | Both | Replace an operation with another operation |
-| `BudgetUpdate` | `0x36` | Both | Update compute, memory, bandwidth, or token budget |
-| `Progress` | `0x37` | Both | Stream progress metadata |
-| `PartialResult` | `0x38` | Both | Stream a partial result |
-| `Backpressure` | `0x39` | Both | Signal pressure and retry guidance |
-| `CreditUpdate` | `0x3A` | Both | Update runtime credits |
-| `CapabilityNegotiation` | `0x3B` | Both | Negotiate capabilities with costs and limits |
-| `DegradeProfile` | `0x3C` | Both | Select a degraded profile |
-| `RouteHint` | `0x3D` | Both | Provide routing guidance |
-| `ExecutionHint` | `0x3E` | Both | Provide execution guidance |
-| `TraceContext` | `0x3F` | Both | Carry trace/span context |
-| `ResultDropReason` | `0x40` | Both | Explain dropped result |
-| `ObjectDeclare` | `0x41` | Both | Declare a runtime object |
-| `ObjectRef` | `0x42` | Both | Reference a runtime object |
-| `ObjectRelease` | `0x43` | Both | Release a runtime object |
-| `ObjectPatch` | `0x44` | Both | Patch a runtime object |
-| `ObjectDelta` | `0x45` | Both | Stream an object delta |
-| `CacheReference` | `0x46` | Both | Reference a reusable cache object |
-| `CacheMiss` | `0x47` | Both | Report cache miss |
-| `ErrorRecoverable` | `0x48` | Both | Report recoverable error |
-| `RetryAfter` | `0x49` | Both | Request retry after a delay |
-
----
-
-## Header Flags
-
-### `HeaderFlags` (`[Flags]`)
-
-| Member | Mask | Description |
-|---|---|---|
-| `None` | `0x00` | No flags |
-| `AckRequired` | `0x01` | Receiver must acknowledge |
-| `CanDrop` | `0x02` | May be dropped under backpressure |
-| `Stale` | `0x04` | Data is stale |
-| `Eos` | `0x08` | End of stream |
-| `Retransmit` | `0x10` | Retransmitted packet |
-| `Keyframe` | `0x20` | Keyframe |
-
----
-
-## Frame Classification
-
-### `FrameClass`
-
-| Member | Value | Description |
-|---|---|---|
-| `Keyframe` | `0` | Complete keyframe |
-| `Delta` | `1` | Delta frame |
-| `Retransmit` | `2` | Retransmit frame |
-| `Discardable` | `3` | May be skipped |
-
----
-
-## Error Codes
-
-### `ErrorCode`
-
-| Member | Value | Description |
-|---|---|---|
-| `UnsupportedVersion` | `0x0001` | Unsupported protocol version |
-| `AuthFailed` | `0x0002` | Authentication failed |
-| `InvalidState` | `0x0003` | Operation not allowed in current state |
-| `MalformedHeader` | `0x0004` | Malformed header |
-| `MalformedBody` | `0x0005` | Malformed body |
-| `UnsupportedCapability` | `0x0006` | Unsupported capability |
-| `LimitExceeded` | `0x0007` | Limit exceeded |
-| `FrameExpired` | `0x0008` | Frame expired |
-| `FrameCancelled` | `0x0009` | Frame cancelled by client |
-| `CacheMiss` | `0x000A` | Cache object not found |
-| `ServerBusy` | `0x000B` | Server temporarily unable to process |
-| `InternalError` | `0x000C` | Server internal error |
-
----
-
-## Transport & Connection
-
-### `TransportId`
-
-| Member | Value | Description |
-|---|---|---|
-| `Unspecified` | `0` | Unspecified |
-| `Quic` | `1` | QUIC transport |
-| `Tcp` | `2` | TCP transport |
-| `Ipc` | `3` | Local IPC transport |
-| `WebSocket` | `4` | WebSocket transport |
-
-### `TransportPolicy`
-
-| Member | Value | Description |
-|---|---|---|
-| `Auto` | `0` | Automatic selection |
-| `PreferQuic` | `1` | Prefer QUIC |
-| `PreferTcp` | `2` | Prefer TCP |
-| `PreferIpc` | `3` | Prefer IPC |
-| `PreferWebSocket` | `4` | Prefer WebSocket |
-| `ForceQuic` | `5` | Force QUIC |
-| `ForceTcp` | `6` | Force TCP |
-| `ForceIpc` | `7` | Force IPC |
-| `ForceWebSocket` | `8` | Force WebSocket |
-
-### `LossTolerance`
-
-| Member | Value | Description |
-|---|---|---|
-| `Strict` | `0` | No packet loss allowed |
-| `BestEffort` | `1` | Best effort |
-| `LowLatency` | `2` | Low latency preferred, minor loss tolerated |
-| `FireAndForget` | `3` | High loss tolerance |
-
----
-
-## Data-plane Enums
-
-### `InputProfile`
-
-| Member | Value | Description |
-|---|---|---|
-| `Unspecified` | `0` | Unspecified |
-| `ChangedTilesLuma` | `1` | Luma data for changed tiles only |
-| `DenseLumaFrame` | `2` | Full-frame luma data |
-
-### `TileIndexMode`
-
-| Member | Value | Description |
-|---|---|---|
-| `DenseRange` | `0` | Dense contiguous range |
-| `RawU16` | `1` | Raw uint16 list |
-| `DeltaU16` | `2` | Delta-encoded uint16 |
-| `Bitset` | `3` | Bitset encoding |
-
-### `DTypeId`
-
-| Member | Value | Description |
-|---|---|---|
-| `Fp16` | `0` | Half-precision float |
-| `Fp32` | `1` | Single-precision float |
-| `Fp8E4M3` | `2` | FP8 E4M3 |
-| `Fp8E5M2` | `3` | FP8 E5M2 |
-| `Int8` | `4` | Signed 8-bit integer |
-| `Uint8` | `5` | Unsigned 8-bit integer |
-| `Int16` | `6` | Signed 16-bit integer |
-| `Uint16` | `7` | Unsigned 16-bit integer |
-
-### `SubmitMode`
-
-| Member | Value | Description |
-|---|---|---|
-| `Inline` | `0` | All objects inlined in body |
-| `Reference` | `1` | Objects referenced via cache keys |
-| `Mixed` | `2` | Mix of inline and reference |
-
-### `BudgetPolicy` (`[Flags]`)
-
-| Member | Mask | Description |
-|---|---|---|
-| `None` | `0x00` | Strict; no degradation |
-| `AllowPartial` | `0x01` | Allow partial results |
-| `AllowStaleReuse` | `0x02` | Allow stale cache reuse |
-| `AllowDegraded` | `0x04` | Allow quality degradation |
-| `AllowDrop` | `0x08` | Allow dropping the frame |
-
-### `ResultClass`
-
-| Member | Value | Description |
-|---|---|---|
-| `Complete` | `0` | Complete result |
-| `Partial` | `1` | Partial result |
-| `StaleReuse` | `2` | Reused stale cached result |
-| `Degraded` | `3` | Quality-degraded result |
-
-### `ResultFlags` (`[Flags]`)
-
-| Member | Mask | Description |
-|---|---|---|
-| `None` | `0x0000` | No flags |
-| `Stale` | `0x0001` | Stale result |
-| `Fallback` | `0x0002` | Fallback path used |
-| `Partial` | `0x0004` | Incomplete result |
-
----
-
-## Cache Enums
-
-### `CacheObjectKind`
-
-| Member | Value | Description |
-|---|---|---|
-| `CameraBlock` | `0x0001` | Camera parameter block |
-| `TileIndexBlock` | `0x0002` | Tile index block |
-| `TensorSectionTable` | `0x0003` | Tensor section table |
-| `CodecTable` | `0x0004` | Codec auxiliary table |
-| `ReusableResultObject` | `0x0005` | Reusable result |
-| `PayloadLayoutTemplate` | `0x0006` | Payload layout template |
-| `PromptSegment` | `0x0007` | Prompt segment (LLM) |
-| `ToolSchema` | `0x0008` | Tool schema |
-| `StructuredEventSchema` | `0x0009` | Structured event schema |
-
-### `CacheAckStatus`
-
-| Member | Value | Description |
-|---|---|---|
-| `Stored` | `0` | Successfully stored |
-| `Rejected` | `1` | Rejected (capacity or policy) |
-| `Duplicate` | `2` | Duplicate (already exists) |
-
-### `CacheInvalidateScope`
-
-| Member | Value | Description |
-|---|---|---|
-| `Single` | `0` | Single object by key |
-| `ByKind` | `1` | All objects of specified kind |
-| `All` | `2` | All objects in session |
-
-### `CachePutFlags` (`[Flags]`)
-
-| Member | Mask | Description |
-|---|---|---|
-| `None` | `0x00` | Default |
-| `Pinned` | `0x01` | Pinned; exempt from LRU eviction |
-| `Reusable` | `0x02` | Cross-frame reusable |
-
----
-
-## Session Patch Enums
-
-### `SessionPatchField` (`[Flags]`)
-
-| Member | Mask | Description |
-|---|---|---|
-| `TargetCadence` | `0x0001` | Target frame rate |
-| `QualityTier` | `0x0002` | Quality tier |
-| `ActiveLaneMask` | `0x0004` | Active view mask |
-| `PreferredCodec` | `0x0008` | Preferred codec |
-| `PreferredCompression` | `0x0010` | Preferred compression level |
-
-### `SessionPatchAckStatus`
-
-| Member | Value | Description |
-|---|---|---|
-| `Applied` | `0` | Patch applied successfully |
-| `PartiallyApplied` | `1` | Partially applied |
-| `Rejected` | `2` | Patch rejected |
-
-### `SessionPatchRejectReason`
-
-| Member | Value | Description |
-|---|---|---|
-| `None` | `0` | No rejection |
-| `InvalidValue` | `1` | Invalid value |
-| `UnsupportedField` | `2` | Unsupported field |
-| `StateConflict` | `3` | Conflicts with current state |
-
----
-
-## Flow Control Enums
-
-### `FlowUpdateScopeKind`
-
-| Member | Value | Description |
-|---|---|---|
-| `Connection` | `0` | Connection level |
-| `Session` | `1` | Session level |
-| `Operation` | `2` | Operation level |
-
-### `FlowUpdateReason`
-
-| Member | Value | Description |
-|---|---|---|
-| `Grant` | `0` | Grant more credit |
-| `Reduce` | `1` | Reduce credit |
-| `Pause` | `2` | Pause |
-| `Resume` | `3` | Resume |
-| `Congestion` | `4` | Congestion notification |
-
-### `FlowUpdateBackpressureLevel`
-
-| Member | Value | Description |
-|---|---|---|
-| `None` | `0` | No backpressure |
-| `Soft` | `1` | Soft (advisory) |
-| `Hard` | `2` | Hard (mandatory) |
-
-### `FlowUpdateFlags` (`[Flags]`)
-
-| Member | Mask | Description |
-|---|---|---|
-| `None` | `0x00` | None |
-| `CreditValid` | `0x01` | Credit field is valid |
-| `RetryAfterValid` | `0x02` | `RetryAfterMs` is valid |
-| `BackgroundOnly` | `0x04` | Applies only to background ops |
-| `DrainInFlightOnly` | `0x08` | Takes effect after in-flight ops drain |
-
----
-
-## Use-Case Guide
-
-### Connecting and Negotiating Transport
-
-```csharp
-var profile = new NnrpClientProfile
-{
-    TransportPolicy = TransportPolicy.PreferQuic,
-    LossTolerance   = LossTolerance.LowLatency,
-};
-```
-
-::: warning Pitfalls
-- `ForceQuic` hard-fails in TCP-only firewalls. Use `PreferQuic` in production.
-- `LossTolerance.FireAndForget` does not guarantee ordering; do not use it on the main frame path.
-:::
-
-### Submitting Frames with Budget Policy
-
-```csharp
-var req = new NnrpSubmitRequest
-{
-    FrameId           = frameId,
-    TileIds           = changedTiles,
-    Sections          = new[] { tensorSection },
-    InputProfile      = InputProfile.ChangedTilesLuma,
-    SubmitMode        = SubmitMode.Inline,
-    BudgetPolicy      = BudgetPolicy.AllowPartial | BudgetPolicy.AllowStaleReuse,
-    InferenceBudgetMs = 8,
-};
-```
-
-::: warning Pitfalls
-- `BudgetPolicy` is a bitmask. Combine values with `|`.
-- `SubmitMode.Reference` requires a prior `PutCacheAsync()` call.
-:::
-
-### Result Handling
-
-```csharp
-switch (result.ResultClass)
-{
-    case ResultClass.Complete:   ApplyFull(result);   break;
-    case ResultClass.Partial:    ApplyPartial(result); break;
-    case ResultClass.StaleReuse: break;
-    case ResultClass.Degraded:
-        Log.Warn("Degraded: {0}", result.AppliedBudgetPolicy);
-        break;
-}
-```
-
-### Error Handling
-
-```csharp
-catch (NnrpProtocolException ex)
-{
-    if (ex.ErrorScope == ErrorScope.Connection)
-    {
-        await session.DisposeAsync();
-        session = await client.OpenSessionAsync();
-    }
-    else if (ex.ErrorCode == ErrorCode.FrameExpired)
-    {
-        // Frame-level; skip and continue
-    }
-}
-```
-
-::: warning Pitfalls
-- `ErrorScope.Connection` errors are fatal. Do not retry on the same session.
-:::
+`MessageType : byte` is grouped by wire function.
+
+| Group | Members and values |
+|---|---|
+| Connection/session | `ClientHello=0x01`, `ServerHelloAck=0x02`, `SessionPatch=0x03`, `SessionPatchAck=0x04`, `Close=0x05`, `Error=0x06`, `SessionOpen=0x07`, `SessionOpenAck=0x08`, `SessionClose=0x09`, `SessionCloseAck=0x0A` |
+| Data/cache/flow | `FrameSubmit=0x10`, `FrameCancel=0x11`, `ResultPush=0x12`, `ResultDrop=0x13`, `CachePut=0x14`, `CacheAck=0x15`, `CacheInvalidate=0x16`, `FlowUpdate=0x17`, `ResultHint=0x18`, `TransportProbe=0x19`, `TransportProbeAck=0x1A`, `SessionMigrate=0x1B`, `SessionMigrateAck=0x1C` |
+| Keepalive | `Ping=0x20`, `Pong=0x21` |
+| Runtime control | `Cancel=0x30`, `Abort=0x31`, `PriorityUpdate=0x32`, `Deadline=0x33`, `ExpireAt=0x34`, `Supersede=0x35`, `BudgetUpdate=0x36`, `Progress=0x37`, `PartialResult=0x38`, `Backpressure=0x39`, `CreditUpdate=0x3A`, `CapabilityNegotiation=0x3B`, `DegradeProfile=0x3C`, `RouteHint=0x3D`, `ExecutionHint=0x3E`, `TraceContext=0x3F`, `ResultDropReason=0x40` |
+| Runtime objects/cache | `ObjectDeclare=0x41`, `ObjectRef=0x42`, `ObjectRelease=0x43`, `ObjectPatch=0x44`, `ObjectDelta=0x45`, `CacheReference=0x46`, `CacheMiss=0x47`, `ErrorRecoverable=0x48`, `RetryAfter=0x49` |
+
+## Common Header
+
+`HeaderFlags : uint` is a bitmask.
+
+| Member | Value |
+|---|---|
+| `None` | `0x00000000` |
+| `AckRequired` | `0x00000001` |
+| `CanDrop` | `0x00000002` |
+| `Stale` | `0x00000004` |
+| `Eos` | `0x00000008` |
+| `Retransmit` | `0x00000010` |
+| `Keyframe` | `0x00000020` |
+
+The wire format itself is the `byte` value `NnrpHeader.CurrentWireFormat`; the SDK does not expose a
+separate `WireFormat` enum.
+
+## Session Lifecycle
+
+| Enum | Members |
+|---|---|
+| `SessionPriorityClass : byte` | `Interactive=0`, `Balanced=1`, `Background=2` |
+| `SessionFlags : byte` | `None=0`, `AllowResume=0x01`, `AllowBackgroundResults=0x02`, `AllowCacheLeases=0x04`, `AllowSchemaOverride=0x08` |
+| `SessionStatus : byte` | `Opened=0`, `Rejected=1`, `RetryLater=2`, `Resumed=3` |
+| `SessionAckFlags : uint` | `None=0`, `ResumeEnabled=0x01`, `BackgroundResultsEnabled=0x02`, `CacheLeasesEnabled=0x04`, `SchemaOverrideEnabled=0x08`, `PriorityDowngraded=0x10` |
+| `SessionCloseReason : ushort` | `Normal=0`, `ClientShutdown=1`, `ServerShutdown=2`, `IdleTimeout=3`, `ProtocolError=4`, `AuthRevoked=5` |
+| `InFlightPolicy : byte` | `Drain=0`, `Abort=1` |
+| `SessionCloseStatus : byte` | `Acknowledged=0`, `Draining=1`, `Closed=2`, `Rejected=3` |
+| `NnrpSessionState : byte` | `Init=0`, `Negotiating=1`, `Active=2`, `Draining=3`, `Closed=4` |
+
+`SessionErrorCode : uint`, `CacheErrorCode : uint`, and `SchemaErrorCode : uint` preserve the
+namespaced protocol values. See the [protocol standard](/en/protocol/v1/) for the complete code
+registry.
+
+## Transport Selection
+
+| Enum | Members |
+|---|---|
+| `TransportId : uint` | `Unspecified=0`, `Quic=1`, `Tcp=2`, `Ipc=3`, `WebSocket=4` |
+| `TransportPolicy : byte` | `Auto=0`, `PreferQuic=1`, `PreferTcp=2`, `PreferIpc=3`, `PreferWebSocket=4`, `ForceQuic=5`, `ForceTcp=6`, `ForceIpc=7`, `ForceWebSocket=8` |
+| `LossTolerance : byte` | `Strict=0`, `BestEffort=1`, `LowLatency=2`, `FireAndForget=3` |
+
+`Auto` probes every installed provider and applies the deterministic comparator documented in the
+[transport API](./transport). A force policy never silently selects another provider.
+
+## Data And Results
+
+| Enum | Members |
+|---|---|
+| `FrameClass : byte` | `Keyframe=0`, `Delta=1`, `Retransmit=2`, `Discardable=3` |
+| `InputProfile : byte` | `Unspecified=0`, `ChangedTilesLuma=1`, `DenseLumaFrame=2` |
+| `TileIndexMode : byte` | `DenseRange=0`, `RawUInt16=1`, `DeltaUInt16=2`, `Bitset=3` |
+| `CodecId : byte` | `Raw=0`, `Lz4=1` |
+| `DTypeId : byte` | `Float16=0`, `Float32=1`, `Float8E4M3=2`, `Float8E5M2=3`, `Int8=4`, `UInt8=5`, `Int16=6`, `UInt16=7` |
+| `TensorLayoutId : byte` | `Nhwc=0`, `Nchw=1` |
+| `ScalePolicy : byte` | `None=0`, `PerTensor=1`, `PerTile=2`, `PerChannel=3` |
+| `SubmitMode : byte` | `Inline=0`, `Reference=1`, `Mixed=2` |
+| `ResultClass : byte` | `Complete=0`, `Partial=1`, `StaleReuse=2`, `Degraded=3` |
+
+`BudgetPolicy : byte`, `ResultFlags : ushort`, and `PayloadKind : uint` are bitmasks. Combine their
+named values with `|`; do not add their numeric values.
+
+## Cache
+
+| Enum | Members |
+|---|---|
+| `CacheObjectKind : uint` | `CameraBlock=0x0001`, `TileIndexTemplate=0x0002`, `TensorSectionTable=0x0003`, `CodecTable=0x0004`, `ReusableResultObject=0x0005`, `PayloadLayoutTemplate=0x0006`, `PromptSegment=0x0007`, `ToolSchema=0x0008`, `StructuredEventSchema=0x0009` |
+| `CacheAckStatus : uint` | `Accepted=0`, `Rejected=1`, `Replaced=2` |
+| `CacheInvalidateScope : uint` | `WholeSession=0`, `Namespace=1`, `ObjectKind=2`, `ObjectKey=3` |
+| `CachePutFlags : uint` | `None=0`, `Pinned=0x01`, `Reusable=0x02` |
+| `CacheLeaseOwnerScope : byte` | `Connection=0`, `Session=1`, `Operation=2` |
+| `CacheValidationFailure` | `None=0`, `Miss=1`, `LeaseExpired=2`, `VersionMismatch=3`, `DependencyInvalid=4`, `SchemaMismatch=5` |
+
+Alias members in low-level cache enums represent identical wire values; role APIs use the canonical
+member names shown above.
+
+## Runtime Control And Objects
+
+| Enum | Members |
+|---|---|
+| `RuntimeRole : byte` | `Unspecified=0`, `Client=1`, `Server=2`, `Runtime=3`, `Subagent=4`, `Tool=5`, `Scheduler=6`, `ConformanceRunner=7` |
+| `RuntimeObjectKind : ushort` | `Unspecified=0`, `Tensor=1`, `TokenBlock=2`, `ImageTile=3`, `FeatureMap=4`, `ToolResult=5`, `TraceSegment=6`, `OpaqueBytes=7`, `DocumentChunk=8`, `AudioChunk=9`, `VideoChunk=10`, `RoutePlan=11`, `CacheManifest=12` |
+| `MemoryLocationHint : ushort` | `Unspecified=0`, `HostMemory=1`, `DeviceMemory=2`, `SharedMemory=3`, `RemoteMemory=4`, `MmapFile=5`, `ObjectStore=6` |
+| `OwnershipHint : ushort` | `Unspecified=0`, `ProducerOwned=1`, `ConsumerOwned=2`, `SessionOwned=3`, `Borrowed=4`, `TransferOnRef=5`, `ReleaseOnDrop=6` |
+| `ObjectReleaseReason : ushort` | `Completed=0`, `Cancelled=1`, `Expired=2`, `Replaced=3`, `Invalidated=4`, `OwnerClosed=5`, `LeaseExpired=6`, `ConformanceInjection=7` |
+| `CacheReuseScope : ushort` | `Operation=0`, `Session=1`, `Connection=2`, `Global=3`, `Tenant=4`, `Profile=5` |
+| `CacheMissReason : ushort` | `Unknown=0`, `NotFound=1`, `Expired=2`, `Invalidated=3`, `SchemaMismatch=4`, `ProducerUnavailable=5`, `LeaseRequired=6`, `PermissionDenied=7` |
+
+Runtime reason, stage, priority, pressure, executor, affinity, and result-drop code fields use the
+typed Preview4 code wrappers described in the [runtime API](./runtime). Reserved and private-use
+ranges are preserved; unknown values remain observable instead of being collapsed to a generic
+error.

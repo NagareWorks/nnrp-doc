@@ -46,10 +46,8 @@ Rust role runtime，完成 NNRP 握手，并返回 `NativeClientConnection` 上�
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | 是 | 远端 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
-| `provider_endpoint` | `str \| NativeTransportEndpoint \| None` | 否 | IPC、WebSocket、一致性测试、诊断或受控部署使用的显式 carrier-local locator。 |
+| `provider_routes` | `Mapping[str, NativeClientProviderRoute] \| None` | 否 | 按 carrier 隔离的 locator 与对端验证配置。 |
 | `transport_policy` | `TransportPolicy \| str \| int` | 否 | Provider 选择策略，默认 `auto`。 |
-| `transport` | `str \| None` | 否 | 显式选择 `tcp`、`quic`、`ipc` 或 `websocket`。 |
-| `security` | `NativeTransportClientSecurity \| None` | 否 | Provider 持有的 TLS 或对端校验配置。 |
 | `options` | `NativeClientConnectionOptions \| None` | 否 | Native connection id 与 generation。 |
 | `artifact_path` | `Path \| str \| None` | 否 | 显式 native library 路径；通常不需要。 |
 | `root` | `Path \| str \| None` | 否 | Native artifact 根目录。 |
@@ -61,16 +59,23 @@ Rust role runtime，完成 NNRP 握手，并返回 `NativeClientConnection` 上�
 ```python
 with connect_native_client_connection(
     "nnrps://runtime.example/session/default",
-    require_native=True,
-    transport="tcp",
+    provider_routes={
+        "tcp": NativeClientProviderRoute(
+            security=NativeTransportClientSecurity(
+                server_name="runtime.example",
+                trusted_certificate_der=trusted_certificate_der,
+            )
+        )
+    },
+    transport_policy=TransportPolicy.FORCE_TCP,
 ) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
     result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, body=b"payload")
 ```
 
-TCP 与 QUIC 使用应用 endpoint 的 authority，authority 未提供端口时默认使用 `4433`。IPC 必须
-提供匹配的 `unix://` 或 `npipe://` `provider_endpoint`；WebSocket 必须提供匹配的 `ws://` 或
-`wss://` 覆盖。Provider-local locator 与最终选择的 Provider 不匹配时必须拒绝。只有 role adoption
+TCP 与 QUIC 使用应用 endpoint 的 authority，authority 未提供端口时默认使用 `4433`。IPC route 必须
+提供匹配的 `unix://` 或 `npipe://` locator；WebSocket route 必须提供匹配的 `ws://` 或 `wss://`
+locator。Provider-local locator 与 route transport 不匹配时必须拒绝。只有 role adoption
 成功后 carrier 所有权才移入 Rust；失败时 Python 仍可关闭 carrier wrapper。
 
 ## `NativeClientConnection`

@@ -52,13 +52,27 @@ python -c "from nnrp import probe_native_artifact; print(probe_native_artifact()
 
 Preview4 wheel 携带 transport-scoped native artifacts。生产 host API 应通过 native client connection 打开 session，而不是从旧 packet transport helper 开始：
 
+下面假设 `trusted_certificate_der` 是从部署信任配置加载的 DER certificate bytes。
+
 ```python
-from nnrp.client import NativeClientSessionOpenOptions, connect_native_client_connection
+from nnrp import NativeTransportClientSecurity, TransportPolicy
+from nnrp.client import (
+    NativeClientProviderRoute,
+    NativeClientSessionOpenOptions,
+    connect_native_client_connection,
+)
 
 with connect_native_client_connection(
     "nnrps://runtime.example/session/default",
-    require_native=True,
-    transport="tcp",
+    provider_routes={
+        "tcp": NativeClientProviderRoute(
+            security=NativeTransportClientSecurity(
+                server_name="runtime.example",
+                trusted_certificate_der=trusted_certificate_der,
+            )
+        )
+    },
+    transport_policy=TransportPolicy.FORCE_TCP,
 ) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=1))
     result = connection.submit_and_poll_result(

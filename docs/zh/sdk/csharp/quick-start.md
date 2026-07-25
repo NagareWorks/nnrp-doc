@@ -1,83 +1,101 @@
 # C# 快速使用
 
-如果希望获得和 Python、JavaScript binding 一致的 Rust 热路径，C# SDK 的 Preview3 推荐入口是
-native bridge 加显式 transport 包。托管 client/server 包仍然可用于测试、诊断和自定义 framed
-transport，但普通应用集成不再把它们当作默认热路径。
+## Client
 
-## 环境要求
-
-1. .NET 6 或更新版本应用运行时。
-2. 兼容 `netstandard2.1` 的项目。
-3. 所选 transport 包内 native artifact 覆盖的平台。
-
-## 后端 Client
-
-安装 native bridge，以及允许 client 探测的 transport：
-
-```powershell
-dotnet add package Nnrp.NativeBridge --prerelease
-dotnet add package Nnrp.Transport.Tcp --prerelease
-dotnet add package Nnrp.Transport.Quic --prerelease
-```
-
-Bridge 会探测已安装 provider，并根据 transport policy 选择 active path。QUIC 可用不等于一定走
-QUIC；最终选择的是在策略、peer capability 和评分约束下得分最高的 provider。
-
-## 后端 Server
-
-Server 使用同一组 native bridge 与 transport 包：
-
-```powershell
-dotnet add package Nnrp.NativeBridge --prerelease
-dotnet add package Nnrp.Transport.Tcp --prerelease
-dotnet add package Nnrp.Transport.Quic --prerelease
-```
-
-部署允许哪个 transport，就安装哪个 transport 包。Server role package 不应把 transport artifact
-隐藏打进自己包内。
-
-## 托管 Helper
-
-如果你在写协议测试、conformance adapter，或者需要接入自定义 framed transport，再显式安装托管入口包：
+安装 client 角色，以及当前部署允许使用的全部 transport：
 
 ```powershell
 dotnet add package Nnrp.Client --prerelease
-dotnet add package Nnrp.Server --prerelease
-dotnet add package Nnrp.Core --prerelease
+dotnet add package Nnrp.Transport.Quic --prerelease
+dotnet add package Nnrp.Transport.Tcp --prerelease
 ```
 
-这条路径适合在已有 `INnrpMessageTransport` 上使用 C# session helper；生产宿主集成优先使用
-native bridge。
+```csharp
+using System.Collections.Generic;
+using Nnrp.Client;
+using Nnrp.Core;
 
-## Unity 项目
+await using var client = await NnrpClient.ConnectAsync(
+    new NnrpClientOptions(
+        NnrpEndpoint.Parse("nnrps://runtime.example/session/default"))
+    {
+        TransportPolicy = TransportPolicy.Auto,
+        ProviderRoutes = new Dictionary<TransportId, NnrpClientProviderRoute>
+        {
+            [TransportId.Quic] = new()
+            {
+                Security = new NnrpTransportClientSecurity("runtime.example", trustedCertificateDer),
+            },
+            [TransportId.Tcp] = new()
+            {
+                Security = new NnrpTransportClientSecurity("runtime.example", trustedCertificateDer),
+            },
+        },
+    },
+    cancellationToken);
 
-如果你在 Unity 中接入，不要通过 NuGet 安装 SDK。
+await using var session = client.OpenSession(new NnrpClientSessionOptions());
+var result = await session.SubmitAsync(request, cancellationToken);
+```
 
-推荐方式是通过 OpenUPM 安装：
+下面假设 `trustedCertificateDer` 是从部署信任配置加载的 `byte[]`。
+
+默认 provider registry 包含已安装 transport 包注册的 provider。只有受控部署或测试需要固定
+provider 列表时，才设置 `NnrpClientOptions.Transports`。
+
+## Server
+
+安装 server 角色，以及 server 允许监听的 transport：
+
+```powershell
+dotnet add package Nnrp.Server --prerelease
+dotnet add package Nnrp.Transport.Ipc --prerelease
+dotnet add package Nnrp.Transport.WebSocket --prerelease
+```
+
+```csharp
+using System.Collections.Generic;
+using Nnrp.Core;
+using Nnrp.Server;
+
+await using var server = await NnrpServer.ListenAsync(
+    new NnrpServerOptions(NnrpEndpoint.Parse("nnrp://localhost/runtime/default"))
+    {
+        TransportPolicy = TransportPolicy.PreferIpc,
+        ProviderRoutes = new Dictionary<TransportId, NnrpServerProviderRoute>
+        {
+            [TransportId.Ipc] = new()
+            {
+                ProviderEndpoint = NnrpProviderEndpoint.Parse("unix:///run/nnrp/runtime.sock"),
+            },
+        },
+    },
+    cancellationToken);
+
+await using var session = await server.AcceptAsync(
+    new NnrpServerAcceptOptions(),
+    cancellationToken);
+var operation = await session.ReceiveSubmitAsync(cancellationToken);
+await operation.SendResultAsync(resultMetadata, resultBody, cancellationToken);
+```
+
+IPC 和 WebSocket 部署必须在 `ProviderRoutes` 的对应项中设置匹配的 `unix://`、`npipe://`、`ws://`
+或 `wss://` locator。示例使用 Unix-domain socket；Windows IPC 使用 `npipe://` locator。Provider
+route 不会替换用户侧 NNRP endpoint。
+
+## Unity
+
+通过 OpenUPM 安装 client 包：
 
 ```bash
 openupm add com.nnrp.client
 ```
 
-包页面：<https://openupm.com/packages/com.nnrp.client/>
+Unity 包包含 client 角色和 transport-scoped plugin，不包含 server assembly。Plugin import
+settings 负责选择平台产物，不会把多个 transport 实现合并进同一个链接库。
 
-如果你不使用 OpenUPM CLI，也可以直接修改 Unity 项目的 `Packages/manifest.json`：
+## 诊断 Packet API
 
-```json
-{
-	"scopedRegistries": [
-		{
-			"name": "package.openupm.com",
-			"url": "https://package.openupm.com",
-			"scopes": [
-				"com.nnrp.client"
-			]
-		}
-	],
-	"dependencies": {
-		"com.nnrp.client": "<current-preview-version>"
-	}
-}
-```
-
-GitHub Release asset 仍然会继续发布，但它是备用分发方式，而不是推荐的 Unity 安装路径。
+托管 packet builder 和 `INnrpMessageTransport` adapter 只用于诊断和自定义 carrier。生产 client
+和 server 流量分别从 `NnrpClient.ConnectAsync` 与 `NnrpServer.ListenAsync` 开始，确保协议执行
+保持在 Rust-backed 路径。

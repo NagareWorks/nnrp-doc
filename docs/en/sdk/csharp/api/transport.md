@@ -1,95 +1,104 @@
-# C# — Transport API
+# C# Transport API
 
-Transport APIs live in `Nnrp.Core`, `Nnrp.Transport.Tcp`, `Nnrp.Transport.Quic`, and
-`Nnrp.NativeBridge`. Application code usually picks one of two paths:
+In NNRP SDK terminology, a transport provider is the carrier boundary below the NNRP framing and
+runtime semantics. It may use a transport-layer protocol, an application-layer carrier such as
+WebSocket, or local IPC. The term does not redefine the OSI transport layer.
 
-1. Use `NnrpTcpMessageTransport` directly when the app already knows it wants TCP.
-2. Use the native bridge host surfaces plus the TCP/QUIC runtime packages when the app wants
-   Rust-backed connection, session, submit/result, cancellation, and control paths.
+## `NnrpEndpoint`
 
-## Imports
+`NnrpEndpoint.Parse(string)` accepts only application-facing `nnrp://` and `nnrps://` endpoints.
+The immutable value preserves `Authority`, `PathAndQuery`, and `IsSecure`. It rejects credentials,
+fragments, missing authority, and carrier schemes.
 
-```csharp
-using Nnrp.Core;
-using Nnrp.Transport.Tcp;
-using Nnrp.Transport.Quic;
-using Nnrp.NativeBridge;
-```
+Role APIs accept `NnrpEndpoint`; selecting IPC or WebSocket never forces application configuration to
+replace the NNRP scheme.
 
-## `NnrpTcpMessageTransport.ConnectAsync`
+## `NnrpProviderEndpoint`
 
-Opens a TCP connection and returns a framed NNRP transport.
+`NnrpProviderEndpoint.Parse(string)` represents an explicit carrier-local override. Provider
+packages validate the locator they own:
 
-| Parameter           | Type                | Required | Values / Range           | Description      |
-| ------------------- | ------------------- | -------: | ------------------------ | ---------------- |
-| `host`              | `string`            |      Yes | Non-empty hostname or IP | Remote host.     |
-| `port`              | `int`               |      Yes | `1..65535`               | Remote TCP port. |
-| `cancellationToken` | `CancellationToken` |       No | Defaults to `default`    | Cancels connect. |
+| Provider | Accepted locator |
+|---|---|
+| TCP | Host and port |
+| QUIC | Host and port |
+| IPC on Unix | `unix://` |
+| IPC on Windows | `npipe://` |
+| WebSocket | `ws://` or `wss://` |
 
-| Returns                              | Throws                                     |
-| ------------------------------------ | ------------------------------------------ |
-| `ValueTask<NnrpTcpMessageTransport>` | Argument, connect, or cancellation errors. |
+Provider endpoints are for diagnostics, conformance, and controlled deployment. Application code
+still keeps `NnrpEndpoint` as the logical endpoint, while carrier resolution follows these exact
+rules:
 
-```csharp
-await using var transport = await NnrpTcpMessageTransport.ConnectAsync("127.0.0.1", 4433, ct);
-```
+1. TCP and QUIC derive host and port from the application authority when no override is present.
+2. IPC requires an explicit matching `unix://` or `npipe://` locator.
+3. WebSocket requires an explicit matching `ws://` or `wss://` locator.
+4. A locator for a different provider, or a platform-incompatible IPC locator, is rejected before
+   connect, listen, or probe creates a native handle.
 
-## `INnrpMessageTransport.SendAsync`
+An unresolved client route remains visible as a `RouteUnresolved` candidate; Auto/Prefer may
+continue with other viable routes, while Force never falls back. An unresolved server route is a
+configuration error under Auto/Prefer because the logical listener set must include every allowed
+installed provider.
 
-Sends one framed message.
+Unknown route keys are invalid. A route for a known but uninstalled transport produces a
+`LocalUnavailable` candidate. If several checks fail, rejection reasons follow the protocol registry order;
+`RouteUnresolved` therefore takes precedence over `SecurityUnsatisfied`.
 
-| Parameter           | Type                                                | Required | Values / Range       | Description       |
-| ------------------- | --------------------------------------------------- | -------: | -------------------- | ----------------- |
-| `message`           | [`NnrpFramedMessage`](./protocol#nnrpframedmessage) |      Yes | Valid framed message | Message to write. |
-| `cancellationToken` | `CancellationToken`                                 |      Yes | Any token            | Cancels write.    |
+## Transport Security
 
-| Returns     | Throws                                       |
-| ----------- | -------------------------------------------- |
-| `ValueTask` | Transport, disposal, or cancellation errors. |
+| Type | Frozen values |
+|---|---|
+| `NnrpTransportClientSecurity` | `ServerName`, owned `TrustedCertificateDer` |
+| `NnrpTransportServerSecurity` | owned `CertificateDer`, owned `PrivateKeyPkcs8Der` |
 
-```csharp
-await transport.SendAsync(message, ct);
-```
+Client security is accepted only by connect/probe paths. Server security is accepted only by listen
+paths. QUIC, TLS-enabled TCP, and `wss://` require the corresponding security value. Plain TCP,
+IPC, and `ws://` do not satisfy an `nnrps://` application endpoint.
 
-## `INnrpMessageTransport.ReceiveAsync`
+## Provider Routes
 
-Receives one framed message.
+| Type | Frozen properties |
+|---|---|
+| `NnrpClientProviderRoute` | `ProviderEndpoint`, `Security` |
+| `NnrpServerProviderRoute` | `ProviderEndpoint`, `Security` |
 
-| Parameter           | Type                | Required | Values / Range | Description      |
-| ------------------- | ------------------- | -------: | -------------- | ---------------- |
-| `cancellationToken` | `CancellationToken` |      Yes | Any token      | Cancels receive. |
+`NnrpClientOptions.ProviderRoutes` and `NnrpServerOptions.ProviderRoutes` are readonly dictionaries
+keyed by `TransportId`. A route owns the locator and security for exactly one carrier. Role-wide
+`ProviderEndpoint` and `Security` options are not part of the Preview4 host API.
 
-| Returns                        | Throws                                                         |
-| ------------------------------ | -------------------------------------------------------------- |
-| `ValueTask<NnrpFramedMessage>` | Transport, malformed header, disposal, or cancellation errors. |
-
-```csharp
-var message = await transport.ReceiveAsync(ct);
-```
-
-## Native Runtime Transport Providers
-
-`Nnrp.Transport.Tcp`, `Nnrp.Transport.Quic`, `Nnrp.Transport.Ipc`, and `Nnrp.Transport.WebSocket`
-each expose a provider and runtime helper that map the package boundary to the Rust native transport slot. Use them with the native bridge host facades
-described in [Client](./client#native-runtime-bridge).
-
-| Type                              | Purpose                                                  |
-| --------------------------------- | -------------------------------------------------------- |
-| `NnrpNativeTcpTransportProvider`  | TCP provider identity for native runtime selection.      |
-| `NnrpNativeQuicTransportProvider` | QUIC provider identity for native runtime selection.     |
-| `NnrpNativeIpcTransportProvider` | IPC provider identity for native runtime selection.     |
-| `NnrpNativeWebSocketTransportProvider` | WebSocket provider identity for native runtime selection. |
-| `NnrpNativeTcpRuntime`            | Opens TCP-backed session, connection, and server hosts.  |
-| `NnrpNativeQuicRuntime`           | Opens QUIC-backed session, connection, and server hosts. |
-| `NnrpNativeIpcRuntime`            | Opens IPC-backed session, connection, and server hosts. |
-| `NnrpNativeWebSocketRuntime`      | Opens WebSocket-backed session, connection, and server hosts. |
+## Provider Contract
 
 ```csharp
-using var host = NnrpNativeTcpRuntime.OpenConnectionHost(
-    new NnrpNativeTcpRuntimeConnectionHostOptions(connectionId: 1, connectionGeneration: 1));
+public interface INnrpNativeTransportProvider
+{
+    NnrpTransportProviderDescriptor Descriptor { get; }
+
+    ValueTask<NnrpTransportConnection> ConnectAsync(
+        NnrpTransportConnectOptions options,
+        CancellationToken cancellationToken = default);
+
+    ValueTask<NnrpTransportListener> ListenAsync(
+        NnrpTransportListenOptions options,
+        CancellationToken cancellationToken = default);
+
+    ValueTask<NnrpTransportProbeMetrics> ProbeAsync(
+        NnrpTransportProbeOptions options,
+        CancellationToken cancellationToken = default);
+}
 ```
 
-### Provider selection model
+`NnrpTransportConnection` and `NnrpTransportListener` are opaque, disposable ownership values. They
+can transfer carrier ownership to the role runtime but never expose an FFI handle, pointer, or native
+buffer to applications.
+
+| Options type | Frozen properties |
+|---|---|
+| `NnrpTransportConnectOptions` | `Endpoint`, `ProviderEndpoint`, `Security`, `MaxPacketBytes`, `TimeoutMilliseconds` |
+| `NnrpTransportListenOptions` | `Endpoint`, `ProviderEndpoint`, `Security`, `MaxPacketBytes`, `TimeoutMilliseconds` |
+| `NnrpTransportProbeOptions` | connect options plus `SampleCount`, `PayloadBytes`, `IncludeWarmup` |
+
+## Provider Metadata
 
 | C# type | Frozen properties |
 |---|---|
@@ -100,45 +109,44 @@ using var host = NnrpNativeTcpRuntime.OpenConnectionHost(
 | `NnrpTransportProviderDescriptor` | `Name`, `Version`, `TransportId`, `Kind`, `Available`, `LibraryPath`, `Metadata`, `Diagnostic` |
 | `NnrpTransportProbeState` | `NotRun`, `Succeeded`, `Failed`, `Missing` |
 | `NnrpTransportProbeMetrics` | `SampleCount`, `SuccessCount`, `MedianThroughputBytesPerSecond`, `MedianRttMicroseconds` |
-| `NnrpTransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `ProbeMissing`, `ProbeFailed` |
+| `NnrpTransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `RouteUnresolved`, `SecurityUnsatisfied`, `ProbeMissing`, `ProbeFailed` |
 | `NnrpTransportCandidate` | `TransportId`, `Provider`, `LocalAvailable`, `PeerSupported`, `WithinLimits`, `ProbeState`, `Probe`, `SelectionRank`, `RejectionReason`, `Diagnostic` |
 | `NnrpTransportSelection` | `SelectedProvider`, ordered `Candidates`, `Policy`, `Diagnostic` |
 
-C# validates provider metadata from each Rust artifact and uses the comparator frozen in
-[Transport Strategy and Probing](/en/protocol/v1/transport-strategy). It does not expose a C#-specific weighted score.
+Metadata is validated against the Rust artifact manifest. C# uses the comparator frozen in
+[Transport Strategy and Probing](/en/protocol/v1/transport-strategy) and does not invent a weighted
+score.
 
-## Core Transport Types
+## `NnrpNativeTransportRegistry`
 
-### `INnrpMessageSender`
+| Method | Semantics |
+|---|---|
+| `Register(INnrpNativeTransportProvider)` | Registers one provider and rejects duplicate provider or transport IDs. |
+| `Snapshot()` | Returns an immutable, stable-order provider snapshot. |
+| `Resolve(NnrpTransportSelectionOptions)` | Filters and selects from the snapshot with typed candidate evidence. |
 
-| Method      | Parameter                                                                | Returns     | Description                |
-| ----------- | ------------------------------------------------------------------------ | ----------- | -------------------------- |
-| `SendAsync` | [`NnrpFramedMessage`](./protocol#nnrpframedmessage), `CancellationToken` | `ValueTask` | Writes one framed message. |
+Installed first-party packages register `NnrpNativeTcpTransportProvider`,
+`NnrpNativeQuicTransportProvider`, `NnrpNativeIpcTransportProvider`, or
+`NnrpNativeWebSocketTransportProvider`. A role option may provide an explicit provider list instead
+of the default registry.
 
-### `INnrpMessageReceiver`
+One valid provider is selected directly. More than one valid provider triggers the frozen probe and
+comparison path. Rejected candidates remain visible in `NnrpTransportSelection`.
 
-| Method         | Parameter           | Returns                        | Description               |
-| -------------- | ------------------- | ------------------------------ | ------------------------- |
-| `ReceiveAsync` | `CancellationToken` | `ValueTask<NnrpFramedMessage>` | Reads one framed message. |
+## First-Party Packages
 
-### `INnrpMessageTransport`
+| Package | Provider and runtime | Owned artifacts |
+|---|---|---|
+| `Nnrp.Transport.Tcp` | `NnrpNativeTcpTransportProvider`, `NnrpNativeTcpRuntime` | TCP only |
+| `Nnrp.Transport.Quic` | `NnrpNativeQuicTransportProvider`, `NnrpNativeQuicRuntime` | QUIC only |
+| `Nnrp.Transport.Ipc` | `NnrpNativeIpcTransportProvider`, `NnrpNativeIpcRuntime` | IPC only |
+| `Nnrp.Transport.WebSocket` | `NnrpNativeWebSocketTransportProvider`, `NnrpNativeWebSocketRuntime` | WebSocket only |
 
-Combines `INnrpMessageSender` and `INnrpMessageReceiver`.
+Each package owns connect, listen, probe, manifest validation, and artifact loading for its provider.
 
-### `INnrpTransportIdentity`
+## Diagnostic Framed Transports
 
-| Property      | Type                                 | Description                    |
-| ------------- | ------------------------------------ | ------------------------------ |
-| `TransportId` | [`TransportId`](./enums#transportid) | Active NNRP transport binding. |
-
-## Common Pitfalls
-
-::: warning
-
-1. `NnrpTcpMessageTransport` uses NNRP header lengths for framing; do not add an extra length
-   prefix.
-2. `SendAsync` and `ReceiveAsync` have separate internal gates, but application-level request
-   ordering is still your responsibility.
-3. Dispose transports with `await using` or `DisposeAsync`.
-4. Use `NnrpNativeTcpRuntime` or `NnrpNativeQuicRuntime` for Rust-backed runtime paths; keep
-   `NnrpTcpMessageTransport` for low-level TCP framing tests and diagnostics. :::
+`INnrpMessageSender`, `INnrpMessageReceiver`, `INnrpMessageTransport`, and
+`NnrpTcpMessageTransport` remain low-level packet diagnostic/custom-carrier contracts. They do not
+participate in production provider selection and are not a fallback when native artifacts are
+missing.

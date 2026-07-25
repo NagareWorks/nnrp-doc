@@ -41,6 +41,8 @@ Use `@nnrp/native-client` for Node.js/Deno CLI tools, agent runtimes, backend se
 processes. Install one or more transport packages; the runtime probes installed providers and
 applies the selected transport policy.
 
+The example assumes `trustedCertificateDer` is a `Uint8Array` loaded from the deployment's trust configuration.
+
 ```ts
 import { openNativeClient } from "@nnrp/native-client";
 import { createTcpTransportProvider } from "@nnrp/transport-tcp";
@@ -48,6 +50,14 @@ import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
   endpoint: "nnrps://runtime.example/session/default",
+  providerRoutes: {
+    quic: {
+      security: { mode: "client", serverName: "runtime.example", trustedCertificateDer },
+    },
+    tcp: {
+      security: { mode: "client", serverName: "runtime.example", trustedCertificateDer },
+    },
+  },
   transportPolicy: "auto",
   transports: [
     createQuicTransportProvider(),
@@ -71,7 +81,8 @@ await client.close();
 
 ## Backend Native Server
 
-Use `@nnrp/native-server` when the application exposes an NNRP endpoint.
+Use `@nnrp/native-server` when the application exposes an NNRP endpoint. For WSS routes, `certificateDer` and
+`privateKeyPkcs8Der` are `Uint8Array` values loaded from the server's credential store.
 
 ```ts
 import { openBackendRuntime } from "@nnrp/native-server";
@@ -85,8 +96,8 @@ const runtime = await openBackendRuntime({
 
 const server = runtime.listen({
   endpoint: "nnrp://0.0.0.0:4433",
-  providerEndpoints: {
-    ipc: "unix:///run/nnrp.sock",
+  providerRoutes: {
+    ipc: { endpoint: "unix:///run/nnrp.sock" },
   },
 });
 
@@ -111,7 +122,9 @@ const runtime = await openBrowserRuntime({
 
 const client = runtime.connect({
   endpoint: "nnrps://example.test/session/default",
-  providerEndpoint: "wss://example.test/nnrp",
+  providerRoutes: {
+    websocket: { endpoint: "wss://example.test/nnrp" },
+  },
   transportPolicy: "auto",
 });
 

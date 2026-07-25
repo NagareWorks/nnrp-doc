@@ -16,7 +16,7 @@ If a modern application-layer protocol hard-binds itself to one carrier, its rea
 
 NNRP does not express path selection by inventing one user-facing URI scheme per carrier. Instead, transport strategy is part of the protocol surface:
 
-1. The endpoint keeps one secure entry form, `nnrps://`, rather than encoding QUIC, TCP, IPC, WebSocket, and future bindings in separate user-facing schemes.
+1. The application endpoint stays in the carrier-neutral `nnrp://` / `nnrps://` scheme family rather than encoding QUIC, TCP, IPC, WebSocket, and future bindings in separate user-facing schemes.
 2. Before the main handshake, implementations may run `TRANSPORT_PROBE / TRANSPORT_PROBE_ACK` using samples close to real payload size to measure RTT, jitter, and throughput.
 3. `CLIENT_HELLO` can carry `transport_policy` and `preferred_transport_id`, expressing automatic choice, path preference, or a forced path.
 4. `SERVER_HELLO_ACK` returns the accepted policy and final `active_transport_id`, making the outcome protocol-visible instead of private local state.
@@ -26,6 +26,134 @@ Provider-local locators such as `unix://`, `npipe://`, `ws://`, and `wss://` are
 carrier providers. They may appear in diagnostics, conformance fixtures, or explicit provider overrides, but the
 application-facing NNRP endpoint should remain `nnrp://` or `nnrps://` unless an SDK deliberately exposes a lower-level
 provider API.
+
+## Frozen host route contract
+
+An application endpoint is not enough to configure every carrier. A host role therefore owns a **provider route set**,
+not one provider-local locator and not one security object shared by every provider. The route set is keyed by
+`transport_id`; each key occurs at most once and resolves to the locally registered provider for that transport.
+
+| Canonical field | Type | Rule |
+|---|---|---|
+| `transport_id` | `tcp | quic | ipc | websocket` | Route identity and lookup key. It must match the registered provider descriptor. |
+| `locator` | optional provider-local locator | TCP and QUIC may derive host and port from the application endpoint. IPC and WebSocket require an explicit locator. |
+| `security` | optional role-specific security object | Client routes use peer-verification material; server routes use certificate and private-key material. Security is never shared implicitly between routes. |
+
+Every installed provider allowed by policy enters diagnostics. Omitting a route does not disable an installed package.
+A client may reject a candidate as `route-unresolved` when its locator cannot be derived, then continue evaluating other
+Auto/Prefer candidates. A forced unresolved route fails without fallback. A server using Auto/Prefer must resolve and
+bind every allowed installed provider; an unresolved route is a configuration error because silently dropping a
+listener would make the advertised logical server incomplete.
+
+Route normalization is exact. Unknown transport keys are invalid. A route for a known but uninstalled transport creates
+a `local-unavailable` candidate; it does not install or synthesize a provider. An installed TCP or QUIC provider may
+derive its locator when its route or route locator is absent. Installed IPC and WebSocket providers cannot derive a
+locator. Registries reject more than one provider for the same transport ID, so one host role has at most one candidate
+per canonical transport.
+
+Client Auto/Prefer probes every resolved, security-compatible candidate and adopts only the selected carrier into the
+runtime connection. Server Auto/Prefer atomically opens one logical listener set over every allowed provider route;
+Force restricts that set to the named transport. If any required bind or runtime adoption fails, the server closes all
+listeners opened by that operation and reports the failure. Preference affects deterministic metadata and tie-breaking;
+it does not prevent an already-open lower-preference listener from accepting a connection.
+
+The host route layer and the runtime carrier layer are deliberately separate. Selection and multi-listener ownership
+belong to the SDK host API. `NnrpClient`, `NnrpServer`, and the native FFI continue to adopt one selected connection or
+one provider listener per runtime handle. Implementations must not introduce per-frame calls across several native
+libraries to implement the route set.
+
+### Role cardinality invariants
+
+The singular native handle is an implementation boundary, not the public role cardinality. Every SDK must preserve
+the following distinction:
+
+| Surface | Client cardinality | Server cardinality |
+|---|---|---|
+| Host role API | One application endpoint plus a route set; Auto/Prefer may evaluate many routes. | One application endpoint plus a route set; Auto/Prefer owns one atomic set of all eligible listeners. |
+| Selected runtime session | Exactly one adopted carrier connection. | Exactly one accepted carrier connection for each session. |
+| Native FFI handle | Exactly one carrier connection per client handle. | Exactly one provider listener per low-level listener handle and one carrier connection per accepted session handle. |
+
+A logical server exposes the actual bound provider endpoint for every opened listener. Accept waits across the complete
+set. If several listeners become ready in the same scheduling turn, the policy's stable provider order breaks the tie.
+A peer handshake or session rejection affects only that accepted carrier; a terminal provider-listener failure fails
+the logical server, cancels pending accepts, and closes the remaining listener set. A running server must never silently
+shrink to fewer carriers. Closing the logical server is idempotent and closes every listener and accepted session it
+owns.
+
+Python, JavaScript, C#, and Rust must not expose a singular route override on their production client or server host
+options. A low-level provider `connect` or `listen` call still accepts one locator because it operates on exactly one
+provider. That low-level singular form must not leak upward and collapse the host route set.
+
+### Application security intent
+
+`nnrps://` declares a minimum authenticated-encryption requirement. `nnrp://` does not require encryption, but it does
+not forbid a route from using it. Candidate validation happens before probing:
+
+The canonical client security object contains exactly a non-empty `server_name` string and non-empty owned
+`trusted_certificate_der` bytes. The canonical server security object contains exactly non-empty owned
+`certificate_der` and `private_key_pkcs8_der` bytes. SDKs use language-idiomatic casing but must not add role-wide
+credentials or silently substitute an ambient native trust store. Browser WebSocket is the explicit exception described
+below.
+
+| Carrier route | Satisfies `nnrps://` when |
+|---|---|
+| QUIC | QUIC TLS peer/server credentials are present and valid. |
+| TCP | The TCP provider uses TLS and the route carries matching peer/server credentials. Plain TCP does not qualify. |
+| IPC | It does not qualify in Preview4; local filesystem or pipe access alone is not the frozen authenticated-encryption contract. |
+| Native WebSocket | The provider locator is `wss://` and matching peer/server credentials are present. `ws://` does not qualify. |
+| Browser WebSocket | The provider locator is `wss://` and the browser completes normal platform TLS verification. The route does not accept native DER credential fields. |
+
+A security-incompatible candidate remains visible with `security-unsatisfied`. Supplying security to plain TCP, IPC,
+or `ws://`, supplying client material to a server route, or supplying server material to a client route is invalid.
+Browser WebSocket trust remains host-owned, but the browser route must still use `wss://` for an `nnrps://` endpoint.
+
+Security filtering is part of eligibility. A server using Auto/Prefer binds every route that remains eligible after
+policy, availability, locator, platform, limit, and security checks. Security-incompatible installed providers remain
+in diagnostics but are not opened. A missing locator for an otherwise eligible server provider is still a hard
+configuration error and triggers atomic rollback.
+
+### Cross-SDK route type mapping
+
+| Canonical model | Rust | Python | JavaScript / TypeScript | C# |
+|---|---|---|---|---|
+| Client provider route | `ClientProviderRoute` | `NativeClientProviderRoute` | `NnrpClientProviderRoute` | `NnrpClientProviderRoute` |
+| Server provider route | `ServerProviderRoute` | `NativeServerProviderRoute` | `NnrpServerProviderRoute` | `NnrpServerProviderRoute` |
+| Client route set | `ClientProviderRoutes` | `Mapping[str, NativeClientProviderRoute]` | `NnrpClientProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpClientProviderRoute>` |
+| Server route set | `ServerProviderRoutes` | `Mapping[str, NativeServerProviderRoute]` | `NnrpServerProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpServerProviderRoute>` |
+
+| Canonical field | Rust | Python | JavaScript / TypeScript | C# |
+|---|---|---|---|---|
+| Route locator | `provider_endpoint` | `provider_endpoint` | `endpoint` | `ProviderEndpoint` |
+| Client security | `security: Option<ClientTransportSecurity>` | `security: NativeTransportClientSecurity \| None` | `security?: NnrpTransportClientSecurity` | `Security: NnrpTransportClientSecurity?` |
+| Server security | `security: Option<ServerTransportSecurity>` | `security: NativeTransportServerSecurity \| None` | `security?: NnrpTransportServerSecurity` | `Security: NnrpTransportServerSecurity?` |
+| Accepted-session carrier | `active_transport_id()` | `active_transport_name` | `activeTransport` | `ActiveTransportId` |
+| Bound provider endpoints | `bound_provider_endpoints()` | `bound_provider_endpoints` | `boundProviderEndpoints` | `BoundProviderEndpoints` |
+
+Python mapping keys use the canonical transport names. JavaScript route sets are readonly partial records keyed by
+`NnrpTransportKind`. Rust and C# use `TransportId`. Language-idiomatic casing is allowed; singular public
+`provider_endpoint` / `providerEndpoint` / `ProviderEndpoint` and role-wide `security` options are not the Preview4
+host API.
+
+### Required host-level conformance
+
+Transport conformance is incomplete when it only proves that each provider can connect and listen by itself. Every
+production SDK must run host-level E2E scenarios that verify:
+
+1. A client with at least two resolved routes probes and selects according to the frozen comparator, then adopts only
+   the selected carrier into the runtime session.
+2. A forced client route never falls back, and unresolved or security-incompatible routes remain visible with the
+   frozen rejection reason.
+3. A server with at least two eligible routes binds both, reports both actual bound provider endpoints, accepts a real
+   session through each listener, and reports the active transport for each accepted session.
+4. A failing server bind rolls back every listener opened by the same logical listen operation.
+5. Route-local security does not leak between TCP, QUIC, IPC, and WebSocket routes.
+6. `nnrps://` rejects plain TCP, IPC, and `ws://`, while native TLS routes and browser `wss://` follow their respective
+   credential ownership rules.
+7. A terminal failure of one running provider listener fails and closes the complete logical listener set instead of
+   silently reducing server cardinality.
+
+The reference side of these scenarios is suite-owned wire behavior. An SDK must not satisfy the gate by connecting its
+own client and server adapters to each other only.
 
 ## Minimal probing sequence
 
@@ -147,8 +275,14 @@ median, sort successful per-sample values ascending; use the middle value for an
 computing the throughput median.
 
 The rejection registry is exact: `policy-disallowed`, `local-unavailable`, `peer-unsupported`,
-`limit-exceeded`, `probe-missing`, and `probe-failed`. Public SDK APIs must not expose a language-specific opaque
+`limit-exceeded`, `route-unresolved`, `security-unsatisfied`, `probe-missing`, and `probe-failed`. Public SDK APIs must not expose a language-specific opaque
 `score`; identical observations must produce identical ordering and diagnostics across implementations.
+
+Each candidate carries at most one rejection reason. When several conditions fail, the first applicable reason in the
+registry order above wins. Locator resolution therefore precedes security validation: an IPC or WebSocket candidate
+whose required locator is absent is `route-unresolved`; once its route resolves, an IPC or plain-WS route under
+`nnrps://` is `security-unsatisfied`. `probe-missing` and `probe-failed` are considered only after every pre-probe check
+passes.
 
 ### Cross-SDK type mapping
 
@@ -171,7 +305,7 @@ requires maps to this canonical model or another explicit SDK API table.
 
 Selection follows this sequence:
 
-1. Reject candidates that fail policy, local availability, peer support, or provider limits.
+1. Reject candidates that fail policy, local availability, peer support, provider limits, route resolution, or application security intent.
 2. Select the sole eligible candidate directly and report `probe_state = not-run`.
 3. For two or more eligible candidates, probe all of them unless a `force-*` policy leaves only one.
 4. Order successful candidates by `success_count` descending, median throughput descending, then median RTT ascending.

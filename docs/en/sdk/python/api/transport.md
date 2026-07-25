@@ -84,7 +84,7 @@ actual transport behavior.
 | `NativeTransportProvider` | `name`, `artifact_path`, `manifest_path`, `transport_slots`, `enabled_features`, `package`, `transport_scope`, `platform_tag`, `metadata` |
 | `NativeTransportProbeState` | `NOT_RUN`, `SUCCEEDED`, `FAILED`, `MISSING` |
 | `NativeTransportProbeMetrics` | `sample_count`, `success_count`, `median_throughput_bytes_per_sec`, `median_rtt_us` |
-| `NativeTransportRejectionReason` | `POLICY_DISALLOWED`, `LOCAL_UNAVAILABLE`, `PEER_UNSUPPORTED`, `LIMIT_EXCEEDED`, `PROBE_MISSING`, `PROBE_FAILED` |
+| `NativeTransportRejectionReason` | `POLICY_DISALLOWED`, `LOCAL_UNAVAILABLE`, `PEER_UNSUPPORTED`, `LIMIT_EXCEEDED`, `ROUTE_UNRESOLVED`, `SECURITY_UNSATISFIED`, `PROBE_MISSING`, `PROBE_FAILED` |
 | `NativeTransportCandidateDiagnostic` | `transport_name`, `provider`, `local_available`, `peer_supported`, `within_limits`, `probe_state`, `probe`, `selection_rank`, `rejection_reason`, `diagnostic` |
 | `NativeTransportSelection` | `selected_provider`, ordered `candidates`, `policy`, `diagnostic` |
 
@@ -98,7 +98,7 @@ official Rust artifact, and follows the common deterministic comparator.
 | Endpoint layer | Accepted forms | Purpose |
 |---|---|---|
 | Application endpoint | `nnrp://`, `nnrps://` | Normal client/server configuration and provider selection. |
-| Provider-local locator | TCP/QUIC authority, `unix://`, `npipe://`, `ws://`, `wss://` | Explicit `provider_endpoint` override for IPC, WebSocket, conformance, diagnostics, or controlled deployment. |
+| Provider-local locator | TCP/QUIC authority, `unix://`, `npipe://`, `ws://`, `wss://` | A locator inside one client/server provider route. |
 
 Production host APIs do not expose a Python packet pump between `NativeTransportConnection` and the
 native runtime. `connect_native_client_connection(...)` selects and opens one provider carrier, then
@@ -191,8 +191,34 @@ locators owned by a different provider.
 | `NativeTransportClientSecurity` | `server_name: str`, `trusted_certificate_der: bytes` |
 | `NativeTransportServerSecurity` | `certificate_der: bytes`, `private_key_pkcs8_der: bytes` |
 
-Secure QUIC or WebSocket endpoints require the corresponding typed security value. TCP, IPC, and plain WebSocket
-endpoints use `None`.
+Supplying the matching security value enables TLS on TCP and is required by QUIC and native `wss://`. Plain TCP, IPC,
+and `ws://` use `None`; those plain routes do not satisfy an `nnrps://` application endpoint. Security values remain
+route-local and role-specific.
+
+### Provider Route Types
+
+```python
+@dataclass(frozen=True)
+class NativeClientProviderRoute:
+    provider_endpoint: str | NativeTransportEndpoint | None = None
+    security: NativeTransportClientSecurity | None = None
+
+@dataclass(frozen=True)
+class NativeServerProviderRoute:
+    provider_endpoint: str | NativeTransportEndpoint | None = None
+    security: NativeTransportServerSecurity | None = None
+```
+
+High-level role APIs accept `provider_routes` as a `Mapping[str, NativeClientProviderRoute]` or
+`Mapping[str, NativeServerProviderRoute]`, keyed by canonical `tcp`, `quic`, `ipc`, or `websocket`.
+They do not accept one role-wide `provider_endpoint` or `security` value. Client Auto/Prefer keeps
+unresolved routes in candidate diagnostics; server Auto/Prefer atomically opens every allowed
+installed provider route.
+
+Application security intent is filtered before probing or binding. Native TCP TLS, QUIC TLS, and WSS can satisfy
+`nnrps://`; resolved plain TCP, IPC, and WS routes remain visible as `security-unsatisfied`. A missing client locator
+remains visible as `route-unresolved`, which takes precedence over security validation; a missing locator for an
+otherwise eligible server provider fails the atomic listen operation.
 
 ### Connection And Listener
 
@@ -239,7 +265,7 @@ thread.
 | `ipc` | Yes | No Python packet adapter |
 | `websocket` | Yes | No Python packet adapter; WebSocket binary frame helpers live in [Runtime Control & Objects](./runtime) |
 
-When production code needs runtime sessions, prefer `connect_native_client_connection("nnrps://...", require_native=True, transport=...)`. Use the packet adapters below only for protocol tests, diagnostic tooling, or custom transports.
+When production code needs runtime sessions, prefer `connect_native_client_connection("nnrps://...", provider_routes=...)`. Use the packet adapters below only for protocol tests, diagnostic tooling, or custom transports.
 
 ---
 

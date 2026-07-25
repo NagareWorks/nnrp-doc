@@ -38,11 +38,10 @@ const client = await openNativeClient({
 
 Role packages resolve an application endpoint after provider selection. They must not require users
 to replace `nnrp://` with a carrier-specific scheme merely because a different package was selected.
-TCP and QUIC use the application authority and default to port `4433` when no port is present. A
-client uses the singular `providerEndpoint` override. A server logical listener uses
-`providerEndpoints`, keyed by transport kind, because `auto` and `prefer-*` may bind IPC and
-WebSocket alongside TCP or QUIC. IPC requires `unix://` or `npipe://`; WebSocket requires `ws://` or
-`wss://`. An explicit locator that does not match its carrier is rejected.
+TCP and QUIC use the application authority and default to port `4433` when no port is present. Both
+client and server roles use a provider route set keyed by transport kind. IPC requires `unix://` or
+`npipe://`; WebSocket requires `ws://` or `wss://`. An explicit locator that does not match its
+carrier is rejected.
 
 ## Provider Factories
 
@@ -143,7 +142,7 @@ behavior without importing a role package.
 | `connect` | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportConnection>`       |      Yes | Opens a Rust-owned framed connection.                                                         |
 | `listen`  | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportServer>`           |      Yes | Opens a Rust-owned framed listener.                                                           |
 
-`NnrpTransportEndpoint` freezes `endpoint: string | URL`, optional `maxPacketBytes: bigint`,
+`NnrpTransportEndpoint` freezes one carrier-local `endpoint: string | URL`, optional `maxPacketBytes: bigint`,
 optional `timeoutMillis: number`, and optional `security: NnrpTransportSecurity`. The zero/omitted
 defaults are 64 MiB and 30 seconds. `NnrpTransportSecurity` is exactly one of:
 
@@ -163,12 +162,15 @@ interface NnrpTransportServerSecurity {
 type NnrpTransportSecurity = NnrpTransportClientSecurity | NnrpTransportServerSecurity;
 ```
 
-Plain TCP, IPC, and `ws://` endpoints reject `security`. QUIC and `wss://` require the matching
-client/server variant and never silently disable certificate verification.
+Supplying the matching security variant enables TLS on TCP. Plain TCP, IPC, and `ws://` reject security; QUIC and
+native `wss://` require the matching client/server variant and never silently disable certificate verification.
 
-The high-level native role APIs carry the same typed value: client connect options accept only
-`NnrpTransportClientSecurity`, while server listen options accept only
-`NnrpTransportServerSecurity`.
+The high-level native role APIs carry security inside the matching provider route. Client routes
+accept only `NnrpTransportClientSecurity`; server routes accept only `NnrpTransportServerSecurity`.
+Role-wide `security` is not part of the Preview4 API.
+
+Browser routes are the one credential-ownership exception: browser `wss://` uses platform TLS verification and rejects
+native DER credential fields. It still requires WSS when the application endpoint is `nnrps://`.
 
 `NnrpTransportProbeOptions` extends `NnrpTransportEndpoint` with optional `sampleCount`,
 `payloadBytes`, and `timeoutMillis`. Defaults are 3 samples, 32 KiB, and 30 seconds. A provider may
@@ -186,21 +188,51 @@ Connections send and receive only complete NNRP packets. Socket chunks, partial 
 transport-library handles are not public JavaScript API. Closing a connection or listener is
 idempotent; using it after close rejects with a typed transport diagnostic.
 
+## Provider Routes
+
+```ts
+interface NnrpClientProviderRoute {
+  readonly endpoint?: string | URL;
+  readonly security?: NnrpTransportClientSecurity;
+}
+
+interface NnrpServerProviderRoute {
+  readonly endpoint?: string | URL;
+  readonly security?: NnrpTransportServerSecurity;
+}
+
+type NnrpClientProviderRoutes = Readonly<
+  Partial<Record<NnrpTransportKind, NnrpClientProviderRoute>>
+>;
+
+type NnrpServerProviderRoutes = Readonly<
+  Partial<Record<NnrpTransportKind, NnrpServerProviderRoute>>
+>;
+```
+
+Installed providers remain visible even when their route cannot be resolved. Client Auto/Prefer
+reports unresolved candidates and continues with viable routes. Server Auto/Prefer requires every
+allowed installed provider to have a resolvable route and opens the resulting listener set
+atomically. Force never falls back.
+
+Unknown route keys are invalid. A route for a known but uninstalled transport produces a
+`local-unavailable` candidate. When several conditions fail, rejection reasons use the exact registry order documented
+by the protocol; `route-unresolved` therefore takes precedence over `security-unsatisfied`.
+
 ## Connection And Listen Options
 
 Client connection options freeze these endpoint fields:
 
 | Field              | Type                               | Required | Description                                               |
 | ------------------ | ---------------------------------- | -------: | --------------------------------------------------------- |
-| `endpoint`         | `string \| URL`                    |      Yes | Logical `nnrp://` endpoint or explicit provider endpoint. |
-| `providerEndpoint` | `string \| URL`                    |       No | One explicit carrier-local endpoint override.             |
+| `endpoint`         | `string \| URL`                    |      Yes | Application-facing `nnrp://` or `nnrps://` endpoint.      |
+| `providerRoutes`   | `NnrpClientProviderRoutes`         |       No | Per-carrier locator and peer-security configuration.       |
 | `transportPolicy`  | `NnrpTransportPolicy`              |       No | Defaults to `auto`.                                       |
 | `transports`       | `readonly NnrpTransportProvider[]` |       No | Providers installed for this role instance.               |
 
-Server listen options replace the singular override with
-`providerEndpoints: Readonly<Partial<Record<NnrpTransportKind, string | URL>>>`. A logical server
-listener can therefore own one bind locator per eligible carrier without exposing carrier-specific
-schemes as the application endpoint.
+Server listen options use `providerRoutes: NnrpServerProviderRoutes`. A logical server listener can
+therefore own an independent bind locator and security value for every eligible carrier without
+exposing carrier-specific schemes as application endpoints.
 
 Text WebSocket messages are protocol errors. NNRP data and control frames use WebSocket binary
 messages only.

@@ -36,10 +36,9 @@ const client = await openNativeClient({
 
 Role 包在 Provider 选择完成后解析应用 endpoint。仅仅因为换了 transport 包，SDK 不得要求用户把
 `nnrp://` 改成 carrier-specific scheme。TCP 与 QUIC 使用应用 endpoint 的 authority，未提供端口时
-默认使用 `4433`。Client 使用单数 `providerEndpoint` 覆盖；server 逻辑 listener 使用按 transport kind
-索引的 `providerEndpoints`，因为 `auto` 与 `prefer-*` 可以同时 bind IPC、WebSocket、TCP 或 QUIC。IPC
-必须提供 `unix://` 或 `npipe://`；WebSocket 必须提供 `ws://` 或 `wss://`。显式 locator 与其 carrier
-不匹配时必须拒绝。
+默认使用 `4433`。Client 与 server 都使用按 transport kind 索引的 provider route set。IPC 必须提供
+`unix://` 或 `npipe://`；WebSocket 必须提供 `ws://` 或 `wss://`。显式 locator 与其 carrier 不匹配时
+必须拒绝。
 
 ## Provider Factory
 
@@ -133,7 +132,7 @@ browser/edge 构造器。`NnrpIpcTransportProviderOptions` 只为受控测试接
 | `connect` | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportConnection>`       |   是 | 建立由 Rust 持有的 framed connection。                                     |
 | `listen`  | `(options: NnrpTransportEndpoint) => Promise<NnrpTransportServer>`           |   是 | 建立由 Rust 持有的 framed listener。                                       |
 
-`NnrpTransportEndpoint` 冻结 `endpoint: string | URL`、可选 `maxPacketBytes: bigint`、可选
+`NnrpTransportEndpoint` 冻结一条 carrier-local `endpoint: string | URL`、可选 `maxPacketBytes: bigint`、可选
 `timeoutMillis: number` 和可选 `security: NnrpTransportSecurity`。零值或省略时分别使用 64 MiB 与 30
 秒。`NnrpTransportSecurity` 只能是以下两种之一：
 
@@ -153,11 +152,15 @@ interface NnrpTransportServerSecurity {
 type NnrpTransportSecurity = NnrpTransportClientSecurity | NnrpTransportServerSecurity;
 ```
 
-Plain TCP、IPC 与 `ws://` endpoint 拒绝 `security`。QUIC 与 `wss://` 必须使用对应的 client/server
-variant，并且不得暗中关闭证书校验。
+为 TCP 提供匹配的 security variant 会启用 TLS。明文 TCP、IPC 与 `ws://` 拒绝 security；QUIC 与 native
+`wss://` 必须使用对应的 client/server variant，并且不得暗中关闭证书校验。
 
-高层 native role API 使用相同的强类型配置：client connect options 只接受
-`NnrpTransportClientSecurity`，server listen options 只接受 `NnrpTransportServerSecurity`。
+高层 native role API 把 security 放进对应 provider route：client route 只接受
+`NnrpTransportClientSecurity`，server route 只接受 `NnrpTransportServerSecurity`。Preview4 不提供
+role-wide `security`。
+
+浏览器 route 是凭据所有权的唯一例外：浏览器 `wss://` 使用平台 TLS 校验并拒绝 native DER 凭据字段；应用
+endpoint 为 `nnrps://` 时仍必须使用 WSS。
 
 `NnrpTransportProbeOptions` 扩展 `NnrpTransportEndpoint`，增加可选的 `sampleCount`、 `payloadBytes`
 和 `timeoutMillis`。默认值分别为 3 次、32 KiB 和 30 秒。部署策略可以降低这些值， 但 Provider
@@ -173,20 +176,49 @@ Connection 只发送和接收完整 NNRP packet。Socket chunk、残缺 header �
 handle 都不是公开 JavaScript API。Connection 与 listener 的关闭操作幂等；关闭后继续使用必须以 typed
 transport diagnostic 拒绝。
 
+## Provider Routes
+
+```ts
+interface NnrpClientProviderRoute {
+  readonly endpoint?: string | URL;
+  readonly security?: NnrpTransportClientSecurity;
+}
+
+interface NnrpServerProviderRoute {
+  readonly endpoint?: string | URL;
+  readonly security?: NnrpTransportServerSecurity;
+}
+
+type NnrpClientProviderRoutes = Readonly<
+  Partial<Record<NnrpTransportKind, NnrpClientProviderRoute>>
+>;
+
+type NnrpServerProviderRoutes = Readonly<
+  Partial<Record<NnrpTransportKind, NnrpServerProviderRoute>>
+>;
+```
+
+已安装 provider 即使无法解析 route 也必须出现在诊断中。Client Auto/Prefer 报告无法解析的 candidate，
+并继续选择可用 route；server Auto/Prefer 要求每个允许的已安装 provider 都有可解析 route，并原子打开
+完整 listener set。Force 绝不回退。
+
+未知 route key 属于无效配置。为已知但未安装的 transport 提供 route 时，必须产生
+`local-unavailable` candidate。多个条件同时失败时使用协议定义的精确 registry 顺序，因此
+`route-unresolved` 优先于 `security-unsatisfied`。
+
 ## Connect 与 Listen 选项
 
 Client connect 选项冻结以下 endpoint 字段：
 
 | 字段               | 类型                               | 必填 | 说明                                               |
 | ------------------ | ---------------------------------- | ---: | -------------------------------------------------- |
-| `endpoint`         | `string \| URL`                    |   是 | 逻辑 `nnrp://` endpoint 或显式 provider endpoint。 |
-| `providerEndpoint` | `string \| URL`                    |   否 | 单个显式 carrier-local endpoint 覆盖。              |
+| `endpoint`         | `string \| URL`                    |   是 | 用户侧 `nnrp://` 或 `nnrps://` endpoint。          |
+| `providerRoutes`   | `NnrpClientProviderRoutes`         |   否 | 按 carrier 隔离的 locator 与对端安全配置。          |
 | `transportPolicy`  | `NnrpTransportPolicy`              |   否 | 默认为 `auto`。                                    |
 | `transports`       | `readonly NnrpTransportProvider[]` |   否 | 当前 role 实例已安装的 Provider。                  |
 
-Server listen 选项把单数覆盖替换为
-`providerEndpoints: Readonly<Partial<Record<NnrpTransportKind, string | URL>>>`。因此一个逻辑
-server listener 可以为每个 eligible carrier 持有独立 bind locator，同时不把 carrier-specific scheme
-暴露为应用 endpoint。
+Server listen 选项使用 `providerRoutes: NnrpServerProviderRoutes`。因此一个逻辑 server listener 可以为
+每个 eligible carrier 持有独立 bind locator 和 security，同时不把 carrier-specific scheme 暴露为应用
+endpoint。
 
 WebSocket text message 是协议错误。NNRP 数据帧与控制帧只使用 WebSocket binary message。

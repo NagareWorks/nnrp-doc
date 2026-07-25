@@ -54,13 +54,27 @@ python -c "from nnrp import probe_native_artifact; print(probe_native_artifact()
 
 Preview4 wheels carry transport-scoped native artifacts. Production host code should open sessions through the native client connection instead of starting from the older packet transport helpers:
 
+The example assumes `trusted_certificate_der` contains the DER certificate loaded from deployment trust configuration.
+
 ```python
-from nnrp.client import NativeClientSessionOpenOptions, connect_native_client_connection
+from nnrp import NativeTransportClientSecurity, TransportPolicy
+from nnrp.client import (
+    NativeClientProviderRoute,
+    NativeClientSessionOpenOptions,
+    connect_native_client_connection,
+)
 
 with connect_native_client_connection(
     "nnrps://runtime.example/session/default",
-    require_native=True,
-    transport="tcp",
+    provider_routes={
+        "tcp": NativeClientProviderRoute(
+            security=NativeTransportClientSecurity(
+                server_name="runtime.example",
+                trusted_certificate_der=trusted_certificate_der,
+            )
+        )
+    },
+    transport_policy=TransportPolicy.FORCE_TCP,
 ) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=1))
     result = connection.submit_and_poll_result(

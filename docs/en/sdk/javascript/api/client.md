@@ -33,6 +33,14 @@ import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
   endpoint: "nnrps://runtime.example/session/default",
+  providerRoutes: {
+    quic: {
+      security: { mode: "client", serverName: "runtime.example", trustedCertificateDer },
+    },
+    tcp: {
+      security: { mode: "client", serverName: "runtime.example", trustedCertificateDer },
+    },
+  },
   transportPolicy: "auto",
   transports: [
     createQuicTransportProvider(),
@@ -78,7 +86,9 @@ Creates a browser client from an opened browser runtime.
 ```ts
 const client = runtime.connect({
   endpoint: "nnrps://runtime.example/session/default",
-  providerEndpoint: "wss://runtime.example/nnrp",
+  providerRoutes: {
+    websocket: { endpoint: "wss://runtime.example/nnrp" },
+  },
   transportPolicy: "auto",
 });
 ```
@@ -266,8 +276,7 @@ Reads the next runtime event.
 | Field              | Type                                                    | Required | Description                                                                             |
 | ------------------ | ------------------------------------------------------- | -------: | --------------------------------------------------------------------------------------- |
 | `endpoint`         | `string \| URL`                                         |      Yes | Remote NNRP endpoint.                                                                   |
-| `providerEndpoint` | `string \| URL`                                         |       No | Explicit carrier-local endpoint for diagnostics, conformance, or controlled deployment. |
-| `security`         | `NnrpTransportClientSecurity`                           |       No | QUIC or `wss://` peer verification configuration.                                       |
+| `providerRoutes`   | `NnrpClientProviderRoutes`                              |       No | Per-carrier locator and peer-verification configuration.                                |
 | `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types)              |       No | `auto`, `prefer-*`, or `force-*` selection policy.                                      |
 | `transports`       | `readonly NnrpNativeTransportProvider[]`                |       No | Installed native transport providers. See [Transport Providers](./transport).           |
 | `sessionDefaults`  | [`NnrpSessionOptions`](#nnrpsessionoptions)             |       No | Defaults applied when sessions omit values.                                             |
@@ -288,7 +297,7 @@ Reads the next runtime event.
 | Field                | Type                                                      | Required | Description                                          |
 | -------------------- | --------------------------------------------------------- | -------: | ---------------------------------------------------- |
 | `endpoint`           | `string`                                                  |      Yes | Remote `nnrp://` or `nnrps://` application endpoint. |
-| `providerEndpoint`   | `string \| URL`                                           |       No | Explicit `ws://` or `wss://` carrier-local endpoint. |
+| `providerRoutes`     | `NnrpClientProviderRoutes`                              |       No | WebSocket route; browser trust remains host-owned.   |
 | `transportPolicy`    | [`NnrpTransportPolicy`](./core#data-types)                |       No | Selection policy.                                    |
 | `transportProviders` | `readonly NnrpBrowserTransportProvider[]`                 |       No | Browser providers for this connection.               |
 | `sessionDefaults`    | [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |       No | Defaults applied when sessions omit values.          |

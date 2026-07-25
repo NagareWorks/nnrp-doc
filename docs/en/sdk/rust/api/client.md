@@ -7,43 +7,94 @@ sends control-plane updates. Core metadata types are documented in [Core Types](
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.4.4"
-nnrp-runtime = "1.0.0-preview.4.4"
-nnrp-transport-tcp = "1.0.0-preview.4.4"
-nnrp-transport-quic = "1.0.0-preview.4.4"
-nnrp-transport-ipc = "1.0.0-preview.4.4"
-nnrp-transport-websocket = "1.0.0-preview.4.4"
+nnrp-core = "1.0.0-preview.4.17"
+nnrp-runtime = "1.0.0-preview.4.17"
+nnrp-transport-tcp = "1.0.0-preview.4.17"
+nnrp-transport-quic = "1.0.0-preview.4.17"
+nnrp-transport-ipc = "1.0.0-preview.4.17"
+nnrp-transport-websocket = "1.0.0-preview.4.17"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 
 ## Workflow
 
-1. Build [`NnrpClientConfig`](#nnrpclientconfig).
-2. Connect with [`NnrpClient::connect_tcp`](#nnrpclient-connect-tcp) or a transport provider.
-3. Open a session with [`NnrpClient::open_session`](#nnrpclient-open-session).
-4. Submit work with [`NnrpClientSession::submit`](#nnrpclientsession-submit).
-5. Receive output and control events with [`await_event`](#nnrpclientsession-await-event).
-6. Close the session with [`close`](#nnrpclientsession-close).
+1. Build [`NnrpClientOptions`](#nnrpclientoptions) with one application endpoint and a provider route set.
+2. Register the transport providers compiled into this deployment.
+3. Connect with [`NnrpClient::connect`](#nnrpclient-connect); Auto/Prefer evaluates every eligible provider route.
+4. Open a session with [`NnrpClient::open_session`](#nnrpclient-open-session).
+5. Submit work with [`NnrpClientSession::submit`](#nnrpclientsession-submit).
+6. Receive output and control events with [`await_event`](#nnrpclientsession-await-event).
+7. Close the session with [`close`](#nnrpclientsession-close).
 
-## `NnrpClient::connect_tcp`
+## `NnrpClient::connect`
+
+```rust
+let options = NnrpClientOptions {
+    endpoint: "nnrps://runtime.example/session/default".parse()?,
+    provider_routes: ClientProviderRoutes::from([
+        (TransportId::Quic, ClientProviderRoute::native_tls("runtime.example", trusted_certificate_der.clone())),
+        (TransportId::Tcp, ClientProviderRoute::native_tls("runtime.example", trusted_certificate_der)),
+    ]),
+    transport_policy: TransportPolicy::Auto,
+    session: NnrpClientConfig::default(),
+};
+
+let client = NnrpClient::connect(
+    options,
+    [Arc::new(QuicProvider::default()), Arc::new(TcpProvider::default())],
+).await?;
+```
+
+`NnrpClient::connect` resolves and validates every installed route, probes every eligible Auto/Prefer candidate, and
+adopts exactly one selected carrier into the returned runtime client. Force policies never fall back. Candidate
+diagnostics remain available from `client.transport_selection()`.
+
+The provider collection is explicit in Rust because Cargo dependencies cannot register themselves at runtime. Every
+official provider implements the shared client-provider trait; route keys and provider transport IDs must match.
+
+## `NnrpClientOptions`
+
+| Field | Type | Required | Description |
+|---|---|---:|---|
+| `endpoint` | `NnrpEndpoint` | Yes | Application-facing `nnrp://` or `nnrps://` endpoint. |
+| `provider_routes` | `ClientProviderRoutes` | No | Per-carrier locator and peer-security configuration. |
+| `transport_policy` | `TransportPolicy` | No | Auto, preference, or force policy. |
+| `session` | `NnrpClientConfig` | No | Transport-neutral session defaults. |
+
+`ClientProviderRoutes` is a `BTreeMap<TransportId, ClientProviderRoute>`. `ClientProviderRoute` has exactly
+`provider_endpoint: Option<ProviderEndpoint>` and `security: Option<ClientTransportSecurity>`. It is not valid to put
+one provider endpoint or one security object on `NnrpClientOptions` itself.
+
+`ClientTransportSecurity` has exactly `server_name: String` and `trusted_certificate_der: Vec<u8>`. Both values must be
+non-empty and the certificate bytes are owned by the security value. Supplying it enables TCP TLS and is required for
+QUIC and native WSS routes.
+
+A route for a transport whose provider is not present remains a `local-unavailable` candidate. When several checks
+fail, the protocol rejection registry order applies, so `route-unresolved` precedes `security-unsatisfied`.
+
+## Low-Level `NnrpClient::connect_tcp`
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
 | `addr` | `impl tokio::net::ToSocketAddrs` | Yes | Socket address | Target TCP endpoint. |
-| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | Yes | `transport = Tcp` | Client runtime configuration. |
+| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | Yes | Transport-neutral | Client runtime configuration. |
 
 | Returns | Errors |
 |---|---|
 | `Result<NnrpClient, RuntimeError>` | DNS, connect, transport, or configuration errors. |
 
 ```rust
-let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let config = NnrpClientConfig::default();
 let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 ```
 
+This method is the singular TCP provider surface. It does not implement route selection and is intended for provider
+tests, diagnostics, and controlled single-carrier deployments.
+
 ## Provider Connect
 
-Use provider crates when the transport is not TCP or when an application wants provider selection.
+Use these singular provider calls for provider tests, diagnostics, or controlled single-carrier deployments. Production
+provider selection starts from `NnrpClient::connect`.
 
 | Provider | Package | Typical method | Description |
 |---|---|---|---|
@@ -53,7 +104,7 @@ Use provider crates when the transport is not TCP or when an application wants p
 | `WebSocketProvider` | `nnrp-transport-websocket` | `connect(endpoint, config)` | Native WebSocket binary transport. |
 
 ```rust
-let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Ipc);
+let config = NnrpClientConfig::default();
 let client = IpcProvider::connect("unix:///tmp/nnrp.sock".parse()?, config).await?;
 ```
 
@@ -62,7 +113,7 @@ let client = IpcProvider::connect("unix:///tmp/nnrp.sock".parse()?, config).awai
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
 | `transport` | `T: FramedTransport + 'static` | Yes | Any framed transport | Custom or provider-created transport. |
-| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | Yes | Must match transport kind | Runtime configuration. |
+| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | Yes | Transport-neutral | Runtime configuration. |
 
 | Returns | Errors |
 |---|---|
@@ -192,7 +243,6 @@ The wire definitions for these frames live in [Runtime Control Profiles](/en/pro
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `transport` | `RuntimeTransportKind` | `Tcp` | Runtime transport slot. |
 | `requested_session_id` | `u32` | `0` | Requested session id. |
 | `profile_id` | `u16` | Standard token profile | Requested profile. |
 | `schema_id` / `schema_version` | `u32` | Standard registry values | Schema identity. |

@@ -1,87 +1,100 @@
-# C# — Transport API
+# C# 传输 API
 
-Transport API 分布在 `Nnrp.Core`、`Nnrp.Transport.Tcp`、`Nnrp.Transport.Quic` 和
-`Nnrp.NativeBridge`。应用通常有两条路：
+在 NNRP SDK 术语中，transport provider 是 NNRP framing/runtime 语义下方的 carrier 边界。它
+可以使用传输层协议、WebSocket 这样的应用层 carrier，或本地 IPC；这里的 transport 不会重新
+定义 OSI transport layer。
 
-1. 明确使用 TCP 时，直接用 `NnrpTcpMessageTransport`。
-2. 需要 Rust-backed connection、session、submit/result、cancel 和 control path 时，使用 native
-   bridge host surface 与 TCP/QUIC runtime package。
+## `NnrpEndpoint`
 
-## 导入
+`NnrpEndpoint.Parse(string)` 只接受用户侧 `nnrp://` 和 `nnrps://` endpoint。不可变值保留
+`Authority`、`PathAndQuery` 和 `IsSecure`，并拒绝 credential、fragment、缺失 authority 和
+carrier scheme。
 
-```csharp
-using Nnrp.Core;
-using Nnrp.Transport.Tcp;
-using Nnrp.Transport.Quic;
-using Nnrp.NativeBridge;
-```
+角色 API 接受 `NnrpEndpoint`；选择 IPC 或 WebSocket 不会迫使应用配置改写 NNRP scheme。
 
-## `NnrpTcpMessageTransport.ConnectAsync`
+## `NnrpProviderEndpoint`
 
-打开 TCP 连接并返回 framed NNRP transport。
+`NnrpProviderEndpoint.Parse(string)` 表示显式 carrier-local override，由各 provider 包校验自己
+拥有的 locator：
 
-| 参数                | 类型                | 必填 | 取值 / 范围         | 说明            |
-| ------------------- | ------------------- | ---: | ------------------- | --------------- |
-| `host`              | `string`            |   是 | 非空 hostname 或 IP | 远端 host。     |
-| `port`              | `int`               |   是 | `1..65535`          | 远端 TCP 端口。 |
-| `cancellationToken` | `CancellationToken` |   否 | 默认 `default`      | 取消连接。      |
+| Provider | 接受的 locator |
+|---|---|
+| TCP | Host 和 port |
+| QUIC | Host 和 port |
+| Unix IPC | `unix://` |
+| Windows IPC | `npipe://` |
+| WebSocket | `ws://` 或 `wss://` |
 
-| 返回                                 | 可能抛出               |
-| ------------------------------------ | ---------------------- |
-| `ValueTask<NnrpTcpMessageTransport>` | 参数、连接或取消错误。 |
+Provider endpoint 用于诊断、conformance 和受控部署。应用代码仍以 `NnrpEndpoint` 作为逻辑
+endpoint，carrier 解析严格遵守以下规则：
 
-```csharp
-await using var transport = await NnrpTcpMessageTransport.ConnectAsync("127.0.0.1", 4433, ct);
-```
+1. 未提供 override 时，TCP 与 QUIC 从应用 authority 派生 host 和 port。
+2. IPC 必须提供匹配的 `unix://` 或 `npipe://` locator。
+3. WebSocket 必须提供匹配的 `ws://` 或 `wss://` locator。
+4. 属于其他 provider 的 locator 或与平台不兼容的 IPC locator，必须在 connect、listen 或 probe
+   创建 native handle 前拒绝。
 
-## `INnrpMessageTransport.SendAsync`
+无法解析的 client route 必须以 `RouteUnresolved` candidate 保留在诊断中；Auto/Prefer 可以继续选择
+其他可用 route，Force 绝不回退。Server Auto/Prefer 下无法解析 route 属于配置错误，因为逻辑 listener
+set 必须包含全部允许的已安装 provider。
 
-发送一条 framed message。
+未知 route key 属于无效配置。为已知但未安装的 transport 提供 route 时，必须产生
+`LocalUnavailable` candidate。多个检查同时失败时按协议 rejection registry 顺序选择原因，因此
+`RouteUnresolved` 优先于 `SecurityUnsatisfied`。
 
-| 参数                | 类型                                                | 必填 | 取值 / 范围         | 说明           |
-| ------------------- | --------------------------------------------------- | ---: | ------------------- | -------------- |
-| `message`           | [`NnrpFramedMessage`](./protocol#nnrpframedmessage) |   是 | 有效 framed message | 要写出的消息。 |
-| `cancellationToken` | `CancellationToken`                                 |   是 | 任意 token          | 取消写入。     |
+## Transport Security
 
-| 返回        | 可能抛出                         |
-| ----------- | -------------------------------- |
-| `ValueTask` | transport、disposed 或取消错误。 |
+| 类型 | 冻结值 |
+|---|---|
+| `NnrpTransportClientSecurity` | `ServerName`、owned `TrustedCertificateDer` |
+| `NnrpTransportServerSecurity` | owned `CertificateDer`、owned `PrivateKeyPkcs8Der` |
 
-## `INnrpMessageTransport.ReceiveAsync`
+Client security 只能用于 connect/probe，server security 只能用于 listen。QUIC、启用 TLS 的 TCP 与
+`wss://` 必须提供对应 security。明文 TCP、IPC 与 `ws://` 不满足 `nnrps://` 应用 endpoint。
 
-接收一条 framed message。
+## Provider Routes
 
-| 参数                | 类型                | 必填 | 取值 / 范围 | 说明       |
-| ------------------- | ------------------- | ---: | ----------- | ---------- |
-| `cancellationToken` | `CancellationToken` |   是 | 任意 token  | 取消接收。 |
+| 类型 | 冻结属性 |
+|---|---|
+| `NnrpClientProviderRoute` | `ProviderEndpoint`、`Security` |
+| `NnrpServerProviderRoute` | `ProviderEndpoint`、`Security` |
 
-| 返回                           | 可能抛出                                          |
-| ------------------------------ | ------------------------------------------------- |
-| `ValueTask<NnrpFramedMessage>` | transport、header 格式错误、disposed 或取消错误。 |
+`NnrpClientOptions.ProviderRoutes` 与 `NnrpServerOptions.ProviderRoutes` 是按 `TransportId` 索引的
+只读 dictionary。每条 route 只持有一个 carrier 的 locator 与 security。Role-wide
+`ProviderEndpoint` 与 `Security` 不属于 Preview4 宿主 API。
 
-## Native Runtime Transport Provider
-
-`Nnrp.Transport.Tcp`、`Nnrp.Transport.Quic`、`Nnrp.Transport.Ipc` 与 `Nnrp.Transport.WebSocket`
-分别暴露 provider 和 runtime helper，把 package 边界映射到 Rust native transport slot。它们与 [Client](./client#native-runtime-bridge) 中的 native
-bridge host facade 配合使用。
-
-| 类型                              | 用途                                                  |
-| --------------------------------- | ----------------------------------------------------- |
-| `NnrpNativeTcpTransportProvider`  | TCP native runtime provider identity。                |
-| `NnrpNativeQuicTransportProvider` | QUIC native runtime provider identity。               |
-| `NnrpNativeIpcTransportProvider` | IPC native runtime provider identity。               |
-| `NnrpNativeWebSocketTransportProvider` | WebSocket native runtime provider identity。       |
-| `NnrpNativeTcpRuntime`            | 打开 TCP-backed session、connection 和 server host。  |
-| `NnrpNativeQuicRuntime`           | 打开 QUIC-backed session、connection 和 server host。 |
-| `NnrpNativeIpcRuntime`            | 打开 IPC-backed session、connection 和 server host。 |
-| `NnrpNativeWebSocketRuntime`      | 打开 WebSocket-backed session、connection 和 server host。 |
+## Provider 契约
 
 ```csharp
-using var host = NnrpNativeTcpRuntime.OpenConnectionHost(
-    new NnrpNativeTcpRuntimeConnectionHostOptions(connectionId: 1, connectionGeneration: 1));
+public interface INnrpNativeTransportProvider
+{
+    NnrpTransportProviderDescriptor Descriptor { get; }
+
+    ValueTask<NnrpTransportConnection> ConnectAsync(
+        NnrpTransportConnectOptions options,
+        CancellationToken cancellationToken = default);
+
+    ValueTask<NnrpTransportListener> ListenAsync(
+        NnrpTransportListenOptions options,
+        CancellationToken cancellationToken = default);
+
+    ValueTask<NnrpTransportProbeMetrics> ProbeAsync(
+        NnrpTransportProbeOptions options,
+        CancellationToken cancellationToken = default);
+}
 ```
 
-### Provider 选择模型
+`NnrpTransportConnection` 和 `NnrpTransportListener` 是 opaque、可释放的 ownership value。它们
+可以把 carrier ownership 转交给角色 runtime，但不会向应用暴露 FFI handle、pointer 或 native
+buffer。
+
+| Options 类型 | 冻结属性 |
+|---|---|
+| `NnrpTransportConnectOptions` | `Endpoint`、`ProviderEndpoint`、`Security`、`MaxPacketBytes`、`TimeoutMilliseconds` |
+| `NnrpTransportListenOptions` | `Endpoint`、`ProviderEndpoint`、`Security`、`MaxPacketBytes`、`TimeoutMilliseconds` |
+| `NnrpTransportProbeOptions` | connect options 加 `SampleCount`、`PayloadBytes`、`IncludeWarmup` |
+
+## Provider Metadata
 
 | C# 类型 | 冻结属性 |
 |---|---|
@@ -92,43 +105,42 @@ using var host = NnrpNativeTcpRuntime.OpenConnectionHost(
 | `NnrpTransportProviderDescriptor` | `Name`、`Version`、`TransportId`、`Kind`、`Available`、`LibraryPath`、`Metadata`、`Diagnostic` |
 | `NnrpTransportProbeState` | `NotRun`、`Succeeded`、`Failed`、`Missing` |
 | `NnrpTransportProbeMetrics` | `SampleCount`、`SuccessCount`、`MedianThroughputBytesPerSecond`、`MedianRttMicroseconds` |
-| `NnrpTransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`ProbeMissing`、`ProbeFailed` |
+| `NnrpTransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`RouteUnresolved`、`SecurityUnsatisfied`、`ProbeMissing`、`ProbeFailed` |
 | `NnrpTransportCandidate` | `TransportId`、`Provider`、`LocalAvailable`、`PeerSupported`、`WithinLimits`、`ProbeState`、`Probe`、`SelectionRank`、`RejectionReason`、`Diagnostic` |
 | `NnrpTransportSelection` | `SelectedProvider`、有序 `Candidates`、`Policy`、`Diagnostic` |
 
-C# 必须校验每个 Rust artifact 的 provider 元数据，并使用[传输策略与探测](/zh/protocol/v1/transport-strategy)
-冻结的 comparator；不得公开 C# 私有的加权 score。
+Metadata 必须与 Rust artifact manifest 一致。C# 使用
+[Transport Strategy and Probing](/zh/protocol/v1/transport-strategy) 冻结的 comparator，不创造
+自己的加权分数。
 
-## 核心 Transport 类型
+## `NnrpNativeTransportRegistry`
 
-### `INnrpMessageSender`
+| 方法 | 语义 |
+|---|---|
+| `Register(INnrpNativeTransportProvider)` | 注册一个 provider，拒绝重复 provider 或 transport ID。 |
+| `Snapshot()` | 返回不可变、稳定顺序的 provider snapshot。 |
+| `Resolve(NnrpTransportSelectionOptions)` | 执行过滤和选择，并返回 typed candidate evidence。 |
 
-| 方法        | 参数                                                                     | 返回        | 说明                      |
-| ----------- | ------------------------------------------------------------------------ | ----------- | ------------------------- |
-| `SendAsync` | [`NnrpFramedMessage`](./protocol#nnrpframedmessage), `CancellationToken` | `ValueTask` | 写出一条 framed message。 |
+安装的一方包会注册 `NnrpNativeTcpTransportProvider`、`NnrpNativeQuicTransportProvider`、
+`NnrpNativeIpcTransportProvider` 或 `NnrpNativeWebSocketTransportProvider`。角色 options 可以用显式
+provider 列表替换默认 registry。
 
-### `INnrpMessageReceiver`
+只有一个有效 provider 时直接选择；多个有效 provider 才进入冻结的 probe/comparison 路径。
+被拒绝的 candidate 仍保留在 `NnrpTransportSelection` 中。
 
-| 方法           | 参数                | 返回                           | 说明                      |
-| -------------- | ------------------- | ------------------------------ | ------------------------- |
-| `ReceiveAsync` | `CancellationToken` | `ValueTask<NnrpFramedMessage>` | 读取一条 framed message。 |
+## 一方包
 
-### `INnrpMessageTransport`
+| 包 | Provider 和 runtime | 持有的产物 |
+|---|---|---|
+| `Nnrp.Transport.Tcp` | `NnrpNativeTcpTransportProvider`、`NnrpNativeTcpRuntime` | 仅 TCP |
+| `Nnrp.Transport.Quic` | `NnrpNativeQuicTransportProvider`、`NnrpNativeQuicRuntime` | 仅 QUIC |
+| `Nnrp.Transport.Ipc` | `NnrpNativeIpcTransportProvider`、`NnrpNativeIpcRuntime` | 仅 IPC |
+| `Nnrp.Transport.WebSocket` | `NnrpNativeWebSocketTransportProvider`、`NnrpNativeWebSocketRuntime` | 仅 WebSocket |
 
-组合 `INnrpMessageSender` 和 `INnrpMessageReceiver`。
+每个包拥有自己 provider 的 connect、listen、probe、manifest 校验和 artifact 加载。
 
-### `INnrpTransportIdentity`
+## 诊断 Framed Transport
 
-| 属性          | 类型                                 | 说明                                 |
-| ------------- | ------------------------------------ | ------------------------------------ |
-| `TransportId` | [`TransportId`](./enums#transportid) | 当前 active NNRP transport binding。 |
-
-## 常见坑
-
-::: warning
-
-1. `NnrpTcpMessageTransport` 使用 NNRP header length 做 framing，不要再加一层 length prefix。
-2. 发送和接收各自有 gate，但请求顺序仍然由应用层负责。
-3. transport 要用 `await using` 或 `DisposeAsync` 释放。
-4. Rust-backed runtime path 使用 `NnrpNativeTcpRuntime` 或 `NnrpNativeQuicRuntime`；
-   `NnrpTcpMessageTransport` 只适合底层 TCP framing 测试和诊断。 :::
+`INnrpMessageSender`、`INnrpMessageReceiver`、`INnrpMessageTransport` 和
+`NnrpTcpMessageTransport` 只属于底层 packet 诊断/自定义 carrier 契约。它们不参与生产 provider
+选择，也不是 native artifact 缺失时的 fallback。

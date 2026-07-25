@@ -38,16 +38,14 @@ Packet transport helper 只用于诊断和自定义 carrier：
 
 ## `listen_native_server`
 
-选择已安装的 Preview4 Provider，打开 listener，将 listener 所有权移交给 Rust server runtime，
-并返回 `NativeServer` context manager。
+解析 policy 允许的全部已安装 Preview4 provider，原子打开 listener set，把每个 listener 所有权移交
+对应 Rust server runtime，并返回一个逻辑 `NativeServer` context manager。
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | 是 | 本地 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
-| `provider_endpoint` | `str \| NativeTransportEndpoint \| None` | 否 | 显式 carrier-local bind locator；IPC 与 WebSocket 必须提供。 |
+| `provider_routes` | `Mapping[str, NativeServerProviderRoute] \| None` | 否 | 按 carrier 隔离的 bind locator 与 server security。 |
 | `transport_policy` | `TransportPolicy \| str \| int` | 否 | Provider 选择策略，默认 `auto`。 |
-| `transport` | `str \| None` | 否 | 显式选择 `tcp`、`quic`、`ipc` 或 `websocket`。 |
-| `security` | `NativeTransportServerSecurity \| None` | 否 | Provider 持有的证书与私钥配置。 |
 | `options` | `NativeServerOptions \| None` | 否 | Native server id 与 generation。 |
 | `require_native` | `bool` | 否 | 生产代码设为 `True`，native 不可用时直接失败。 |
 
@@ -55,16 +53,22 @@ Packet transport helper 只用于诊断和自定义 carrier：
 `timeout_ms` 的 `NativeServerAcceptOptions`，并返回 carrier-backed
 `NativeRuntimeServerSession`。它不会创建 synthetic local submit。
 
+`NativeServer.bound_provider_endpoints` 是从规范 transport 名到实际绑定 `NativeTransportEndpoint` 的不可变
+mapping，并保留操作系统分配的端口。Provider listener 的致命失败会让完整逻辑 server 失败并关闭；拒绝
+单个 peer handshake 只影响该 accepted carrier。
+
 ```python
 with listen_native_server(
     "nnrp://0.0.0.0:4433/runtime/default",
-    require_native=True,
-    transport="tcp",
+    transport_policy=TransportPolicy.FORCE_TCP,
 ) as server:
     session = server.accept(NativeServerAcceptOptions(timeout_ms=30_000))
 ```
 
 ## `NativeRuntimeServerSession` Preview4 Frame
+
+`NativeRuntimeServerSession.active_transport_name` 是实际接受 carrier 的 listener 对应的规范 transport 名称。
+它必须与协商得到的 active transport 一致，不能从 listener preference 顺序推断。
 
 Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Server session 提供
 以下应用接口：
@@ -150,7 +154,7 @@ connection，或者为了 `TRANSPORT_PROBE` / 自定义探测流程已经预读�
 
 | 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
 |---|---|---:|---|---|
-| `connection` | `ServerConnection` | 是 | 已接受连接 | QUIC/TCP connection。 |
+| `connection` | `ServerConnection` | 是 | 已接受连接 | 一条已经接受的 carrier connection。 |
 | `first_packet` | `NnrpPacket \| None` | 否 | 默认 `None` | 已预读的 `CLIENT_HELLO`；为空时 SDK 自行读取。 |
 | `session_id` | `int \| None` | 否 | 默认客户端请求值 | 未提供 `session_resolver` 时使用。 |
 | `active_model_name` | `str` | 否 | 默认 `""` | 返回在 `ServerSession` 上供应用观察。 |
@@ -159,7 +163,7 @@ connection，或者为了 `TRANSPORT_PROBE` / 自定义探测流程已经预读�
 | `session_resolver` | `Callable[[ClientHelloContext], ServerSessionAcceptResolution \| Awaitable[...]] \| None` | 否 | 默认 `None` | 根据已解析 `CLIENT_HELLO` 决定服务端 session。 |
 
 `accept_server_connection` 和 `accept_server_session` 都由 SDK 统一构造 `SERVER_HELLO_ACK`。
-Preview3 SDK 会在 ACK body 中写入 `control_extension_block`，至少包含 transport policy ack
+SDK 会在 ACK body 中写入 `control_extension_block`，至少包含 transport policy ack
 扩展，用来声明 `active_transport_id`。`control_extension_bytes` 必须等于 ACK body 长度；
 应用层模型名、业务 session id 映射等信息不得塞进 ACK body。
 

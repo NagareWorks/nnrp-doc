@@ -78,7 +78,8 @@ var payload = NnrpRuntimeControl.Encode(
 
 ## `NnrpWebSocketFrameCodec.Encode`
 
-构造 WebSocket 传输层使用的二进制帧。
+`NnrpWebSocketFrameCodec` 由 `Nnrp.Transport.WebSocket` 导出。它构建一个 WebSocket binary
+message 承载的二进制 runtime frame；text message 永远不能作为 NNRP data。
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
@@ -114,6 +115,29 @@ var payload = NnrpRuntimeControl.Encode(
 | 返回 |
 |---|
 | `IReadOnlyList<DecodedRuntimeFrame>` |
+
+`DecodedRuntimeFrame` 暴露 `Header`、owned `Metadata` 和 owned `Body`。Decode 会拒绝截断
+header、metadata/body 长度不匹配、reserved header 值、single-frame decode 中的 trailing byte，
+以及超过 `limit` 的 frame 数量。
+
+## `NnrpRuntimeEvent`
+
+`NnrpRuntimeEvent` 是 client/server session event pump 返回的不可变事件，包含 `Header`、
+`MessageType`、匹配的 typed metadata 和语义化 tail。
+
+| 事件类别 | 语义化 tail 属性 |
+|---|---|
+| Cancel、abort、supersede、result drop、recoverable error、retry after | `Diagnostic` |
+| Progress 和 partial result | `Body` |
+| Capability negotiation 和 profile degradation | `CapabilityEntries` |
+| Route 和 execution hint | `HintBody` |
+| Trace context | `TraceAttributes` |
+| Object declare/ref | `ObjectMetadata` |
+| Object patch/delta | `ObjectMetadata` 后接 `Delta` |
+| Cache reference | `CacheMetadata` |
+
+事件不暴露 raw native buffer。Native-owned 数据必须复制，或在到达应用前放进显式 lifetime
+guard。
 
 ## `NnrpPreview4CapabilityTokens`
 
@@ -232,6 +256,9 @@ var payload = NnrpRuntimeControl.Encode(
 
 ## `RuntimeFrameHeader`
 
+`RuntimeFrameHeader` 由 `Nnrp.Core` 以不可变 record struct 导出，是 runtime event 和
+`NnrpWebSocketFrameCodec` 共用的 role-neutral header projection，不是第二套协议 header。
+
 | 属性 | 类型 | 说明 |
 |---|---|---|
 | `MessageType` | [`MessageType`](./enums.md#messagetype) | 帧消息类型。 |
@@ -239,3 +266,6 @@ var payload = NnrpRuntimeControl.Encode(
 | `SessionId` | `uint` | Session id。 |
 | `Generation` | `uint` | Session generation。 |
 | `FrameId` | `uint` | Frame id。 |
+
+五个构造值全部必填。Codec 根据传入 buffer 推导 metadata/body 长度，不在 projection 中保存
+调用方提供的长度。

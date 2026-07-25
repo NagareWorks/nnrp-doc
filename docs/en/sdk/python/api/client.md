@@ -52,10 +52,8 @@ endpoint in normal host configuration.
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | Yes | Remote `nnrp://` or `nnrps://` application endpoint. |
-| `provider_endpoint` | `str \| NativeTransportEndpoint \| None` | No | Explicit carrier-local locator for IPC, WebSocket, diagnostics, conformance, or controlled deployment. |
+| `provider_routes` | `Mapping[str, NativeClientProviderRoute] \| None` | No | Per-carrier locator and peer-verification configuration. |
 | `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
-| `transport` | `str \| None` | No | Explicit `tcp`, `quic`, `ipc`, or `websocket` selection. |
-| `security` | `NativeTransportClientSecurity \| None` | No | Provider-owned TLS or peer verification configuration. |
 | `options` | `NativeClientConnectionOptions \| None` | No | Native connection id and generation options. |
 | `artifact_path` | `Path \| str \| None` | No | Explicit native library path; usually unnecessary. |
 | `root` | `Path \| str \| None` | No | Native artifact root. |
@@ -67,17 +65,24 @@ endpoint in normal host configuration.
 ```python
 with connect_native_client_connection(
     "nnrps://runtime.example/session/default",
-    require_native=True,
-    transport="tcp",
+    provider_routes={
+        "tcp": NativeClientProviderRoute(
+            security=NativeTransportClientSecurity(
+                server_name="runtime.example",
+                trusted_certificate_der=trusted_certificate_der,
+            )
+        )
+    },
+    transport_policy=TransportPolicy.FORCE_TCP,
 ) as connection:
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
     result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, body=b"payload")
 ```
 
 TCP and QUIC resolve the application authority and default to port `4433` when the authority omits
-a port. IPC requires a matching `unix://` or `npipe://` `provider_endpoint`; WebSocket requires a
-matching `ws://` or `wss://` override. The SDK rejects a provider-local locator that does not belong
-to the selected provider. Carrier ownership moves into Rust only after successful role adoption;
+a port. IPC requires a matching `unix://` or `npipe://` route locator; WebSocket requires a matching
+`ws://` or `wss://` route locator. The SDK rejects a provider-local locator that does not belong to
+its route transport. Carrier ownership moves into Rust only after successful role adoption;
 failure leaves the carrier wrapper closable by Python.
 
 ## `NativeClientConnection`

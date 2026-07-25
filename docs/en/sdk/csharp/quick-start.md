@@ -1,87 +1,102 @@
 # C# Quick Start
 
-Use the C# SDK through the Preview3 native bridge when you want the same Rust-backed hot path used
-by the Python and JavaScript bindings. Managed client/server packages remain available for tests,
-diagnostics, and custom framed transports, but the normal application path is native bridge plus
-explicit transport packages.
+## Client
 
-## Requirements
-
-1. .NET 6 or newer application runtime.
-2. `netstandard2.1`-compatible project.
-3. A platform covered by the native artifacts packaged in the selected transport packages.
-
-## Backend Client
-
-Install the native bridge and the transports the client is allowed to probe:
-
-```powershell
-dotnet add package Nnrp.NativeBridge --prerelease
-dotnet add package Nnrp.Transport.Tcp --prerelease
-dotnet add package Nnrp.Transport.Quic --prerelease
-```
-
-The bridge probes the installed providers and uses the configured transport policy to choose the
-active path. QUIC being available does not force QUIC; the selected provider is the one with the best
-score under policy and peer capability constraints.
-
-## Backend Server
-
-Servers use the same native bridge and transport packages:
-
-```powershell
-dotnet add package Nnrp.NativeBridge --prerelease
-dotnet add package Nnrp.Transport.Tcp --prerelease
-dotnet add package Nnrp.Transport.Quic --prerelease
-```
-
-Install `Nnrp.Transport.Tcp` or `Nnrp.Transport.Quic` only when that transport is allowed in the
-deployment. A server package should not hide transport artifacts inside its role package.
-
-## Managed Helpers
-
-If you are writing protocol tests, conformance adapters, or a custom framed transport integration,
-install the managed entry packages explicitly:
+Install the client role and every transport that this deployment permits:
 
 ```powershell
 dotnet add package Nnrp.Client --prerelease
-dotnet add package Nnrp.Server --prerelease
-dotnet add package Nnrp.Core --prerelease
+dotnet add package Nnrp.Transport.Quic --prerelease
+dotnet add package Nnrp.Transport.Tcp --prerelease
 ```
 
-Use this path when you need C# session helpers over an existing `INnrpMessageTransport`; use the
-native bridge for production host integration.
+```csharp
+using System.Collections.Generic;
+using Nnrp.Client;
+using Nnrp.Core;
 
-## Unity Project
+await using var client = await NnrpClient.ConnectAsync(
+    new NnrpClientOptions(
+        NnrpEndpoint.Parse("nnrps://runtime.example/session/default"))
+    {
+        TransportPolicy = TransportPolicy.Auto,
+        ProviderRoutes = new Dictionary<TransportId, NnrpClientProviderRoute>
+        {
+            [TransportId.Quic] = new()
+            {
+                Security = new NnrpTransportClientSecurity("runtime.example", trustedCertificateDer),
+            },
+            [TransportId.Tcp] = new()
+            {
+                Security = new NnrpTransportClientSecurity("runtime.example", trustedCertificateDer),
+            },
+        },
+    },
+    cancellationToken);
 
-If you are integrating from Unity, do not install the SDK through NuGet.
+await using var session = client.OpenSession(new NnrpClientSessionOptions());
+var result = await session.SubmitAsync(request, cancellationToken);
+```
 
-The recommended path is to install it through OpenUPM:
+The example assumes `trustedCertificateDer` is a `byte[]` loaded from deployment trust configuration.
+
+The default provider registry contains providers registered by the installed transport packages. Set
+`NnrpClientOptions.Transports` only for controlled deployments or tests that need an explicit list.
+
+## Server
+
+Install the server role and the transport packages on which the server may listen:
+
+```powershell
+dotnet add package Nnrp.Server --prerelease
+dotnet add package Nnrp.Transport.Ipc --prerelease
+dotnet add package Nnrp.Transport.WebSocket --prerelease
+```
+
+```csharp
+using System.Collections.Generic;
+using Nnrp.Core;
+using Nnrp.Server;
+
+await using var server = await NnrpServer.ListenAsync(
+    new NnrpServerOptions(NnrpEndpoint.Parse("nnrp://localhost/runtime/default"))
+    {
+        TransportPolicy = TransportPolicy.PreferIpc,
+        ProviderRoutes = new Dictionary<TransportId, NnrpServerProviderRoute>
+        {
+            [TransportId.Ipc] = new()
+            {
+                ProviderEndpoint = NnrpProviderEndpoint.Parse("unix:///run/nnrp/runtime.sock"),
+            },
+        },
+    },
+    cancellationToken);
+
+await using var session = await server.AcceptAsync(
+    new NnrpServerAcceptOptions(),
+    cancellationToken);
+var operation = await session.ReceiveSubmitAsync(cancellationToken);
+await operation.SendResultAsync(resultMetadata, resultBody, cancellationToken);
+```
+
+IPC and WebSocket deployments set the matching entry in `ProviderRoutes` to a `unix://`, `npipe://`,
+`ws://`, or `wss://` locator. The example uses a Unix-domain socket; Windows IPC uses a `npipe://`
+locator. Provider routes do not replace the application-facing NNRP endpoint.
+
+## Unity
+
+Install the client package through OpenUPM:
 
 ```bash
 openupm add com.nnrp.client
 ```
 
-Package page: <https://openupm.com/packages/com.nnrp.client/>
+The Unity package contains the client role and transport-scoped plugins. It does not contain server
+assemblies. Plugin import settings select the platform artifact; they do not merge transport
+implementations into one library.
 
-If you do not want to use the OpenUPM CLI, update `Packages/manifest.json` directly:
+## Diagnostic Packet APIs
 
-```json
-{
-	"scopedRegistries": [
-		{
-			"name": "package.openupm.com",
-			"url": "https://package.openupm.com",
-			"scopes": [
-				"com.nnrp.client"
-			]
-		}
-	],
-	"dependencies": {
-		"com.nnrp.client": "<current-preview-version>"
-	}
-}
-```
-
-GitHub Release assets are still published by CI, but they are a fallback distribution path rather
-than the recommended Unity installation flow.
+Managed packet builders and `INnrpMessageTransport` adapters are diagnostic and custom-carrier
+surfaces. Production client and server traffic starts from `NnrpClient.ConnectAsync` and
+`NnrpServer.ListenAsync` so protocol execution remains on the Rust-backed path.

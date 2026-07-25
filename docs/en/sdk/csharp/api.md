@@ -1,43 +1,38 @@
 # C# API
 
-Start with the host-facing client and server pages. Protocol, message, enum, and transport pages are
-reference material for parameters linked from those entrypoint pages.
+The C# Preview4 API is organized by application role. Client and server entrypoints own lifecycle
+orchestration; transport packages supply real providers; `Nnrp.NativeBridge` remains the shared
+native loading and coarse-call boundary.
 
-| Read this first | Purpose |
+| Start here | Purpose |
 |---|---|
-| [Client](./api/client) | Connect, submit, receive results/events, and close. |
-| [Server](./api/server) | Accept sessions, receive submits, send results/drops, and close. |
+| [Client](./api/client) | Connect, open sessions, submit, send controls, consume events, and close. |
+| [Server](./api/server) | Listen, accept sessions, receive operations, stream results, and close. |
 
 | Reference | Purpose |
 |---|---|
-| [Enums](./api/enums) | `enum` values used by client, server, messages, and transports. |
-| [Protocol Types](./api/protocol) | Headers, framed messages, state machine, and cache store. |
-| [Message Types](./api/messages) | Control-plane and data-plane message objects. |
-| [Transport](./api/transport) | Framed transport contracts and TCP/native bridge integration notes. |
+| [Runtime Control and Objects](./api/runtime) | Preview4 control metadata, object/cache metadata, typed events, and binary frame codec. |
+| [Transport](./api/transport) | Application endpoints, provider endpoints, provider registry, selection, and four native packages. |
+| [Enums](./api/enums) | Protocol and runtime enum values. |
+| [Protocol Types](./api/protocol) | Header, framed message, state machine, and diagnostic packet primitives. |
+| [Message Types](./api/messages) | Low-level control-plane and data-plane message values. |
 
 ## Package Info
 
 | Property | Value |
 |---|---|
-| Packages | `Nnrp.Core`, `Nnrp.Client`, `Nnrp.Server`, `Nnrp.NativeBridge`, `Nnrp.Transport.Tcp`, `Nnrp.Transport.Quic` |
-| Version target | Preview3 train (`1.0.0-preview.3.*`) |
+| Shared packages | `Nnrp.Core`, `Nnrp.NativeBridge` |
+| Role packages | `Nnrp.Client`, `Nnrp.Server` |
+| Transport packages | `Nnrp.Transport.Tcp`, `Nnrp.Transport.Quic`, `Nnrp.Transport.Ipc`, `Nnrp.Transport.WebSocket` |
+| Unity package | `com.nnrp.client` |
+| Version target | `1.0.0-preview.4` |
 | Target framework | `netstandard2.1` |
 
-```powershell
-dotnet add package Nnrp.NativeBridge --prerelease
-dotnet add package Nnrp.Transport.Tcp --prerelease
-dotnet add package Nnrp.Transport.Quic --prerelease
-```
+## Frozen API Rules
 
-## Documentation Pattern
-
-Application methods are documented one method at a time. Each method section gives parameters,
-requiredness, accepted values, return type, error behavior, and then a short usage example. Code
-blocks are examples, not duplicated interface listings.
-
-## C#-specific Expectations
-
-1. Async methods are the primary API shape.
-2. Disposable lifetimes and shutdown behavior must be explicit.
-3. Public namespaces, interfaces, and result objects should remain stable unless the SDK version
-   changes.
+1. Public application endpoints use `nnrp://` or `nnrps://` regardless of the selected provider.
+2. Installing a transport package supplies real provider behavior and its own Rust artifacts.
+3. Client and server role APIs call Rust in coarse operations; they do not expose raw FFI buffers or handles.
+4. Managed packet/session helpers are diagnostic surfaces and are not production fallbacks.
+5. Preview4 does not expose aliases or forwarding entrypoints for older preview APIs.
+6. Async methods, cancellation, disposal, terminal state, and owned/borrowed memory are explicit.

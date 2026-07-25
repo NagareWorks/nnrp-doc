@@ -124,17 +124,25 @@
 | ----------------------------- | --------------------- |
 | `NnrpNormalizedSubmitRequest` | `NnrpProtocolError`。 |
 
-## `normalizeOperationRef`
+## Cache 与 Schema Helper
 
-规范化 operation id。
+| 函数 | 参数 | 返回值 | 说明 |
+| ---- | ---- | ------ | ---- |
+| `createCacheKey` | `kind: NnrpCacheObjectKind`、`key: bigint \| number \| string`、`namespaceId?: number` | `NnrpCacheKey` | 创建 submit 与 cache 操作使用的规范 128-bit cache identity。 |
+| `createSchemaDescriptor` | `descriptor: NnrpSchemaDescriptor` | `NnrpSchemaDescriptor` | 校验并快照 schema descriptor。 |
+| `normalizeCachePutRequest` | `request: NnrpCachePutRequest` | `NnrpCachePutRequest` | 校验 cache identity、lease、payload 与 metadata。 |
+| `normalizeCacheInvalidateRequest` | `request: NnrpCacheInvalidateRequest` | `NnrpCacheInvalidateRequest` | 校验显式 cache invalidation 请求。 |
+| `isStandardInputProfile` | `profile: string` | `profile is NnrpInputProfile` | 判断 profile 是否属于 `NNRP_STANDARD_INPUT_PROFILES`。 |
 
-| 参数        | 类型               | 必填 | 说明           |
-| ----------- | ------------------ | ---: | -------------- |
-| `operation` | `bigint \| number` |   是 | Operation id。 |
+## Recovery 与 Session Helper
 
-| 返回     | 可能抛出                                      |
-| -------- | --------------------------------------------- |
-| `bigint` | 负数或 unsafe id 会抛出 `NnrpProtocolError`。 |
+| 函数 | 参数 | 返回值 | 说明 |
+| ---- | ---- | ------ | ---- |
+| `createRecoveryToken` | `token: string \| NnrpBinaryPayload`、`metadata?: Readonly<Record<string, string>>` | `NnrpRecoveryToken` | 创建拥有独立所有权的 recovery token 与 metadata 快照。 |
+| `normalizeSessionMigrationRequest` | `request: NnrpSessionMigrationRequest` | `NnrpSessionMigrationRequest` | 校验 session migration 的目标和 recovery token。 |
+| `throwIfResultDrop` | `event: NnrpRuntimeEvent` | `void` | event 表示结果被丢弃时抛出 `NnrpResultDropError`。 |
+| `validateSessionMetadata` | `options?: NnrpSessionMetadataOptions` | `void` | 校验 profile、cadence、quality 与 metadata。 |
+| `normalizeSessionPatchRequest` | `request: NnrpSessionPatchRequest` | `NnrpSessionPatchRequest` | 校验并快照 session metadata 或 flow-control patch。 |
 
 ## `validateEventPollOptions`
 
@@ -166,7 +174,7 @@
 | `NnrpTransportProviderObservation` | Provider kind、元数据、本地可用性与可选诊断。                                                             |
 | `NnrpTransportProbeState`       | `"not-run" \| "succeeded" \| "failed" \| "missing"`。                                                   |
 | `NnrpTransportProbeMetrics`     | 样本/成功数、吞吐中位数与 RTT 中位数。                                                                          |
-| `NnrpTransportRejectionReason`  | 六个已注册 rejection 字符串的 union。                                                                            |
+| `NnrpTransportRejectionReason`  | 八个已注册 rejection 字符串的 union。                                                                            |
 | `NnrpTransportCandidate`        | Provider 元数据、可用性、peer/limit eligibility、probe 状态/指标、selection rank、拒绝原因与诊断。             |
 | `NnrpTransportSelectionSummary` | 被选中的 transport 和 rejected candidates。                                                                    |
 
@@ -182,7 +190,8 @@ type NnrpTransportProviderLimitation =
 type NnrpTransportProbeState = "not-run" | "succeeded" | "failed" | "missing";
 type NnrpTransportRejectionReason =
   | "policy-disallowed" | "local-unavailable" | "peer-unsupported"
-  | "limit-exceeded" | "probe-missing" | "probe-failed";
+  | "limit-exceeded" | "route-unresolved" | "security-unsatisfied"
+  | "probe-missing" | "probe-failed";
 
 interface NnrpTransportProviderCost { readonly modelId: number; readonly units: bigint; }
 interface NnrpTransportProviderLimits { readonly maxFrameBytes: bigint; }
@@ -237,6 +246,26 @@ interface NnrpTransportCandidateOptions {
 | `NnrpRuntimeEvent`     | Result、flow update、result hint、drop、close 或 diagnostic event。                        |
 | `NnrpEventPollOptions` | 可选 `timeoutMillis`。                                                                     |
 
+这些 contract 还公开以下类型：
+
+| 类型 | 说明 |
+| ---- | ---- |
+| `NnrpOperationId` | 使用 `bigint` 表示的非零 operation identity。 |
+| `NnrpOperationState` | `pending`、`dispatched`、`completed`、`dropped` 或 `cancelled`。 |
+| `NnrpSubmitCapacityPolicy` | 本地 submit credit 耗尽时使用的 `"reject" \| "await"` 策略。 |
+| `NnrpBinaryPayload` | `Uint8Array \| ArrayBufferView`。 |
+| `NnrpTensorSection`、`NnrpNormalizedTensorSection` | 请求规范化前后的 tensor byte section。 |
+| `NnrpPayloadDescriptor` | Payload 的可选 schema id、content type 与 encoding。 |
+| `NnrpSchemaFlag`、`NnrpSchemaDescriptor` | 已注册 schema flag 与通过校验的 schema contract。 |
+| `NnrpCacheKey`、`NnrpCacheMetadata` | 规范 cache identity 与调用方 metadata。 |
+| `NnrpCacheOperationStatus` | `accepted`、`stored`、`invalidated`、`miss` 或 `rejected`。 |
+| `NnrpCachePutRequest`、`NnrpCachePutResult` | 显式 cache put 请求与结果。 |
+| `NnrpCacheInvalidateRequest`、`NnrpCacheInvalidateResult` | 显式 invalidation 请求与结果。 |
+| `NnrpRecoveryToken`、`NnrpSessionMigrationEvent` | Recovery token 与 typed migration lifecycle event。 |
+| `NnrpSessionMetadataOptions`、`NnrpSessionFlowControlOptions` | 可复用的 session metadata 与 credit-window 选项。 |
+| `NnrpFlowUpdateMetadata`、`NnrpResultHintMetadata` | 结构化 flow update 与 result-hint payload。 |
+| `NnrpAbortSignalLike` | 异步 SDK 方法接受的运行时无关 abort signal。 |
+
 ### 错误
 
 | Class                 | 说明                                               |
@@ -246,3 +275,8 @@ interface NnrpTransportCandidateOptions {
 | `NnrpTransportError`  | Transport 错误。                                   |
 | `NnrpTimeoutError`    | Timeout 错误。                                     |
 | `NnrpProtocolError`   | 请求形态或协议校验错误。                           |
+| `NnrpResultDropError` | 结果被丢弃时的 typed 终态证据。                    |
+| `NnrpRecoveryError`   | Recovery 或 migration capability 错误。            |
+
+`NnrpDiagnosticSource` 标识诊断来自 `core`、`native`、`wasm`、`transport`、`protocol` 或
+`runtime`。

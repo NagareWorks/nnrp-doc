@@ -5,29 +5,77 @@ results, progress, flow-control feedback, object/cache events, and close acknowl
 
 ## Workflow
 
-1. Build [`NnrpServerConfig`](#nnrpserverconfig).
-2. Bind with [`NnrpServer::bind_tcp`](#nnrpserver-bind-tcp) or a transport provider.
-3. Accept a session with [`NnrpServer::accept`](#nnrpserver-accept).
-4. Receive work with [`receive_submit`](#nnrpserversession-receive-submit).
-5. Send output with [`send_result`](#nnrpserversession-send-result), `send_partial_result`, or `send_progress`.
-6. Receive runtime-control frames with [`receive_runtime_control`](#runtime-control-methods).
-7. Close the session explicitly.
+1. Build [`NnrpServerOptions`](#nnrpserveroptions) with one application endpoint and a provider route set.
+2. Register the transport providers compiled into this deployment.
+3. Listen with [`NnrpServer::listen`](#nnrpserver-listen); Auto/Prefer opens every eligible route atomically.
+4. Accept a session with [`NnrpServer::accept`](#nnrpserver-accept).
+5. Receive work with [`receive_submit`](#nnrpserversession-receive-submit).
+6. Send output with [`send_result`](#nnrpserversession-send-result), `send_partial_result`, or `send_progress`.
+7. Receive runtime-control frames with [`receive_runtime_control`](#runtime-control-methods).
+8. Close the session explicitly.
 
-## `NnrpServer::bind_tcp`
+## `NnrpServer::listen`
+
+```rust
+let options = NnrpServerOptions {
+    endpoint: "nnrp://localhost/runtime/default".parse()?,
+    provider_routes: ServerProviderRoutes::from([
+        (
+            TransportId::Ipc,
+            ServerProviderRoute::at("unix:///run/nnrp/runtime.sock".parse()?),
+        ),
+    ]),
+    transport_policy: TransportPolicy::PreferIpc,
+    session: NnrpServerConfig::default(),
+};
+
+let server = NnrpServer::listen(
+    options,
+    [Arc::new(IpcProvider::default()), Arc::new(TcpProvider::default())],
+).await?;
+```
+
+The returned `NnrpServer` is one logical server over an atomic listener set. Auto/Prefer opens every eligible installed
+route, Force opens only the named route, and any required bind failure closes every listener opened by that call.
+`accept` waits across the set and each accepted session adopts exactly one carrier connection.
+
+## `NnrpServerOptions`
+
+| Field | Type | Required | Description |
+|---|---|---:|---|
+| `endpoint` | `NnrpEndpoint` | Yes | Application-facing `nnrp://` or `nnrps://` endpoint. |
+| `provider_routes` | `ServerProviderRoutes` | No | Per-carrier bind locator and server-security configuration. |
+| `transport_policy` | `TransportPolicy` | No | Listener-set eligibility policy. |
+| `session` | `NnrpServerConfig` | No | Transport-neutral accepted-session defaults. |
+
+`ServerProviderRoutes` is a `BTreeMap<TransportId, ServerProviderRoute>`. `ServerProviderRoute` has exactly
+`provider_endpoint: Option<ProviderEndpoint>` and `security: Option<ServerTransportSecurity>`. A singular provider
+endpoint or role-wide security object is not part of `NnrpServerOptions`.
+
+`ServerTransportSecurity` has exactly `certificate_der: Vec<u8>` and `private_key_pkcs8_der: Vec<u8>`. Both owned byte
+vectors must be non-empty. Supplying it enables TCP TLS and is required for QUIC and native WSS routes.
+
+A route for a transport whose provider is absent remains visible as `local-unavailable`. A missing required locator for
+an installed, otherwise eligible provider is a listen configuration error and triggers atomic rollback.
+
+## Low-Level `NnrpServer::bind_tcp`
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
 | `addr` | `impl tokio::net::ToSocketAddrs` | Yes | Socket address | Local TCP bind address. |
-| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | Yes | `transport = Tcp` | Server runtime configuration. |
+| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | Yes | Transport-neutral | Server runtime configuration. |
 
 | Returns | Errors |
 |---|---|
 | `Result<NnrpServer, RuntimeError>` | Bind, listener, transport, or configuration errors. |
 
 ```rust
-let config = NnrpServerConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let config = NnrpServerConfig::default();
 let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 ```
+
+This method creates a one-listener logical set for provider tests, diagnostics, and controlled single-carrier
+deployments. Production multi-provider hosts use `listen`.
 
 ## Provider Bind
 
@@ -43,7 +91,7 @@ let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
 | `listener` | `L: FramedListener + 'static` | Yes | Any framed listener | Custom or provider-created listener. |
-| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | Yes | Must match listener kind | Runtime configuration. |
+| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | Yes | Transport-neutral | Runtime configuration. |
 
 | Returns | Errors |
 |---|---|
@@ -58,6 +106,13 @@ let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 | Returns | Errors |
 |---|---|
 | `Result<NnrpServerSession, RuntimeError>` | Accept, session-open rejection, or transport errors. |
+
+Every accepted session exposes `active_transport_id() -> TransportId`. The value identifies the listener that accepted
+the carrier and must match the negotiated `active_transport_id`; it is never inferred from listener preference order.
+
+`bound_provider_endpoints() -> &BTreeMap<TransportId, ProviderEndpoint>` returns the actual endpoint of every listener
+in the logical set, including operating-system-assigned ports. A terminal provider-listener failure fails the logical
+server and closes the remaining set; peer handshake rejection does not.
 
 ## `NnrpServerSession::receive_submit`
 
@@ -135,7 +190,6 @@ session
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `transport` | `RuntimeTransportKind` | `Tcp` | Runtime transport slot. |
 | `supported_profiles` | `Vec<u16>` | Standard token profile | Accepted profiles. |
 | `supported_cache_objects` | `Vec<CacheObjectKind>` | Empty | Accepted cache object kinds. |
 | `schema_registry` | `SchemaRegistry` | Standard registry | Accepted schemas. |

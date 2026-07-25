@@ -9,33 +9,42 @@ artifacts for native SDKs, and browser WASM primitives.
 For a native TCP client/server:
 
 ```bash
-cargo add nnrp-core@1.0.0-preview.4.4 nnrp-runtime@1.0.0-preview.4.4 nnrp-transport-tcp@1.0.0-preview.4.4
+cargo add nnrp-core@1.0.0-preview.4.17 nnrp-runtime@1.0.0-preview.4.17 nnrp-transport-tcp@1.0.0-preview.4.17
 cargo add tokio --features macros,rt-multi-thread,net,io-util
 ```
 
 Add only the transport packages your application uses:
 
 ```bash
-cargo add nnrp-transport-quic@1.0.0-preview.4.4
-cargo add nnrp-transport-ipc@1.0.0-preview.4.4
-cargo add nnrp-transport-websocket@1.0.0-preview.4.4
+cargo add nnrp-transport-quic@1.0.0-preview.4.17
+cargo add nnrp-transport-ipc@1.0.0-preview.4.17
+cargo add nnrp-transport-websocket@1.0.0-preview.4.17
 ```
 
 FFI and browser primitives are separate boundaries:
 
 ```bash
-cargo add nnrp-ffi@1.0.0-preview.4.4
-cargo add nnrp-wasm@1.0.0-preview.4.4
+cargo add nnrp-ffi@1.0.0-preview.4.17
+cargo add nnrp-wasm@1.0.0-preview.4.17
 ```
 
 ## Client
 
 ```rust
-use nnrp_core::FrameSubmitMetadata;
-use nnrp_runtime::{NnrpClient, NnrpClientConfig, RuntimeTransportKind};
+use std::sync::Arc;
+use nnrp_core::{FrameSubmitMetadata, TransportId, TransportPolicy};
+use nnrp_runtime::{ClientProviderRoutes, NnrpClient, NnrpClientConfig, NnrpClientOptions};
+use nnrp_transport_tcp::TcpProvider;
 
-let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
-let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
+let client = NnrpClient::connect(
+    NnrpClientOptions {
+        endpoint: "nnrp://127.0.0.1:4433/session/default".parse()?,
+        provider_routes: ClientProviderRoutes::new(),
+        transport_policy: TransportPolicy::Auto,
+        session: NnrpClientConfig::default(),
+    },
+    [Arc::new(TcpProvider::default())],
+).await?;
 let mut session = client.open_session().await?;
 
 let frame_id = session
@@ -53,11 +62,20 @@ partial results, backpressure, object/cache events, or result-drop reasons.
 ## Server
 
 ```rust
-use nnrp_core::ResultPushMetadata;
-use nnrp_runtime::{NnrpServer, NnrpServerConfig, RuntimeTransportKind};
+use std::sync::Arc;
+use nnrp_core::{ResultPushMetadata, TransportPolicy};
+use nnrp_runtime::{NnrpServer, NnrpServerConfig, NnrpServerOptions, ServerProviderRoutes};
+use nnrp_transport_tcp::TcpProvider;
 
-let config = NnrpServerConfig::default().with_transport(RuntimeTransportKind::Tcp);
-let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
+let server = NnrpServer::listen(
+    NnrpServerOptions {
+        endpoint: "nnrp://127.0.0.1:4433/session/default".parse()?,
+        provider_routes: ServerProviderRoutes::new(),
+        transport_policy: TransportPolicy::Auto,
+        session: NnrpServerConfig::default(),
+    },
+    [Arc::new(TcpProvider::default())],
+).await?;
 
 let mut session = server.accept().await?;
 let submit = session.receive_submit().await?;

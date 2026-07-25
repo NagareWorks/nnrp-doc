@@ -1,219 +1,107 @@
-# C# — Client API
+# C# 客户端 API
 
-C# client API 以 `NnrpClient` 为入口：连接、提交、接收事件、迁移、关闭。低层协议对象保留，但应用代码应优先从这些方法开始。
+生产 client 路径按角色组织并由 Rust 承载：
 
-## 导入
+1. 把 `NnrpClient` 连接到用户侧 NNRP endpoint。
+2. 打开 `NnrpClientSession`。
+3. 提交 operation，或发送 typed Preview4 control/object frame。
+4. 消费 result 和 runtime event。
+5. 关闭 session 与 client。
 
-```csharp
-using Nnrp.Client;
-using Nnrp.Core;
-```
-
-## Client 使用流程
-
-1. 构造 [`ClientProfile`](#clientprofile)。
-2. 创建 `INnrpMessageTransport`，或交给 bridge/bootstrap helper 选择。
-3. 构造 [`NnrpClient`](#nnrpclient)，调用 [`ConnectAsync`](#nnrpclient-connectasync)。
-4. 简单请求用 [`SubmitAsync`](#nnrpclient-submitasync)；多帧并发用
-   [`SendSubmitAsync`](#nnrpclient-sendsubmitasync) + [`ReceiveResultAsync`](#nnrpclient-receiveresultasync)。
-5. 需要 flow update / result hint 时调用 [`ReceiveNextEventAsync`](#nnrpclient-receivenexteventasync)。
-6. 用 [`CloseAsync`](#nnrpclient-closeasync) 关闭。
-
-## `NnrpClient`
-
-### 构造函数
-
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `profile` | [`ClientProfile`](#clientprofile) | 是 | 非空 | 客户端 capability 和偏好。 |
-| `transport` | [`INnrpMessageTransport`](./transport#innrpmessagetransport) | 是 | 已连接 transport | TCP、QUIC bridge 或自定义 framed transport。 |
-
-| 返回 | 可能抛出 |
-|---|---|
-| `NnrpClient` | `ArgumentNullException`。 |
+## `NnrpClient.ConnectAsync`
 
 ```csharp
-var client = new NnrpClient(profile, transport);
+public static ValueTask<NnrpClient> ConnectAsync(
+    NnrpClientOptions options,
+    CancellationToken cancellationToken = default);
 ```
 
-### `NnrpClient.ConnectAsync`
+该方法校验应用 endpoint、解析已注册 provider、连接选中的 provider、完成 NNRP handshake，并
+持有返回的 native connection。失败时直接报错，不回退到托管协议实现。
 
-发送 `CLIENT_HELLO`，校验 `SERVER_HELLO_ACK`，激活 session state。
-
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `requestedSessionId` | `uint` | 否 | `0` 表示服务端分配 | 请求的 session id。 |
-| `traceId` | `ulong` | 否 | 任意 trace id | 追踪关联值。 |
-| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消 transport I/O。 |
-
-| 返回 | 可能抛出 |
-|---|---|
-| [`NnrpClientConnectResult`](#nnrpclientconnectresult) | transport 异常；部分握手错误会体现在失败结果里。 |
-
-```csharp
-var connect = await client.ConnectAsync(requestedSessionId: 1, cancellationToken: ct);
-if (!connect.IsConnected)
-{
-    throw new InvalidOperationException(connect.Failure.ToString());
-}
-```
-
-### `NnrpClient.SubmitAsync`
-
-提交一帧并等待匹配的 `RESULT_PUSH`。
-
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `submitRequest` | [`NnrpSubmitRequest`](#nnrpsubmitrequest) | 是 | `FrameId` 在 in-flight 中唯一 | 结构化 inline tensor 请求。 |
-| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消发送或接收。 |
-
-| 返回 | 可能抛出 |
-|---|---|
-| [`NnrpSubmitResult`](#nnrpsubmitresult) | transport、drop 或关联错误。 |
-
-```csharp
-var result = await client.SubmitAsync(request, ct);
-```
-
-### `NnrpClient.SendSubmitAsync`
-
-只发送，不等待结果。
-
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `submitRequest` | [`NnrpSubmitRequest`](#nnrpsubmitrequest) | 是 | `FrameId` 在 in-flight 中唯一 | 要序列化并发送的请求。 |
-| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消发送。 |
-
-| 返回 | 可能抛出 |
-|---|---|
-| [`NnrpSubmittedFrame`](#nnrpsubmittedframe) | 序列化、transport 或重复 frame 错误。 |
-
-```csharp
-var submitted = await client.SendSubmitAsync(request, ct);
-```
-
-### `NnrpClient.ReceiveResultAsync`
-
-等待之前提交帧的结果。
-
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `expectedFrameId` | `uint` | 是 | 已 in-flight 的 frame | 目标 frame id。 |
-| `expectedViewId` | `ushort` | 否 | 默认 `0` | 目标 view id。 |
-| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消接收。 |
-
-| 返回 | 可能抛出 |
-|---|---|
-| `ResultPushMessage` | drop、包格式错误、session mismatch 或关联错误。 |
-
-```csharp
-var resultMessage = await client.ReceiveResultAsync(submitted.FrameId, submitted.ViewId, ct);
-```
-
-### `NnrpClient.ReceiveNextEventAsync`
-
-接收下一条 session event，包括 result、drop、flow update、result hint。
-
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消接收。 |
-
-| 返回 | 可能抛出 |
-|---|---|
-| [`NnrpSessionEvent`](#nnrpsessionevent) | transport 或解析错误。 |
-
-```csharp
-var sessionEvent = await client.ReceiveNextEventAsync(ct);
-```
-
-### `NnrpClient.CloseAsync`
-
-发送 `CLOSE` 并清理本地 in-flight 状态。
-
-| 参数 | 类型 | 必填 | 取值 / 范围 | 说明 |
-|---|---|---:|---|---|
-| `reason` | `string` | 否 | 默认 `""` | 关闭原因。 |
-| `traceId` | `ulong` | 否 | 任意 trace id | 追踪关联值。 |
-| `cancellationToken` | `CancellationToken` | 否 | 默认 `default` | 取消发送。 |
-
-| 返回 | 可能抛出 |
-|---|---|
-| [`NnrpProtocolFailure`](./protocol#nnrpprotocolfailure) | transport 错误。 |
-
-```csharp
-await client.CloseAsync("shutdown", cancellationToken: ct);
-```
-
-## 核心类型
-
-### `ClientProfile`
-
-| 属性 | 类型 | 默认值 | 说明 |
-|---|---|---|---|
-| `TransportPolicy` | [`TransportPolicy`](./enums#transport-policy) | 仓库默认值 | transport 偏好。 |
-| `SessionLossTolerance` | [`LossTolerance`](./enums#loss-tolerance) | 仓库默认值 | 可接受 loss 策略。 |
-| `MaxViews` | `int` | `1` | 最大并发 view。 |
-| `EnableCache` | `bool` | `true` | 是否请求 cache。 |
-| `MaxCacheEntries` | `int` | `256` | 请求的 cache 条目数。 |
-| `SupportedCodecs` | `CodecId[]` | 标准集合 | codec capability。 |
-| `SupportedDTypes` | `DTypeId[]` | 标准集合 | dtype capability。 |
-| `SupportedTensorLayouts` | `TensorLayoutId[]` | 标准集合 | layout capability。 |
-
-### `NnrpSubmitRequest`
+## `NnrpClientOptions`
 
 | 属性 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
-| `OperationId` | `ulong` | 是 | 非零生命周期 id，与 `FrameId` 独立。 |
-| `FrameId` | `uint` | 是 | in-flight 内唯一。 |
-| `SourceWidth` / `SourceHeight` | `ushort` | 是 | 源尺寸。 |
-| `TileWidth` / `TileHeight` | `ushort` | 是 | tile 尺寸。 |
-| `CameraBlock` | `ReadOnlyMemory<byte>` | 是 | camera metadata。 |
-| `TileIds` | `ReadOnlyMemory<ushort>` | 是 | tile id。 |
-| `Sections` | `ReadOnlyMemory<TensorSectionBlock>` | 是 | tensor sections。 |
-| `ViewId` | `ushort` | 否 | 默认 `0`。 |
-| `TraceId` | `ulong` | 否 | 默认 `0`。 |
-| `FrameClass` | [`FrameClass`](./enums#frame-classification) | 否 | 默认 `Keyframe`。 |
-| `InputProfile` | [`InputProfile`](./enums#frame-classification) | 否 | 默认 `DenseLumaFrame`。 |
-| `TileIndexMode` | [`TileIndexMode`](./enums#data-plane-enums) | 否 | 默认 `RawUInt16`。 |
-| `LatencyBudgetMilliseconds` | `ushort` | 否 | 默认 `16`。 |
+| `Endpoint` | [`NnrpEndpoint`](./transport#nnrpendpoint) | 是 | `nnrp://` 或 `nnrps://` 应用 endpoint。 |
+| `ProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpClientProviderRoute>?` | 否 | 按 carrier 隔离的 locator 与对端验证配置。 |
+| `TransportPolicy` | [`TransportPolicy`](./enums#transportpolicy) | 否 | 默认 `Auto`。 |
+| `Transports` | `IReadOnlyList<INnrpNativeTransportProvider>?` | 否 | 显式 provider；`null` 使用默认 registry。 |
+| `SessionDefaults` | `NnrpClientSessionOptions?` | 否 | 合并到每个新 session 的默认值。 |
 
-### `NnrpSubmitResult`
+TCP 与 QUIC 可以从 `Endpoint` 派生 host 和 port。IPC 与 WebSocket route 必须提供匹配的
+`unix://`、`npipe://`、`ws://` 或 `wss://` locator。Auto/Prefer 在 candidate 诊断中保留无法解析的
+route，并 probe 全部可用 route；Force 失败且不回退。
 
-| 属性 | 类型 | 说明 |
+## `NnrpClient.OpenSession`
+
+```csharp
+public NnrpClientSession OpenSession(NnrpClientSessionOptions? options = null);
+```
+
+`NnrpClientSessionOptions` 冻结 `SessionId`、`SessionGeneration`、`ProfileId`、`SchemaId` 和
+`SchemaVersion`。ID 为零时请求 runtime 分配；显式 ID 对应的 generation 或 schema version 必须
+非零。
+
+## 提交与结果
+
+| 方法 | 返回值 | 语义 |
 |---|---|---|
-| `SessionId` | `uint` | 协商后的 session id。 |
-| `FrameId` | `uint` | 结果 frame id。 |
-| `ViewId` | `ushort` | 结果 view id。 |
-| `StatusCode` | `ResultStatusCode` | 结果状态。 |
-| `ResultClass` | [`ResultClass`](./enums#data-plane-enums) | 完整性分类。 |
-| `ResultFlags` | [`ResultFlags`](./enums#data-plane-enums) | 结果 flags。 |
-| `InferenceMilliseconds` | `ushort` | 推理耗时。 |
-| `TileIds` | `ReadOnlyMemory<ushort>` | 结果 tile id。 |
-| `Sections` | `ReadOnlyMemory<TensorSectionBlock>` | 结果 tensor sections。 |
+| `SubmitAsync(NnrpSubmitRequest, CancellationToken)` | `ValueTask<NnrpResult>` | 提交并等待匹配的终态结果。 |
+| `SubmitNoWaitAsync(NnrpSubmitRequest, CancellationToken)` | `ValueTask<ulong>` | 提交并返回非零 operation ID。 |
+| `NextResultAsync(CancellationToken)` | `ValueTask<NnrpResult>` | 跳过非结果事件并返回下一个终态结果。 |
+| `NextEventAsync(CancellationToken)` | `ValueTask<NnrpRuntimeEvent>` | 按当前 session 的 wire 顺序返回下一个事件。 |
 
-### `NnrpClientConnectResult`
+`NnrpSubmitRequest` 包含非零 `OperationId`、独立 `FrameId`、payload/tensor、profile、schema、cache
+metadata 和 submit mode。角色 API 负责打包并执行一次粗粒度 native submit；调用方不构造 FFI
+buffer。
 
-| 属性 | 类型 | 说明 |
+## Client Control 方法
+
+每个方法都会校验 metadata/tail 长度，并通过 active native session 发出对应 runtime frame。
+
+| 方法 | 消息 | Tail |
 |---|---|---|
-| `IsConnected` | `bool` | capability negotiation 成功时为 `true`。 |
-| `NegotiationResult` | `NnrpCapabilityNegotiationResult` | capability negotiation 细节。 |
-| `Failure` | [`NnrpProtocolFailure`](./protocol#nnrpprotocolfailure) | 未连接时的失败信息。 |
+| `CancelAsync(ControlRequestMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `Cancel` | 诊断字节 |
+| `AbortAsync(ControlRequestMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `Abort` | 诊断字节 |
+| `UpdatePriorityAsync(SchedulingMetadata, CancellationToken)` | `PriorityUpdate` | 无 |
+| `UpdateDeadlineAsync(SchedulingMetadata, CancellationToken)` | `Deadline` | 无 |
+| `ExpireAtAsync(SchedulingMetadata, CancellationToken)` | `ExpireAt` | 无 |
+| `SupersedeAsync(SupersedeMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `Supersede` | 诊断字节 |
+| `UpdateBudgetAsync(BudgetMetadata, CancellationToken)` | `BudgetUpdate` | 无 |
+| `NegotiateCapabilitiesAsync(CapabilityMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `CapabilityNegotiation` | capability entry |
+| `DegradeProfileAsync(CapabilityMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `DegradeProfile` | capability entry |
+| `SendRouteHintAsync(RouteHintMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `RouteHint` | typed hint body |
+| `SendExecutionHintAsync(RouteHintMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ExecutionHint` | typed hint body |
+| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `TraceContext` | trace attribute |
+| `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | 任意 client 可发送 runtime control | 声明的 tail |
 
-### `NnrpSubmittedFrame`
+`SendControlAsync` 是 typed escape hatch；metadata 具体类型与 `MessageType` 不匹配时必须拒绝。
 
-| 属性 | 类型 | 说明 |
+## Client Object 与 Cache 方法
+
+| 方法 | 消息 | Tail |
 |---|---|---|
-| `SessionId` | `uint` | submit 使用的 session id。 |
-| `FrameId` | `uint` | 已提交 frame id。 |
-| `ViewId` | `ushort` | view id。 |
-| `TraceId` | `ulong` | trace id。 |
-| `WireFormat` | `byte` | 当前 NNRP wire format。 |
+| `DeclareObjectAsync(ObjectDescriptorMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ObjectDeclare` | object metadata |
+| `ReferenceObjectAsync(ObjectReferenceMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ObjectRef` | reference metadata |
+| `ReleaseObjectAsync(ObjectReleaseMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ObjectRelease` | 诊断字节 |
+| `PatchObjectAsync(ObjectDeltaMetadata, ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, CancellationToken)` | `ObjectPatch` | metadata body 后接 delta |
+| `SendObjectDeltaAsync(ObjectDeltaMetadata, ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, CancellationToken)` | `ObjectDelta` | metadata body 后接 delta |
+| `ReferenceCacheAsync(CacheReferenceMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `CacheReference` | cache metadata |
+| `ReportCacheMissAsync(CacheMissMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `CacheMiss` | 诊断字节 |
+| `InvalidateCacheAsync(CacheInvalidateMetadata, CancellationToken)` | `CacheInvalidate` | 无 |
 
-## 常见坑
+Object/cache 方法不会隐式执行 cache lookup，也不会退化成 JSON 序列化。
 
-::: warning
-1. `NnrpClient` 不负责创建任意 transport；先选择或构造 transport。
-2. `FrameId` + `ViewId` 在 in-flight 内必须唯一。
-3. 服务端可能插入 flow update / result hint 时，使用 `ReceiveNextEventAsync`。
-4. 关闭 client 后也要释放底层 transport 或 bridge。
-:::
+## 取消与迟到结果
+
+Cancel 或 abort 到达终态后，普通结果迭代会抑制该 operation 的迟到 `RESULT_PUSH` 和
+`PARTIAL_RESULT`。`RESULT_DROP_REASON` 仍可观测，用于说明结果为什么被丢弃。
+
+## 关闭
+
+`NnrpClientSession` 和 `NnrpClient` 实现 `IAsyncDisposable`。Session 释放会关闭 native session
+并清理 in-flight 状态；client 释放会关闭其持有的 session、role connection 和 provider runtime。
+
+基于 `INnrpMessageTransport` 的托管 packet/session helper 属于诊断与自定义 carrier 集成，不是
+生产 API 的 alias。

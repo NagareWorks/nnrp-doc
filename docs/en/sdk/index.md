@@ -11,14 +11,16 @@ The SDK view is separate from protocol design on purpose.
 
 ## Frozen scope
 
-The Preview3 entry point should expose one shared control-plane contract across language SDKs.
+The Preview4 entry points expose one shared control-plane and host-route contract across the four
+current language SDKs.
 
-1. Connection bootstrap and capability negotiation.
-2. Session open, patch, close, and migration.
-3. Operation submit, cancel, and receive loops.
-4. Flow-control updates and backpressure handling.
-5. Cache and schema install or invalidate operations.
-6. Stable error model and lifecycle guarantees.
+1. Carrier-neutral application endpoints, per-carrier route sets, and deterministic selection.
+2. Atomic server listener sets and accepted-session active transport identity.
+3. Connection bootstrap and capability negotiation.
+4. Session open, patch, close, and migration.
+5. Operation submit, cancel, and receive loops.
+6. Flow-control updates and backpressure handling.
+7. Runtime objects, cache references, schema operations, and lifecycle guarantees.
 
 ## Language entry
 

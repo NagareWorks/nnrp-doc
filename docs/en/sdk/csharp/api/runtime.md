@@ -79,7 +79,8 @@ Decodes one runtime object or cache metadata payload.
 
 ## `NnrpWebSocketFrameCodec.Encode`
 
-Builds the binary frame used by the WebSocket transport.
+`NnrpWebSocketFrameCodec` is exported by `Nnrp.Transport.WebSocket`. It builds the binary runtime
+frame carried by one WebSocket binary message; text messages are never accepted as NNRP data.
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
@@ -115,6 +116,29 @@ Decodes concatenated binary frames from local buffers and conformance fixtures.
 | Returns |
 |---|
 | `IReadOnlyList<DecodedRuntimeFrame>` |
+
+`DecodedRuntimeFrame` exposes `Header`, owned `Metadata`, and owned `Body`. Decode rejects truncated
+headers, metadata/body length mismatches, reserved header values, trailing bytes in a single-frame
+decode, and a decoded frame count above `limit`.
+
+## `NnrpRuntimeEvent`
+
+`NnrpRuntimeEvent` is the immutable event returned by client and server session event pumps. It
+contains `Header`, `MessageType`, the matching typed metadata value, and the semantic tail value.
+
+| Event family | Semantic tail property |
+|---|---|
+| Cancel, abort, supersede, result drop, recoverable error, retry after | `Diagnostic` |
+| Progress and partial result | `Body` |
+| Capability negotiation and profile degradation | `CapabilityEntries` |
+| Route and execution hints | `HintBody` |
+| Trace context | `TraceAttributes` |
+| Object declare/ref | `ObjectMetadata` |
+| Object patch/delta | `ObjectMetadata`, then `Delta` |
+| Cache reference | `CacheMetadata` |
+
+The event never exposes a raw native buffer. Native-owned data is copied or retained behind an
+explicit lifetime guard before the event reaches application code.
 
 ## `NnrpPreview4CapabilityTokens`
 
@@ -236,6 +260,10 @@ states have no terminal result state.
 
 ## `RuntimeFrameHeader`
 
+`RuntimeFrameHeader` is exported by `Nnrp.Core` as an immutable record struct. It is the role-neutral
+header projection used by runtime events and `NnrpWebSocketFrameCodec`; it is not a second protocol
+header version.
+
 | Property | Type | Description |
 |---|---|---|
 | `MessageType` | [`MessageType`](./enums.md#messagetype) | Frame message type. |
@@ -243,3 +271,6 @@ states have no terminal result state.
 | `SessionId` | `uint` | Session id. |
 | `Generation` | `uint` | Session generation. |
 | `FrameId` | `uint` | Frame id. |
+
+All five constructor values are required. The codec derives metadata and body lengths from the
+provided buffers rather than storing caller-supplied lengths in this projection.

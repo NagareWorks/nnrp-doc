@@ -42,16 +42,14 @@ Packet transport helpers are reserved for diagnostics and custom carriers:
 
 ## `listen_native_server`
 
-Selects an installed Preview4 provider, opens its listener, transfers listener ownership to the
-Rust server runtime, and returns a `NativeServer` context manager.
+Resolves all installed providers allowed by policy, opens their listener set atomically, transfers
+each listener to its Rust server runtime, and returns one logical `NativeServer` context manager.
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | Yes | Local `nnrp://` or `nnrps://` application endpoint. |
-| `provider_endpoint` | `str \| NativeTransportEndpoint \| None` | No | Explicit carrier-local bind locator; required for IPC and WebSocket. |
+| `provider_routes` | `Mapping[str, NativeServerProviderRoute] \| None` | No | Per-carrier bind locator and server-security configuration. |
 | `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
-| `transport` | `str \| None` | No | Explicit `tcp`, `quic`, `ipc`, or `websocket` selection. |
-| `security` | `NativeTransportServerSecurity \| None` | No | Provider-owned certificate and private-key configuration. |
 | `options` | `NativeServerOptions \| None` | No | Native server id and generation. |
 | `require_native` | `bool` | No | Production code sets `True`; missing native support is an error. |
 
@@ -59,16 +57,22 @@ Rust server runtime, and returns a `NativeServer` context manager.
 `session_handle_id`, `session_generation`, and `timeout_ms`, and returns a carrier-backed
 `NativeRuntimeServerSession`. It never creates a synthetic local submit.
 
+`NativeServer.bound_provider_endpoints` is an immutable mapping from canonical transport name to the actual bound
+`NativeTransportEndpoint`, including operating-system-assigned ports. A terminal provider-listener failure fails and
+closes the complete logical server; rejecting one peer handshake affects only that accepted carrier.
+
 ```python
 with listen_native_server(
     "nnrp://0.0.0.0:4433/runtime/default",
-    require_native=True,
-    transport="tcp",
+    transport_policy=TransportPolicy.FORCE_TCP,
 ) as server:
     session = server.accept(NativeServerAcceptOptions(timeout_ms=30_000))
 ```
 
 ## `NativeRuntimeServerSession` Preview4 Frames
+
+`NativeRuntimeServerSession.active_transport_name` is the canonical transport name of the listener that accepted the
+carrier. It matches the negotiated active transport and is not inferred from listener preference order.
 
 Native server hosts use the same role-neutral runtime-frame ABI as clients. The server session
 exposes these application-facing methods:
@@ -157,7 +161,7 @@ control packet.
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
-| `connection` | `ServerConnection` | Yes | Accepted connection | QUIC/TCP connection. |
+| `connection` | `ServerConnection` | Yes | Accepted connection | One already accepted carrier connection. |
 | `first_packet` | `NnrpPacket \| None` | No | Defaults to `None` | Prefetched `CLIENT_HELLO`; when omitted the SDK reads it. |
 | `session_id` | `int \| None` | No | Defaults to the requested id | Used when `session_resolver` is not provided. |
 | `active_model_name` | `str` | No | Defaults to `""` | Application-visible model name retained on `ServerSession`. |
@@ -166,7 +170,7 @@ control packet.
 | `session_resolver` | `Callable[[ClientHelloContext], ServerSessionAcceptResolution \| Awaitable[...]] \| None` | No | Defaults to `None` | Resolves the server session from the parsed `CLIENT_HELLO`. |
 
 Both `accept_server_connection` and `accept_server_session` construct `SERVER_HELLO_ACK` inside the
-SDK. The Preview3 SDK writes a `control_extension_block` into the ACK body, including at least the
+SDK. The SDK writes a `control_extension_block` into the ACK body, including at least the
 transport policy ack extension that declares `active_transport_id`. `control_extension_bytes` must
 match the ACK body length; application model names, runtime session ids, or other business state
 must not be encoded into the ACK body.

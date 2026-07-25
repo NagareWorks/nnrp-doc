@@ -8,14 +8,15 @@ SDK 视图和协议设计页刻意分开。
 
 ## 冻结范围
 
-进入 Preview3 时，三门语言 SDK 应共享同一组控制面能力边界。
+Preview4 的四门现有语言 SDK 共享同一组控制面与宿主 route 契约。
 
-1. 连接建立与能力协商。
-2. 会话打开、补丁、关闭与迁移。
-3. 操作提交、接收与取消。
-4. 流控更新与背压处理。
-5. 缓存与 Schema 的安装和失效。
-6. 稳定的错误模型与生命周期保证。
+1. 与 carrier 无关的应用 endpoint、按 carrier 隔离的 route set 与确定性选择。
+2. 原子 server listener set 与 accepted session 的 active transport 标识。
+3. 连接建立与能力协商。
+4. 会话打开、补丁、关闭与迁移。
+5. 操作提交、接收与取消。
+6. 流控更新与背压处理。
+7. Runtime object、cache reference、Schema 操作与生命周期保证。
 
 ## 语言入口
 

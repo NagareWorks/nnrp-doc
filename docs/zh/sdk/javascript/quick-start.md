@@ -39,6 +39,8 @@ npm install @nnrp/browser-client @nnrp/transport-websocket
 Node.js/Deno CLI、agent runtime、后端服务和 adapter 进程使用 `@nnrp/native-client`。安装一个或多个
 transport 包；runtime 会探测已安装 provider 并根据策略选择 active transport。
 
+下面假设 `trustedCertificateDer` 是从部署信任配置中加载的 `Uint8Array`。
+
 ```ts
 import { openNativeClient } from "@nnrp/native-client";
 import { createTcpTransportProvider } from "@nnrp/transport-tcp";
@@ -46,6 +48,14 @@ import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
   endpoint: "nnrps://runtime.example/session/default",
+  providerRoutes: {
+    quic: {
+      security: { mode: "client", serverName: "runtime.example", trustedCertificateDer },
+    },
+    tcp: {
+      security: { mode: "client", serverName: "runtime.example", trustedCertificateDer },
+    },
+  },
   transportPolicy: "auto",
   transports: [
     createQuicTransportProvider(),
@@ -69,7 +79,8 @@ await client.close();
 
 ## Backend Native Server
 
-应用需要暴露 NNRP endpoint 时使用 `@nnrp/native-server`。
+应用需要暴露 NNRP endpoint 时使用 `@nnrp/native-server`。WSS route 使用的 `certificateDer` 与
+`privateKeyPkcs8Der` 是从服务端凭据存储加载的 `Uint8Array`。
 
 ```ts
 import { openBackendRuntime } from "@nnrp/native-server";
@@ -83,8 +94,8 @@ const runtime = await openBackendRuntime({
 
 const server = runtime.listen({
   endpoint: "nnrp://0.0.0.0:4433",
-  providerEndpoints: {
-    ipc: "unix:///run/nnrp.sock",
+  providerRoutes: {
+    ipc: { endpoint: "unix:///run/nnrp.sock" },
   },
 });
 
@@ -109,7 +120,9 @@ const runtime = await openBrowserRuntime({
 
 const client = runtime.connect({
   endpoint: "nnrps://example.test/session/default",
-  providerEndpoint: "wss://example.test/nnrp",
+  providerRoutes: {
+    websocket: { endpoint: "wss://example.test/nnrp" },
+  },
   transportPolicy: "auto",
 });
 

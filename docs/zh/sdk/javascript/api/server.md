@@ -40,9 +40,12 @@ const runtime = await openBackendRuntime({
 ```ts
 const server = runtime.listen({
   endpoint: "nnrp://0.0.0.0:4433",
-  providerEndpoints: {
-    ipc: "unix:///run/nnrp.sock",
-    websocket: "wss://0.0.0.0:8443/nnrp",
+  providerRoutes: {
+    ipc: { endpoint: "unix:///run/nnrp.sock" },
+    websocket: {
+      endpoint: "wss://0.0.0.0:8443/nnrp",
+      security: { mode: "server", certificateDer, privateKeyPkcs8Der },
+    },
   },
 });
 ```
@@ -53,7 +56,7 @@ listener。Server 不会伪造 peer probe 数据，实际 carrier 由发起连�
 
 Listener set 必须原子打开。如果任一已配置的 eligible listener 打开失败，runtime 必须关闭本次调用
 已经打开的 listener，并让首次 `accept()` 失败。无法从 `endpoint` 推导 bind locator 的 carrier 必须在
-`providerEndpoints` 中提供对应项，不得静默忽略。
+`providerRoutes` 中提供对应项，不得静默忽略。
 
 ## `NnrpBackendRuntime.selectTransport`
 
@@ -77,6 +80,13 @@ Listener set 必须原子打开。如果任一已配置的 eligible listener 打
 | `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>`  | 读取下一条有序 submit、control、object 或 cache event。 |
 | `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#数据类型)                           | `Promise<void>`              | 为当前 operation 发送唯一终态结果。                     |
 | `NnrpServerSession.close()`            | 无                                                                | `Promise<void>`              | 只关闭一次 accepted role session。                      |
+
+`NnrpServerSession.activeTransport` 是实际接受 carrier 的 listener 对应的 `NnrpTransportKind`。它必须与协商
+得到的 active transport 一致，不能从 listener preference 顺序推断。
+
+`NnrpServer.boundProviderEndpoints` 是按 `NnrpTransportKind` 索引的 readonly partial record，保存每个已打开
+listener 的实际 endpoint。Provider listener 的致命失败会让逻辑 server 失败并关闭其余 listener set；被
+拒绝的 peer handshake 只影响该 accepted carrier。
 
 ## Preview4 Server Session 方法
 
@@ -137,8 +147,7 @@ Object patch 与 delta 方法要求 `metadataBody.byteLength` 等于 `metadata.m
 | 字段                | 类型                                                          | 必填 | 说明                                                  |
 | ------------------- | ------------------------------------------------------------- | ---: | ----------------------------------------------------- |
 | `endpoint`          | `string \| URL`                                               |   是 | 逻辑 listener set 共享的本地 NNRP endpoint。          |
-| `providerEndpoints` | `Readonly<Partial<Record<NnrpTransportKind, string \| URL>>>` |   否 | 按 transport kind 索引的 carrier-local bind locator。 |
-| `security`          | `NnrpTransportServerSecurity`                                 |   否 | QUIC 或 `wss://` 证书与私钥配置。                     |
+| `providerRoutes`    | `NnrpServerProviderRoutes`                                     |   否 | 按 carrier 隔离的 bind locator 与 server security。   |
 | `transportPolicy`   | [`NnrpTransportPolicy`](./core#数据类型)                      |   否 | Listener-set eligibility 与稳定 preference policy。   |
 | `transports`        | `readonly NnrpNativeTransportProvider[]`                      |   否 | 允许进入该逻辑 listener set 的 transport Provider。   |
 

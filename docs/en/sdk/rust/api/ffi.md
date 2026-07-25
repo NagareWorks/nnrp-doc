@@ -9,7 +9,7 @@ field.
 
 ```toml
 [dependencies]
-nnrp-ffi = "1.0.0-preview.4.4"
+nnrp-ffi = "1.0.0-preview.4.17"
 ```
 
 ## Native Artifact Shape
@@ -19,10 +19,10 @@ client or server at runtime; the artifact name tells you which transport impleme
 
 | Transport | Artifact family |
 |---|---|
-| TCP | `nnrp-ffi-transport-tcp-native-<platform>-1.0.0-preview.4.4.zip` |
-| QUIC | `nnrp-ffi-transport-quic-native-<platform>-1.0.0-preview.4.4.zip` |
-| IPC | `nnrp-ffi-transport-ipc-native-<platform>-1.0.0-preview.4.4.zip` |
-| WebSocket | `nnrp-ffi-transport-websocket-native-<platform>-1.0.0-preview.4.4.zip` |
+| TCP | `nnrp-ffi-transport-tcp-native-<platform>-1.0.0-preview.4.17.zip` |
+| QUIC | `nnrp-ffi-transport-quic-native-<platform>-1.0.0-preview.4.17.zip` |
+| IPC | `nnrp-ffi-transport-ipc-native-<platform>-1.0.0-preview.4.17.zip` |
+| WebSocket | `nnrp-ffi-transport-websocket-native-<platform>-1.0.0-preview.4.17.zip` |
 
 Each package contains the native library, `nnrp_ffi.h`, and a manifest that declares platform,
 architecture, transport, library name, and exported symbols. Downstream SDKs should validate the

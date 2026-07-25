@@ -6,43 +6,92 @@
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.4.4"
-nnrp-runtime = "1.0.0-preview.4.4"
-nnrp-transport-tcp = "1.0.0-preview.4.4"
-nnrp-transport-quic = "1.0.0-preview.4.4"
-nnrp-transport-ipc = "1.0.0-preview.4.4"
-nnrp-transport-websocket = "1.0.0-preview.4.4"
+nnrp-core = "1.0.0-preview.4.17"
+nnrp-runtime = "1.0.0-preview.4.17"
+nnrp-transport-tcp = "1.0.0-preview.4.17"
+nnrp-transport-quic = "1.0.0-preview.4.17"
+nnrp-transport-ipc = "1.0.0-preview.4.17"
+nnrp-transport-websocket = "1.0.0-preview.4.17"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util"] }
 ```
 
 ## 工作流
 
-1. 构造 [`NnrpClientConfig`](#nnrpclientconfig)。
-2. 使用 [`NnrpClient::connect_tcp`](#nnrpclient-connect-tcp) 或 transport provider 建立连接。
-3. 使用 [`NnrpClient::open_session`](#nnrpclient-open-session) 打开 session。
-4. 使用 [`NnrpClientSession::submit`](#nnrpclientsession-submit) 提交任务。
-5. 使用 [`await_event`](#nnrpclientsession-await-event) 接收输出和控制事件。
-6. 使用 [`close`](#session-lifecycle-methods) 关闭 session。
+1. 构造 [`NnrpClientOptions`](#nnrpclientoptions)，提供一个应用 endpoint 和一个 provider route set。
+2. 注册本次部署编译进来的 transport provider。
+3. 使用 [`NnrpClient::connect`](#nnrpclient-connect) 建立连接；Auto/Prefer 会评估全部 eligible provider route。
+4. 使用 [`NnrpClient::open_session`](#nnrpclient-open-session) 打开 session。
+5. 使用 [`NnrpClientSession::submit`](#nnrpclientsession-submit) 提交任务。
+6. 使用 [`await_event`](#nnrpclientsession-await-event) 接收输出和控制事件。
+7. 使用 [`close`](#session-lifecycle-methods) 关闭 session。
 
-## `NnrpClient::connect_tcp`
+## `NnrpClient::connect`
+
+```rust
+let options = NnrpClientOptions {
+    endpoint: "nnrps://runtime.example/session/default".parse()?,
+    provider_routes: ClientProviderRoutes::from([
+        (TransportId::Quic, ClientProviderRoute::native_tls("runtime.example", trusted_certificate_der.clone())),
+        (TransportId::Tcp, ClientProviderRoute::native_tls("runtime.example", trusted_certificate_der)),
+    ]),
+    transport_policy: TransportPolicy::Auto,
+    session: NnrpClientConfig::default(),
+};
+
+let client = NnrpClient::connect(
+    options,
+    [Arc::new(QuicProvider::default()), Arc::new(TcpProvider::default())],
+).await?;
+```
+
+`NnrpClient::connect` 解析并校验每条已安装 route，对全部 eligible Auto/Prefer candidate 执行 probe，最终只把
+选中的一个 carrier 接管进返回的 runtime client。Force policy 绝不 fallback。完整 candidate diagnostics 可从
+`client.transport_selection()` 获取。
+
+Rust 显式接收 provider 集合，因为 Cargo dependency 不能在运行时自行注册。每个官方 provider 都实现共享的
+client-provider trait；route key 必须与 provider transport ID 一致。
+
+## `NnrpClientOptions`
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `endpoint` | `NnrpEndpoint` | 是 | 用户侧 `nnrp://` 或 `nnrps://` endpoint。 |
+| `provider_routes` | `ClientProviderRoutes` | 否 | 按 carrier 隔离的 locator 与 peer-security 配置。 |
+| `transport_policy` | `TransportPolicy` | 否 | Auto、Prefer 或 Force policy。 |
+| `session` | `NnrpClientConfig` | 否 | 与 transport 无关的 session 默认值。 |
+
+`ClientProviderRoutes` 是 `BTreeMap<TransportId, ClientProviderRoute>`。`ClientProviderRoute` 精确包含
+`provider_endpoint: Option<ProviderEndpoint>` 与 `security: Option<ClientTransportSecurity>`。不得把单数
+provider endpoint 或一份共享 security 放在 `NnrpClientOptions` 自身。
+
+`ClientTransportSecurity` 精确包含 `server_name: String` 与 `trusted_certificate_der: Vec<u8>`；两者都必须
+非空，证书 bytes 由 security value 持有。提供该值会为 TCP 启用 TLS，QUIC 与 native WSS route 必须提供。
+
+为未安装 provider 的 transport 提供 route 时，该 candidate 保留为 `local-unavailable`。多个检查同时失败时
+按协议 rejection registry 顺序处理，因此 `route-unresolved` 优先于 `security-unsatisfied`。
+
+## 低层 `NnrpClient::connect_tcp`
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
 | `addr` | `impl tokio::net::ToSocketAddrs` | 是 | Socket address | 目标 TCP endpoint。 |
-| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | 是 | `transport = Tcp` | Client runtime 配置。 |
+| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | 是 | 与 transport 无关 | Client runtime 配置。 |
 
 | 返回 | 错误 |
 |---|---|
 | `Result<NnrpClient, RuntimeError>` | DNS、connect、transport 或配置错误。 |
 
 ```rust
-let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let config = NnrpClientConfig::default();
 let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 ```
 
+这个方法是单数 TCP provider surface，只用于 provider 测试、诊断和受控的单 carrier 部署，不实现 route selection。
+
 ## Provider Connect
 
-非 TCP transport 或 provider 选择场景使用 provider crate。
+这些单 provider 调用只用于 provider 测试、诊断和受控单 carrier 部署。生产 provider 选择从
+`NnrpClient::connect` 开始。
 
 | Provider | Package | 常用方法 | 说明 |
 |---|---|---|---|
@@ -52,7 +101,7 @@ let client = NnrpClient::connect_tcp("127.0.0.1:4433", config).await?;
 | `WebSocketProvider` | `nnrp-transport-websocket` | `connect(endpoint, config)` | 原生 WebSocket binary transport。 |
 
 ```rust
-let config = NnrpClientConfig::default().with_transport(RuntimeTransportKind::Ipc);
+let config = NnrpClientConfig::default();
 let client = IpcProvider::connect("unix:///tmp/nnrp.sock".parse()?, config).await?;
 ```
 
@@ -61,7 +110,7 @@ let client = IpcProvider::connect("unix:///tmp/nnrp.sock".parse()?, config).awai
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
 | `transport` | `T: FramedTransport + 'static` | 是 | 任意 framed transport | 自定义或 provider 创建的 transport。 |
-| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | 是 | 必须匹配 transport kind | Runtime 配置。 |
+| `config` | [`NnrpClientConfig`](#nnrpclientconfig) | 是 | 与 transport 无关 | Runtime 配置。 |
 
 | 返回 | 错误 |
 |---|---|
@@ -189,7 +238,6 @@ match session.await_event().await? {
 
 | 字段 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `transport` | `RuntimeTransportKind` | `Tcp` | Runtime transport slot。 |
 | `requested_session_id` | `u32` | `0` | 请求的 session id。 |
 | `profile_id` | `u16` | 标准 token profile | 请求 profile。 |
 | `schema_id` / `schema_version` | `u32` | 标准 registry 值 | Schema identity。 |

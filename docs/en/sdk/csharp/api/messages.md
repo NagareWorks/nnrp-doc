@@ -1,308 +1,199 @@
-# C# — Message Types
+# C# - Message Types
 
-Message types for control-plane and data-plane operations. All message classes are in `Nnrp.Core`.
-
-## Import
+`Nnrp.Core` exposes the transport-neutral NNRP wire model. Application code normally uses the
+role APIs in [`Nnrp.Client`](./client) and [`Nnrp.Server`](./server); these message types are for
+transport providers, diagnostics, conformance targets, and protocol tooling.
 
 ```csharp
 using Nnrp.Core;
 ```
 
----
+## Common Message Shape
 
-## Handshake Messages
+Every concrete message is a `readonly struct` composed from an [`NnrpHeader`](./protocol#nnrpheader),
+zero or one fixed-width metadata value, and any body regions defined by that message. For example,
+`TransportProbeAckMessage` exposes this exact shape:
+
+```csharp
+public NnrpHeader Header { get; }
+public TransportProbeAckMetadata Metadata { get; }
+
+public NnrpFramedMessage ToFramedMessage();
+public byte[] ToArray();
+
+public static bool TryParse(
+    ReadOnlyMemory<byte> source,
+    out TransportProbeAckMessage message,
+    out NnrpParseError error);
+```
+
+Messages such as `PingMessage`, `PongMessage`, and `ResultDropMessage` are header-only; `CloseMessage`
+has a body and no metadata. Metadata types expose `ToArray()` and
+`TryParse(ReadOnlySpan<byte>, ...)`. Strict overloads reject reserved values and non-zero reserved
+fields. Message parsing validates the header type, fixed metadata length, body-region lengths, and
+trailing data before returning a value.
+
+## Connection Handshake
 
 ### `ClientHelloMessage`
 
-| Property | Type | Description |
+| Property | Type | Meaning |
 |---|---|---|
-| `SessionId` | `uint` | Client-assigned session ID |
-| `MaxViews` | `int` | Max concurrent views |
-| `EnableCache` | `bool` | Enable server-side cache |
-| `PayloadKindMask` | `PayloadKind` | Supported payload type mask |
-| `AuthBlock` | `ReadOnlyMemory<byte>` | Auth block (application-defined) |
-| `Extensions` | `IReadOnlyList<ControlExtensionEntry>` | Extension entries |
+| `Header` | `NnrpHeader` | `ClientHello` frame header |
+| `Metadata` | `ClientHelloMetadata` | Version, profile, payload, codec, cache, lane, and budget capabilities |
+| `AuthBlock` | `ReadOnlyMemory<byte>` | Application authentication bytes |
+| `Extensions` | `ReadOnlyMemory<ControlExtensionBlock>` | Aligned control-extension blocks |
+
+Typed accessors decode the client transport policy, loss tolerance, and payload capabilities:
 
 ```csharp
-public static ClientHelloMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build();
+bool TryGetClientTransportPolicyExtension(
+    out ClientTransportPolicyExtension extension,
+    out NnrpParseError error);
+bool TryGetClientLossToleranceExtension(
+    out ClientLossToleranceExtension extension,
+    out NnrpParseError error);
+bool TryGetClientPayloadCapabilitiesExtension(
+    out ClientPayloadCapabilitiesExtension extension,
+    out NnrpParseError error);
 ```
 
 ### `ServerHelloAckMessage`
 
-| Property | Type | Description |
+| Property | Type | Meaning |
 |---|---|---|
-| `SessionId` | `uint` | Server-confirmed session ID |
-| `TransportId` | `TransportId` | Selected transport |
-| `EnableCache` | `bool` | Cache enabled |
-| `MaxCacheEntries` | `int` | Max cache entries |
-| `MaxCacheBytes` | `long` | Max cache bytes |
-| `PayloadKindMask` | `PayloadKind` | Server supported payload types |
-| `Extensions` | `IReadOnlyList<ControlExtensionEntry>` | Extension entries |
+| `Header` | `NnrpHeader` | `ServerHelloAck` frame header |
+| `Metadata` | `ServerHelloAckMetadata` | Selected capabilities, limits, retry policy, and server flags |
+| `Extensions` | `ReadOnlyMemory<ControlExtensionBlock>` | Accepted control-extension blocks |
+
+Typed accessors decode the accepted transport policy, loss tolerance, and payload capabilities:
 
 ```csharp
-public static ServerHelloAckMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build();
+bool TryGetServerTransportPolicyAckExtension(
+    out ServerTransportPolicyAckExtension extension,
+    out NnrpParseError error);
+bool TryGetServerLossToleranceAckExtension(
+    out ServerLossToleranceAckExtension extension,
+    out NnrpParseError error);
+bool TryGetServerPayloadCapabilitiesAckExtension(
+    out ServerPayloadCapabilitiesAckExtension extension,
+    out NnrpParseError error);
 ```
 
----
+`PingMessage`, `PongMessage`, `CloseMessage`, and `ErrorMessage` complete the connection-control
+surface. `ErrorMessage` carries `ErrorMetadata` plus optional diagnostic bytes.
 
-## Session Management Messages
+## Session Lifecycle
 
-### `SessionPatchMessage`
+| Message | Metadata/body |
+|---|---|
+| `SessionOpenMessage` | `SessionOpenMetadata` plus auth, resume-token, and extension bytes |
+| `SessionOpenAckMessage` | `SessionOpenAckMetadata` plus resume-token and extension bytes |
+| `SessionPatchMessage` | `SessionPatchMetadata` plus optional `TensorProfilePatchBlock` |
+| `SessionPatchAckMessage` | `SessionPatchAckMetadata` plus optional `TensorProfilePatchAckBlock` |
+| `SessionCloseMessage` | `SessionCloseMetadata` |
+| `SessionCloseAckMessage` | `SessionCloseAckMetadata` |
+| `SessionMigrateMessage` | `SessionMigrateMetadata` |
+| `SessionMigrateAckMessage` | `SessionMigrateAckMetadata` |
 
-| Property | Type | Description |
-|---|---|---|
-| `PatchFields` | `SessionPatchField` | Fields to update |
-| `TargetCadence` | `int` | Target frame rate |
-| `QualityTier` | `int` | Quality tier |
-| `ActiveLaneMask` | `uint` | Active view mask |
-| `PreferredCodec` | `int` | Preferred codec ID |
-| `PreferredCompression` | `int` | Preferred compression level |
+Role APIs own lifecycle ordering. Low-level callers must enforce the same state transitions through
+[`NnrpSessionStateMachine`](./protocol#nnrpsessionstatemachine).
 
-```csharp
-public static SessionPatchMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId);
-```
-
-### `SessionPatchAckMessage`
-
-| Property | Type | Description |
-|---|---|---|
-| `PatchFields` | `SessionPatchField` | Successfully applied fields |
-| `Status` | `SessionPatchAckStatus` | Application result |
-| `RejectReason` | `SessionPatchRejectReason` | Reject reason (valid when Status is Rejected) |
-
-```csharp
-public static SessionPatchAckMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId);
-```
-
-### `CloseMessage`
-
-```csharp
-public static CloseMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId, HeaderFlags flags = HeaderFlags.None);
-```
-
-### `ErrorMessage`
-
-| Property | Type | Description |
-|---|---|---|
-| `ErrorCode` | `ErrorCode` | Error code |
-| `ErrorScope` | `ErrorScope` | Error scope |
-| `FrameId` | `uint` | Related frame ID |
-
-```csharp
-public static ErrorMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId);
-public static NnrpFramedMessage BuildFrom(NnrpProtocolFailure failure);
-```
-
----
-
-## Data-plane Messages
+## Submission And Results
 
 ### `FrameSubmitMessage`
 
-| Property | Type | Description |
-|---|---|---|
-| `OperationId` | `ulong` | Non-zero wire operation identity from metadata offset 40 |
-| `InputProfile` | `InputProfile` | Input data format |
-| `SubmitMode` | `SubmitMode` | Submission mode |
-| `BudgetPolicy` | `BudgetPolicy` | Allowed degradation |
-| `PayloadKindBitmap` | `PayloadKind` | Payload type bitmask |
-| `TileCount` | `int` | Total tile count |
-| `SectionCount` | `int` | Tensor section count |
-| `InferenceBudgetMs` | `int` | Max inference budget (ms) |
-| `DeadlineMs` | `long` | Absolute deadline |
-| `BodyBytes` | `ReadOnlyMemory<byte>` | Raw body bytes |
+`FrameSubmitMessage` contains:
 
-```csharp
-public static FrameSubmitMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId, uint frameId);
-```
+- `FrameSubmitMetadata`
+- one `TensorSubmitBlock`
+- an optional camera block
+- tile IDs
+- tensor section blocks
 
-### `FrameCancelMessage`
-
-```csharp
-public static FrameCancelMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId, uint frameId);
-```
+`FrameSubmitMetadata` carries dimensions, frame/input profile, latency budget, cadence, submit and
+budget policy, object-reference mask, dependency frame, payload-kind bitmap, and payload-frame
+count. The wire `operation_id` is managed by the Preview4 runtime-control tail and role APIs; it is
+not aliased to `FrameId`.
 
 ### `ResultPushMessage`
 
-| Property | Type | Description |
-|---|---|---|
-| `ResultClass` | `ResultClass` | Result completeness class |
-| `ResultFlags` | `ResultFlags` | Result flags |
-| `AppliedBudgetPolicy` | `BudgetPolicy` | Applied degradation policy |
-| `ActiveProfileId` | `int` | Inference profile ID used |
-| `InferenceMs` | `int` | Inference time (ms) |
-| `QueueMs` | `int` | Queue wait time (ms) |
-| `ServerTotalMs` | `int` | Total server time (ms) |
-| `StatusCode` | `int` | Status code |
-| `TileIndexMode` | `TileIndexMode` | Tile index encoding |
-| `CoveredTileCount` | `int` | Covered tile count |
-| `DroppedTileCount` | `int` | Dropped tile count |
-| `ReusedFrameId` | `uint` | Reused frame ID |
-| `PayloadKindBitmap` | `PayloadKind` | Actual payload types present |
-| `BodyBytes` | `ReadOnlyMemory<byte>` | Raw result body |
+`ResultPushMessage` contains:
 
-```csharp
-public static ResultPushMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId, uint frameId);
-```
+- `ResultPushMetadata`
+- one `TensorResultBlock`
+- tile IDs and tensor sections
+- typed payload descriptors
+- typed payload frame bytes and validated frame views
+- typed profile-coverage records
 
-### `ResultDropMessage`
+Parsing validates typed-payload ranges and profile coverage before exposing views. Use the role API
+snapshot types when data must outlive the decoded frame.
 
-```csharp
-public static ResultDropMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId, uint frameId);
-```
+### Other data messages
 
----
+| Message | Meaning |
+|---|---|
+| `FrameCancelMessage` | Cancels the frame identified by its header |
+| `ResultDropMessage` | Terminates a result without a payload |
+| `ResultHintMessage` | Carries applied budget policy, congestion state, reason, and retry delay |
+| `SubmitOutcome` | Discriminated result containing either `ResultPushMessage` or `ResultDropMessage` |
 
 ## Cache Messages
 
-### `CachePutMessage`
+Preview4 uses the full cache identity: namespace, high and low key words, and object kind.
 
-| Property | Type | Description |
-|---|---|---|
-| `Key` | `NnrpCacheKey` | Cache object key |
-| `Flags` | `CachePutFlags` | Put flags (Pinned, Reusable) |
-| `ObjectBytes` | `ReadOnlyMemory<byte>` | Cache object data |
+| Message | Public payload |
+|---|---|
+| `CachePutMessage` | `CachePutMetadata` plus `ObjectBytes` |
+| `CacheAckMessage` | `CacheAckMetadata` |
+| `CacheInvalidateMessage` | `CacheInvalidateMetadata` |
 
-```csharp
-public static CachePutMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId);
-```
+Role-facing cache operations use [`NnrpCacheObjectId`](./runtime#local-cache-lease-state). They do
+not expose a second narrow key type.
 
-### `CacheAckMessage`
+## Flow And Transport Probe Messages
 
-| Property | Type | Description |
-|---|---|---|
-| `Key` | `NnrpCacheKey` | Cache object key |
-| `Status` | `CacheAckStatus` | Store result |
+`FlowUpdateMessage` wraps `FlowUpdateMetadata`, including scope, reason, backpressure level,
+connection/session/operation credits, the 64-bit operation ID, retry delay, credit epoch, and flags.
 
-```csharp
-public static CacheAckMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId);
-```
+`TransportProbeMessage` carries `TransportProbeMetadata` plus the probe payload.
+`TransportProbeAckMessage` carries `TransportProbeAckMetadata`. Provider selection consumes the
+probe result through the typed provider API; applications do not parse probe packets themselves.
 
-### `CacheInvalidateMessage`
+## `ControlExtensionBlock`
 
-| Property | Type | Description |
-|---|---|---|
-| `Scope` | `CacheInvalidateScope` | Invalidation scope |
-| `Key` | `NnrpCacheKey` | Target key (valid for `Single` scope) |
-| `Kind` | `CacheObjectKind` | Target kind (valid for `ByKind` scope) |
+`ControlExtensionBlock` is the public aligned TLV value used by handshake messages.
 
 ```csharp
-public static CacheInvalidateMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId);
-```
-
----
-
-## Flow Control Messages
-
-### `FlowUpdateMessage`
-
-| Property | Type | Description |
-|---|---|---|
-| `ScopeKind` | `FlowUpdateScopeKind` | Update scope |
-| `UpdateReason` | `FlowUpdateReason` | Update reason |
-| `BackpressureLevel` | `FlowUpdateBackpressureLevel` | Backpressure level |
-| `ConnectionCredit` | `int` | Connection-level credit delta |
-| `SessionCredit` | `int` | Session-level credit delta |
-| `OperationCredit` | `int` | Operation-level credit delta |
-| `OperationId` | `uint` | Target operation ID |
-| `RetryAfterMs` | `int` | Suggested retry delay (ms) |
-| `CreditEpoch` | `uint` | Credit epoch |
-| `Flags` | `FlowUpdateFlags` | Flow update flags |
-
-```csharp
-public static FlowUpdateMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId);
-```
-
-### `ResultHintMessage`
-
-| Property | Type | Description |
-|---|---|---|
-| `BudgetPolicy` | `ResultHintBudgetPolicy` | Suggested budget policy |
-| `CongestionState` | `ResultHintCongestionState` | Current congestion state |
-| `Reason` | `ResultHintReason` | Hint reason |
-| `FrameId` | `uint` | Related frame ID |
-| `QueueDepth` | `int` | Current queue depth |
-| `EstimatedWaitMs` | `int` | Estimated wait (ms) |
-
-```csharp
-public static ResultHintMessage Parse(NnrpFramedMessage msg);
-public NnrpFramedMessage Build(uint sessionId);
-```
-
----
-
-## Control Extension Type
-
-### `ControlExtensionEntry`
-
-```csharp
-public readonly struct ControlExtensionEntry
+public readonly struct ControlExtensionBlock
 {
-    public ushort TypeId { get; }
-    public ControlExtensionFlags Flags { get; }
-    public ReadOnlyMemory<byte> Payload { get; }
+    public ushort ExtensionType { get; }
+    public ReadOnlyMemory<byte> Value { get; }
+    public uint Length { get; }
+    public int TotalLength { get; }
+    public int PaddingLength { get; }
+    public bool IsCritical { get; }
+    public ushort TypeCode { get; }
+    public ControlExtensionType TypedType { get; }
+
+    public void WriteTo(Span<byte> destination);
+    public byte[] ToArray();
+    public static bool TryParse(
+        ReadOnlySpan<byte> source,
+        out ControlExtensionBlock block,
+        out int bytesConsumed,
+        out NnrpParseError error);
 }
 ```
 
-Built-in extension types: `ClientHelloTransportPolicyExtension`, `ServerHelloAckTransportPolicyExtension`, `ClientHelloLossToleranceExtension`, `ServerHelloAckLossToleranceExtension`, `ClientHelloPayloadCapabilitiesExtension`, `ServerHelloAckPayloadCapabilitiesExtension`.
+Unknown critical extensions fail negotiation. Unknown non-critical extensions may be ignored while
+their aligned wire length is still consumed.
 
----
-
-## Typical Use Cases
-
-### Building a FRAME_SUBMIT packet (low-level)
-
-```csharp
-var metadata = new FrameSubmitMetadata
-{
-    FrameId           = 42,
-    InputProfile      = InputProfile.ChangedTilesLuma,
-    SubmitMode        = SubmitMode.Inline,
-    BudgetPolicy      = BudgetPolicy.AllowPartial,
-    InferenceBudgetMs = 8,
-    TileIds           = new ushort[] { 3, 7, 12 },
-};
-var packet = NnrpMessageBuilder.BuildFrameSubmit(
-    sessionId: 42, metadata: metadata, sections: new[] { tensorSection });
-await transport.SendAsync(packet.Pack());
-```
-
-### Parsing control extensions
-
-```csharp
-var entries = ControlExtensionParser.Unpack(packet.Metadata);
-foreach (var entry in entries)
-{
-    if (entry.TypeId == NnrpExtensionTypeIds.ClientHelloTransportPolicy)
-    {
-        var ext = ClientHelloTransportPolicyExtension.Unpack(entry.Payload.Span);
-        Console.WriteLine("Requested policy: " + ext.Policy);
-    }
-}
-```
-
----
-
-## Common Pitfalls
+## Lifetime Rules
 
 ::: warning
-1. **`Metadata` vs `Body`**: `NnrpPacket.Metadata` contains small structured fields; `NnrpPacket.Body` contains large binary payloads. Do not call Tensor unpack on `Metadata`.
-
-2. **`TileIds` and `TilePayloads` must be index-aligned.** Mismatched order causes tile reconstruction errors.
-
-3. **`ReadOnlyMemory<byte>` slices from a pooled packet share lifetime with the packet.** If the packet is returned to the pool before you finish reading the slice, you will read garbage data.
+`ReadOnlyMemory<byte>` and typed frame views may reference the input packet or a native-owned
+buffer. Do not retain them beyond the documented owner lifetime. Role APIs return copied snapshots
+where lifetime must be independent.
 :::

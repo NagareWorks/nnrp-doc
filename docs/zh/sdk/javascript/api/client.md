@@ -33,6 +33,14 @@ import { createQuicTransportProvider } from "@nnrp/transport-quic";
 
 const client = await openNativeClient({
   endpoint: "nnrps://runtime.example/session/default",
+  providerRoutes: {
+    quic: {
+      security: { mode: "client", serverName: "runtime.example", trustedCertificateDer },
+    },
+    tcp: {
+      security: { mode: "client", serverName: "runtime.example", trustedCertificateDer },
+    },
+  },
   transportPolicy: "auto",
   transports: [
     createQuicTransportProvider(),
@@ -78,7 +86,9 @@ const runtime = await openBrowserRuntime({
 ```ts
 const client = runtime.connect({
   endpoint: "nnrps://runtime.example/session/default",
-  providerEndpoint: "wss://runtime.example/nnrp",
+  providerRoutes: {
+    websocket: { endpoint: "wss://runtime.example/nnrp" },
+  },
   transportPolicy: "auto",
 });
 ```
@@ -261,8 +271,7 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 | 字段               | 类型                                                    | 必填 | 说明                                                                     |
 | ------------------ | ------------------------------------------------------- | ---: | ------------------------------------------------------------------------ |
 | `endpoint`         | `string \| URL`                                         |   是 | 远端 NNRP endpoint。                                                     |
-| `providerEndpoint` | `string \| URL`                                         |   否 | 诊断、一致性测试或受控部署使用的显式载体本地 endpoint。                  |
-| `security`         | `NnrpTransportClientSecurity`                           |   否 | QUIC 或 `wss://` peer 证书验证配置。                                     |
+| `providerRoutes`   | `NnrpClientProviderRoutes`                              |   否 | 按 carrier 隔离的 locator 与对端验证配置。                               |
 | `transportPolicy`  | [`NnrpTransportPolicy`](./core#数据类型)                |   否 | `auto`、`prefer-*` 或 `force-*` 选择策略。                               |
 | `transports`       | `readonly NnrpNativeTransportProvider[]`                |   否 | 已安装 native transport provider。见 [Transport Provider](./transport)。 |
 | `sessionDefaults`  | [`NnrpSessionOptions`](#nnrpsessionoptions)             |   否 | session 未设置字段时使用的默认值。                                       |
@@ -283,7 +292,7 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 | 字段                 | 类型                                                      | 必填 | 说明                                         |
 | -------------------- | --------------------------------------------------------- | ---: | -------------------------------------------- |
 | `endpoint`           | `string`                                                  |   是 | 远端 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
-| `providerEndpoint`   | `string \| URL`                                           |   否 | 显式 `ws://` 或 `wss://` 载体本地 endpoint。 |
+| `providerRoutes`     | `NnrpClientProviderRoutes`                              |   否 | WebSocket route；浏览器信任仍由宿主持有。    |
 | `transportPolicy`    | [`NnrpTransportPolicy`](./core#数据类型)                  |   否 | Selection policy。                           |
 | `transportProviders` | `readonly NnrpBrowserTransportProvider[]`                 |   否 | 本连接允许的 browser provider。              |
 | `sessionDefaults`    | [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |   否 | session 未设置字段时使用的默认值。           |

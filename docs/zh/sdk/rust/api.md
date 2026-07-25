@@ -7,9 +7,9 @@
 | 项目 | 值 |
 |---|---|
 | NNRP 协议线 | NNRP/1 Preview4 |
-| Rust package version | `1.0.0-preview.4.4` |
+| Rust package version | `1.0.0-preview.4.17` |
 | 最低 Rust 版本 | `1.82` |
-| GitHub release asset tag | `v1.0.0-preview.4.4` |
+| GitHub release asset tag | `v1.0.0-preview.4.17` |
 
 ## API 区域
 
@@ -26,18 +26,18 @@
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.4.4"
-nnrp-runtime = "1.0.0-preview.4.4"
-nnrp-transport-provider = "1.0.0-preview.4.4"
-nnrp-transport-tcp = "1.0.0-preview.4.4"
-nnrp-transport-quic = "1.0.0-preview.4.4"
-nnrp-transport-ipc = "1.0.0-preview.4.4"
-nnrp-transport-websocket = "1.0.0-preview.4.4"
+nnrp-core = "1.0.0-preview.4.17"
+nnrp-runtime = "1.0.0-preview.4.17"
+nnrp-transport-provider = "1.0.0-preview.4.17"
+nnrp-transport-tcp = "1.0.0-preview.4.17"
+nnrp-transport-quic = "1.0.0-preview.4.17"
+nnrp-transport-ipc = "1.0.0-preview.4.17"
+nnrp-transport-websocket = "1.0.0-preview.4.17"
 
 # 可选下游表面
-nnrp-ffi = "1.0.0-preview.4.4"
-nnrp-wasm = "1.0.0-preview.4.4"
-nnrp-conformance = "1.0.0-preview.4.4"
+nnrp-ffi = "1.0.0-preview.4.17"
+nnrp-wasm = "1.0.0-preview.4.17"
+nnrp-conformance = "1.0.0-preview.4.17"
 ```
 
 ## Transport Provider 边界
@@ -51,9 +51,20 @@ NNRP wire protocol 下方的帧承载边界，不是在声明 OSI 网络分层�
 | `nnrp-transport-quic` | Quinn/Rustls QUIC connect/bind 与 QUIC probe identity | Native FFI transport artifact 以 QUIC 为粒度发布 |
 | `nnrp-transport-ipc` | 本地 IPC endpoint：Unix domain socket 与 Windows named pipe | Native FFI transport artifact 以 IPC 为粒度发布 |
 | `nnrp-transport-websocket` | 原生 Rust WebSocket binary-frame carrier | Native FFI transport artifact 以 WebSocket 为粒度发布 |
-| `nnrp-wasm` | 浏览器 WASM primitives 与 browser binary-frame helpers | 浏览器 artifact 是 `nnrp-wasm-browser-1.0.0-preview.4.4.zip` |
+| `nnrp-wasm` | 浏览器 WASM primitives 与 browser binary-frame helpers | 浏览器 artifact 是 `nnrp-wasm-browser-1.0.0-preview.4.17.zip` |
 
 client/server runtime 这种角色包不隐藏 carrier 实现。需要哪个 transport，就安装拥有该行为的 transport 包；多个 carrier 同时可用时，再交给 provider policy 选择。
+
+### 宿主角色边界
+
+Rust 与其他 SDK 使用相同的宿主基数。`NnrpClient::connect` 接收一个应用 endpoint、
+`ClientProviderRoutes` 和显式编译进来的 provider set；它可以评估多条 route，但最终只接管一条 carrier。
+`NnrpServer::listen` 接收 `ServerProviderRoutes`，并原子持有全部 eligible listener 组成的集合；每个已接受
+session 仍只接管一条 carrier。低层 provider `connect`/`listen`、`from_transport`、`from_listener` 与 native
+FFI handle 保持单数，但不得替代生产宿主 API。
+
+精确 route/security 类型见[客户端 API](./api/client)与[服务端 API](./api/server)；共享规则冻结在
+[传输策略与探测](/zh/protocol/v1/transport-strategy)。
 
 ## Runtime Control 与 Object/Cache Frame
 
@@ -66,9 +77,9 @@ capability negotiation、route hint、cache reference 和 trace context。Wire �
 
 | Artifact family | 示例 |
 |---|---|
-| Native transport FFI | `nnrp-ffi-transport-tcp-native-linux-x86_64-1.0.0-preview.4.4.zip` |
-| Native QUIC FFI | `nnrp-ffi-transport-quic-native-windows-x86_64-1.0.0-preview.4.4.zip` |
-| Browser WASM | `nnrp-wasm-browser-1.0.0-preview.4.4.zip` |
+| Native transport FFI | `nnrp-ffi-transport-tcp-native-linux-x86_64-1.0.0-preview.4.17.zip` |
+| Native QUIC FFI | `nnrp-ffi-transport-quic-native-windows-x86_64-1.0.0-preview.4.17.zip` |
+| Browser WASM | `nnrp-wasm-browser-1.0.0-preview.4.17.zip` |
 | Checksums | `SHA256SUMS` |
 
 下游 SDK 加载 native library 或 WASM 文件前，应先校验 artifact manifest。
@@ -88,7 +99,7 @@ Rust SDK 是冻结选路契约的一等实现，不只是其他语言的产物�
 | `ProbeSample` | `transport_id`、`provider_id`、`elapsed_us`、可选 `rtt_us`、`bytes_sent`、`bytes_received`、`timed_out`、`failed` |
 | `ProbeState` | `NotRun`、`Succeeded`、`Failed`、`Missing` |
 | `TransportCandidateDiagnostic` | `transport_id`、`provider`、`local_available`、`peer_supported`、`within_limits`、`probe_state`、可选 `probe`、可选 `selection_rank`、可选 `rejection_reason`、可选 `diagnostic` |
-| `TransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`ProbeMissing`、`ProbeFailed` |
+| `TransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`RouteUnresolved`、`SecurityUnsatisfied`、`ProbeMissing`、`ProbeFailed` |
 | `TransportSelection` | 选中的 descriptor 与有序 `candidates`；rank `0` 为最终选择 |
 | `TransportSelectionError` | `ForcedTransportUnavailable { transport_id, candidates }` 或 `NoViableTransport { candidates }` |
 

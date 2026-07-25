@@ -40,9 +40,12 @@ listener allowed by its transport policy and installed providers.
 ```ts
 const server = runtime.listen({
   endpoint: "nnrp://0.0.0.0:4433",
-  providerEndpoints: {
-    ipc: "unix:///run/nnrp.sock",
-    websocket: "wss://0.0.0.0:8443/nnrp",
+  providerRoutes: {
+    ipc: { endpoint: "unix:///run/nnrp.sock" },
+    websocket: {
+      endpoint: "wss://0.0.0.0:8443/nnrp",
+      security: { mode: "server", certificateDer, privateKeyPkcs8Der },
+    },
   },
 });
 ```
@@ -54,7 +57,7 @@ probe data. The connecting peer chooses the carrier it uses.
 
 Opening the listener set is atomic. If any configured eligible listener cannot open, the runtime
 closes listeners already opened for this call and rejects the first `accept()`. A carrier that
-cannot derive a bind locator from `endpoint` requires an entry in `providerEndpoints`; it is never
+cannot derive a bind locator from `endpoint` requires an entry in `providerRoutes`; it is never
 omitted silently.
 
 ## `NnrpBackendRuntime.selectTransport`
@@ -79,6 +82,13 @@ Selects a transport against a peer manifest.
 | `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>`  | Reads the next ordered submit, control, object, or cache event. |
 | `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#data-types)                         | `Promise<void>`              | Sends the one terminal result for the current operation.        |
 | `NnrpServerSession.close()`            | None                                                              | `Promise<void>`              | Closes the accepted role session exactly once.                  |
+
+`NnrpServerSession.activeTransport` is the `NnrpTransportKind` of the listener that accepted the carrier. It matches
+the negotiated active transport and is not derived from listener preference order.
+
+`NnrpServer.boundProviderEndpoints` is a readonly partial record keyed by `NnrpTransportKind`, containing the actual
+endpoint of every opened listener. A terminal provider-listener failure fails the logical server and closes the
+remaining listener set; a rejected peer handshake affects only that accepted carrier.
 
 ## Preview4 Server Session Methods
 
@@ -142,8 +152,7 @@ object-delta frames.
 | Field               | Type                                                          | Required | Description                                               |
 | ------------------- | ------------------------------------------------------------- | -------: | --------------------------------------------------------- |
 | `endpoint`          | `string \| URL`                                               |      Yes | Local NNRP endpoint shared by the logical listener set.   |
-| `providerEndpoints` | `Readonly<Partial<Record<NnrpTransportKind, string \| URL>>>` |       No | Carrier-local bind locators keyed by transport kind.      |
-| `security`          | `NnrpTransportServerSecurity`                                 |       No | QUIC or `wss://` certificate and private key.             |
+| `providerRoutes`    | `NnrpServerProviderRoutes`                                     |       No | Per-carrier bind locator and server security.              |
 | `transportPolicy`   | [`NnrpTransportPolicy`](./core#data-types)                    |       No | Listener-set eligibility and stable preference policy.    |
 | `transports`        | `readonly NnrpNativeTransportProvider[]`                      |       No | Transport providers allowed in this logical listener set. |
 

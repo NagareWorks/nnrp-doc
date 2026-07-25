@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-nnrp-core = "1.0.0-preview.4.4"
+nnrp-core = "1.0.0-preview.4.17"
 ```
 
 ## 边界

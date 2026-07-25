@@ -83,7 +83,7 @@ print(selection.selected_transport_name, selection.diagnostic)
 | `NativeTransportProvider` | `name`、`artifact_path`、`manifest_path`、`transport_slots`、`enabled_features`、`package`、`transport_scope`、`platform_tag`、`metadata` |
 | `NativeTransportProbeState` | `NOT_RUN`、`SUCCEEDED`、`FAILED`、`MISSING` |
 | `NativeTransportProbeMetrics` | `sample_count`、`success_count`、`median_throughput_bytes_per_sec`、`median_rtt_us` |
-| `NativeTransportRejectionReason` | `POLICY_DISALLOWED`、`LOCAL_UNAVAILABLE`、`PEER_UNSUPPORTED`、`LIMIT_EXCEEDED`、`PROBE_MISSING`、`PROBE_FAILED` |
+| `NativeTransportRejectionReason` | `POLICY_DISALLOWED`、`LOCAL_UNAVAILABLE`、`PEER_UNSUPPORTED`、`LIMIT_EXCEEDED`、`ROUTE_UNRESOLVED`、`SECURITY_UNSATISFIED`、`PROBE_MISSING`、`PROBE_FAILED` |
 | `NativeTransportCandidateDiagnostic` | `transport_name`、`provider`、`local_available`、`peer_supported`、`within_limits`、`probe_state`、`probe`、`selection_rank`、`rejection_reason`、`diagnostic` |
 | `NativeTransportSelection` | `selected_provider`、有序 `candidates`、`policy`、`diagnostic` |
 
@@ -97,7 +97,7 @@ Python 通过上述类型化模型公开 cost 与 limitations，必须校验官�
 | Endpoint 层级 | 接受形式 | 用途 |
 |---|---|---|
 | 应用 endpoint | `nnrp://`、`nnrps://` | 常规 client/server 配置与 Provider 选择。 |
-| Provider-local locator | TCP/QUIC authority、`unix://`、`npipe://`、`ws://`、`wss://` | IPC、WebSocket、一致性测试、诊断或受控部署使用的显式 `provider_endpoint` 覆盖。 |
+| Provider-local locator | TCP/QUIC authority、`unix://`、`npipe://`、`ws://`、`wss://` | 单条 client/server provider route 内的 locator。 |
 
 生产 host API 不会在 `NativeTransportConnection` 与 native runtime 之间暴露 Python packet pump。
 `connect_native_client_connection(...)` 选择并打开一个 provider carrier，然后把该 carrier 移交给同一个
@@ -188,7 +188,32 @@ provider 的 endpoint locator。
 | `NativeTransportClientSecurity` | `server_name: str`、`trusted_certificate_der: bytes` |
 | `NativeTransportServerSecurity` | `certificate_der: bytes`、`private_key_pkcs8_der: bytes` |
 
-安全 QUIC 或 WebSocket endpoint 必须传对应的类型化安全配置；TCP、IPC 和普通 WebSocket 使用 `None`。
+为 TCP 提供匹配的 security 会启用 TLS；QUIC 与 native `wss://` 必须提供对应 security。明文 TCP、IPC 与
+`ws://` 使用 `None`，且这些明文 route 不满足 `nnrps://` 应用 endpoint。security 始终按 route 与角色隔离。
+
+### Provider Route 类型
+
+```python
+@dataclass(frozen=True)
+class NativeClientProviderRoute:
+    provider_endpoint: str | NativeTransportEndpoint | None = None
+    security: NativeTransportClientSecurity | None = None
+
+@dataclass(frozen=True)
+class NativeServerProviderRoute:
+    provider_endpoint: str | NativeTransportEndpoint | None = None
+    security: NativeTransportServerSecurity | None = None
+```
+
+高层 role API 的 `provider_routes` 使用
+`Mapping[str, NativeClientProviderRoute]` 或 `Mapping[str, NativeServerProviderRoute]`，键只能是
+规范 `tcp`、`quic`、`ipc` 或 `websocket`。它们不接受 role-wide 单数 `provider_endpoint` 或
+`security`。Client Auto/Prefer 必须在 candidate 诊断中保留无法解析的 route；server Auto/Prefer 原子
+打开全部允许的已安装 provider route。
+
+应用安全意图必须在 probe 或 bind 前过滤。Native TCP TLS、QUIC TLS 与 WSS 可以满足 `nnrps://`；已解析的
+明文 TCP、IPC 与 WS route 以 `security-unsatisfied` 留在诊断中。缺少 client locator 时以优先级更高的
+`route-unresolved` 留在诊断中；否则 eligible 的 server provider 缺少 locator 时必须让原子 listen 失败。
 
 ### Connection 与 Listener
 
@@ -234,7 +259,7 @@ class NativeTransportListener:
 | `ipc` | 是 | 无 Python packet adapter |
 | `websocket` | 是 | 无 Python packet adapter；WebSocket binary frame helper 在 [运行时控制与对象](./runtime) |
 
-生产代码需要打开 runtime session 时，优先使用 `connect_native_client_connection("nnrps://...", require_native=True, transport=...)`。只有协议测试、诊断工具或自定义 transport 才直接使用下面的 packet adapter。
+生产代码需要打开 runtime session 时，优先使用 `connect_native_client_connection("nnrps://...", provider_routes=...)`。只有协议测试、诊断工具或自定义 transport 才直接使用下面的 packet adapter。
 
 ---
 

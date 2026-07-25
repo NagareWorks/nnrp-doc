@@ -6,7 +6,7 @@
 
 ```toml
 [dependencies]
-nnrp-ffi = "1.0.0-preview.4.4"
+nnrp-ffi = "1.0.0-preview.4.17"
 ```
 
 ## Native Artifact 形态
@@ -15,10 +15,10 @@ Preview4 发布 transport-scoped native artifacts。角色是 client 还是 serv
 
 | Transport | Artifact family |
 |---|---|
-| TCP | `nnrp-ffi-transport-tcp-native-<platform>-1.0.0-preview.4.4.zip` |
-| QUIC | `nnrp-ffi-transport-quic-native-<platform>-1.0.0-preview.4.4.zip` |
-| IPC | `nnrp-ffi-transport-ipc-native-<platform>-1.0.0-preview.4.4.zip` |
-| WebSocket | `nnrp-ffi-transport-websocket-native-<platform>-1.0.0-preview.4.4.zip` |
+| TCP | `nnrp-ffi-transport-tcp-native-<platform>-1.0.0-preview.4.17.zip` |
+| QUIC | `nnrp-ffi-transport-quic-native-<platform>-1.0.0-preview.4.17.zip` |
+| IPC | `nnrp-ffi-transport-ipc-native-<platform>-1.0.0-preview.4.17.zip` |
+| WebSocket | `nnrp-ffi-transport-websocket-native-<platform>-1.0.0-preview.4.17.zip` |
 
 每个包包含 native library、`nnrp_ffi.h` 和 manifest。Manifest 声明 platform、architecture、transport、library name 和 exported symbols。下游 SDK 加载前必须校验 manifest。
 

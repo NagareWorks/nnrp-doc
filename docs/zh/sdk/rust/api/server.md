@@ -4,29 +4,78 @@
 
 ## 工作流
 
-1. 构造 [`NnrpServerConfig`](#nnrpserverconfig)。
-2. 使用 [`NnrpServer::bind_tcp`](#nnrpserver-bind-tcp) 或 transport provider 绑定。
-3. 使用 [`NnrpServer::accept`](#nnrpserver-accept) 接收 session。
-4. 使用 [`receive_submit`](#nnrpserversession-receive-submit) 接收任务。
-5. 使用 [`send_result`](#nnrpserversession-send-result)、`send_partial_result` 或 `send_progress` 发送输出。
-6. 使用 [`receive_runtime_control`](#runtime-control-methods) 接收运行时控制帧。
-7. 显式关闭 session。
+1. 构造 [`NnrpServerOptions`](#nnrpserveroptions)，提供一个应用 endpoint 和一个 provider route set。
+2. 注册本次部署编译进来的 transport provider。
+3. 使用 [`NnrpServer::listen`](#nnrpserver-listen) 监听；Auto/Prefer 原子打开全部 eligible route。
+4. 使用 [`NnrpServer::accept`](#nnrpserver-accept) 接收 session。
+5. 使用 [`receive_submit`](#nnrpserversession-receive-submit) 接收任务。
+6. 使用 [`send_result`](#nnrpserversession-send-result)、`send_partial_result` 或 `send_progress` 发送输出。
+7. 使用 [`receive_runtime_control`](#runtime-control-methods) 接收运行时控制帧。
+8. 显式关闭 session。
 
-## `NnrpServer::bind_tcp`
+## `NnrpServer::listen`
+
+```rust
+let options = NnrpServerOptions {
+    endpoint: "nnrp://localhost/runtime/default".parse()?,
+    provider_routes: ServerProviderRoutes::from([
+        (
+            TransportId::Ipc,
+            ServerProviderRoute::at("unix:///run/nnrp/runtime.sock".parse()?),
+        ),
+    ]),
+    transport_policy: TransportPolicy::PreferIpc,
+    session: NnrpServerConfig::default(),
+};
+
+let server = NnrpServer::listen(
+    options,
+    [Arc::new(IpcProvider::default()), Arc::new(TcpProvider::default())],
+).await?;
+```
+
+返回的 `NnrpServer` 是一个原子 listener set 上的逻辑 server。Auto/Prefer 打开全部 eligible 已安装 route，
+Force 只打开指定 route；任一必需 bind 失败都关闭本次调用已打开的全部 listener。`accept` 在整个集合上等待，
+每个已接受 session 最终只接管一条 carrier connection。
+
+## `NnrpServerOptions`
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `endpoint` | `NnrpEndpoint` | 是 | 用户侧 `nnrp://` 或 `nnrps://` endpoint。 |
+| `provider_routes` | `ServerProviderRoutes` | 否 | 按 carrier 隔离的 bind locator 与 server-security 配置。 |
+| `transport_policy` | `TransportPolicy` | 否 | listener set eligibility policy。 |
+| `session` | `NnrpServerConfig` | 否 | 与 transport 无关的 accepted-session 默认值。 |
+
+`ServerProviderRoutes` 是 `BTreeMap<TransportId, ServerProviderRoute>`。`ServerProviderRoute` 精确包含
+`provider_endpoint: Option<ProviderEndpoint>` 与 `security: Option<ServerTransportSecurity>`。单数 provider
+endpoint 或 role-wide security 不属于 `NnrpServerOptions`。
+
+`ServerTransportSecurity` 精确包含 `certificate_der: Vec<u8>` 与
+`private_key_pkcs8_der: Vec<u8>`；两个 owned byte vector 都必须非空。提供该值会为 TCP 启用 TLS，QUIC
+与 native WSS route 必须提供。
+
+为未安装 provider 的 transport 提供 route 时，该 candidate 保留为 `local-unavailable`。已安装、原本
+eligible 的 provider 缺少必需 locator 属于 listen 配置错误，并触发原子回滚。
+
+## 低层 `NnrpServer::bind_tcp`
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
 | `addr` | `impl tokio::net::ToSocketAddrs` | 是 | Socket address | 本地 TCP bind address。 |
-| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | 是 | `transport = Tcp` | Server runtime 配置。 |
+| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | 是 | 与 transport 无关 | Server runtime 配置。 |
 
 | 返回 | 错误 |
 |---|---|
 | `Result<NnrpServer, RuntimeError>` | Bind、listener、transport 或配置错误。 |
 
 ```rust
-let config = NnrpServerConfig::default().with_transport(RuntimeTransportKind::Tcp);
+let config = NnrpServerConfig::default();
 let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 ```
+
+这个方法为 provider 测试、诊断和受控单 carrier 部署创建单 listener 逻辑集合。生产多 provider 宿主使用
+`listen`。
 
 ## Provider Bind
 
@@ -42,7 +91,7 @@ let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
 | `listener` | `L: FramedListener + 'static` | 是 | 任意 framed listener | 自定义或 provider 创建的 listener。 |
-| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | 是 | 必须匹配 listener kind | Runtime 配置。 |
+| `config` | [`NnrpServerConfig`](#nnrpserverconfig) | 是 | 与 transport 无关 | Runtime 配置。 |
 
 | 返回 | 错误 |
 |---|---|
@@ -57,6 +106,13 @@ let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 | 返回 | 错误 |
 |---|---|
 | `Result<NnrpServerSession, RuntimeError>` | Accept、session-open 拒绝或 transport 错误。 |
+
+每个已接受 session 都公开 `active_transport_id() -> TransportId`。这个值标识实际接受 carrier 的 listener，
+并且必须与协商得到的 `active_transport_id` 一致，不能从 listener preference 顺序推断。
+
+`bound_provider_endpoints() -> &BTreeMap<TransportId, ProviderEndpoint>` 返回逻辑集合中每个 listener 的实际
+endpoint，包括操作系统分配的端口。Provider listener 的致命失败会让逻辑 server 失败并关闭其余 listener；
+peer handshake 拒绝不会。
 
 ## `NnrpServerSession::receive_submit`
 
@@ -134,7 +190,6 @@ session
 
 | 字段 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
-| `transport` | `RuntimeTransportKind` | `Tcp` | Runtime transport slot。 |
 | `supported_profiles` | `Vec<u16>` | 标准 token profile | 接受的 profiles。 |
 | `supported_cache_objects` | `Vec<CacheObjectKind>` | 空 | 接受的 cache object kinds。 |
 | `schema_registry` | `SchemaRegistry` | 标准 registry | 接受的 schemas。 |

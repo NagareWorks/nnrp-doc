@@ -15,7 +15,7 @@ TCP、QUIC、IPC、WebSocket 是不同环境下的 carrier binding；它们共�
 
 NNRP 不通过“每种 carrier 一个新的用户侧 scheme”的方式表达选路，而是把 transport 策略做成显式协议语义：
 
-1. endpoint 只保留一个安全入口 `nnrps://`，不把 QUIC、TCP、IPC、WebSocket 等 binding 写进用户侧 URI scheme。
+1. 应用 endpoint 始终使用与 carrier 无关的 `nnrp://` / `nnrps://` scheme 族，不把 QUIC、TCP、IPC、WebSocket 等 binding 写进用户侧 URI scheme。
 2. 主握手前可以执行 `TRANSPORT_PROBE / TRANSPORT_PROBE_ACK`，用接近真实提交载荷大小的样本测 RTT、抖动和吞吐。
 3. `CLIENT_HELLO` 可携带 `transport_policy` 与 `preferred_transport_id`，表达自动选择、偏好某条路径或强制某条路径。
 4. `SERVER_HELLO_ACK` 返回被接受的策略和最终生效的 `active_transport_id`，让选路结果变成协议可见事实。
@@ -23,6 +23,126 @@ NNRP 不通过“每种 carrier 一个新的用户侧 scheme”的方式表达�
 
 `unix://`、`npipe://`、`ws://`、`wss://` 这类 URI 是 provider-local locator，适合出现在诊断、conformance fixture
 或显式 provider override 中。普通应用侧 NNRP endpoint 应继续保持 `nnrp://` 或 `nnrps://`，除非 SDK 明确暴露了低层 provider API。
+
+## 冻结的宿主 Route 契约
+
+应用 endpoint 无法独自配置每一种 carrier。宿主角色必须持有一个 **provider route set**，而不是让所有
+provider 共用一个 provider-local locator 和一份 security。route set 以 `transport_id` 为键；每个键最多
+出现一次，并解析到该 transport 在本地注册的 provider。
+
+| 规范字段 | 类型 | 规则 |
+|---|---|---|
+| `transport_id` | `tcp | quic | ipc | websocket` | Route 标识与查找键，必须匹配已注册 provider descriptor。 |
+| `locator` | 可选 provider-local locator | TCP 与 QUIC 可以从应用 endpoint 派生 host 和 port；IPC 与 WebSocket 必须显式提供 locator。 |
+| `security` | 可选角色专用 security 对象 | Client route 使用对端校验材料，server route 使用证书和私钥；不同 route 之间绝不隐式共用 security。 |
+
+policy 允许的每个已安装 provider 都必须进入诊断。缺少 route 不等于关闭这个已安装包。客户端在无法
+派生 locator 时可以用 `route-unresolved` 拒绝该 candidate，再继续评估其他 Auto/Prefer candidate；强制
+选择的 route 无法解析时必须失败且不回退。服务端使用 Auto/Prefer 时必须解析并绑定全部允许的已安装
+provider；route 无法解析属于配置错误，因为静默少开一个 listener 会让声明的逻辑服务端不完整。
+
+Route 规范化规则是精确契约。未知 transport key 属于无效配置。为已知但未安装的 transport 提供 route 时，
+必须生成 `local-unavailable` candidate，不能凭空安装或合成 provider。已安装 TCP/QUIC 在 route 或 route
+locator 缺失时可以派生 locator；已安装 IPC/WebSocket 无法派生 locator。Registry 必须拒绝同一 transport ID
+注册多个 provider，因此一个宿主角色对每个规范 transport 最多只有一个 candidate。
+
+客户端 Auto/Prefer 必须 probe 每个 route 已解析且满足安全要求的 candidate，最终只把选中的 carrier
+交给 runtime connection。服务端 Auto/Prefer 必须把全部允许的 provider route 原子地打开成一个逻辑
+listener set；Force 只保留指定 transport。任一必需 bind 或 runtime adoption 失败时，服务端必须关闭本次
+操作已经打开的全部 listener 并报告失败。Preference 只影响确定性元数据与并列裁决，不能阻止已经打开的
+低优先级 listener 接受连接。
+
+宿主 route 层与 runtime carrier 层必须保持分离。选路和多 listener 所有权属于 SDK 宿主 API；
+`NnrpClient`、`NnrpServer` 与 native FFI 继续让每个 runtime handle 只接管一个已选连接或一个 provider
+listener。实现 route set 时不得引入逐帧跨多个 native library 调用。
+
+### 角色基数不变量
+
+单数 native handle 是实现边界，不是公开角色的基数。每个 SDK 都必须保持下面的区别：
+
+| Surface | Client 基数 | Server 基数 |
+|---|---|---|
+| 宿主角色 API | 一个应用 endpoint 加一个 route set；Auto/Prefer 可以评估多条 route。 | 一个应用 endpoint 加一个 route set；Auto/Prefer 原子持有全部 eligible listener 组成的集合。 |
+| 已选 runtime session | 只接管一条 carrier connection。 | 每个已接受 session 只接管一条 carrier connection。 |
+| Native FFI handle | 每个 client handle 只持有一条 carrier connection。 | 每个低层 listener handle 只持有一个 provider listener；每个已接受 session handle 只持有一条 carrier connection。 |
+
+逻辑 server 必须公开每个已打开 listener 的实际 provider endpoint。`accept` 在完整 listener set 上等待；多个
+listener 在同一调度轮次 ready 时，使用 policy 的稳定 provider 顺序打破并列。Peer handshake 或 session
+拒绝只影响该 accepted carrier；provider listener 的致命失败必须让逻辑 server 进入失败状态、取消 pending
+accept 并关闭其余 listener，运行中的 server 不得静默缩成更少 carrier。逻辑 server 的 close 必须幂等，并
+关闭其持有的全部 listener 与 accepted session。
+
+Python、JavaScript、C# 与 Rust 的生产 client/server 宿主选项都不得暴露单数 route override。低层 provider
+`connect` 或 `listen` 调用仍然接受一个 locator，因为它只操作一个 provider；这个低层单数形式不得向上泄漏并
+把宿主 route set 压成单路。
+
+### 应用安全意图
+
+`nnrps://` 声明最低的认证加密要求。`nnrp://` 不强制加密，但也不禁止某条 route 使用加密。candidate
+必须在 probe 前完成下列校验：
+
+规范 client security 对象精确包含非空 `server_name` 字符串和非空、由对象持有的
+`trusted_certificate_der` bytes。规范 server security 对象精确包含非空、由对象持有的 `certificate_der`
+与 `private_key_pkcs8_der` bytes。SDK 可以使用语言惯用大小写，但不得增加 role-wide credential，也不得
+静默改用 native 宿主的环境 trust store；浏览器 WebSocket 是下表明确列出的唯一例外。
+
+| Carrier route | 满足 `nnrps://` 的条件 |
+|---|---|
+| QUIC | 已提供并通过校验的 QUIC TLS client/server 凭据。 |
+| TCP | TCP provider 使用 TLS，且 route 带有匹配的 client/server 凭据；明文 TCP 不满足。 |
+| IPC | Preview4 不满足；本地文件系统权限或 pipe 访问本身不等于已冻结的认证加密契约。 |
+| Native WebSocket | provider locator 使用 `wss://`，且带有匹配的 client/server 凭据；`ws://` 不满足。 |
+| Browser WebSocket | provider locator 使用 `wss://`，并由浏览器完成正常的平台 TLS 校验；route 不接受 native DER 凭据字段。 |
+
+不满足安全意图的 candidate 必须以 `security-unsatisfied` 保留在诊断中。给明文 TCP、IPC 或 `ws://`
+提供 security、给 server route 提供 client 凭据、或给 client route 提供 server 凭据均为无效配置。
+浏览器 WebSocket 的信任由宿主持有，但 `nnrps://` 对应的浏览器 route 仍必须使用 `wss://`。
+
+安全过滤属于 eligibility 判定。server 使用 Auto/Prefer 时，只绑定经过 policy、可用性、locator、平台、limit
+与安全检查后仍 eligible 的全部 route。安全不兼容的已安装 provider 仍保留在 diagnostics 中，但不会打开。
+对于本来 eligible 的 server provider，缺少 locator 仍是硬配置错误，并触发原子回滚。
+
+### 跨 SDK Route 类型映射
+
+| 规范模型 | Rust | Python | JavaScript / TypeScript | C# |
+|---|---|---|---|---|
+| Client provider route | `ClientProviderRoute` | `NativeClientProviderRoute` | `NnrpClientProviderRoute` | `NnrpClientProviderRoute` |
+| Server provider route | `ServerProviderRoute` | `NativeServerProviderRoute` | `NnrpServerProviderRoute` | `NnrpServerProviderRoute` |
+| Client route set | `ClientProviderRoutes` | `Mapping[str, NativeClientProviderRoute]` | `NnrpClientProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpClientProviderRoute>` |
+| Server route set | `ServerProviderRoutes` | `Mapping[str, NativeServerProviderRoute]` | `NnrpServerProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpServerProviderRoute>` |
+
+| 规范字段 | Rust | Python | JavaScript / TypeScript | C# |
+|---|---|---|---|---|
+| Route locator | `provider_endpoint` | `provider_endpoint` | `endpoint` | `ProviderEndpoint` |
+| Client security | `security: Option<ClientTransportSecurity>` | `security: NativeTransportClientSecurity \| None` | `security?: NnrpTransportClientSecurity` | `Security: NnrpTransportClientSecurity?` |
+| Server security | `security: Option<ServerTransportSecurity>` | `security: NativeTransportServerSecurity \| None` | `security?: NnrpTransportServerSecurity` | `Security: NnrpTransportServerSecurity?` |
+| 已接受 session carrier | `active_transport_id()` | `active_transport_name` | `activeTransport` | `ActiveTransportId` |
+| 实际绑定的 provider endpoint | `bound_provider_endpoints()` | `bound_provider_endpoints` | `boundProviderEndpoints` | `BoundProviderEndpoints` |
+
+Python mapping 的键使用规范 transport 名称；JavaScript route set 是按 `NnrpTransportKind` 索引的只读
+partial record；Rust 与 C# 使用 `TransportId`。允许使用各语言惯用大小写，但单数的
+`provider_endpoint` / `providerEndpoint` / `ProviderEndpoint` 和角色级共享 `security` 不属于 Preview4
+宿主 API。
+
+### 必须执行的宿主级一致性测试
+
+只证明每个 provider 单独可以 connect/listen，并不等于 transport conformance 完整。每个生产 SDK 都必须执行
+下列宿主级 E2E 场景：
+
+1. client 至少配置两条可解析 route，按冻结 comparator 探测和选择，并且 runtime session 最终只接管选中的
+   carrier。
+2. forced client route 绝不 fallback；无法解析或不满足安全要求的 route 使用冻结 rejection reason 留在
+   diagnostics 中。
+3. server 至少有两条 eligible route 时同时绑定两者，报告两条实际 provider endpoint，分别通过每个 listener
+   接受真实 session，并为每个已接受 session 报告 active transport。
+4. 任意 server bind 失败时，回滚同一次逻辑 listen 已打开的全部 listener。
+5. route-local security 不得在 TCP、QUIC、IPC 与 WebSocket route 之间泄漏。
+6. `nnrps://` 必须拒绝明文 TCP、IPC 与 `ws://`；native TLS route 与浏览器 `wss://` 分别遵守各自的凭据所有权规则。
+7. 运行中任一 provider listener 发生致命失败时，必须让完整逻辑 listener set 失败并关闭，不能静默降低
+   server 基数。
+
+这些场景的 reference 一侧必须是测试套件持有的 wire 行为，不能只让同一 SDK 自己的 client/server adapter 互连后
+就判定通过。
 
 ## 最小探测时序图
 
@@ -143,8 +263,13 @@ artifact 限制以上。
 `lower + floor((upper - lower) / 2)`。实现不得先聚合 bytes 与 elapsed time 再计算吞吐 median。
 
 rejection 注册表精确固定为：`policy-disallowed`、`local-unavailable`、`peer-unsupported`、
-`limit-exceeded`、`probe-missing`、`probe-failed`。SDK 公共 API 不得暴露各语言私有的不透明 `score`；
+`limit-exceeded`、`route-unresolved`、`security-unsatisfied`、`probe-missing`、`probe-failed`。SDK 公共 API 不得暴露各语言私有的不透明 `score`；
 相同观测必须在所有实现中产生相同排序和诊断。
+
+每个 candidate 最多携带一个 rejection reason。多个条件同时失败时，严格采用上面 registry 顺序中第一个
+适用项。Locator 解析因此先于 security 校验：缺少必需 locator 的 IPC/WebSocket candidate 是
+`route-unresolved`；route 已解析后，`nnrps://` 下的 IPC 或明文 WS 才是 `security-unsatisfied`。
+`probe-missing` 与 `probe-failed` 只在全部 pre-probe 检查通过后参与判定。
 
 ### 跨 SDK 类型映射
 
@@ -167,7 +292,7 @@ SDK API 表时，才算已经冻结。
 
 选择必须遵守以下顺序：
 
-1. 先拒绝不满足 policy、本地可用性、peer 支持或 provider limit 的候选。
+1. 先拒绝不满足 policy、本地可用性、peer 支持、provider limit、route 解析或应用安全意图的候选。
 2. 只有一个可用候选时直接选择，并报告 `probe_state = not-run`。
 3. 存在两个或更多可用候选时全部 probe；仅当 `force-*` 已经把候选收敛为一个时跳过。
 4. 成功候选依次按 `success_count` 降序、吞吐中位数降序、RTT 中位数升序排列。
