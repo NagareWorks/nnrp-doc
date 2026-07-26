@@ -145,14 +145,16 @@ comparison path. Rejected candidates remain visible in `NnrpTransportSelection`.
 
 ## First-Party Packages
 
-| Package | Provider and runtime | Owned artifacts |
+| Package | Concrete provider | Owned artifacts |
 |---|---|---|
-| `Nnrp.Transport.Tcp` | `NnrpNativeTcpTransportProvider`, `NnrpNativeTcpRuntime` | TCP only |
-| `Nnrp.Transport.Quic` | `NnrpNativeQuicTransportProvider`, `NnrpNativeQuicRuntime` | QUIC only |
-| `Nnrp.Transport.Ipc` | `NnrpNativeIpcTransportProvider`, `NnrpNativeIpcRuntime` | IPC only |
-| `Nnrp.Transport.WebSocket` | `NnrpNativeWebSocketTransportProvider`, `NnrpNativeWebSocketRuntime` | WebSocket only |
+| `Nnrp.Transport.Tcp` | `NnrpNativeTcpTransportProvider` | TCP only |
+| `Nnrp.Transport.Quic` | `NnrpNativeQuicTransportProvider` | QUIC only |
+| `Nnrp.Transport.Ipc` | `NnrpNativeIpcTransportProvider` | IPC only |
+| `Nnrp.Transport.WebSocket` | `NnrpNativeWebSocketTransportProvider` | WebSocket only |
 
-Each package owns connect, listen, probe, manifest validation, and artifact loading for its provider.
+Each package owns its concrete provider descriptor and transport-scoped Rust artifact. The concrete provider exposes
+connect, listen, and probe, while `Nnrp.NativeBridge` owns the shared coarse FFI invocation and native-handle lifetime
+mechanics. Client and server packages do not carry transport artifacts.
 
 ## Diagnostic Framed Transports
 

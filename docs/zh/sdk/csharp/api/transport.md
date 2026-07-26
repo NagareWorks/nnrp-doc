@@ -140,14 +140,16 @@ provider 列表替换默认 registry。
 
 ## 一方包
 
-| 包 | Provider 和 runtime | 持有的产物 |
+| 包 | 具体 Provider | 持有的产物 |
 |---|---|---|
-| `Nnrp.Transport.Tcp` | `NnrpNativeTcpTransportProvider`、`NnrpNativeTcpRuntime` | 仅 TCP |
-| `Nnrp.Transport.Quic` | `NnrpNativeQuicTransportProvider`、`NnrpNativeQuicRuntime` | 仅 QUIC |
-| `Nnrp.Transport.Ipc` | `NnrpNativeIpcTransportProvider`、`NnrpNativeIpcRuntime` | 仅 IPC |
-| `Nnrp.Transport.WebSocket` | `NnrpNativeWebSocketTransportProvider`、`NnrpNativeWebSocketRuntime` | 仅 WebSocket |
+| `Nnrp.Transport.Tcp` | `NnrpNativeTcpTransportProvider` | 仅 TCP |
+| `Nnrp.Transport.Quic` | `NnrpNativeQuicTransportProvider` | 仅 QUIC |
+| `Nnrp.Transport.Ipc` | `NnrpNativeIpcTransportProvider` | 仅 IPC |
+| `Nnrp.Transport.WebSocket` | `NnrpNativeWebSocketTransportProvider` | 仅 WebSocket |
 
-每个包拥有自己 provider 的 connect、listen、probe、manifest 校验和 artifact 加载。
+每个包持有自己的具体 provider descriptor 与 transport-scoped Rust artifact。具体 provider 暴露 connect、
+listen 与 probe；`Nnrp.NativeBridge` 统一持有粗粒度 FFI 调用与 native handle 生命周期机制。client 与 server
+包不携带 transport artifact。
 
 ## 诊断 Framed Transport
 
