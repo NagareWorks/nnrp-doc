@@ -169,24 +169,24 @@ typedef struct {
 
 | Type | Frozen fields and behavior |
 |---|---|
-| `NnrpTransportOpenRequest` | `transport_id`, zero `flags`, UTF-8 `endpoint`, `config`, `max_packet_bytes`, and `timeout_ms`. A zero packet limit selects 64 MiB; a zero timeout selects 30 seconds. `config` is invalid for TCP/IPC, optional for `ws://`, and required for QUIC plus `wss://` listeners. |
+| `NnrpTransportOpenRequest` | `transport_id`, zero `flags`, UTF-8 `endpoint`, `config`, `max_packet_bytes`, and `timeout_ms`. A zero packet limit selects 64 MiB; a zero timeout selects 30 seconds. TCP accepts an invalid handle for plain transport or the matching role-specific handle for TLS. IPC and `ws://` require an invalid handle; QUIC and `wss://` require the matching role-specific handle. |
 | `NnrpTransportAcceptRequest` | Listener handle and `timeout_ms`; zero selects 30 seconds. |
 | `NnrpTransportWriteBatchRequest` | Connection handle, pointer to `NnrpBufferView` entries, and `frame_count`. Every entry is one complete NNRP packet including its common header. |
 | `NnrpTransportReadBatchRequest` | Connection handle, `max_frames`, `max_bytes`, and `timeout_ms`. Zero values select 16 frames, 64 MiB, and 30 seconds. |
 | `NnrpTransportFrameBatch` | Owned buffer handle/view and frame count. The buffer contains repeated little-endian `u32 packet_len` followed by one complete NNRP packet. |
 | `NnrpTransportProbeRequest` | Open request plus `sample_count` and `probe_payload_bytes`; zero selects 3 samples and 32 KiB. `sample_count` must not exceed 32 and the payload must not exceed the effective packet limit. |
 | `NnrpTransportProbeResult` | Sample count, success count, median throughput bytes per second, and median RTT microseconds. |
-| `NnrpTransportClientSecurityConfigRequest` | `transport_id`, UTF-8 `server_name`, and one trusted DER certificate. Valid only for QUIC and secure WebSocket clients. |
-| `NnrpTransportServerSecurityConfigRequest` | `transport_id`, one DER certificate and one PKCS#8 DER private key. Valid only for QUIC and secure WebSocket listeners. |
+| `NnrpTransportClientSecurityConfigRequest` | `transport_id`, UTF-8 `server_name`, and one trusted DER certificate. Valid for TCP TLS, QUIC, and secure WebSocket clients. |
+| `NnrpTransportServerSecurityConfigRequest` | `transport_id`, one DER certificate and one PKCS#8 DER private key. Valid for TCP TLS, QUIC, and secure WebSocket listeners. |
 
 The endpoint scheme must match the artifact transport: TCP uses `tcp://`, QUIC uses `quic://`, IPC
 uses `unix://` or `npipe://`, and WebSocket uses `ws://` or `wss://`. Platform-incompatible IPC
 schemes fail before a handle is created. Transport-specific security configuration is supplied by a
 typed configuration handle created by `nnrp_transport_client_security_config_create` or
 `nnrp_transport_server_security_config_create`. The handle is immutable and closed through
-`nnrp_transport_close`. TCP, IPC, and `ws://` require an invalid configuration handle; QUIC and
-`wss://` require the matching client/server configuration. An artifact must not silently disable
-certificate verification.
+`nnrp_transport_close`. TCP uses an invalid handle for plain transport and a matching client/server
+handle for TLS. IPC and `ws://` require an invalid handle; QUIC and `wss://` require the matching
+client/server handle. An artifact must not silently disable certificate verification.
 
 `NnrpTransportFrameBatch.payload_owner` is released exactly once with `nnrp_buffer_release`; its
 view remains valid until that release. A successful read with no packets is not returned: timeout,

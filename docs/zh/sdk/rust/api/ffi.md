@@ -160,23 +160,24 @@ typedef struct {
 
 | 类型 | 冻结字段与行为 |
 |---|---|
-| `NnrpTransportOpenRequest` | `transport_id`、必须为零的 `flags`、UTF-8 `endpoint`、`config`、`max_packet_bytes` 和 `timeout_ms`。Packet limit 为零时使用 64 MiB；timeout 为零时使用 30 秒。TCP/IPC 的 `config` 必须为 invalid handle；`ws://` 可选；QUIC 与 `wss://` listener 必填。 |
+| `NnrpTransportOpenRequest` | `transport_id`、必须为零的 `flags`、UTF-8 `endpoint`、`config`、`max_packet_bytes` 和 `timeout_ms`。Packet limit 为零时使用 64 MiB；timeout 为零时使用 30 秒。TCP 使用 invalid handle 时为明文，使用匹配角色的 security handle 时启用 TLS。IPC 与 `ws://` 必须使用 invalid handle；QUIC 与 `wss://` 必须使用匹配角色的 handle。 |
 | `NnrpTransportAcceptRequest` | Listener handle 与 `timeout_ms`；零值使用 30 秒。 |
 | `NnrpTransportWriteBatchRequest` | Connection handle、指向 `NnrpBufferView` 数组的指针以及 `frame_count`。每个 entry 都是包含 common header 的完整 NNRP packet。 |
 | `NnrpTransportReadBatchRequest` | Connection handle、`max_frames`、`max_bytes` 和 `timeout_ms`。零值分别使用 16 帧、64 MiB 和 30 秒。 |
 | `NnrpTransportFrameBatch` | Owned buffer handle/view 与 frame count。Buffer 重复存放 little-endian `u32 packet_len` 和一条完整 NNRP packet。 |
 | `NnrpTransportProbeRequest` | Open request 加 `sample_count` 与 `probe_payload_bytes`；零值分别使用 3 次与 32 KiB。`sample_count` 不得超过 32，payload 不得超过有效 packet limit。 |
 | `NnrpTransportProbeResult` | Sample count、success count、median throughput bytes per second 与 median RTT microseconds。 |
-| `NnrpTransportClientSecurityConfigRequest` | `transport_id`、UTF-8 `server_name` 与一张受信任 DER 证书。只用于 QUIC 和 secure WebSocket client。 |
-| `NnrpTransportServerSecurityConfigRequest` | `transport_id`、一张 DER 证书和一个 PKCS#8 DER private key。只用于 QUIC 和 secure WebSocket listener。 |
+| `NnrpTransportClientSecurityConfigRequest` | `transport_id`、UTF-8 `server_name` 与一张受信任 DER 证书。用于 TCP TLS、QUIC 和 secure WebSocket client。 |
+| `NnrpTransportServerSecurityConfigRequest` | `transport_id`、一张 DER 证书和一个 PKCS#8 DER private key。用于 TCP TLS、QUIC 和 secure WebSocket listener。 |
 
 Endpoint scheme 必须与 artifact transport 一致：TCP 使用 `tcp://`，QUIC 使用 `quic://`，IPC 使用
 `unix://` 或 `npipe://`，WebSocket 使用 `ws://` 或 `wss://`。平台不兼容的 IPC scheme 必须在创建
 handle 前失败。Transport-specific security configuration 由
 `nnrp_transport_client_security_config_create` 或 `nnrp_transport_server_security_config_create` 创建的
 typed configuration handle 提供。Handle 不可变，并通过 `nnrp_transport_close` 关闭。TCP、IPC 与
-`ws://` 必须使用 invalid configuration handle；QUIC 与 `wss://` 必须使用对应的 client/server
-configuration。Artifact 不得暗中关闭证书校验。
+`ws://` 的处理不同：TCP 使用 invalid handle 时为明文，使用匹配的 client/server handle 时启用 TLS；
+IPC 与 `ws://` 必须使用 invalid handle；QUIC 与 `wss://` 必须使用匹配的 client/server handle。
+Artifact 不得暗中关闭证书校验。
 
 `NnrpTransportFrameBatch.payload_owner` 必须且只能调用一次 `nnrp_buffer_release`；view 在释放前有效。
 成功读取不会返回空 packet 集合：timeout、peer orderly close 与 transport failure 使用不同 status。
