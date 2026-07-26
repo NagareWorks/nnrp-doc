@@ -96,18 +96,28 @@ buffer。
 
 ## Provider Metadata
 
-| C# 类型 | 冻结属性 |
+| C# 类型 | 冻结属性或值 |
 |---|---|
+| `NnrpTransportProviderKind` | `PureRust`、`NativeDynamic`、`Wasm` |
 | `NnrpTransportProviderCost` | `ModelId: ushort`、`Units: ulong` |
 | `NnrpTransportProviderLimits` | `MaxFrameBytes: ulong` |
 | `NnrpTransportProviderLimitation` | `RequiresUdp`、`RequiresTcp`、`LocalHostOnly`、`NativeHostOnly`、`BrowserHostOnly`、`UnixDomainSocket`、`WindowsNamedPipe` |
-| `NnrpTransportProviderMetadata` | `Id`、`Cost`、`PreferenceRank`、`Limits`、`Limitations` |
-| `NnrpTransportProviderDescriptor` | `Name`、`Version`、`TransportId`、`Kind`、`Available`、`LibraryPath`、`Metadata`、`Diagnostic` |
+| `NnrpTransportProviderMetadata` | `Id: string`、`Cost: NnrpTransportProviderCost`、`PreferenceRank: ushort`、`Limits: NnrpTransportProviderLimits`、`Limitations: IReadOnlyList<NnrpTransportProviderLimitation>` |
+| `NnrpTransportProviderDescriptor` | `Name: string`、`Version: string`、`TransportId: TransportId`、`Kind: NnrpTransportProviderKind`、`Available: bool`、`LibraryPath: string?`、`Metadata: NnrpTransportProviderMetadata`、`Diagnostic: string?` |
 | `NnrpTransportProbeState` | `NotRun`、`Succeeded`、`Failed`、`Missing` |
-| `NnrpTransportProbeMetrics` | `SampleCount`、`SuccessCount`、`MedianThroughputBytesPerSecond`、`MedianRttMicroseconds` |
+| `NnrpTransportProbeMetrics` | `SampleCount: uint`、`SuccessCount: uint`、`MedianThroughputBytesPerSecond: ulong`、`MedianRttMicroseconds: ulong` |
 | `NnrpTransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`RouteUnresolved`、`SecurityUnsatisfied`、`ProbeMissing`、`ProbeFailed` |
-| `NnrpTransportCandidate` | `TransportId`、`Provider`、`LocalAvailable`、`PeerSupported`、`WithinLimits`、`ProbeState`、`Probe`、`SelectionRank`、`RejectionReason`、`Diagnostic` |
-| `NnrpTransportSelection` | `SelectedProvider`、有序 `Candidates`、`Policy`、`Diagnostic` |
+| `NnrpTransportCandidate` | `TransportId: TransportId`、`Provider: NnrpTransportProviderMetadata`、`LocalAvailable: bool`、`PeerSupported: bool`、`WithinLimits: bool`、`ProbeState: NnrpTransportProbeState`、`Probe: NnrpTransportProbeMetrics?`、`SelectionRank: uint?`、`RejectionReason: NnrpTransportRejectionReason?`、`Diagnostic: string?` |
+| `NnrpTransportSelection` | `SelectedProvider: NnrpTransportProviderDescriptor`、有序 `Candidates: IReadOnlyList<NnrpTransportCandidate>`、`Policy: TransportPolicy`、`Diagnostic: string?` |
+
+`NnrpTransportSelectionOptions` 冻结 registry selection 的输入：
+
+| 属性 | 类型 | 必填 | 说明 |
+|---|---|---:|---|
+| `PeerSupportedTransports` | `IReadOnlyCollection<TransportId>` | 是 | Peer 声明的 carrier 交集。 |
+| `Policy` | `TransportPolicy` | 否 | 默认值为 `Auto`。 |
+| `RequestedMaxFrameBytes` | `ulong?` | 否 | 对照 `Provider.Limits.MaxFrameBytes` 校验的 workload limit。 |
+| `ProbeMetricsByProviderId` | `IReadOnlyDictionary<string, NnrpTransportProbeMetrics>?` | 否 | 按精确 provider metadata id 索引的结构化观测。 |
 
 Metadata 必须与 Rust artifact manifest 一致。C# 使用
 [Transport Strategy and Probing](/zh/protocol/v1/transport-strategy) 冻结的 comparator，不创造

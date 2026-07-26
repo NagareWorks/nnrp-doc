@@ -100,18 +100,28 @@ buffer to applications.
 
 ## Provider Metadata
 
-| C# type | Frozen properties |
+| C# type | Frozen properties or values |
 |---|---|
+| `NnrpTransportProviderKind` | `PureRust`, `NativeDynamic`, `Wasm` |
 | `NnrpTransportProviderCost` | `ModelId: ushort`, `Units: ulong` |
 | `NnrpTransportProviderLimits` | `MaxFrameBytes: ulong` |
 | `NnrpTransportProviderLimitation` | `RequiresUdp`, `RequiresTcp`, `LocalHostOnly`, `NativeHostOnly`, `BrowserHostOnly`, `UnixDomainSocket`, `WindowsNamedPipe` |
-| `NnrpTransportProviderMetadata` | `Id`, `Cost`, `PreferenceRank`, `Limits`, `Limitations` |
-| `NnrpTransportProviderDescriptor` | `Name`, `Version`, `TransportId`, `Kind`, `Available`, `LibraryPath`, `Metadata`, `Diagnostic` |
+| `NnrpTransportProviderMetadata` | `Id: string`, `Cost: NnrpTransportProviderCost`, `PreferenceRank: ushort`, `Limits: NnrpTransportProviderLimits`, `Limitations: IReadOnlyList<NnrpTransportProviderLimitation>` |
+| `NnrpTransportProviderDescriptor` | `Name: string`, `Version: string`, `TransportId: TransportId`, `Kind: NnrpTransportProviderKind`, `Available: bool`, `LibraryPath: string?`, `Metadata: NnrpTransportProviderMetadata`, `Diagnostic: string?` |
 | `NnrpTransportProbeState` | `NotRun`, `Succeeded`, `Failed`, `Missing` |
-| `NnrpTransportProbeMetrics` | `SampleCount`, `SuccessCount`, `MedianThroughputBytesPerSecond`, `MedianRttMicroseconds` |
+| `NnrpTransportProbeMetrics` | `SampleCount: uint`, `SuccessCount: uint`, `MedianThroughputBytesPerSecond: ulong`, `MedianRttMicroseconds: ulong` |
 | `NnrpTransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `RouteUnresolved`, `SecurityUnsatisfied`, `ProbeMissing`, `ProbeFailed` |
-| `NnrpTransportCandidate` | `TransportId`, `Provider`, `LocalAvailable`, `PeerSupported`, `WithinLimits`, `ProbeState`, `Probe`, `SelectionRank`, `RejectionReason`, `Diagnostic` |
-| `NnrpTransportSelection` | `SelectedProvider`, ordered `Candidates`, `Policy`, `Diagnostic` |
+| `NnrpTransportCandidate` | `TransportId: TransportId`, `Provider: NnrpTransportProviderMetadata`, `LocalAvailable: bool`, `PeerSupported: bool`, `WithinLimits: bool`, `ProbeState: NnrpTransportProbeState`, `Probe: NnrpTransportProbeMetrics?`, `SelectionRank: uint?`, `RejectionReason: NnrpTransportRejectionReason?`, `Diagnostic: string?` |
+| `NnrpTransportSelection` | `SelectedProvider: NnrpTransportProviderDescriptor`, ordered `Candidates: IReadOnlyList<NnrpTransportCandidate>`, `Policy: TransportPolicy`, `Diagnostic: string?` |
+
+`NnrpTransportSelectionOptions` freezes the inputs to registry selection:
+
+| Property | Type | Required | Description |
+|---|---|---:|---|
+| `PeerSupportedTransports` | `IReadOnlyCollection<TransportId>` | Yes | Carrier intersection advertised by the peer. |
+| `Policy` | `TransportPolicy` | No | Defaults to `Auto`. |
+| `RequestedMaxFrameBytes` | `ulong?` | No | Workload limit checked against `Provider.Limits.MaxFrameBytes`. |
+| `ProbeMetricsByProviderId` | `IReadOnlyDictionary<string, NnrpTransportProbeMetrics>?` | No | Structured observations keyed by the exact provider metadata id. |
 
 Metadata is validated against the Rust artifact manifest. C# uses the comparator frozen in
 [Transport Strategy and Probing](/en/protocol/v1/transport-strategy) and does not invent a weighted
