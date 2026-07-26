@@ -114,6 +114,16 @@ the carrier and must match the negotiated `active_transport_id`; it is never inf
 in the logical set, including operating-system-assigned ports. A terminal provider-listener failure fails the logical
 server and closes the remaining set; peer handshake rejection does not.
 
+## `NnrpServerSession::await_event`
+
+```rust
+pub async fn await_event(&mut self) -> Result<NnrpServerEvent, RuntimeError>
+```
+
+Returns the next submit, control, runtime-object, cache, recovery, or close event in wire order.
+This is the application-facing server receive API. Native FFI bindings may poll bounded event batches
+internally, but they must project those batches back into this ordered single-event contract.
+
 ## `NnrpServerSession::receive_submit`
 
 | Parameter | Type | Required | Values / Range | Description |
@@ -127,6 +137,10 @@ server and closes the remaining set; peer handshake rejection does not.
 ```rust
 let submit = session.receive_submit().await?;
 ```
+
+`receive_submit` is a narrow convenience for hosts that only admit submit traffic at that point in
+their state machine. Hosts that permit interleaved control, object, cache, and close frames use
+`await_event` and dispatch the returned `NnrpServerEvent`.
 
 ## `NnrpServerSession::send_result`
 

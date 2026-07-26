@@ -95,6 +95,17 @@ exposes these application-facing methods:
 [`NativeRuntimeFrameEvent`](./runtime#nativeruntimeframeevent). No application-facing server method
 accepts a raw `control_code`.
 
+### `NativeRuntimeServerSession.poll_event`
+
+```python
+def poll_event(self, *, timeout_ms: int = 0) -> NativeRuntimeEvent | None: ...
+```
+
+Returns the next submit, control, runtime-object, cache, recovery, or close event in wire order, or
+`None` when the bounded wait completes without an event. This is the application-facing single-event
+receive contract. `poll_events(max_events=..., timeout_ms=...)` is the coarse native batch surface used
+by adapters, conformance, and throughput-sensitive dispatch loops; it does not change event order.
+
 ### `NativeRuntimeServerSession.receive_submit`
 
 ```python

@@ -91,6 +91,16 @@ Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Se
 [`NativeRuntimeFrameEvent`](./runtime#nativeruntimeframeevent)。应用侧 server 方法不接收原始
 `control_code`。
 
+### `NativeRuntimeServerSession.poll_event`
+
+```python
+def poll_event(self, *, timeout_ms: int = 0) -> NativeRuntimeEvent | None: ...
+```
+
+按 wire 顺序返回下一条 submit、control、runtime-object、cache、recovery 或 close event；有界等待结束
+仍无事件时返回 `None`。这是面向应用的单事件接收契约。`poll_events(max_events=..., timeout_ms=...)`
+是 adapter、测试套件和吞吐敏感 dispatch loop 使用的粗粒度原生批量接口，不改变事件顺序。
+
 ### `NativeRuntimeServerSession.receive_submit`
 
 ```python

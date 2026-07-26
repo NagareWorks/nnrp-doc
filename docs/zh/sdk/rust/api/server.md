@@ -114,6 +114,16 @@ let server = NnrpServer::bind_tcp("127.0.0.1:4433", config).await?;
 endpoint，包括操作系统分配的端口。Provider listener 的致命失败会让逻辑 server 失败并关闭其余 listener；
 peer handshake 拒绝不会。
 
+## `NnrpServerSession::await_event`
+
+```rust
+pub async fn await_event(&mut self) -> Result<NnrpServerEvent, RuntimeError>
+```
+
+按 wire 顺序返回下一条 submit、control、runtime-object、cache、recovery 或 close event。
+这是面向应用的服务端接收 API。原生 FFI binding 可以在内部按有界批次轮询事件，但必须把批次重新投影为
+这个有序单事件契约。
+
 ## `NnrpServerSession::receive_submit`
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
@@ -127,6 +137,9 @@ peer handshake 拒绝不会。
 ```rust
 let submit = session.receive_submit().await?;
 ```
+
+`receive_submit` 是仅在当前状态只允许 submit 流量时使用的窄化便利接口。允许 control、object、cache
+和 close frame 交错的 host 应调用 `await_event`，并分派返回的 `NnrpServerEvent`。
 
 ## `NnrpServerSession::send_result`
 
