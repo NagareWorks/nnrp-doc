@@ -8,9 +8,13 @@ import type {
   CapabilityCategory,
   CapabilityVersionPreset,
   LocalizedText,
+  WireConformanceExpectation,
   WireConformanceMode,
   WireConformancePreset,
+  WireConformanceStep,
   WireConformanceTransport,
+  WireHostRouteFixture,
+  WireHostRouteProviderPreset,
 } from "../docs/.vitepress/theme/components/capabilityManifestShared.ts";
 
 type ProtocolManifest = {
@@ -65,9 +69,14 @@ type WireConformanceSuiteManifest = {
 
 type WireConformanceScenario = {
   id: string;
+  mode: WireConformanceMode;
   status?: CapabilityCategory;
+  feature: string;
   required_capabilities?: string[];
   description: string;
+  steps: WireConformanceStep[];
+  expect: WireConformanceExpectation;
+  host_route?: WireHostRouteFixture;
 };
 
 type WireConformanceScenarioManifest = {
@@ -146,7 +155,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function dedupe(items: string[]): string[] {
+function dedupe<T>(items: T[]): T[] {
   return Array.from(new Set(items));
 }
 
@@ -180,6 +189,7 @@ function buildGitHubContentsUrl(path: string): string {
 async function fetchGitHubDirectory(path: string): Promise<GitHubDirectoryEntry[]> {
   const response = await fetch(buildGitHubContentsUrl(path), {
     headers: buildGitHubHeaders("application/vnd.github+json"),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
@@ -194,6 +204,7 @@ async function fetchGitHubDirectory(path: string): Promise<GitHubDirectoryEntry[
 async function fetchGitHubJsonFile<T>(path: string): Promise<T> {
   const response = await fetch(buildGitHubContentsUrl(path), {
     headers: buildGitHubHeaders("application/vnd.github.raw+json"),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
@@ -346,6 +357,73 @@ function wireScenarioSummary(scenario: WireConformanceScenario): LocalizedText {
       "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
     en: scenario.description,
   };
+}
+
+function collectHostRouteProviders(
+  scenarios: WireConformanceScenario[],
+  transportOrder: WireConformanceTransport[],
+): WireHostRouteProviderPreset[] {
+  type ProviderAggregate = WireHostRouteProviderPreset & {
+    availability: Set<"installed" | "uninstalled">;
+  };
+
+  const providers = new Map<string, ProviderAggregate>();
+  for (const scenario of scenarios) {
+    const fixture = scenario.host_route;
+    if (!fixture) {
+      continue;
+    }
+
+    const locallyUnavailable = scenario.expect.route?.rejection_reasons?.includes(
+      "local-unavailable",
+    ) ?? false;
+    if (locallyUnavailable && fixture.routes.length !== 1) {
+      throw new Error(
+        `${scenario.id} cannot derive provider availability from a multi-route local-unavailable expectation`,
+      );
+    }
+
+    for (const route of fixture.routes) {
+      const availability = locallyUnavailable ? "uninstalled" : "installed";
+      const existing = providers.get(route.provider_id);
+      if (!existing) {
+        providers.set(route.provider_id, {
+          transport: route.transport,
+          providerId: route.provider_id,
+          installed: availability === "installed",
+          platforms: [fixture.platform],
+          securityModes: [route.security.mode],
+          availability: new Set([availability]),
+        });
+        continue;
+      }
+
+      if (existing.transport !== route.transport) {
+        throw new Error(
+          `${route.provider_id} is assigned to both ${existing.transport} and ${route.transport}`,
+        );
+      }
+      existing.availability.add(availability);
+      existing.platforms = dedupe([...existing.platforms, fixture.platform]);
+      existing.securityModes = dedupe([...existing.securityModes, route.security.mode]);
+    }
+  }
+
+  const order = new Map(transportOrder.map((transport, index) => [transport, index]));
+  return Array.from(providers.values())
+    .map((provider) => {
+      if (provider.availability.size !== 1) {
+        throw new Error(
+          `${provider.providerId} is declared as both installed and uninstalled by host-route scenarios`,
+        );
+      }
+      const { availability: _availability, ...preset } = provider;
+      return preset;
+    })
+    .sort((left, right) =>
+      (order.get(left.transport) ?? 99) - (order.get(right.transport) ?? 99) ||
+      left.providerId.localeCompare(right.providerId)
+    );
 }
 
 function deriveOperationPreset(operation: string, recipes: ApiProfileRecipe[]) {
@@ -526,14 +604,53 @@ async function collectWireConformancePresets(
       recommendedPath: `conformance/${suite.protocol_version}.wire-target.json`,
       modes: suite.modes ?? ["suite_as_client", "suite_as_server"],
       transports: suite.transports ?? ["tcp", "quic"],
+      hostRouteProviders: collectHostRouteProviders(
+        scenarios,
+        suite.transports ?? ["tcp", "quic"],
+      ),
       scenarios: scenarios.map((scenario) => ({
         id: scenario.id,
+        mode: scenario.mode,
         status: scenario.status ?? "experimental",
+        feature: scenario.feature,
         requiredCapabilities: scenario.required_capabilities ?? [],
+        description: scenario.description,
         summary: wireScenarioSummary(scenario),
+        steps: scenario.steps,
+        expect: scenario.expect,
+        ...(scenario.host_route ? { hostRoute: scenario.host_route } : {}),
       })),
     },
   ];
+}
+
+type GeneratedPresetContent = {
+  presets: CapabilityVersionPreset[];
+  api_profiles: ApiProfilePreset[];
+  wire_conformance: WireConformancePreset[];
+};
+
+async function generatedAtFor(content: GeneratedPresetContent): Promise<string> {
+  if (await pathExists(jsonOutputFile)) {
+    try {
+      const previous = await readJsonFile<GeneratedPresetContent & { generated_at?: string }>(
+        jsonOutputFile,
+      );
+      const previousContent: GeneratedPresetContent = {
+        presets: previous.presets,
+        api_profiles: previous.api_profiles,
+        wire_conformance: previous.wire_conformance,
+      };
+      if (
+        previous.generated_at && JSON.stringify(previousContent) === JSON.stringify(content)
+      ) {
+        return previous.generated_at;
+      }
+    } catch {
+      // A malformed checked-in output is replaced below with a fresh document.
+    }
+  }
+  return new Date().toISOString();
 }
 
 async function main(): Promise<void> {
@@ -571,12 +688,15 @@ async function main(): Promise<void> {
     } satisfies ApiProfilePreset[];\n\nexport const wireConformancePresets = ${
       JSON.stringify(wireConformancePresets, null, 2)
     } satisfies WireConformancePreset[];\n`;
-  const jsonOutput = {
-    generated_at: new Date().toISOString(),
-    source: source.description,
+  const generatedContent: GeneratedPresetContent = {
     presets,
     api_profiles: apiProfilePresets,
     wire_conformance: wireConformancePresets,
+  };
+  const jsonOutput = {
+    generated_at: await generatedAtFor(generatedContent),
+    source: source.description,
+    ...generatedContent,
   };
 
   await Deno.mkdir(dirname(jsonOutputFile), { recursive: true });

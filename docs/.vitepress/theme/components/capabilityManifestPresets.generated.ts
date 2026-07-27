@@ -854,8 +854,8 @@ export const wireConformancePresets = [
       "en": "nnrp-1-preview4 Wire-level Conformance"
     },
     "note": {
-      "zh": "从线路级测试场景声明派生，覆盖 6 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
-      "en": "Derived from wire-level conformance scenario manifests. Covers 6 protocol scenarios where the runner directly acts as client, server, or proxy."
+      "zh": "从线路级测试场景声明派生，覆盖 17 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
+      "en": "Derived from wire-level conformance scenario manifests. Covers 17 protocol scenarios where the runner directly acts as client, server, or proxy."
     },
     "recommendedPath": "conformance/nnrp-1-preview4.wire-target.json",
     "modes": [
@@ -869,49 +869,223 @@ export const wireConformancePresets = [
       "websocket",
       "ipc"
     ],
+    "hostRouteProviders": [
+      {
+        "transport": "tcp",
+        "providerId": "nnrp.transport.tcp.native",
+        "installed": true,
+        "platforms": [
+          "native"
+        ],
+        "securityModes": [
+          "plain",
+          "tls_server_auth"
+        ]
+      },
+      {
+        "transport": "quic",
+        "providerId": "example.transport.quic.uninstalled",
+        "installed": false,
+        "platforms": [
+          "native"
+        ],
+        "securityModes": [
+          "tls_server_auth"
+        ]
+      },
+      {
+        "transport": "quic",
+        "providerId": "nnrp.transport.quic.native",
+        "installed": true,
+        "platforms": [
+          "native"
+        ],
+        "securityModes": [
+          "tls_server_auth"
+        ]
+      },
+      {
+        "transport": "websocket",
+        "providerId": "nnrp.transport.websocket.browser-wasm",
+        "installed": true,
+        "platforms": [
+          "browser"
+        ],
+        "securityModes": [
+          "browser_host"
+        ]
+      },
+      {
+        "transport": "websocket",
+        "providerId": "nnrp.transport.websocket.native",
+        "installed": true,
+        "platforms": [
+          "native"
+        ],
+        "securityModes": [
+          "plain"
+        ]
+      },
+      {
+        "transport": "ipc",
+        "providerId": "nnrp.transport.ipc.native",
+        "installed": true,
+        "platforms": [
+          "native"
+        ],
+        "securityModes": [
+          "plain"
+        ]
+      }
+    ],
     "scenarios": [
       {
         "id": "wire.control.cancel-abort.client",
+        "mode": "suite_as_client",
         "status": "experimental",
+        "feature": "control.cancel_abort",
         "requiredCapabilities": [
           "control.cancel_abort",
           "control.result_drop_reason",
           "control.trace_context"
         ],
+        "description": "Runner submits an operation, sends CANCEL, and verifies cooperative termination or a typed drop reason over the wire.",
         "summary": {
           "zh": "提交操作后发送取消帧，并验证对端通过协作终止或结构化丢弃原因完成收敛。",
           "en": "Runner submits an operation, sends CANCEL, and verifies cooperative termination or a typed drop reason over the wire."
+        },
+        "steps": [
+          {
+            "action": "send",
+            "frame": "REQUEST",
+            "payload": {
+              "operation_id": "op-cancel-1"
+            }
+          },
+          {
+            "action": "send",
+            "frame": "CANCEL",
+            "payload": {
+              "operation_id": "op-cancel-1",
+              "reason": "superseded"
+            }
+          },
+          {
+            "action": "receive",
+            "frame": "RESULT_DROP_REASON",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "cancelled",
+          "frames": [
+            "TRACE_CONTEXT",
+            "RESULT_DROP_REASON"
+          ]
         }
       },
       {
         "id": "wire.control.priority-deadline.proxy",
+        "mode": "suite_as_proxy",
         "status": "experimental",
+        "feature": "control.priority_deadline",
         "requiredCapabilities": [
           "control.priority_update",
           "control.deadline_expire",
           "control.result_drop_reason"
         ],
+        "description": "Runner proxies an admitted operation, injects a priority update and deadline expiry, and verifies stale work is dropped instead of completed late.",
         "summary": {
           "zh": "在代理路径注入优先级更新和过期时间，验证过期任务会被显式丢弃而不是迟到完成。",
           "en": "Runner proxies an admitted operation, injects a priority update and deadline expiry, and verifies stale work is dropped instead of completed late."
+        },
+        "steps": [
+          {
+            "action": "forward",
+            "frame": "REQUEST"
+          },
+          {
+            "action": "inject",
+            "frame": "PRIORITY_UPDATE",
+            "payload": {
+              "operation_id": "op-priority-1",
+              "priority": 10
+            }
+          },
+          {
+            "action": "inject",
+            "frame": "EXPIRE_AT",
+            "payload": {
+              "operation_id": "op-priority-1",
+              "unix_ms": 1
+            }
+          }
+        ],
+        "expect": {
+          "terminal": "dropped",
+          "frames": [
+            "RESULT_DROP_REASON"
+          ]
         }
       },
       {
         "id": "wire.control.progress-backpressure.server",
+        "mode": "suite_as_server",
         "status": "experimental",
+        "feature": "control.progress_backpressure",
         "requiredCapabilities": [
           "control.progress_partial",
           "control.credit_backpressure",
           "object.lifecycle"
         ],
+        "description": "Runner accepts a client request, emits PROGRESS and PARTIAL_RESULT, constrains credits, and verifies the client respects backpressure.",
         "summary": {
           "zh": "由测试套件扮演服务端，发送进度、部分结果和信用更新，验证客户端遵守背压。",
           "en": "Runner accepts a client request, emits PROGRESS and PARTIAL_RESULT, constrains credits, and verifies the client respects backpressure."
+        },
+        "steps": [
+          {
+            "action": "receive",
+            "frame": "REQUEST",
+            "timeout_ms": 1000
+          },
+          {
+            "action": "send",
+            "frame": "PROGRESS",
+            "payload": {
+              "stage": "prefill",
+              "percent": 25
+            }
+          },
+          {
+            "action": "send",
+            "frame": "CREDIT_UPDATE",
+            "payload": {
+              "max_in_flight": 1
+            }
+          },
+          {
+            "action": "send",
+            "frame": "PARTIAL_RESULT",
+            "payload": {
+              "object_id": "partial-1"
+            }
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "frames": [
+            "PROGRESS",
+            "CREDIT_UPDATE",
+            "PARTIAL_RESULT"
+          ]
         }
       },
       {
         "id": "wire.control.capability-route-cache.client",
+        "mode": "suite_as_client",
         "status": "experimental",
+        "feature": "control.capability_route_cache",
         "requiredCapabilities": [
           "control.capability_costs",
           "control.route_execution_hint",
@@ -919,35 +1093,711 @@ export const wireConformancePresets = [
           "control.degrade_profile",
           "control.budget_update"
         ],
+        "description": "Runner negotiates costs, sends route and execution hints, references cache state, and verifies downgrade or cache miss behavior is explicit.",
         "summary": {
           "zh": "协商能力成本并发送路由、执行和缓存提示，验证降级或缓存未命中会被显式返回。",
           "en": "Runner negotiates costs, sends route and execution hints, references cache state, and verifies downgrade or cache miss behavior is explicit."
+        },
+        "steps": [
+          {
+            "action": "send",
+            "frame": "CAPABILITY_NEGOTIATION",
+            "payload": {
+              "preferred_profiles": [
+                "coding.agent",
+                "runtime.object"
+              ]
+            }
+          },
+          {
+            "action": "send",
+            "frame": "ROUTE_HINT",
+            "payload": {
+              "target": "local-subagent"
+            }
+          },
+          {
+            "action": "send",
+            "frame": "CACHE_REFERENCE",
+            "payload": {
+              "cache_namespace": 1,
+              "cache_key_hi": "1234605616436508552",
+              "cache_key_lo": "11072869122414935808"
+            }
+          },
+          {
+            "action": "receive",
+            "frame": "CACHE_MISS",
+            "payload": {
+              "cache_namespace": 1,
+              "cache_key_hi": "1234605616436508552",
+              "cache_key_lo": "11072869122414935808",
+              "miss_reason": "not_found"
+            },
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "frames": [
+            "CAPABILITY_NEGOTIATION",
+            "CACHE_MISS"
+          ]
         }
       },
       {
         "id": "wire.control.cancel-abort.ipc-client",
+        "mode": "suite_as_client",
         "status": "experimental",
+        "feature": "control.cancel_abort",
         "requiredCapabilities": [
           "control.cancel_abort",
           "control.result_drop_reason",
           "control.trace_context"
         ],
+        "description": "Runner submits an operation over the Rust IPC transport, sends CANCEL, and verifies cooperative termination or a typed drop reason without falling back to an SDK adapter.",
         "summary": {
           "zh": "提交操作后发送取消帧，并验证对端通过协作终止或结构化丢弃原因完成收敛。",
           "en": "Runner submits an operation over the Rust IPC transport, sends CANCEL, and verifies cooperative termination or a typed drop reason without falling back to an SDK adapter."
+        },
+        "steps": [
+          {
+            "action": "send",
+            "frame": "REQUEST",
+            "payload": {
+              "operation_id": "op-ipc-cancel-1"
+            }
+          },
+          {
+            "action": "send",
+            "frame": "CANCEL",
+            "payload": {
+              "operation_id": "op-ipc-cancel-1",
+              "reason": "deadline_changed"
+            }
+          },
+          {
+            "action": "receive",
+            "frame": "RESULT_DROP_REASON",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "cancelled",
+          "frames": [
+            "TRACE_CONTEXT",
+            "RESULT_DROP_REASON"
+          ]
         }
       },
       {
         "id": "wire.control.progress-backpressure.websocket-server",
+        "mode": "suite_as_server",
         "status": "experimental",
+        "feature": "control.progress_backpressure",
         "requiredCapabilities": [
           "control.progress_partial",
           "control.credit_backpressure",
           "object.lifecycle"
         ],
+        "description": "Runner accepts a WebSocket transport request, emits PROGRESS and PARTIAL_RESULT frames, constrains credits, and verifies the client honors backpressure without using a transport-local JSON shim.",
         "summary": {
           "zh": "由测试套件扮演服务端，发送进度、部分结果和信用更新，验证客户端遵守背压。",
           "en": "Runner accepts a WebSocket transport request, emits PROGRESS and PARTIAL_RESULT frames, constrains credits, and verifies the client honors backpressure without using a transport-local JSON shim."
+        },
+        "steps": [
+          {
+            "action": "receive",
+            "frame": "REQUEST",
+            "timeout_ms": 1000
+          },
+          {
+            "action": "send",
+            "frame": "PROGRESS",
+            "payload": {
+              "stage": "tool_call",
+              "percent": 50
+            }
+          },
+          {
+            "action": "send",
+            "frame": "CREDIT_UPDATE",
+            "payload": {
+              "max_in_flight": 1
+            }
+          },
+          {
+            "action": "send",
+            "frame": "PARTIAL_RESULT",
+            "payload": {
+              "object_id": "ws-partial-1"
+            }
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "frames": [
+            "PROGRESS",
+            "CREDIT_UPDATE",
+            "PARTIAL_RESULT"
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.client.multi-route",
+        "mode": "suite_as_server",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "The target client receives two live provider routes, reports both candidates, and adopts exactly one runtime carrier.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "The target client receives two live provider routes, reports both candidates, and adopts exactly one runtime carrier."
+        },
+        "steps": [
+          {
+            "action": "connect_routes",
+            "timeout_ms": 2000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "route": {
+            "selected_count": 1,
+            "atomic_rollback": false,
+            "logical_set_closed": false
+          }
+        },
+        "hostRoute": {
+          "role": "client",
+          "platform": "native",
+          "application_endpoint": "nnrp://host-route.test",
+          "routes": [
+            {
+              "transport": "tcp",
+              "provider_id": "nnrp.transport.tcp.native",
+              "locator": "suite://allocate/tcp/client-primary",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              }
+            },
+            {
+              "transport": "ipc",
+              "provider_id": "nnrp.transport.ipc.native",
+              "locator": "suite://allocate/ipc/client-secondary",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.client.unresolved-no-fallback",
+        "mode": "suite_as_server",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "A forced route with no resolvable locator fails with route-unresolved and never falls back.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "A forced route with no resolvable locator fails with route-unresolved and never falls back."
+        },
+        "steps": [
+          {
+            "action": "connect_routes",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "error",
+          "route": {
+            "selected_count": 0,
+            "rejection_reasons": [
+              "route-unresolved"
+            ]
+          }
+        },
+        "hostRoute": {
+          "role": "client",
+          "platform": "native",
+          "application_endpoint": "nnrp://host-route.test",
+          "routes": [
+            {
+              "transport": "tcp",
+              "provider_id": "nnrp.transport.tcp.native",
+              "locator": "suite://allocate/tcp/unresolved",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              },
+              "injected_failures": [
+                "route_unresolved"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.client.security-no-fallback",
+        "mode": "suite_as_server",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "A forced route that cannot satisfy nnrps security intent fails without a weaker fallback.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "A forced route that cannot satisfy nnrps security intent fails without a weaker fallback."
+        },
+        "steps": [
+          {
+            "action": "connect_routes",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "error",
+          "route": {
+            "selected_count": 0,
+            "rejection_reasons": [
+              "security-unsatisfied"
+            ]
+          }
+        },
+        "hostRoute": {
+          "role": "client",
+          "platform": "native",
+          "application_endpoint": "nnrps://host-route.test",
+          "routes": [
+            {
+              "transport": "tcp",
+              "provider_id": "nnrp.transport.tcp.native",
+              "locator": "suite://allocate/tcp/insecure",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              },
+              "injected_failures": [
+                "security_incompatible"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.server.multi-listener",
+        "mode": "suite_as_client",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "The target server binds one atomic listener set and accepts a session through every declared provider.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "The target server binds one atomic listener set and accepts a session through every declared provider."
+        },
+        "steps": [
+          {
+            "action": "connect_each_listener",
+            "timeout_ms": 2000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "route": {
+            "bound_transports": [
+              "tcp",
+              "ipc"
+            ],
+            "accepted_transports": [
+              "tcp",
+              "ipc"
+            ],
+            "atomic_rollback": false,
+            "logical_set_closed": false
+          }
+        },
+        "hostRoute": {
+          "role": "server",
+          "platform": "native",
+          "application_endpoint": "nnrp://host-route.test",
+          "routes": [
+            {
+              "transport": "tcp",
+              "provider_id": "nnrp.transport.tcp.native",
+              "locator": "suite://allocate/tcp/server-primary",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              }
+            },
+            {
+              "transport": "ipc",
+              "provider_id": "nnrp.transport.ipc.native",
+              "locator": "suite://allocate/ipc/server-secondary",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.server.atomic-bind-rollback",
+        "mode": "suite_as_client",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "One bind failure rolls back every listener already opened for the logical server.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "One bind failure rolls back every listener already opened for the logical server."
+        },
+        "steps": [
+          {
+            "action": "bind_routes",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "error",
+          "route": {
+            "atomic_rollback": true,
+            "logical_set_closed": true
+          }
+        },
+        "hostRoute": {
+          "role": "server",
+          "platform": "native",
+          "application_endpoint": "nnrp://host-route.test",
+          "routes": [
+            {
+              "transport": "ipc",
+              "provider_id": "nnrp.transport.ipc.native",
+              "locator": "suite://allocate/ipc/rollback-opened",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              }
+            },
+            {
+              "transport": "tcp",
+              "provider_id": "nnrp.transport.tcp.native",
+              "locator": "suite://allocate/tcp/rollback-failed",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              },
+              "injected_failures": [
+                "bind_failure"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.server.terminal-listener-failure",
+        "mode": "suite_as_client",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "A terminal listener failure closes the complete logical listener set instead of silently shrinking it.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "A terminal listener failure closes the complete logical listener set instead of silently shrinking it."
+        },
+        "steps": [
+          {
+            "action": "fail_listener",
+            "timeout_ms": 2000
+          }
+        ],
+        "expect": {
+          "terminal": "error",
+          "route": {
+            "logical_set_closed": true,
+            "terminal_failure": "nnrp.transport.tcp.native"
+          }
+        },
+        "hostRoute": {
+          "role": "server",
+          "platform": "native",
+          "application_endpoint": "nnrp://host-route.test",
+          "routes": [
+            {
+              "transport": "ipc",
+              "provider_id": "nnrp.transport.ipc.native",
+              "locator": "suite://allocate/ipc/terminal-primary",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              }
+            },
+            {
+              "transport": "tcp",
+              "provider_id": "nnrp.transport.tcp.native",
+              "locator": "suite://allocate/tcp/terminal-failed",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              },
+              "injected_failures": [
+                "terminal_listener_failure"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.native.security-matrix",
+        "mode": "suite_as_client",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "Native nnrps routes keep route-local TCP and QUIC credentials while exposing one secure application endpoint.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "Native nnrps routes keep route-local TCP and QUIC credentials while exposing one secure application endpoint."
+        },
+        "steps": [
+          {
+            "action": "connect_each_listener",
+            "timeout_ms": 3000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "route": {
+            "bound_transports": [
+              "tcp",
+              "quic"
+            ],
+            "accepted_transports": [
+              "tcp",
+              "quic"
+            ]
+          }
+        },
+        "hostRoute": {
+          "role": "server",
+          "platform": "native",
+          "application_endpoint": "nnrps://host-route.test",
+          "routes": [
+            {
+              "transport": "tcp",
+              "provider_id": "nnrp.transport.tcp.native",
+              "locator": "suite://allocate/tcp/tls",
+              "security": {
+                "mode": "tls_server_auth",
+                "credential_owner": "target"
+              }
+            },
+            {
+              "transport": "quic",
+              "provider_id": "nnrp.transport.quic.native",
+              "locator": "suite://allocate/quic/tls",
+              "security": {
+                "mode": "tls_server_auth",
+                "credential_owner": "target"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.native.websocket-client",
+        "mode": "suite_as_server",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "A native client selects the installed WebSocket provider through its route-local locator without changing the NNRP application endpoint.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "A native client selects the installed WebSocket provider through its route-local locator without changing the NNRP application endpoint."
+        },
+        "steps": [
+          {
+            "action": "connect_routes",
+            "timeout_ms": 2000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "route": {
+            "selected_count": 1,
+            "selected_transport": "websocket"
+          }
+        },
+        "hostRoute": {
+          "role": "client",
+          "platform": "native",
+          "application_endpoint": "nnrp://host-route.test",
+          "routes": [
+            {
+              "transport": "websocket",
+              "provider_id": "nnrp.transport.websocket.native",
+              "locator": "suite://allocate/websocket/native-client",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.browser.wss",
+        "mode": "suite_as_server",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "A browser client uses host-owned WSS trust without native credential material or non-WebSocket fallbacks.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "A browser client uses host-owned WSS trust without native credential material or non-WebSocket fallbacks."
+        },
+        "steps": [
+          {
+            "action": "connect_routes",
+            "timeout_ms": 2000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "route": {
+            "selected_count": 1,
+            "selected_transport": "websocket"
+          }
+        },
+        "hostRoute": {
+          "role": "client",
+          "platform": "browser",
+          "application_endpoint": "nnrps://host-route.test",
+          "routes": [
+            {
+              "transport": "websocket",
+              "provider_id": "nnrp.transport.websocket.browser-wasm",
+              "locator": "suite://allocate/websocket/wss",
+              "security": {
+                "mode": "browser_host",
+                "credential_owner": "host"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.client.known-uninstalled",
+        "mode": "suite_as_server",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "A known provider that is not installed remains visible as local-unavailable and is never called.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "A known provider that is not installed remains visible as local-unavailable and is never called."
+        },
+        "steps": [
+          {
+            "action": "connect_routes",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "error",
+          "route": {
+            "selected_count": 0,
+            "rejection_reasons": [
+              "local-unavailable"
+            ]
+          }
+        },
+        "hostRoute": {
+          "role": "client",
+          "platform": "native",
+          "application_endpoint": "nnrp://host-route.test",
+          "routes": [
+            {
+              "transport": "quic",
+              "provider_id": "example.transport.quic.uninstalled",
+              "locator": "suite://allocate/quic/uninstalled",
+              "security": {
+                "mode": "tls_server_auth",
+                "credential_owner": "suite"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.client.rejection-precedence",
+        "mode": "suite_as_server",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "Combined route and security failures report route-unresolved first, matching the frozen rejection registry.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "Combined route and security failures report route-unresolved first, matching the frozen rejection registry."
+        },
+        "steps": [
+          {
+            "action": "connect_routes",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "error",
+          "route": {
+            "selected_count": 0,
+            "rejection_reasons": [
+              "route-unresolved"
+            ]
+          }
+        },
+        "hostRoute": {
+          "role": "client",
+          "platform": "native",
+          "application_endpoint": "nnrps://host-route.test",
+          "routes": [
+            {
+              "transport": "tcp",
+              "provider_id": "nnrp.transport.tcp.native",
+              "locator": "suite://allocate/tcp/combined-failure",
+              "security": {
+                "mode": "plain",
+                "credential_owner": "none"
+              },
+              "injected_failures": [
+                "route_unresolved",
+                "security_incompatible"
+              ]
+            }
+          ]
         }
       }
     ]

@@ -28,7 +28,7 @@
 | API profile results             | `api-profile-results.schema.json`        | Adapter        | API profile recipe 的机器可读 pass/fail/skip 结果。               |
 | Wire conformance suite manifest | `wire-conformance-suite.schema.json`     | Suite          | 线路级端点测试的根入口。                                          |
 | Wire conformance scenario       | `wire-conformance-scenario.schema.json`  | Suite          | 帧级客户端、服务端或代理场景的人可读来源。                        |
-| Wire conformance target         | `wire-conformance-target.schema.json`    | Implementation | 声明端点模式、传输、场景能力和执行限制。                          |
+| Wire conformance target         | `wire-conformance-target.schema.json`    | Implementation | 声明端点模式、帧级传输、主机路由提供程序、能力和执行限制。        |
 | Wire conformance plan           | `wire-conformance-plan.schema.json`      | Runner/action  | 针对某个 target 选出的具体线路级场景。                            |
 | Wire conformance results        | `wire-conformance-results.schema.json`   | Runner/action  | 线路级场景的机器可读结果与证据引用。                              |
 
@@ -273,7 +273,7 @@ Suite manifest 是某条线路级测试 baseline 的入口：
 }
 ```
 
-Target manifest 由实现仓库维护，用来声明 runner 可以使用哪些模式和传输端点：
+Target manifest 由实现仓库维护，用来声明 runner 可以使用哪些模式、帧级传输端点和主机路由提供程序能力：
 
 ```json
 {
@@ -297,7 +297,23 @@ Target manifest 由实现仓库维护，用来声明 runner 可以使用哪些�
         }
       }
     ],
-    "capabilities": ["control.cancel_abort", "control.trace_context"],
+    "host_route_providers": [
+      {
+        "transport": "tcp",
+        "provider_id": "nnrp.transport.tcp.native",
+        "installed": true,
+        "platforms": ["native"],
+        "security_modes": ["plain", "tls_server_auth"]
+      },
+      {
+        "transport": "websocket",
+        "provider_id": "nnrp.transport.websocket.browser-wasm",
+        "installed": true,
+        "platforms": ["browser"],
+        "security_modes": ["browser_host"]
+      }
+    ],
+    "capabilities": ["control.cancel_abort", "control.trace_context", "host.routes"],
     "limits": {
       "max_frame_bytes": 16777216,
       "max_in_flight": 256
@@ -315,6 +331,66 @@ Target manifest 由实现仓库维护，用来声明 runner 可以使用哪些�
 - `suite_as_server` 使用 `certificate_der_path` 与 `private_key_pkcs8_der_path` 配置 suite listener；实现侧 client 信任
   `trusted_certificate_der_path`。
 - `suite_as_proxy` 中声明的 endpoint 是实现侧 server 的上游地址；临时前端 endpoint 和探测 client 由 suite 自己创建并持有。
+
+### 主机路由提供程序与场景
+
+`host_route_providers` 是实现能力声明，不是路由配置文件。每个条目把稳定的 provider id 绑定到一个
+carrier，并声明原生或浏览器平台、支持的安全模式，以及 provider 是否实际安装。已知 provider 可以用
+`installed: false` 保留在声明里；强制负向场景随后验证 `local-unavailable`，而不会调用该 provider。
+
+主机路由场景归测试套件所有，并遵守 `wire-conformance-scenario.schema.json`。路由 fixture 明确分成三层：
+
+1. `application_endpoint` 是应用看到的 NNRP 身份，使用 `nnrp://` 或 `nnrps://`，不会暴露实际 carrier。
+2. 每条 route 声明 `transport`、稳定的 `provider_id` 和测试套件分配的本地 `locator`。客户端 fixture
+   可以包含多个候选 route，服务端 fixture 可以包含一个原子 listener 集合。
+3. `security.mode` 和 `security.credential_owner` 描述信任材料的提供方式。场景文件不写入证书、私钥、
+   token 或其他密钥字节。
+
+```json
+{
+  "$schema": "../../schemas/wire-conformance-scenario.schema.json",
+  "protocol_version": "nnrp-1-preview4",
+  "manifest_name": "host-route-generated",
+  "scenarios": [
+    {
+      "id": "wire.host-route.client.multi-route",
+      "mode": "suite_as_server",
+      "host_route": {
+        "role": "client",
+        "platform": "native",
+        "application_endpoint": "nnrp://host-route.test",
+        "routes": [
+          {
+            "transport": "tcp",
+            "provider_id": "nnrp.transport.tcp.native",
+            "locator": "suite://allocate/tcp/client-primary",
+            "security": { "mode": "plain", "credential_owner": "none" }
+          },
+          {
+            "transport": "ipc",
+            "provider_id": "nnrp.transport.ipc.native",
+            "locator": "suite://allocate/ipc/client-secondary",
+            "security": { "mode": "plain", "credential_owner": "none" }
+          }
+        ]
+      },
+      "status": "mandatory",
+      "feature": "host.routes",
+      "required_capabilities": ["host.routes"],
+      "description": "目标客户端报告两个候选 route，并且只采用一个 carrier。",
+      "steps": [{ "action": "connect_routes", "timeout_ms": 2000 }],
+      "expect": {
+        "terminal": "success",
+        "route": { "selected_count": 1, "atomic_rollback": false, "logical_set_closed": false }
+      }
+    }
+  ]
+}
+```
+
+冻结的主机路由目录覆盖客户端选择与拒绝证据，服务端 bind、bound/accepted transport 证据，原子回滚，
+终止性 listener 失败，原生 TCP、QUIC、IPC、WebSocket，浏览器 WSS，已知但未安装的 provider，以及组合
+失败的拒绝优先级。低代码生成器输出这些原始 fixture，不会自行发明看起来等价的路由。
 
 Runner 执行链路：
 
