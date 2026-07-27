@@ -236,6 +236,11 @@ They do not accept one role-wide `provider_endpoint` or `security` value. Client
 unresolved routes in candidate diagnostics; server Auto/Prefer atomically opens every allowed
 installed provider route.
 
+Both role APIs also accept `transports: Sequence[NativeTransportBinding] | None`. `None` discovers
+installed official bindings; an explicit sequence is authoritative, rejects duplicate transport kinds,
+and is not supplemented by discovery. This is the provider implementation boundary: a binding owns
+probe/connect/listen and role adoption, while a route remains provider-local configuration.
+
 Application security intent is filtered before probing or binding. Native TCP TLS, QUIC TLS, and WSS can satisfy
 `nnrps://`; resolved plain TCP, IPC, and WS routes remain visible as `security-unsatisfied`. A missing client locator
 remains visible as `route-unresolved`, which takes precedence over security validation; a missing locator for an

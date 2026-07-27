@@ -5,7 +5,7 @@ Server 文档按使用路径组织：接受 session、接收提交、发送结�
 ## 导入
 
 ```python
-from nnrp import NativeTransportServerSecurity, TransportPolicy
+from nnrp import NativeTransportBinding, NativeTransportServerSecurity, TransportPolicy
 from nnrp.server import (
     NativeServerAcceptOptions,
     NativeServerProviderRoute,
@@ -47,6 +47,7 @@ Packet transport helper 只用于诊断和自定义 carrier：
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | 是 | 本地 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
 | `provider_routes` | `Mapping[str, NativeServerProviderRoute] \| None` | 否 | 按 carrier 隔离的 bind locator 与 server security。 |
+| `transports` | `Sequence[NativeTransportBinding] \| None` | 否 | 显式 Provider 实现集合；`None` 自动发现已安装的官方 binding。 |
 | `transport_policy` | `TransportPolicy \| str \| int` | 否 | Provider 选择策略，默认 `auto`。 |
 | `options` | `NativeServerOptions \| None` | 否 | Native server id 与 generation。 |
 | `require_native` | `bool` | 否 | 生产代码设为 `True`，native 不可用时直接失败。 |
@@ -58,6 +59,10 @@ Packet transport helper 只用于诊断和自定义 carrier：
 `NativeServer.bound_provider_endpoints` 是从规范 transport 名到实际绑定 `NativeTransportEndpoint` 的不可变
 mapping，并保留操作系统分配的端口。Provider listener 的致命失败会让完整逻辑 server 失败并关闭；拒绝
 单个 peer handshake 只影响该 accepted carrier。
+
+显式传入的 `transports` 集合具有决定性，不会与自动发现结果合并。第三方 Provider 和
+一致性测试故障 Provider 因而可以通过同一个公开的原子 listener-set 契约参与运行。每个
+binding 真正拥有 listener 和 Rust role adoption；Provider route 只提供局部 locator 与安全配置。
 
 ```python
 with listen_native_server(

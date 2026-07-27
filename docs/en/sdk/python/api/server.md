@@ -6,7 +6,7 @@ send results or drops, then close. Message and packet pages remain the low-level
 ## Imports
 
 ```python
-from nnrp import NativeTransportServerSecurity, TransportPolicy
+from nnrp import NativeTransportBinding, NativeTransportServerSecurity, TransportPolicy
 from nnrp.server import (
     NativeServerAcceptOptions,
     NativeServerProviderRoute,
@@ -51,6 +51,7 @@ each listener to its Rust server runtime, and returns one logical `NativeServer`
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | Yes | Local `nnrp://` or `nnrps://` application endpoint. |
 | `provider_routes` | `Mapping[str, NativeServerProviderRoute] \| None` | No | Per-carrier bind locator and server-security configuration. |
+| `transports` | `Sequence[NativeTransportBinding] \| None` | No | Explicit provider implementations. `None` discovers installed official bindings. |
 | `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
 | `options` | `NativeServerOptions \| None` | No | Native server id and generation. |
 | `require_native` | `bool` | No | Production code sets `True`; missing native support is an error. |
@@ -62,6 +63,11 @@ each listener to its Rust server runtime, and returns one logical `NativeServer`
 `NativeServer.bound_provider_endpoints` is an immutable mapping from canonical transport name to the actual bound
 `NativeTransportEndpoint`, including operating-system-assigned ports. A terminal provider-listener failure fails and
 closes the complete logical server; rejecting one peer handshake affects only that accepted carrier.
+
+An explicit `transports` collection is authoritative and is not supplemented by discovery. It lets
+third-party providers and conformance fault providers participate through the same public atomic
+listener-set contract. Every binding owns its listener and Rust role adoption; provider routes only
+supply provider-local locators and security.
 
 ```python
 with listen_native_server(
