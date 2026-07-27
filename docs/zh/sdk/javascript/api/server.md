@@ -64,7 +64,7 @@ Listener set 必须原子打开。如果任一已配置的 eligible listener 打
 
 | 参数      | 类型                                                              | 必填 | 说明                                                                |
 | --------- | ----------------------------------------------------------------- | ---: | ------------------------------------------------------------------- |
-| `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |   是 | Peer manifest、workload limit、providers、policy 与 probe metrics。 |
+| `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |   是 | Peer manifest、workload limit、providers、policy、readiness 与 probe observation。 |
 
 | 返回                            |
 | ------------------------------- |
@@ -159,4 +159,5 @@ Object patch 与 delta 方法要求 `metadataBody.byteLength` 等于 `metadata.m
 | `providers`                | `readonly NnrpTransportProvider[]`                    |   否 | 需要考虑的本地 providers。                   |
 | `policy`                   | [`NnrpTransportPolicy`](./core#数据类型)              |   否 | Selection policy 覆盖。                      |
 | `requestedMaxFrameBytes`   | `bigint`                                              |   否 | 对照 provider limits 校验的 workload limit。 |
-| `probeMetricsByProviderId` | `Readonly<Record<string, NnrpTransportProbeMetrics>>` |   否 | 按 provider id 索引的测试/部署结构化观测。   |
+| `candidateReadiness`       | `readonly NnrpTransportCandidateReadiness[]`          |   是 | 每个 provider candidate 的 route/security evidence。 |
+| `probeObservations`        | `readonly NnrpTransportProbeObservation[]`            |   否 | 按 provider identity 匹配的成功/失败 probe evidence。 |

@@ -83,13 +83,16 @@ types from `nnrp-transport-provider`:
 | `ProviderLimitation` | `RequiresUdp`, `RequiresTcp`, `LocalHostOnly`, `NativeHostOnly`, `BrowserHostOnly`, `UnixDomainSocket`, `WindowsNamedPipe` |
 | `TransportProviderMetadata` | `id`, `cost`, `preference_rank`, `limits`, `limitations` |
 | `TransportProviderDescriptor` | `name`, `version`, `transport_id`, `kind`, `available`, optional `library_path`, `metadata`, optional `diagnostic` |
+| `TransportCandidateReadiness` | `transport_id`, `provider_id`, `route_resolved`, `security_satisfied`, optional `diagnostic` |
 | `ProbeMetrics` | `sample_count`, `success_count`, `median_throughput_bytes_per_sec`, `median_rtt_us` |
 | `ProbeSample` | `transport_id`, `provider_id`, `elapsed_us`, optional `rtt_us`, `bytes_sent`, `bytes_received`, `timed_out`, `failed` |
+| `TransportProbeObservation` | `transport_id`, `provider_id`, `state`, optional `metrics`, optional `diagnostic`; state is `Succeeded` or `Failed` |
 | `ProbeState` | `NotRun`, `Succeeded`, `Failed`, `Missing` |
 | `TransportCandidateDiagnostic` | `transport_id`, `provider`, `local_available`, `peer_supported`, `within_limits`, `probe_state`, optional `probe`, optional `selection_rank`, optional `rejection_reason`, optional `diagnostic` |
 | `TransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `RouteUnresolved`, `SecurityUnsatisfied`, `ProbeMissing`, `ProbeFailed` |
 | `TransportSelection` | Selected descriptor plus the ordered `candidates` list; rank `0` is selected |
-| `TransportSelectionError` | `ForcedTransportUnavailable { transport_id, candidates }` or `NoViableTransport { candidates }` |
+| `TransportSelectionError` | `InvalidEvidence { diagnostic }`, `ForcedTransportUnavailable { transport_id, candidates }`, or `NoViableTransport { candidates }` |
+| `TransportProviderRegistryError` | Duplicate transport ID or duplicate provider ID; the previously registered provider remains unchanged |
 
 The selection entry points are frozen as:
 
@@ -99,6 +102,7 @@ pub fn select_transport(
     remote: &RemoteTransportSupport,
     policy: TransportPolicy,
     requested_max_frame_bytes: Option<u64>,
+    readiness: &[TransportCandidateReadiness],
 ) -> Result<TransportSelection, TransportSelectionError>;
 
 pub fn select_transport_with_probe(
@@ -106,7 +110,8 @@ pub fn select_transport_with_probe(
     remote: &RemoteTransportSupport,
     policy: TransportPolicy,
     requested_max_frame_bytes: Option<u64>,
-    samples: &[ProbeSample],
+    readiness: &[TransportCandidateReadiness],
+    observations: &[TransportProbeObservation],
 ) -> Result<TransportSelection, TransportSelectionError>;
 
 pub fn summarize_provider_probe(
@@ -115,12 +120,15 @@ pub fn summarize_provider_probe(
 ) -> Option<ProbeMetrics>;
 ```
 
-`TransportProviderRegistry::select` has the same arguments as `select_transport` after `&self` and succeeds only when
-filtering leaves one eligible provider. `TransportProviderRegistry::select_with_probe` has the same arguments as
-`select_transport_with_probe` after `&self`. Multiple eligible providers without samples are reported as
+`TransportProviderRegistry::register` rejects duplicate transport IDs and provider IDs. `TransportProviderRegistry::select`
+has the same arguments as `select_transport` after `&self` and succeeds only when filtering leaves one eligible provider.
+`TransportProviderRegistry::select_with_probe` has the same arguments as `select_transport_with_probe` after `&self`.
+Multiple eligible providers without matching observations are reported as
 `ProbeMissing`; they are never ordered by an implementation-private shortcut.
 
-`ProbeSample.provider_id` is matched to `TransportProviderMetadata.id`. `TransportSelectionError.candidates` uses the
+Readiness, observations, and raw samples are matched by `(transport_id, provider_id)`. `ProbeSample` remains the
+raw-input model for `summarize_provider_probe`; selection consumes validated aggregate observations so a provider probe
+failure is distinct from an observation that was never supplied. `TransportSelectionError.candidates` uses the
 same ordered diagnostic model as successful selection, so an error never discards provider evidence.
 
 Both selection functions use the comparator frozen in

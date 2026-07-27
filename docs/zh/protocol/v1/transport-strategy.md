@@ -46,6 +46,10 @@ Route 规范化规则是精确契约。未知 transport key 属于无效配置�
 locator 缺失时可以派生 locator；已安装 IPC/WebSocket 无法派生 locator。Registry 必须拒绝同一 transport ID
 注册多个 provider，因此一个宿主角色对每个规范 transport 最多只有一个 candidate。
 
+Provider 注册同时受两条独立唯一性约束：`transport_id` 必须唯一，因为一个宿主角色对每种规范 carrier
+最多持有一个 provider；`provider.id` 也必须唯一，因为诊断和 probe evidence 使用它作为稳定身份。重复注册
+属于错误，实现不得静默覆盖先前 provider。
+
 客户端 Auto/Prefer 必须 probe 每个 route 已解析且满足安全要求的 candidate，最终只把选中的 carrier
 交给 runtime connection。服务端 Auto/Prefer 必须把全部允许的 provider route 原子地打开成一个逻辑
 listener set；Force 只保留指定 transport。任一必需 bind 或 runtime adoption 失败时，服务端必须关闭本次
@@ -256,6 +260,37 @@ artifact 限制以上。
 候选没有 rank。`sample_count` 必须为正数，`success_count` 必须处于 `1..sample_count`，两个中位数只根据
 成功且参与评分的样本计算。
 
+### 冻结的选择证据
+
+宿主在调用确定性 selector 前解析 provider-local route 并执行 probe。结果必须通过两个显式 evidence record
+跨越 selector 边界；SDK 不得把它们藏在实现私有 closure 中、不得在选择完成后回写 candidate，也不得把失败
+probe 退化成缺少 metrics。
+
+| Record | 规范字段 | 类型 | 规则 |
+|---|---|---|---|
+| Candidate readiness | `transport_id` | 已注册 transport ID | 必须标识 candidate provider 的 carrier。 |
+| Candidate readiness | `provider_id` | 非空 ASCII 字符串 | 必须等于 candidate provider metadata id。 |
+| Candidate readiness | `route_resolved` | boolean | False 产生 `route-unresolved`。 |
+| Candidate readiness | `security_satisfied` | boolean | route 解析成功后，False 产生 `security-unsatisfied`。 |
+| Candidate readiness | `diagnostic` | 可选 typed diagnostic | 保留到 candidate。 |
+| Probe observation | `transport_id` | 已注册 transport ID | 必须标识被观测 candidate 的 carrier。 |
+| Probe observation | `provider_id` | 非空 ASCII 字符串 | 必须等于被观测 candidate provider metadata id。 |
+| Probe observation | `state` | `succeeded | failed` | 没有匹配 observation 表示 `missing`；`not-run` 只由 selector 输出。 |
+| Probe observation | `metrics` | 可选 probe metrics | `succeeded` 时必需，`failed` 时禁止。 |
+| Probe observation | `diagnostic` | 可选 typed diagnostic | 失败时保留，也可以伴随成功 observation。 |
+
+Evidence 按 `(transport_id, provider_id)` 匹配。重复或无法匹配的 readiness/probe observation 都是无效输入。
+角色级选择必须为每个已注册 provider 提供一条 readiness；缺失 readiness 不代表可以假定 route 存在。低层
+诊断或 conformance API 在 route/security 检查不属于自身职责时，可以显式构造 ready record。
+
+无效 evidence 必须在 candidate selection 开始前通过该语言类型化的 transport-selection 契约错误拒绝。
+由于 selection 尚未运行，这类契约错误不得伪造 candidate diagnostic。完整 candidate 列表要求适用于
+evidence 有效、已经进入 selection、但最终没有 provider 可选的失败。
+
+过滤后只有一个 eligible candidate 时，selector 直接选择并输出 `probe_state = not-run`，probe observation
+不参与排序。保留两个及以上 candidate 时，每个 eligible candidate 都需要一条 probe observation；缺失产生
+`probe-missing`，失败产生 `probe-failed`，成功 observation 的 metrics 进入确定性排序。
+
 原始 probe sample 归属于 `provider.id`，而不是 package 展示名。仅当 `failed` 与 `timed_out` 均为 false、
 `rtt_us` 存在且 `elapsed_us` 为正时，sample 才算成功。单个 sample 的有效吞吐为
 `floor(saturating_add(bytes_sent, bytes_received) * 1_000_000 / elapsed_us)`，并饱和到 `u64`。计算任一 median
@@ -280,10 +315,13 @@ rejection 注册表精确固定为：`policy-disallowed`、`local-unavailable`�
 | Provider limitation | `ProviderLimitation` | `NativeTransportProviderLimitation` | `NnrpTransportProviderLimitation` | `NnrpTransportProviderLimitation` |
 | Provider metadata | `TransportProviderMetadata` | `NativeTransportProviderMetadata` | `NnrpTransportProviderMetadata` | `NnrpTransportProviderMetadata` |
 | Provider observation | `TransportProviderDescriptor` | `NativeTransportProvider` | `NnrpTransportProviderObservation` | `NnrpTransportProviderDescriptor` |
+| Candidate readiness | `TransportCandidateReadiness` | `NativeTransportCandidateReadiness` | `NnrpTransportCandidateReadiness` | `NnrpTransportCandidateReadiness` |
+| Probe observation | `TransportProbeObservation` | `NativeTransportProbeObservation` | `NnrpTransportProbeObservation` | `NnrpTransportProbeObservation` |
 | Probe state | `ProbeState` | `NativeTransportProbeState` | `NnrpTransportProbeState` | `NnrpTransportProbeState` |
 | Probe metrics | `ProbeMetrics` | `NativeTransportProbeMetrics` | `NnrpTransportProbeMetrics` | `NnrpTransportProbeMetrics` |
 | Candidate diagnostic | `TransportCandidateDiagnostic` | `NativeTransportCandidateDiagnostic` | `NnrpTransportCandidate` | `NnrpTransportCandidate` |
 | Rejection reason | `TransportRejectionReason` | `NativeTransportRejectionReason` | `NnrpTransportRejectionReason` | `NnrpTransportRejectionReason` |
+| Selection failure | `TransportSelectionError` | `NativeTransportSelectionError` | `NnrpTransportSelectionError` | `NnrpTransportSelectionException` |
 
 本表中的名称是具有约束力的公共 API 名称。TODO 项只有在每个公共字段都能映射到本规范模型或另一张精确
 SDK API 表时，才算已经冻结。
@@ -301,7 +339,7 @@ SDK API 表时，才算已经冻结。
    `provider.id` 字节序升序打破。
 7. 排序后写入 `selection_rank`，选择 rank `0`。
 
-Probe sample 按 `(transport_id, provider.id)` 二元组匹配。Candidate 输出先列出成功排序的 candidates，再按
+Probe observation 与原始 sample 按 `(transport_id, provider.id)` 二元组匹配。Candidate 输出先列出成功排序的 candidates，再按
 数字 `transport_id` 与逐字节 `provider.id` 排列被拒绝 candidates。选择错误必须携带完整 candidate 列表，包括
 本地、对端、上限、缺少 probe 和 probe 失败诊断。
 

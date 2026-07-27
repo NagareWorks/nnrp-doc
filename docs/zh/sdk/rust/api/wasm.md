@@ -24,7 +24,7 @@ nnrp-wasm = "1.0.0-preview.4.17"
 |---|---|
 | `nnrp_wasm_protocol_major()` | 返回 protocol major version。 |
 | `nnrp_wasm_wire_format()` | 返回 wire format id。 |
-| `selectTransportWithProbeJson(providersJson, remoteTransportsJson, policy, requestedMaxFrameBytes, samplesJson)` | 应用冻结的 provider/probe 策略并返回 `TransportSelection` JSON。`requestedMaxFrameBytes` 为空值或规范十进制 `u64` 字符串。 |
+| `selectTransportWithProbeJson(providersJson, remoteTransportsJson, policy, requestedMaxFrameBytes, readinessJson, observationsJson)` | 应用冻结的 provider/readiness/probe 策略并返回 `TransportSelection` JSON。`requestedMaxFrameBytes` 为空值或规范十进制 `u64` 字符串。 |
 | `summarizeProviderProbeJson(providerJson, samplesJson)` | 返回单个 provider 的结构化 `ProbeMetrics` JSON。 |
 | `encodeWebSocketBinaryFrameJson(...)` | 编码浏览器 WebSocket binary-frame wrapper。 |
 | `decodeWebSocketBinaryFrameJson(...)` | 解码一个浏览器 WebSocket binary-frame wrapper。 |
@@ -36,7 +36,9 @@ nnrp-wasm = "1.0.0-preview.4.17"
 
 WASM 表面使用[传输策略与探测](/zh/protocol/v1/transport-strategy)冻结的 provider 元数据、candidate 诊断、拒绝原因
 注册表与确定性排序，不导出加权 score。
-Probe sample JSON 使用 `provider_id`；package 展示名不是选路身份。
+Readiness、probe observation 与原始 sample JSON 都使用 `transport_id` 加 `provider_id`；package 展示名不是
+选路身份。`observationsJson` 携带聚合后的成功/失败结果，`samplesJson` 继续作为
+`summarizeProviderProbeJson` 的原始输入。
 
 JSON 边界保持足够粗粒度，方便 JS/TS SDK 批处理，避免大量字段级 JS/WASM 往返。
 

@@ -51,6 +51,11 @@ derive its locator when its route or route locator is absent. Installed IPC and 
 locator. Registries reject more than one provider for the same transport ID, so one host role has at most one candidate
 per canonical transport.
 
+Provider registration has two independent uniqueness constraints: `transport_id` is unique because a host role owns at
+most one provider for each canonical carrier, and `provider.id` is unique because diagnostics and probe evidence use it
+as a stable provider identity. Duplicate registration is an error; implementations must not silently replace the
+earlier provider.
+
 Client Auto/Prefer probes every resolved, security-compatible candidate and adopts only the selected carrier into the
 runtime connection. Server Auto/Prefer atomically opens one logical listener set over every allowed provider route;
 Force restricts that set to the named transport. If any required bind or runtime adoption fails, the server closes all
@@ -267,6 +272,39 @@ Every SDK exposes the same candidate information, with language-idiomatic casing
 ordered candidates. Rejected candidates have no rank. `sample_count` must be positive, `success_count` must be in
 `1..sample_count`, and both median values are computed from successful scored samples only.
 
+### Frozen selection evidence
+
+The host resolves provider-local routes and executes probes before invoking the deterministic selector. Those results
+cross the selector boundary through two explicit evidence records; SDKs must not hide them in an implementation-private
+closure, mutate candidates after selection, or collapse failed probes into missing metrics.
+
+| Record | Canonical field | Type | Rule |
+|---|---|---|---|
+| Candidate readiness | `transport_id` | registered transport ID | Must identify the candidate provider's carrier. |
+| Candidate readiness | `provider_id` | non-empty ASCII string | Must equal the candidate provider metadata id. |
+| Candidate readiness | `route_resolved` | boolean | False produces `route-unresolved`. |
+| Candidate readiness | `security_satisfied` | boolean | False produces `security-unsatisfied` after route resolution succeeds. |
+| Candidate readiness | `diagnostic` | optional typed diagnostic | Preserved on the candidate. |
+| Probe observation | `transport_id` | registered transport ID | Must identify the observed candidate's carrier. |
+| Probe observation | `provider_id` | non-empty ASCII string | Must equal the observed candidate provider metadata id. |
+| Probe observation | `state` | `succeeded | failed` | `missing` is represented by no matching observation; `not-run` is selector output only. |
+| Probe observation | `metrics` | optional probe metrics | Required for `succeeded` and forbidden for `failed`. |
+| Probe observation | `diagnostic` | optional typed diagnostic | Preserved for failed observations and may accompany successful observations. |
+
+Evidence is matched by `(transport_id, provider_id)`. Duplicate or unmatched readiness and probe observations are
+invalid input. A role-level selection supplies one readiness record for every registered provider. A missing readiness
+record is not permission to assume a route exists. Lower-level diagnostic/conformance APIs may construct an explicit
+ready record when route and security checks are outside their scope.
+
+Invalid evidence is rejected before candidate selection with the language's typed transport-selection contract error.
+Because selection has not run, that contract error does not fabricate candidate diagnostics. The complete-candidate-list
+requirement applies to valid evidence that reaches selection but leaves no selectable provider.
+
+When filtering leaves one eligible candidate, the selector chooses it directly and emits `probe_state = not-run`; probe
+observations are ignored for ranking. When two or more candidates remain, each eligible candidate needs one probe
+observation. No observation produces `probe-missing`; a failed observation produces `probe-failed`; a succeeded
+observation contributes its metrics to deterministic ordering.
+
 A raw probe sample belongs to `provider.id`, not a package display name. It is successful exactly when `failed` and
 `timed_out` are both false, `rtt_us` is present, and `elapsed_us` is positive. Its effective throughput is
 `floor(saturating_add(bytes_sent, bytes_received) * 1_000_000 / elapsed_us)`, saturated to `u64`. To compute either
@@ -293,10 +331,13 @@ passes.
 | Provider limitation | `ProviderLimitation` | `NativeTransportProviderLimitation` | `NnrpTransportProviderLimitation` | `NnrpTransportProviderLimitation` |
 | Provider metadata | `TransportProviderMetadata` | `NativeTransportProviderMetadata` | `NnrpTransportProviderMetadata` | `NnrpTransportProviderMetadata` |
 | Provider observation | `TransportProviderDescriptor` | `NativeTransportProvider` | `NnrpTransportProviderObservation` | `NnrpTransportProviderDescriptor` |
+| Candidate readiness | `TransportCandidateReadiness` | `NativeTransportCandidateReadiness` | `NnrpTransportCandidateReadiness` | `NnrpTransportCandidateReadiness` |
+| Probe observation | `TransportProbeObservation` | `NativeTransportProbeObservation` | `NnrpTransportProbeObservation` | `NnrpTransportProbeObservation` |
 | Probe state | `ProbeState` | `NativeTransportProbeState` | `NnrpTransportProbeState` | `NnrpTransportProbeState` |
 | Probe metrics | `ProbeMetrics` | `NativeTransportProbeMetrics` | `NnrpTransportProbeMetrics` | `NnrpTransportProbeMetrics` |
 | Candidate diagnostic | `TransportCandidateDiagnostic` | `NativeTransportCandidateDiagnostic` | `NnrpTransportCandidate` | `NnrpTransportCandidate` |
 | Rejection reason | `TransportRejectionReason` | `NativeTransportRejectionReason` | `NnrpTransportRejectionReason` | `NnrpTransportRejectionReason` |
+| Selection failure | `TransportSelectionError` | `NativeTransportSelectionError` | `NnrpTransportSelectionError` | `NnrpTransportSelectionException` |
 
 The names in this table are binding public API names. A TODO item is not considered frozen unless every public field it
 requires maps to this canonical model or another explicit SDK API table.
@@ -314,7 +355,7 @@ Selection follows this sequence:
    `transport_id` numeric value ascending, and `provider.id` bytewise ascending.
 7. Assign `selection_rank` after ordering and select rank `0`.
 
-Probe samples are matched by the tuple `(transport_id, provider.id)`. Candidate output lists successfully ordered
+Probe observations and raw samples are matched by the tuple `(transport_id, provider.id)`. Candidate output lists successfully ordered
 candidates first, then rejected candidates ordered by numeric `transport_id` and bytewise `provider.id`. Selection
 errors carry that complete candidate list, including local, peer, limit, missing-probe, and failed-probe diagnostics.
 

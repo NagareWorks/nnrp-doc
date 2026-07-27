@@ -25,7 +25,7 @@ nnrp-wasm = "1.0.0-preview.4.17"
 |---|---|
 | `nnrp_wasm_protocol_major()` | Returns protocol major version. |
 | `nnrp_wasm_wire_format()` | Returns wire format id. |
-| `selectTransportWithProbeJson(providersJson, remoteTransportsJson, policy, requestedMaxFrameBytes, samplesJson)` | Applies the frozen provider/probe policy and returns `TransportSelection` JSON. `requestedMaxFrameBytes` is an absent value or a canonical decimal `u64` string. |
+| `selectTransportWithProbeJson(providersJson, remoteTransportsJson, policy, requestedMaxFrameBytes, readinessJson, observationsJson)` | Applies the frozen provider/readiness/probe policy and returns `TransportSelection` JSON. `requestedMaxFrameBytes` is an absent value or a canonical decimal `u64` string. |
 | `summarizeProviderProbeJson(providerJson, samplesJson)` | Returns structured `ProbeMetrics` JSON for one provider. |
 | `encodeWebSocketBinaryFrameJson(...)` | Encodes a browser WebSocket binary-frame wrapper. |
 | `decodeWebSocketBinaryFrameJson(...)` | Decodes one browser WebSocket binary-frame wrapper. |
@@ -37,7 +37,9 @@ nnrp-wasm = "1.0.0-preview.4.17"
 
 The WASM surface uses the provider metadata, candidate diagnostics, rejection registry, and deterministic ordering
 frozen in [Transport Strategy and Probing](/en/protocol/v1/transport-strategy). It does not export a weighted score.
-Probe sample JSON uses `provider_id`; package display names are not selection identities.
+Readiness, probe observation, and raw sample JSON use `transport_id` plus `provider_id`; package display names are not
+selection identities. `observationsJson` carries aggregate succeeded/failed outcomes, while `samplesJson` remains the raw
+input to `summarizeProviderProbeJson`.
 
 The JSON boundary is intentionally coarse enough for JS/TS SDKs to batch work and avoid tiny
 field-by-field crossings.

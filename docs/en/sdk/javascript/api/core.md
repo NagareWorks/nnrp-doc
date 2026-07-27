@@ -59,7 +59,8 @@ Creates the default browser WASM capability manifest.
 
 ## `selectTransport`
 
-Selects rank `0` from candidates ordered by the frozen transport comparator.
+Selects rank `0` from candidates ordered by the frozen transport comparator. When no candidate is selectable it throws
+`NnrpTransportSelectionError`, whose `selection` retains the complete ordered candidate list.
 
 | Parameter    | Type                                | Required | Description                                                               |
 | ------------ | ----------------------------------- | -------: | ------------------------------------------------------------------------- |
@@ -76,7 +77,7 @@ Builds transport candidates from local and peer manifests.
 
 | Parameter | Type                            | Required | Description                                         |
 | --------- | ------------------------------- | -------: | --------------------------------------------------- |
-| `options` | `NnrpTransportCandidateOptions` |      Yes | Local/peer manifests, provider metadata, requested frame limit, and optional probe metrics. |
+| `options` | `NnrpTransportCandidateOptions` |      Yes | Local/peer manifests, provider metadata, requested frame limit, readiness, and probe observations. |
 
 | Returns                             |
 | ----------------------------------- |
@@ -184,11 +185,14 @@ Validates event polling options.
 | `NnrpTransportProviderLimitation` | Union of the seven registered limitation strings.                                                                             |
 | `NnrpTransportProviderMetadata` | Provider id, cost, preference rank, limits, and registered limitations.                                                         |
 | `NnrpTransportProviderObservation` | Provider kind, metadata, local availability, and optional diagnostic.                                                       |
+| `NnrpTransportCandidateReadiness` | Provider identity, route/security readiness, and optional diagnostic.                                                               |
 | `NnrpTransportProbeState`       | `"not-run" \| "succeeded" \| "failed" \| "missing"`.                                                                    |
 | `NnrpTransportProbeMetrics`     | Sample/success counts, median throughput, and median RTT.                                                                       |
+| `NnrpTransportProbeObservation` | Provider identity, succeeded/failed state, optional metrics, and optional diagnostic.                                           |
 | `NnrpTransportRejectionReason`  | Union of the eight registered rejection strings.                                                                                |
 | `NnrpTransportCandidate`        | Provider metadata, availability, peer/limit eligibility, probe state/metrics, selection rank, rejection reason, and diagnostic. |
 | `NnrpTransportSelectionSummary` | Selected transport plus rejected candidates.                                                                                   |
+| `NnrpTransportSelectionError`   | Typed error with `code`, diagnostic, and optional `selection`; `INVALID_EVIDENCE` occurs before selection, while valid selection failures retain every ordered candidate. |
 
 `NnrpTransportCandidate` uses camelCase forms of the canonical fields frozen in
 [Transport Strategy and Probing](/en/protocol/v1/transport-strategy): `kind`, `provider`, `localAvailable`,
@@ -221,11 +225,25 @@ interface NnrpTransportProviderObservation {
   readonly localAvailable: boolean;
   readonly diagnostic?: NnrpDiagnostic;
 }
+interface NnrpTransportCandidateReadiness {
+  readonly kind: NnrpTransportKind;
+  readonly providerId: string;
+  readonly routeResolved: boolean;
+  readonly securitySatisfied: boolean;
+  readonly diagnostic?: NnrpDiagnostic;
+}
 interface NnrpTransportProbeMetrics {
   readonly sampleCount: number;
   readonly successCount: number;
   readonly medianThroughputBytesPerSecond: bigint;
   readonly medianRttMicroseconds: bigint;
+}
+interface NnrpTransportProbeObservation {
+  readonly kind: NnrpTransportKind;
+  readonly providerId: string;
+  readonly state: "succeeded" | "failed";
+  readonly metrics?: NnrpTransportProbeMetrics;
+  readonly diagnostic?: NnrpDiagnostic;
 }
 interface NnrpTransportCandidate {
   readonly kind: NnrpTransportKind;
@@ -244,9 +262,14 @@ interface NnrpTransportCandidateOptions {
   readonly peer: NnrpCapabilityManifest;
   readonly providers: readonly NnrpTransportProviderObservation[];
   readonly requestedMaxFrameBytes?: bigint;
-  readonly probeMetricsByProviderId?: Readonly<Record<string, NnrpTransportProbeMetrics>>;
+  readonly candidateReadiness: readonly NnrpTransportCandidateReadiness[];
+  readonly probeObservations?: readonly NnrpTransportProbeObservation[];
 }
 ```
+
+Provider observations must contain unique transport kinds and unique provider ids. Readiness is required for every
+provider. Readiness and probe observations are matched by `(kind, providerId)`; duplicate or unmatched evidence is a
+contract error. Missing probe observations remain distinguishable from observations whose state is `"failed"`.
 
 ### Submit, Result, and Events
 

@@ -104,11 +104,14 @@ buffer。
 | `NnrpTransportProviderLimitation` | `RequiresUdp`、`RequiresTcp`、`LocalHostOnly`、`NativeHostOnly`、`BrowserHostOnly`、`UnixDomainSocket`、`WindowsNamedPipe` |
 | `NnrpTransportProviderMetadata` | `Id: string`、`Cost: NnrpTransportProviderCost`、`PreferenceRank: ushort`、`Limits: NnrpTransportProviderLimits`、`Limitations: IReadOnlyList<NnrpTransportProviderLimitation>` |
 | `NnrpTransportProviderDescriptor` | `Name: string`、`Version: string`、`TransportId: TransportId`、`Kind: NnrpTransportProviderKind`、`Available: bool`、`LibraryPath: string?`、`Metadata: NnrpTransportProviderMetadata`、`Diagnostic: string?` |
+| `NnrpTransportCandidateReadiness` | `TransportId: TransportId`、`ProviderId: string`、`RouteResolved: bool`、`SecuritySatisfied: bool`、`Diagnostic: string?` |
 | `NnrpTransportProbeState` | `NotRun`、`Succeeded`、`Failed`、`Missing` |
 | `NnrpTransportProbeMetrics` | `SampleCount: uint`、`SuccessCount: uint`、`MedianThroughputBytesPerSecond: ulong`、`MedianRttMicroseconds: ulong` |
+| `NnrpTransportProbeObservation` | `TransportId: TransportId`、`ProviderId: string`、`State: NnrpTransportProbeState`、`Metrics: NnrpTransportProbeMetrics?`、`Diagnostic: string?`；state 只能是 `Succeeded` 或 `Failed` |
 | `NnrpTransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`RouteUnresolved`、`SecurityUnsatisfied`、`ProbeMissing`、`ProbeFailed` |
 | `NnrpTransportCandidate` | `TransportId: TransportId`、`Provider: NnrpTransportProviderMetadata`、`LocalAvailable: bool`、`PeerSupported: bool`、`WithinLimits: bool`、`ProbeState: NnrpTransportProbeState`、`Probe: NnrpTransportProbeMetrics?`、`SelectionRank: uint?`、`RejectionReason: NnrpTransportRejectionReason?`、`Diagnostic: string?` |
 | `NnrpTransportSelection` | `SelectedProvider: NnrpTransportProviderDescriptor`、有序 `Candidates: IReadOnlyList<NnrpTransportCandidate>`、`Policy: TransportPolicy`、`Diagnostic: string?` |
+| `NnrpTransportSelectionException` | `Code: NnrpTransportSelectionErrorCode`、`Policy: TransportPolicy?`、`Candidates: IReadOnlyList<NnrpTransportCandidate>`、`Diagnostic: string?`；`InvalidEvidence` 在 selection 前发生 |
 
 `NnrpTransportSelectionOptions` 冻结 registry selection 的输入：
 
@@ -117,7 +120,8 @@ buffer。
 | `PeerSupportedTransports` | `IReadOnlyCollection<TransportId>` | 是 | Peer 声明的 carrier 交集。 |
 | `Policy` | `TransportPolicy` | 否 | 默认值为 `Auto`。 |
 | `RequestedMaxFrameBytes` | `ulong?` | 否 | 对照 `Provider.Limits.MaxFrameBytes` 校验的 workload limit。 |
-| `ProbeMetricsByProviderId` | `IReadOnlyDictionary<string, NnrpTransportProbeMetrics>?` | 否 | 按精确 provider metadata id 索引的结构化观测。 |
+| `CandidateReadiness` | `IReadOnlyCollection<NnrpTransportCandidateReadiness>` | 是 | 每个已注册 provider 的 route/security evidence。 |
+| `ProbeObservations` | `IReadOnlyCollection<NnrpTransportProbeObservation>?` | 否 | 按 transport 与 provider identity 匹配的成功/失败 evidence。 |
 
 Metadata 必须与 Rust artifact manifest 一致。C# 使用
 [Transport Strategy and Probing](/zh/protocol/v1/transport-strategy) 冻结的 comparator，不创造
@@ -129,7 +133,7 @@ Metadata 必须与 Rust artifact manifest 一致。C# 使用
 |---|---|
 | `Register(INnrpNativeTransportProvider)` | 注册一个 provider，拒绝重复 provider 或 transport ID。 |
 | `Snapshot()` | 返回不可变、稳定顺序的 provider snapshot。 |
-| `Resolve(NnrpTransportSelectionOptions)` | 执行过滤和选择，并返回 typed candidate evidence。 |
+| `Resolve(NnrpTransportSelectionOptions)` | 执行过滤和选择；没有 provider 可选时抛出携带完整 candidates 的 `NnrpTransportSelectionException`。 |
 
 安装的一方包会注册 `NnrpNativeTcpTransportProvider`、`NnrpNativeQuicTransportProvider`、
 `NnrpNativeIpcTransportProvider` 或 `NnrpNativeWebSocketTransportProvider`。角色 options 可以用显式
@@ -137,6 +141,10 @@ provider 列表替换默认 registry。
 
 只有一个有效 provider 时直接选择；多个有效 provider 才进入冻结的 probe/comparison 路径。
 被拒绝的 candidate 仍保留在 `NnrpTransportSelection` 中。
+
+注册必须拒绝重复 transport ID 与重复 provider metadata ID，且不得替换先注册的 provider。Readiness 与
+probe observation 按 `(TransportId, ProviderId)` 匹配；重复、无法匹配或不完整的 readiness 属于无效输入。
+没有匹配 probe observation 表示 `Missing`，state 为 `Failed` 的 observation 必须保持为独立失败。
 
 ## 一方包
 

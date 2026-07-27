@@ -66,7 +66,7 @@ Selects a transport against a peer manifest.
 
 | Parameter | Type                                                              | Required | Description                                                          |
 | --------- | ----------------------------------------------------------------- | -------: | -------------------------------------------------------------------- |
-| `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |      Yes | Peer manifest, workload limit, providers, policy, and probe metrics. |
+| `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |      Yes | Peer manifest, workload limit, providers, policy, readiness, and probe observations. |
 
 | Returns                         |
 | ------------------------------- |
@@ -164,4 +164,5 @@ object-delta frames.
 | `providers`                | `readonly NnrpTransportProvider[]`                    |       No | Local providers to consider.                                  |
 | `policy`                   | [`NnrpTransportPolicy`](./core#data-types)            |       No | Selection policy override.                                    |
 | `requestedMaxFrameBytes`   | `bigint`                                              |       No | Workload limit checked against provider limits.               |
-| `probeMetricsByProviderId` | `Readonly<Record<string, NnrpTransportProbeMetrics>>` |       No | Structured test/deployment observations keyed by provider id. |
+| `candidateReadiness`       | `readonly NnrpTransportCandidateReadiness[]`          |      Yes | Route/security evidence for every provider candidate.          |
+| `probeObservations`        | `readonly NnrpTransportProbeObservation[]`            |       No | Succeeded/failed probe evidence keyed by provider identity.     |

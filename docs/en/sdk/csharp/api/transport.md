@@ -108,11 +108,14 @@ buffer to applications.
 | `NnrpTransportProviderLimitation` | `RequiresUdp`, `RequiresTcp`, `LocalHostOnly`, `NativeHostOnly`, `BrowserHostOnly`, `UnixDomainSocket`, `WindowsNamedPipe` |
 | `NnrpTransportProviderMetadata` | `Id: string`, `Cost: NnrpTransportProviderCost`, `PreferenceRank: ushort`, `Limits: NnrpTransportProviderLimits`, `Limitations: IReadOnlyList<NnrpTransportProviderLimitation>` |
 | `NnrpTransportProviderDescriptor` | `Name: string`, `Version: string`, `TransportId: TransportId`, `Kind: NnrpTransportProviderKind`, `Available: bool`, `LibraryPath: string?`, `Metadata: NnrpTransportProviderMetadata`, `Diagnostic: string?` |
+| `NnrpTransportCandidateReadiness` | `TransportId: TransportId`, `ProviderId: string`, `RouteResolved: bool`, `SecuritySatisfied: bool`, `Diagnostic: string?` |
 | `NnrpTransportProbeState` | `NotRun`, `Succeeded`, `Failed`, `Missing` |
 | `NnrpTransportProbeMetrics` | `SampleCount: uint`, `SuccessCount: uint`, `MedianThroughputBytesPerSecond: ulong`, `MedianRttMicroseconds: ulong` |
+| `NnrpTransportProbeObservation` | `TransportId: TransportId`, `ProviderId: string`, `State: NnrpTransportProbeState`, `Metrics: NnrpTransportProbeMetrics?`, `Diagnostic: string?`; state is `Succeeded` or `Failed` |
 | `NnrpTransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `RouteUnresolved`, `SecurityUnsatisfied`, `ProbeMissing`, `ProbeFailed` |
 | `NnrpTransportCandidate` | `TransportId: TransportId`, `Provider: NnrpTransportProviderMetadata`, `LocalAvailable: bool`, `PeerSupported: bool`, `WithinLimits: bool`, `ProbeState: NnrpTransportProbeState`, `Probe: NnrpTransportProbeMetrics?`, `SelectionRank: uint?`, `RejectionReason: NnrpTransportRejectionReason?`, `Diagnostic: string?` |
 | `NnrpTransportSelection` | `SelectedProvider: NnrpTransportProviderDescriptor`, ordered `Candidates: IReadOnlyList<NnrpTransportCandidate>`, `Policy: TransportPolicy`, `Diagnostic: string?` |
+| `NnrpTransportSelectionException` | `Code: NnrpTransportSelectionErrorCode`, `Policy: TransportPolicy?`, `Candidates: IReadOnlyList<NnrpTransportCandidate>`, `Diagnostic: string?`; `InvalidEvidence` occurs before selection |
 
 `NnrpTransportSelectionOptions` freezes the inputs to registry selection:
 
@@ -121,7 +124,8 @@ buffer to applications.
 | `PeerSupportedTransports` | `IReadOnlyCollection<TransportId>` | Yes | Carrier intersection advertised by the peer. |
 | `Policy` | `TransportPolicy` | No | Defaults to `Auto`. |
 | `RequestedMaxFrameBytes` | `ulong?` | No | Workload limit checked against `Provider.Limits.MaxFrameBytes`. |
-| `ProbeMetricsByProviderId` | `IReadOnlyDictionary<string, NnrpTransportProbeMetrics>?` | No | Structured observations keyed by the exact provider metadata id. |
+| `CandidateReadiness` | `IReadOnlyCollection<NnrpTransportCandidateReadiness>` | Yes | Route/security evidence for every registered provider. |
+| `ProbeObservations` | `IReadOnlyCollection<NnrpTransportProbeObservation>?` | No | Succeeded/failed evidence keyed by transport and provider identity. |
 
 Metadata is validated against the Rust artifact manifest. C# uses the comparator frozen in
 [Transport Strategy and Probing](/en/protocol/v1/transport-strategy) and does not invent a weighted
@@ -133,7 +137,7 @@ score.
 |---|---|
 | `Register(INnrpNativeTransportProvider)` | Registers one provider and rejects duplicate provider or transport IDs. |
 | `Snapshot()` | Returns an immutable, stable-order provider snapshot. |
-| `Resolve(NnrpTransportSelectionOptions)` | Filters and selects from the snapshot with typed candidate evidence. |
+| `Resolve(NnrpTransportSelectionOptions)` | Filters and selects from the snapshot with typed candidate evidence; throws `NnrpTransportSelectionException` with complete candidates when no provider is selectable. |
 
 Installed first-party packages register `NnrpNativeTcpTransportProvider`,
 `NnrpNativeQuicTransportProvider`, `NnrpNativeIpcTransportProvider`, or
@@ -142,6 +146,11 @@ of the default registry.
 
 One valid provider is selected directly. More than one valid provider triggers the frozen probe and
 comparison path. Rejected candidates remain visible in `NnrpTransportSelection`.
+
+Registration rejects duplicate transport IDs and duplicate provider metadata IDs without replacing the provider already
+registered. Readiness and probe observations are matched by `(TransportId, ProviderId)`; duplicate, unmatched, or
+incomplete readiness is invalid input. No matching probe observation means `Missing`, while an observation with state
+`Failed` remains a distinct failure.
 
 ## First-Party Packages
 

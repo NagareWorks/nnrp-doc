@@ -48,10 +48,20 @@ from nnrp.adapters import (
 Preview4 native artifacts are published per transport. If an installation contains one provider, selection uses it directly; if several providers are installed, `auto` / `probe` policies choose among them.
 
 ```python
-from nnrp import discover_native_transport_providers, select_native_transport_provider
+from nnrp import (
+    NativeTransportCandidateReadiness,
+    discover_native_transport_providers,
+    select_native_transport_provider,
+)
 
 providers = discover_native_transport_providers()
-selection = select_native_transport_provider("auto")
+selection = select_native_transport_provider(
+    "auto",
+    candidate_readiness=[
+        NativeTransportCandidateReadiness.ready(provider)
+        for provider in providers
+    ],
+)
 
 print([provider.name for provider in providers])
 print(selection.selected_transport_name, selection.diagnostic)
@@ -60,7 +70,7 @@ print(selection.selected_transport_name, selection.diagnostic)
 | API | Description |
 |---|---|
 | `discover_native_transport_providers(root=None, native_platform=None)` | Scans provider artifacts in the current platform wheel. |
-| `select_native_transport_provider(policy_or_name="auto", root=None, native_platform=None)` | Returns `NativeTransportSelection` with selected provider, rejected providers, and diagnostics. |
+| `select_native_transport_provider(...)` | Selects with explicit readiness and probe observations; returns `NativeTransportSelection` or raises `NativeTransportSelectionError` with complete candidates. |
 | `resolve_native_transport_provider(name, root=None, native_platform=None)` | Returns one `NativeTransportProvider`. |
 | `diagnose_nnrp_endpoint_support(endpoint, ...)` | Diagnoses application-facing `nnrp://` / `nnrps://` endpoints. |
 | `diagnose_native_transport_endpoint_support(endpoint, ...)` | Diagnoses provider-local endpoints. |
@@ -82,14 +92,25 @@ actual transport behavior.
 | `NativeTransportProviderLimitation` | `REQUIRES_UDP`, `REQUIRES_TCP`, `LOCAL_HOST_ONLY`, `NATIVE_HOST_ONLY`, `BROWSER_HOST_ONLY`, `UNIX_DOMAIN_SOCKET`, `WINDOWS_NAMED_PIPE` |
 | `NativeTransportProviderMetadata` | `id`, `cost`, `preference_rank`, `limits`, `limitations` |
 | `NativeTransportProvider` | `name`, `artifact_path`, `manifest_path`, `transport_slots`, `enabled_features`, `package`, `transport_scope`, `platform_tag`, `metadata` |
+| `NativeTransportCandidateReadiness` | `transport_id`, `provider_id`, `route_resolved`, `security_satisfied`, `diagnostic` |
 | `NativeTransportProbeState` | `NOT_RUN`, `SUCCEEDED`, `FAILED`, `MISSING` |
 | `NativeTransportProbeMetrics` | `sample_count`, `success_count`, `median_throughput_bytes_per_sec`, `median_rtt_us` |
+| `NativeTransportProbeObservation` | `transport_id`, `provider_id`, `state`, `metrics`, `diagnostic`; state is `SUCCEEDED` or `FAILED` |
 | `NativeTransportRejectionReason` | `POLICY_DISALLOWED`, `LOCAL_UNAVAILABLE`, `PEER_UNSUPPORTED`, `LIMIT_EXCEEDED`, `ROUTE_UNRESOLVED`, `SECURITY_UNSATISFIED`, `PROBE_MISSING`, `PROBE_FAILED` |
 | `NativeTransportCandidateDiagnostic` | `transport_name`, `provider`, `local_available`, `peer_supported`, `within_limits`, `probe_state`, `probe`, `selection_rank`, `rejection_reason`, `diagnostic` |
 | `NativeTransportSelection` | `selected_provider`, ordered `candidates`, `policy`, `diagnostic` |
+| `NativeTransportSelectionError` | `code`, optional `policy`, complete ordered `candidates` for valid selection failures, and `diagnostic`; `INVALID_EVIDENCE` is raised before selection |
 
 Python exposes cost and limitations through the typed models above, validates the frozen provider object from the
 official Rust artifact, and follows the common deterministic comparator.
+
+`select_native_transport_provider` accepts `candidate_readiness` and optional `probe_observations`. Evidence is matched
+by `(transport_id, provider_id)` and duplicate, unmatched, or incomplete readiness is rejected. The absence of a probe
+observation means `MISSING`; a failed observation remains distinct from missing metrics. Raw
+`NativeTransportProbeSample` values remain available to probe/conformance code and are summarized before selection.
+
+Discovery rejects duplicate transport IDs and duplicate provider metadata IDs. It never chooses one duplicate by
+directory order.
 
 ## Native Transport Binding
 
