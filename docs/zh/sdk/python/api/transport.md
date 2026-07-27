@@ -231,6 +231,11 @@ class NativeServerProviderRoute:
 `security`。Client Auto/Prefer 必须在 candidate 诊断中保留无法解析的 route；server Auto/Prefer 原子
 打开全部允许的已安装 provider route。
 
+两个 role API 还接受 `transports: Sequence[NativeTransportBinding] | None`。`None` 自动发现
+已安装的官方 binding；显式序列具有决定性、禁止重复 transport kind，且不会再补入发现结果。
+这是 Provider 实现边界：binding 负责 probe/connect/listen 和 role adoption，route 仍只是
+Provider 局部配置。
+
 应用安全意图必须在 probe 或 bind 前过滤。Native TCP TLS、QUIC TLS 与 WSS 可以满足 `nnrps://`；已解析的
 明文 TCP、IPC 与 WS route 以 `security-unsatisfied` 留在诊断中。缺少 client locator 时以优先级更高的
 `route-unresolved` 留在诊断中；否则 eligible 的 server provider 缺少 locator 时必须让原子 listen 失败。

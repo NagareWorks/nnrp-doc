@@ -6,7 +6,7 @@ Client
 ## 导入
 
 ```python
-from nnrp import NativeTransportClientSecurity, TransportPolicy
+from nnrp import NativeTransportBinding, NativeTransportClientSecurity, TransportPolicy
 from nnrp.client import (
     ClientProfile,
     ClientSession,
@@ -49,6 +49,7 @@ Rust role runtime，完成 NNRP 握手，并返回 `NativeClientConnection` 上�
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | 是 | 远端 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
 | `provider_routes` | `Mapping[str, NativeClientProviderRoute] \| None` | 否 | 按 carrier 隔离的 locator 与对端验证配置。 |
+| `transports` | `Sequence[NativeTransportBinding] \| None` | 否 | 显式 Provider 实现集合；`None` 自动发现已安装的官方 binding。 |
 | `transport_policy` | `TransportPolicy \| str \| int` | 否 | Provider 选择策略，默认 `auto`。 |
 | `options` | `NativeClientConnectionOptions \| None` | 否 | Native connection id 与 generation。 |
 | `artifact_path` | `Path \| str \| None` | 否 | 显式 native library 路径；通常不需要。 |
@@ -71,9 +72,16 @@ with connect_native_client_connection(
     },
     transport_policy=TransportPolicy.FORCE_TCP,
 ) as connection:
+    print(connection.active_transport_name)
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
     result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, body=b"payload")
 ```
+
+`NativeClientConnection.transport_selection` 保留完整且不可变的
+`NativeTransportSelection`，包含最终 Provider 和全部接受或拒绝的候选项；
+`active_transport_name` 是最终 Provider 的规范 transport 名。显式传入的 `transports`
+集合具有决定性，SDK 不会再静默补入自动发现的 binding。每个 binding 必须真正负责该
+Provider 的探测、carrier 建立和 role adoption，不能只是配置开关。
 
 TCP 与 QUIC 使用应用 endpoint 的 authority，authority 未提供端口时默认使用 `4433`。IPC route 必须
 提供匹配的 `unix://` 或 `npipe://` locator；WebSocket route 必须提供匹配的 `ws://` 或 `wss://`

@@ -10,7 +10,7 @@ Use the high-level client/session APIs for applications. Low-level packet builde
 tests, diagnostics, and custom transports.
 
 ```python
-from nnrp import NativeTransportClientSecurity, TransportPolicy
+from nnrp import NativeTransportBinding, NativeTransportClientSecurity, TransportPolicy
 from nnrp.client import (
     ClientProfile,
     ClientSession,
@@ -55,6 +55,7 @@ endpoint in normal host configuration.
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | Yes | Remote `nnrp://` or `nnrps://` application endpoint. |
 | `provider_routes` | `Mapping[str, NativeClientProviderRoute] \| None` | No | Per-carrier locator and peer-verification configuration. |
+| `transports` | `Sequence[NativeTransportBinding] \| None` | No | Explicit provider implementations. `None` discovers installed official bindings. |
 | `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
 | `options` | `NativeClientConnectionOptions \| None` | No | Native connection id and generation options. |
 | `artifact_path` | `Path \| str \| None` | No | Explicit native library path; usually unnecessary. |
@@ -77,9 +78,17 @@ with connect_native_client_connection(
     },
     transport_policy=TransportPolicy.FORCE_TCP,
 ) as connection:
+    print(connection.active_transport_name)
     session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
     result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, body=b"payload")
 ```
+
+`NativeClientConnection.transport_selection` retains the complete immutable
+`NativeTransportSelection`, including the selected provider and every accepted or rejected candidate.
+`active_transport_name` is the canonical name of the selected provider transport. An explicit
+`transports` collection is authoritative: the SDK does not silently add discovered bindings to it.
+Each binding owns probing, carrier creation, and role adoption for its provider; it is not a
+configuration-only feature switch.
 
 TCP and QUIC resolve the application authority and default to port `4433` when the authority omits
 a port. IPC requires a matching `unix://` or `npipe://` route locator; WebSocket requires a matching
