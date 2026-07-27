@@ -27,10 +27,14 @@ plan 或 case 定义。
 
 <ApiProfileManifestGenerator />
 
-## 线路级测试目标声明
+## 线路级测试声明
 
 这个生成器用于一致性测试 runner 直接测试真实端点，而不是调用 SDK 自己提供的 adapter。生成的 target
-manifest 会声明测试套件模式、传输端点、选中的线路级场景以及执行限制。
+manifest 会声明测试套件模式、帧级传输端点、主机路由提供程序、选中的线路级能力以及执行限制。切换到
+“主机路由场景”后，生成器会把测试套件已经冻结的 fixture 和预期证据写入场景 manifest。
+
+主机路由 fixture 中的 `application_endpoint` 始终是 `nnrp://` 或 `nnrps://` 应用端点，每个 provider
+则维护自己独立的本地 `locator`。安全声明只记录模式和凭据归属，生成的场景不会包含证书、私钥或其他密钥字节。
 
 它刻意独立于 SDK 能力声明和 OpenAI API 配置档能力声明。适配器 manifest 适合做 recipe
 选择，但线路级一致性测试必须能够直接扮演客户端、服务端或代理，并交换协议帧。

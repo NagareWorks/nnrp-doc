@@ -52,11 +52,94 @@ export type WireConformanceMode = "suite_as_client" | "suite_as_server" | "suite
 
 export type WireConformanceTransport = "tcp" | "quic" | "websocket" | "ipc";
 
+export type WireHostPlatform = "native" | "browser";
+
+export type WireHostRouteSecurityMode =
+  | "plain"
+  | "tls_server_auth"
+  | "mutual_tls"
+  | "wss"
+  | "browser_host";
+
+export type WireHostCredentialOwner = "none" | "suite" | "target" | "host";
+
+export type WireHostRouteInjectedFailure =
+  | "route_unresolved"
+  | "security_incompatible"
+  | "bind_failure"
+  | "terminal_listener_failure";
+
+export type WireHostRouteRejectionReason =
+  | "policy-disallowed"
+  | "local-unavailable"
+  | "peer-unsupported"
+  | "limit-exceeded"
+  | "route-unresolved"
+  | "security-unsatisfied"
+  | "probe-missing"
+  | "probe-failed";
+
+export type WireHostRouteProviderPreset = {
+  transport: WireConformanceTransport;
+  providerId: string;
+  installed: boolean;
+  platforms: WireHostPlatform[];
+  securityModes: WireHostRouteSecurityMode[];
+};
+
+export type WireHostRoute = {
+  transport: WireConformanceTransport;
+  provider_id: string;
+  locator: string;
+  security: {
+    mode: WireHostRouteSecurityMode;
+    credential_owner: WireHostCredentialOwner;
+  };
+  injected_failures?: WireHostRouteInjectedFailure[];
+};
+
+export type WireHostRouteFixture = {
+  role: "client" | "server";
+  platform: WireHostPlatform;
+  application_endpoint: string;
+  routes: WireHostRoute[];
+};
+
+export type WireHostRouteExpectation = {
+  selected_count?: number;
+  selected_transport?: WireConformanceTransport;
+  rejection_reasons?: WireHostRouteRejectionReason[];
+  bound_transports?: WireConformanceTransport[];
+  accepted_transports?: WireConformanceTransport[];
+  atomic_rollback?: boolean;
+  logical_set_closed?: boolean;
+  terminal_failure?: string;
+};
+
+export type WireConformanceStep = {
+  action: string;
+  frame?: string;
+  payload?: Record<string, unknown>;
+  timeout_ms?: number;
+};
+
+export type WireConformanceExpectation = {
+  terminal: "success" | "cancelled" | "dropped" | "error";
+  frames?: string[];
+  route?: WireHostRouteExpectation;
+};
+
 export type WireConformanceScenarioPreset = {
   id: string;
+  mode: WireConformanceMode;
   status: CapabilityCategory;
+  feature: string;
   requiredCapabilities: string[];
+  description: string;
   summary: LocalizedText;
+  steps: WireConformanceStep[];
+  expect: WireConformanceExpectation;
+  hostRoute?: WireHostRouteFixture;
 };
 
 export type WireConformancePreset = {
@@ -67,6 +150,7 @@ export type WireConformancePreset = {
   recommendedPath: string;
   modes: WireConformanceMode[];
   transports: WireConformanceTransport[];
+  hostRouteProviders: WireHostRouteProviderPreset[];
   scenarios: WireConformanceScenarioPreset[];
 };
 
@@ -84,5 +168,6 @@ export type CapabilityVersionPresetOverride = {
 export const capabilityManifestSchemaPath = "../../schemas/capability-manifest.schema.json";
 export const apiProfileCapabilityManifestSchemaPath =
   "../../schemas/api-profile-capabilities.schema.json";
-export const wireConformanceTargetSchemaPath =
-  "../../schemas/wire-conformance-target.schema.json";
+export const wireConformanceTargetSchemaPath = "../../schemas/wire-conformance-target.schema.json";
+export const wireConformanceScenarioSchemaPath =
+  "../../schemas/wire-conformance-scenario.schema.json";

@@ -28,11 +28,16 @@ recipe-level tests.
 
 <ApiProfileManifestGenerator />
 
-## Wire-level conformance target manifest
+## Wire-level conformance manifests
 
 Use this generator when the conformance runner must test a real endpoint directly instead of
-calling an SDK-owned adapter. The generated target manifest declares runner modes, transport
-endpoints, selected wire scenarios, and execution limits.
+calling an SDK-owned adapter. The **Target Manifest** output declares runner modes, frame transport
+endpoints, host-route providers, selected wire capabilities, and execution limits. The **Host Route
+Scenarios** output copies the frozen suite fixtures and expected evidence into a scenario manifest.
+
+In a host-route fixture, `application_endpoint` remains an `nnrp://` or `nnrps://` endpoint while
+each provider keeps its own route-local `locator`. Security declarations record the mode and
+credential owner only; generated scenarios never contain certificate, private-key, or secret bytes.
 
 This is intentionally separate from the SDK capability manifest and the OpenAI API profile
 manifest. Adapter manifests are useful for recipe selection, but wire-level conformance must be

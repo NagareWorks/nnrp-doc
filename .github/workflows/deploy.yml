@@ -105,6 +105,9 @@ jobs:
     needs:
       - content-policy
     runs-on: ubuntu-latest
+    env:
+      NNRP_CONFORMANCE_GITHUB_REPO: ${{ vars.NNRP_CONFORMANCE_GITHUB_REPO || 'NagareWorks/nnrp-conformance' }}
+      NNRP_CONFORMANCE_GITHUB_REF: ${{ vars.NNRP_CONFORMANCE_GITHUB_REF || 'aa42c2de65608ec6b21ef35d1ccbed5fb91dacd9' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -127,6 +130,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
+
+      - name: Test generated manifests
+        run: deno task test
 
       - name: Build site
         run: deno task build

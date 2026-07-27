@@ -1,13 +1,15 @@
 {
   "version": "5",
   "specifiers": {
+    "npm:@types/node@25.7.0": "25.7.0",
     "npm:@vue/runtime-dom@^3.5.34": "3.5.34",
     "npm:@vue/server-renderer@^3.5.34": "3.5.34_vue@3.5.34",
+    "npm:ajv@8.17.1": "8.17.1",
     "npm:mermaid@11.15.0": "11.15.0_cytoscape@3.33.3",
-    "npm:vitepress-plugin-mermaid@2.0.17": "2.0.17_mermaid@11.15.0__cytoscape@3.33.3_vitepress@1.6.4__vite@5.4.21__vue@3.5.34__focus-trap@7.8.0",
-    "npm:vitepress@*": "1.6.4_vite@5.4.21_vue@3.5.34_focus-trap@7.8.0",
-    "npm:vitepress@1.6.4": "1.6.4_vite@5.4.21_vue@3.5.34_focus-trap@7.8.0",
-    "npm:vitepress@^1.6.4": "1.6.4_vite@5.4.21_vue@3.5.34_focus-trap@7.8.0",
+    "npm:vitepress-plugin-mermaid@2.0.17": "2.0.17_mermaid@11.15.0__cytoscape@3.33.3_vitepress@1.6.4__@types+node@25.7.0_@types+node@25.7.0",
+    "npm:vitepress@*": "1.6.4_@types+node@25.7.0",
+    "npm:vitepress@1.6.4": "1.6.4_@types+node@25.7.0",
+    "npm:vitepress@^1.6.4": "1.6.4_@types+node@25.7.0",
     "npm:vue@^3.5.34": "3.5.34"
   },
   "npm": {
@@ -730,6 +732,12 @@
     "@types/mdurl@2.0.0": {
       "integrity": "sha512-RGdgjQUZba5p6QEFAVx2OGb8rQDL/cPRG7GiedRzMcJ1tYnUANBncjbSB1NRGwbvjcPeikRABz2nshyPk1bhWg=="
     },
+    "@types/node@25.7.0": {
+      "integrity": "sha512-z+pdZyxE+RTQE9AcboAZCb4otwcrvgHD+GlBpPgn0emDVt0ohrTMhAwlr2Wd9nZ+nihhYFxO2pThz3C5qSu2Eg==",
+      "dependencies": [
+        "undici-types"
+      ]
+    },
     "@types/trusted-types@2.0.7": {
       "integrity": "sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw=="
     },
@@ -749,7 +757,7 @@
         "d3-transition"
       ]
     },
-    "@vitejs/plugin-vue@5.2.4_vite@5.4.21_vue@3.5.34": {
+    "@vitejs/plugin-vue@5.2.4_vite@5.4.21__@types+node@25.7.0_vue@3.5.34_@types+node@25.7.0": {
       "integrity": "sha512-7Yx/SXSOcQq5HiiV3orevHUFn+pmMB4cgbEkDYgnkUWb0WfeQ/wa2yFv6D5ICiCQOVpjA7vYDXrC7AGO8yjDHA==",
       "dependencies": [
         "vite",
@@ -881,6 +889,15 @@
         "vue"
       ]
     },
+    "ajv@8.17.1": {
+      "integrity": "sha512-B/gBuNg5SiMTrPkC+A2+cW0RszwxYmn6VYxB/inlBStS5nx6xHIt/ehKRhIMhqusl7a8LjQoZnjCs5vhwxOQ1g==",
+      "dependencies": [
+        "fast-deep-equal",
+        "fast-uri",
+        "json-schema-traverse",
+        "require-from-string"
+      ]
+    },
     "algoliasearch@5.52.1": {
       "integrity": "sha512-fHA8+kXTbjagw3jkLiaS7KKrH8qe2DyOsiUhGlN4cdT77PEsfqXZl7ewDk1hsg+pJnPlnE50XtLxjR91iJOpmg==",
       "dependencies": [
@@ -962,13 +979,13 @@
     "d3-array@2.12.1": {
       "integrity": "sha512-B0ErZK/66mHtEsR1TkPEEkwdy+WDesimkM5gpZr5Dsg54BiTA5RXtYW5qTLIAcekaS9xfZrzBLF/OAkB3Qn1YQ==",
       "dependencies": [
-        "internmap@1.0.1"
+        "internmap"
       ]
     },
     "d3-array@3.2.4": {
       "integrity": "sha512-tdQAmyA18i4J7wprpYq8ClcxZy3SC31QMeByyCFyRt7BVHdREQZ5lpzoe5mFEYZUWe+oq8HBvk9JjpibyEV4Jg==",
       "dependencies": [
-        "internmap@2.0.3"
+        "internmap"
       ]
     },
     "d3-axis@3.0.0": {
@@ -1257,6 +1274,12 @@
     "estree-walker@2.0.2": {
       "integrity": "sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w=="
     },
+    "fast-deep-equal@3.1.3": {
+      "integrity": "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q=="
+    },
+    "fast-uri@3.1.4": {
+      "integrity": "sha512-8JnbkQ4juDyvYs4mgFGQqg4yCYtFDtUtmp2QIQq11ZZe5CFQ5wcqm1rqDgAh/QdMySuBnPzMUiJUNZG5N/AiQw=="
+    },
     "focus-trap@7.8.0": {
       "integrity": "sha512-/yNdlIkpWbM0ptxno3ONTuf+2g318kh2ez3KSeZN5dZ8YC6AAmgeWz+GasYYiBJPFaYcSAPeu4GfhUaChzIJXA==",
       "dependencies": [
@@ -1311,11 +1334,11 @@
     "internmap@1.0.1": {
       "integrity": "sha512-lDB5YccMydFBtasVtxnZ3MRBHuaoE8GKsppq+EchKL2U4nK/DmEpPHNH8MZe5HkMtpSiTSOZwfN0tzYjO/lJEw=="
     },
-    "internmap@2.0.3": {
-      "integrity": "sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg=="
-    },
     "is-what@5.5.0": {
       "integrity": "sha512-oG7cgbmg5kLYae2N5IVd3jm2s+vldjxJzK1pcu9LfpGuQ93MQSzo0okvRna+7y5ifrD+20FE8FvjusyGaz14fw=="
+    },
+    "json-schema-traverse@1.0.0": {
+      "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="
     },
     "katex@0.16.45": {
       "integrity": "sha512-pQpZbdBu7wCTmQUh7ufPmLr0pFoObnGUoL/yhtwJDgmmQpbkg/0HSVti25Fu4rmd1oCR6NGWe9vqTWuWv3GcNA==",
@@ -1485,6 +1508,9 @@
         "regex-utilities"
       ]
     },
+    "require-from-string@2.0.2": {
+      "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw=="
+    },
     "rfdc@1.4.1": {
       "integrity": "sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA=="
     },
@@ -1594,6 +1620,9 @@
     "ts-dedent@2.2.0": {
       "integrity": "sha512-q5W7tVM71e2xjHZTlgfTDoPF/SmqKG5hddq9SzR49CH2hayqRKJtQ4mtRlSxKaJlR/+9rEM+mnBHf7I2/BQcpQ=="
     },
+    "undici-types@7.21.0": {
+      "integrity": "sha512-w9IMgQrz4O0YN1LtB7K5P63vhlIOvC7opSmouCJ+ZywlPAlO9gIkJ+otk6LvGpAs2wg4econaCz3TvQ9xPoyuQ=="
+    },
     "unist-util-is@6.0.1": {
       "integrity": "sha512-LsiILbtBETkDz8I9p1dQ0uyRUWuaQzd/cuEeS1hoRSyW5E5XGmTzlwY1OrNzzakGowI9Dr/I8HVaw4hTtnxy8g==",
       "dependencies": [
@@ -1645,9 +1674,10 @@
         "vfile-message"
       ]
     },
-    "vite@5.4.21": {
+    "vite@5.4.21_@types+node@25.7.0": {
       "integrity": "sha512-o5a9xKjbtuhY6Bi5S3+HvbRERmouabWbyUcpXXUA1u+GNUKoROi9byOJ8M0nHbHYHkYICiMlqxkg1KkYmm25Sw==",
       "dependencies": [
+        "@types/node",
         "esbuild",
         "postcss",
         "rollup"
@@ -1655,9 +1685,12 @@
       "optionalDependencies": [
         "fsevents"
       ],
+      "optionalPeers": [
+        "@types/node"
+      ],
       "bin": true
     },
-    "vitepress-plugin-mermaid@2.0.17_mermaid@11.15.0__cytoscape@3.33.3_vitepress@1.6.4__vite@5.4.21__vue@3.5.34__focus-trap@7.8.0": {
+    "vitepress-plugin-mermaid@2.0.17_mermaid@11.15.0__cytoscape@3.33.3_vitepress@1.6.4__@types+node@25.7.0_@types+node@25.7.0": {
       "integrity": "sha512-IUzYpwf61GC6k0XzfmAmNrLvMi9TRrVRMsUyCA8KNXhg/mQ1VqWnO0/tBVPiX5UoKF1mDUwqn5QV4qAJl6JnUg==",
       "dependencies": [
         "mermaid",
@@ -1667,7 +1700,7 @@
         "@mermaid-js/mermaid-mindmap"
       ]
     },
-    "vitepress@1.6.4_vite@5.4.21_vue@3.5.34_focus-trap@7.8.0": {
+    "vitepress@1.6.4_@types+node@25.7.0": {
       "integrity": "sha512-+2ym1/+0VVrbhNyRoFFesVvBvHAVMZMK0rw60E3X/5349M1GuVdKeazuksqopEdvkKwKGs21Q729jX81/bkBJg==",
       "dependencies": [
         "@docsearch/css",
