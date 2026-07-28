@@ -51,7 +51,7 @@ each listener to its Rust server runtime, and returns one logical `NativeServer`
 |---|---|---:|---|
 | `endpoint` | `str \| NnrpEndpoint` | Yes | Local `nnrp://` or `nnrps://` application endpoint. |
 | `provider_routes` | `Mapping[str, NativeServerProviderRoute] \| None` | No | Per-carrier bind locator and server-security configuration. |
-| `transports` | `Sequence[NativeTransportBinding] \| None` | No | Explicit provider implementations. `None` discovers installed official bindings. |
+| `transports` | `Sequence[NativeTransportBinding] \| None` | No | Authoritative provider registry. It may include `NativeTransportBinding.unavailable(...)` entries for known uninstalled providers; `None` discovers installed official bindings. |
 | `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
 | `options` | `NativeServerOptions \| None` | No | Native server id and generation. |
 | `require_native` | `bool` | No | Production code sets `True`; missing native support is an error. |
@@ -66,8 +66,9 @@ closes the complete logical server; rejecting one peer handshake affects only th
 
 An explicit `transports` collection is authoritative and is not supplemented by discovery. It lets
 third-party providers and conformance fault providers participate through the same public atomic
-listener-set contract. Every binding owns its listener and Rust role adoption; provider routes only
-supply provider-local locators and security.
+listener-set contract. Every available binding owns its listener and Rust role adoption; provider
+routes only supply provider-local locators and security.
+Bindings with `local_available=False` contribute candidate identity and diagnostics but are never bound.
 
 ```python
 with listen_native_server(
