@@ -172,6 +172,19 @@ mismatch raise `NativeArtifactError`; there is no Python socket fallback for thi
 @property
 def kind(self) -> str: ...
 
+@property
+def local_available(self) -> bool: ...
+
+@property
+def diagnostic(self) -> str | None: ...
+
+@classmethod
+def unavailable(
+    cls,
+    provider: NativeTransportProvider,
+    diagnostic: str,
+) -> NativeTransportBinding: ...
+
 async def probe(
     self,
     endpoint: str | NativeTransportEndpoint,
@@ -201,6 +214,12 @@ async def listen(
     timeout_ms: int = 0,
 ) -> NativeTransportListener: ...
 ```
+
+An unavailable binding retains the exact provider metadata and participates in selection as
+`local-unavailable`; it is never probed, connected, listened on, or used for role adoption. This preserves a known but
+uninstalled third-party provider ID without inventing an executable implementation. `diagnostic` must
+be non-empty for unavailable bindings. Loaded artifact bindings report `local_available=True` and
+`diagnostic=None`.
 
 `0` selects the Rust ABI default for sample count, payload size, packet limit, or timeout. A provider rejects endpoint
 locators owned by a different provider.
@@ -237,9 +256,10 @@ unresolved routes in candidate diagnostics; server Auto/Prefer atomically opens 
 installed provider route.
 
 Both role APIs also accept `transports: Sequence[NativeTransportBinding] | None`. `None` discovers
-installed official bindings; an explicit sequence is authoritative, rejects duplicate transport kinds,
-and is not supplemented by discovery. This is the provider implementation boundary: a binding owns
-probe/connect/listen and role adoption, while a route remains provider-local configuration.
+installed official bindings; an explicit sequence is authoritative, rejects duplicate transport kinds
+and provider IDs, and is not supplemented by discovery. Available bindings own probe/connect/listen
+and role adoption. Unavailable bindings preserve known provider identity and diagnostics without being
+invoked. A route remains provider-local configuration.
 
 Application security intent is filtered before probing or binding. Native TCP TLS, QUIC TLS, and WSS can satisfy
 `nnrps://`; resolved plain TCP, IPC, and WS routes remain visible as `security-unsatisfied`. A missing client locator

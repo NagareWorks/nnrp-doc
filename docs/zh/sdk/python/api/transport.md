@@ -168,6 +168,19 @@ artifact 必须声明请求的 provider slot。artifact 缺失、ABI symbol 缺�
 @property
 def kind(self) -> str: ...
 
+@property
+def local_available(self) -> bool: ...
+
+@property
+def diagnostic(self) -> str | None: ...
+
+@classmethod
+def unavailable(
+    cls,
+    provider: NativeTransportProvider,
+    diagnostic: str,
+) -> NativeTransportBinding: ...
+
 async def probe(
     self,
     endpoint: str | NativeTransportEndpoint,
@@ -197,6 +210,11 @@ async def listen(
     timeout_ms: int = 0,
 ) -> NativeTransportListener: ...
 ```
+
+不可用 binding 会保留准确的 Provider 元数据，并以 `local-unavailable` 参与选择；它绝不能被
+probe、connect、listen 或用于 role adoption（角色接管）。显式注册表由此可以保留“已知但未安装”的第三方 Provider ID，
+而不伪造可执行实现。不可用 binding 的 `diagnostic` 必须非空；从 artifact 加载的 binding 返回
+`local_available=True` 和 `diagnostic=None`。
 
 sample count、payload size、packet limit 或 timeout 传 `0` 时使用 Rust ABI 默认值。provider 会拒绝属于其他
 provider 的 endpoint locator。
@@ -232,9 +250,9 @@ class NativeServerProviderRoute:
 打开全部允许的已安装 provider route。
 
 两个 role API 还接受 `transports: Sequence[NativeTransportBinding] | None`。`None` 自动发现
-已安装的官方 binding；显式序列具有决定性、禁止重复 transport kind，且不会再补入发现结果。
-这是 Provider 实现边界：binding 负责 probe/connect/listen 和 role adoption，route 仍只是
-Provider 局部配置。
+已安装的官方 binding；显式序列具有决定性、禁止重复 transport kind 和 Provider ID，且不会再补入
+发现结果。可用 binding 负责 probe/connect/listen 和 role adoption；不可用 binding 只保留已知
+Provider 身份与诊断，绝不会被调用。route 仍只是 Provider 局部配置。
 
 应用安全意图必须在 probe 或 bind 前过滤。Native TCP TLS、QUIC TLS 与 WSS 可以满足 `nnrps://`；已解析的
 明文 TCP、IPC 与 WS route 以 `security-unsatisfied` 留在诊断中。缺少 client locator 时以优先级更高的
