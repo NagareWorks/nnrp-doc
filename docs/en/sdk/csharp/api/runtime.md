@@ -94,7 +94,7 @@ frame carried by one WebSocket binary message; text messages are never accepted 
 
 ## `NnrpWebSocketFrameCodec.Decode`
 
-Splits one WebSocket binary frame into header, metadata slice, and body slice.
+Decodes one WebSocket binary frame into its header plus decoder-owned metadata and body copies.
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
@@ -117,9 +117,17 @@ Decodes concatenated binary frames from local buffers and conformance fixtures.
 |---|
 | `IReadOnlyList<DecodedRuntimeFrame>` |
 
-`DecodedRuntimeFrame` exposes `Header`, owned `Metadata`, and owned `Body`. Decode rejects truncated
-headers, metadata/body length mismatches, reserved header values, trailing bytes in a single-frame
-decode, and a decoded frame count above `limit`.
+`DecodedRuntimeFrame` exposes the following immutable projection:
+
+| Property | Type | Description |
+|---|---|---|
+| `Header` | [`RuntimeFrameHeader`](#runtimeframeheader) | Caller-controlled common-header fields. |
+| `Metadata` | `ReadOnlyMemory<byte>` | Decoder-owned metadata copy. |
+| `Body` | `ReadOnlyMemory<byte>` | Decoder-owned body copy. |
+
+The decoder owns the backing storage for both byte regions; neither property borrows the input
+buffer. Decode rejects truncated headers, metadata/body length mismatches, reserved header values,
+trailing bytes in a single-frame decode, and a decoded frame count above `limit`.
 
 ## `NnrpRuntimeEvent`
 
