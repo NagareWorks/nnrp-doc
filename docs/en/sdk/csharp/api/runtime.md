@@ -262,15 +262,21 @@ states have no terminal result state.
 
 `RuntimeFrameHeader` is exported by `Nnrp.Core` as an immutable record struct. It is the role-neutral
 header projection used by runtime events and `NnrpWebSocketFrameCodec`; it is not a second protocol
-header version.
+header version. It contains every caller-controlled common-header field and does not contain native
+handle or session generation state.
 
 | Property | Type | Description |
 |---|---|---|
 | `MessageType` | [`MessageType`](./enums.md#messagetype) | Frame message type. |
 | `Flags` | [`HeaderFlags`](./enums.md#headerflags-flags) | Header flags. |
 | `SessionId` | `uint` | Session id. |
-| `Generation` | `uint` | Session generation. |
 | `FrameId` | `uint` | Frame id. |
+| `ViewId` | `ushort` | Logical lane or view id. |
+| `RouteId` | `ushort` | Route or scheduling id. |
+| `TraceId` | `ulong` | End-to-end trace id. |
+| `VersionMajor` | `byte` | Protocol major; defaults to `NnrpHeader.CurrentVersionMajor`. |
+| `WireFormat` | `byte` | Wire format; defaults to `NnrpHeader.CurrentWireFormat`. |
 
-All five constructor values are required. The codec derives metadata and body lengths from the
-provided buffers rather than storing caller-supplied lengths in this projection.
+`MessageType` is required; the remaining values use their protocol zero/current defaults. The codec
+writes the fixed magic and 40-byte header length, and derives metadata and body lengths from the
+provided buffers. Decode returns the same nine caller-controlled fields.

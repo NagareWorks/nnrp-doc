@@ -1,8 +1,9 @@
 # 运行时控制与对象
 
-JavaScript/TypeScript Preview 4 API 固定运行时控制、对象引用和 WebSocket 二进制帧 helper。运行时无关
+JavaScript/TypeScript Preview 4 API 公开运行时控制、对象引用 codec 与 typed runtime event。WebSocket
+packet framing 保持在 WebSocket Provider 内部，不作为应用层公开 helper。运行时无关
 helper 位于 `@nnrp/core`；浏览器包可以通过 `@nnrp/browser-client` 使用 WASM 支撑的
-helper；后端包通过角色包 和传输包接入 native
+helper；后端包通过角色包和传输包接入 native
 能力。传输包必须维护自己的传输行为，不只是隐藏实现上的配置开关。
 
 ## 导入
@@ -12,13 +13,10 @@ import {
   decodeCacheInvalidateMetadata,
   decodeRuntimeControlMetadata,
   decodeRuntimeObjectMetadata,
-  decodeWebSocketBinaryFrame,
-  decodeWebSocketBinaryFrameBatch,
   encodeCacheInvalidateMetadata,
   encodeRuntimeControlMetadata,
   encodeRuntimeObjectMetadata,
   encodeRuntimeObjectMetadataSegments,
-  encodeWebSocketBinaryFrame,
   NnrpMessageType,
 } from "@nnrp/core";
 ```
@@ -160,7 +158,7 @@ sendRuntimeFrame(request: NnrpRuntimeFrameSendRequest): void | Promise<void>;
 和 `payload`。`payload` 是完整编码后的 metadata 与声明 tail。它属于内部 binding 契约；应用
 使用 client 和 server 页面记录的具名 session 方法。
 
-## Typed Runtime Frame Event
+## `NnrpRuntimeFrameEvent`
 
 Preview4 入站帧必须在交给应用前完成解码。每个 event 都包含 `type`、`messageType`、
 `metadata`、`sessionId`，并按照下表提供语义化 tail 字段。Tail buffer 是 SDK 持有的
@@ -192,45 +190,6 @@ Preview4 入站帧必须在交给应用前完成解码。每个 event 都包含 
 Object patch 和 delta event 由 SDK 在 `metadata.metadataBytes` 位置切分 wire tail，剩余的
 `metadata.deltaBytes` 字节作为 `delta`。长度错误必须在 event 交付前失败。既有 submit、result、
 lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
-
-## `encodeWebSocketBinaryFrame`
-
-构造 WebSocket 传输层使用的二进制帧。
-
-| 参数       | 类型                                                | 必填 | 说明                                                                                     |
-| ---------- | --------------------------------------------------- | ---: | ---------------------------------------------------------------------------------------- |
-| `header`   | [`NnrpRuntimeFrameHeader`](#nnrpruntimeframeheader) |   是 | 除 `metadataLength` 和 `bodyLength` 之外的 header 字段；函数从 buffer 长度推导这两个值。 |
-| `metadata` | `Uint8Array`                                        |   否 | metadata payload。                                                                       |
-| `body`     | `Uint8Array`                                        |   否 | body payload。                                                                           |
-
-| 返回         |
-| ------------ |
-| `Uint8Array` |
-
-## `decodeWebSocketBinaryFrame`
-
-拆分一个 WebSocket 二进制帧。
-
-| 参数    | 类型         | 必填 | 说明                                |
-| ------- | ------------ | ---: | ----------------------------------- |
-| `frame` | `Uint8Array` |   是 | 一个完整 WebSocket binary message。 |
-
-| 返回                  |
-| --------------------- |
-| `DecodedRuntimeFrame` |
-
-## `decodeWebSocketBinaryFrameBatch`
-
-解码本地 buffer 或测试夹具里的连续二进制帧。
-
-| 参数      | 类型                 | 必填 | 说明                                 |
-| --------- | -------------------- | ---: | ------------------------------------ |
-| `batch`   | `Uint8Array`         |   是 | 连续帧。                             |
-| `options` | `{ limit?: number }` |   否 | 最大解码帧数；`0` 或省略表示不限制。 |
-
-| 返回                    |
-| ----------------------- |
-| `DecodedRuntimeFrame[]` |
 
 ## 运行时控制 Metadata
 
@@ -271,21 +230,6 @@ lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
 | `CacheReferenceMetadata`   | `CacheReference`             | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                             |
 | `CacheMissMetadata`        | `CacheMiss`                  | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                     |
 
-## `CachePolicyOptions`
-
-`CachePolicyOptions` 是本地显式启用值，不会执行隐式查询或自动发送帧。
-
-| TypeScript 字段 | 类型 | 默认值 |
-| --- | --- | --- |
-| `enabled` | `boolean` | `false` |
-| `reuseScope` | `CacheReuseScope | undefined` | `undefined` |
-| `expirationHintMs` | `bigint` | `0n` |
-| `invalidationReason` | `CachePolicyInvalidationReason` | `Explicit` |
-
-`CachePolicyInvalidationReason` 包含 `Explicit`、`DependencyInvalidated`、`LeaseExpired`、
-`VersionMismatch` 和 `SchemaMismatch`。启用时必须提供 `reuseScope`；禁用时要求
-`reuseScope === undefined` 且 `expirationHintMs === 0n`。
-
 ## 运行时枚举
 
 | 枚举                  | 成员                                                                                                                                                                                     |
@@ -298,13 +242,3 @@ lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
 | `ObjectReleaseReason` | `Completed`, `Cancelled`, `Expired`, `Replaced`, `Invalidated`, `OwnerClosed`, `LeaseExpired`, `ConformanceInjection`                                                                    |
 | `CacheReuseScope`     | `Operation`, `Session`, `Connection`, `Global`, `Tenant`, `Profile`                                                                                                                      |
 | `CacheMissReason`     | `Unknown`, `NotFound`, `Expired`, `Invalidated`, `SchemaMismatch`, `ProducerUnavailable`, `LeaseRequired`, `PermissionDenied`                                                            |
-
-## `NnrpRuntimeFrameHeader`
-
-| 字段          | 类型                                  | 说明                 |
-| ------------- | ------------------------------------- | -------------------- |
-| `messageType` | [`NnrpMessageType`](#nnrpmessagetype) | 帧消息类型。         |
-| `flags`       | `number`                              | Header flags。       |
-| `sessionId`   | `number`                              | Session id。         |
-| `generation`  | `number`                              | Session generation。 |
-| `frameId`     | `number`                              | Frame id。           |

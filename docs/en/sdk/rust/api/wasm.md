@@ -35,6 +35,12 @@ nnrp-wasm = "1.0.0-preview.4.17"
 | `encodeRuntimeObjectMetadataJson(...)` | Encodes runtime object metadata from JSON. |
 | `decodeRuntimeObjectMetadataJson(...)` | Decodes runtime object metadata to JSON. |
 
+The binary-frame encode input contains `messageType`, `flags`, `sessionId`, `frameId`, `viewId`,
+`routeId`, and `traceId`. Protocol major and wire format use the current exported values. The
+decoder returns all common-header fields, including `versionMajor`, `wireFormat`, `headerLen`,
+`metaLen`, and `bodyLen`. Native handle or session `generation` is not a wire-header field and is
+never accepted or synthesized by these helpers.
+
 The WASM surface uses the provider metadata, candidate diagnostics, rejection registry, and deterministic ordering
 frozen in [Transport Strategy and Probing](/en/protocol/v1/transport-strategy). It does not export a weighted score.
 Readiness, probe observation, and raw sample JSON use `transport_id` plus `provider_id`; package display names are not

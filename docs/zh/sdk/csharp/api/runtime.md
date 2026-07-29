@@ -257,15 +257,20 @@ guard。
 ## `RuntimeFrameHeader`
 
 `RuntimeFrameHeader` 由 `Nnrp.Core` 以不可变 record struct 导出，是 runtime event 和
-`NnrpWebSocketFrameCodec` 共用的 role-neutral header projection，不是第二套协议 header。
+`NnrpWebSocketFrameCodec` 共用的 role-neutral header projection，不是第二套协议 header。它包含
+所有调用方可控的公共头字段，不包含 native handle 或 session 的 generation 状态。
 
 | 属性 | 类型 | 说明 |
 |---|---|---|
 | `MessageType` | [`MessageType`](./enums.md#messagetype) | 帧消息类型。 |
 | `Flags` | [`HeaderFlags`](./enums.md#headerflags-flags) | Header flags。 |
 | `SessionId` | `uint` | Session id。 |
-| `Generation` | `uint` | Session generation。 |
 | `FrameId` | `uint` | Frame id。 |
+| `ViewId` | `ushort` | 逻辑 lane 或 view id。 |
+| `RouteId` | `ushort` | 路由或调度 id。 |
+| `TraceId` | `ulong` | 端到端 trace id。 |
+| `VersionMajor` | `byte` | 协议主版本；默认使用 `NnrpHeader.CurrentVersionMajor`。 |
+| `WireFormat` | `byte` | Wire format；默认使用 `NnrpHeader.CurrentWireFormat`。 |
 
-五个构造值全部必填。Codec 根据传入 buffer 推导 metadata/body 长度，不在 projection 中保存
-调用方提供的长度。
+`MessageType` 必填，其余值使用协议零值或当前版本默认值。Codec 写入固定 magic 和 40-byte header
+length，并从传入 buffer 推导 metadata/body 长度。Decode 必须无损返回上述九个调用方可控字段。
