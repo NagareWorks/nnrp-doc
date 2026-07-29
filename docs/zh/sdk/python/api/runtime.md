@@ -226,10 +226,21 @@ session 时无法保持无歧义的事件所有权。
 
 ## `RuntimeFrameHeader`
 
+`RuntimeFrameHeader` 是 binary-frame helper 使用的 NNRP 公共头无损输入投影。它包含所有既不是
+协议常量、也不能从 metadata/body buffer 推导的 wire 字段，不包含 native handle 或 session 的
+generation 状态。
+
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `message_type` | [`MessageType`](./enums.md#messagetypeintenum) | 帧消息类型。 |
 | `flags` | [`HeaderFlags`](./enums.md#headerflagsintflag) | Header flags。 |
 | `session_id` | `int` | Session id。 |
-| `generation` | `int` | Session generation。 |
 | `frame_id` | `int` | Frame id。 |
+| `view_id` | `int` | 逻辑 lane 或 view id。 |
+| `route_id` | `int` | 路由或调度 id。 |
+| `trace_id` | `int` | 端到端 trace id。 |
+| `version_major` | `int` | 协议主版本；默认使用当前 NNRP/1 值。 |
+| `wire_format` | [`WireFormat`](./enums.md#wireformatintenum) | Wire format；默认使用 `CURRENT`。 |
+
+Codec 写入固定的 `NNRP` magic 和 40-byte header length，并从传入 buffer 推导 `meta_len` 与
+`body_len`。Decode 必须无损返回上述九个调用方可控字段。

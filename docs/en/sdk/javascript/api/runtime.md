@@ -1,8 +1,8 @@
 # Runtime Control & Objects
 
-JavaScript/TypeScript Preview 4 APIs freeze the runtime-control, object-reference, and WebSocket
-binary-frame helpers that SDK packages must expose. The names below are the public API contract for
-NNRP/1 JavaScript packages.
+JavaScript/TypeScript Preview 4 APIs expose runtime-control and object-reference codecs plus typed
+runtime events. WebSocket packet framing remains inside the WebSocket provider and is not a public
+application helper.
 
 Runtime-neutral helpers live in `@nnrp/core`. Browser packages may call the WASM-backed helpers from
 `@nnrp/browser-client`; backend packages may call native-backed helpers through role and transport
@@ -16,13 +16,10 @@ import {
   decodeCacheInvalidateMetadata,
   decodeRuntimeControlMetadata,
   decodeRuntimeObjectMetadata,
-  decodeWebSocketBinaryFrame,
-  decodeWebSocketBinaryFrameBatch,
   encodeCacheInvalidateMetadata,
   encodeRuntimeControlMetadata,
   encodeRuntimeObjectMetadata,
   encodeRuntimeObjectMetadataSegments,
-  encodeWebSocketBinaryFrame,
   NnrpMessageType,
 } from "@nnrp/core";
 ```
@@ -168,7 +165,7 @@ and `payload`. `payload` is the complete encoded metadata and declared tail. It 
 binding contract; public applications use the named session methods documented on the client and
 server pages.
 
-## Typed Runtime Frame Events
+## `NnrpRuntimeFrameEvent`
 
 Incoming Preview4 frames are decoded before they reach application code. Each event contains
 `type`, `messageType`, `metadata`, `sessionId`, and the semantic tail field from this table. Tail
@@ -201,45 +198,6 @@ For object patch and delta events, the SDK splits the wire tail at `metadata.met
 remaining `metadata.deltaBytes` bytes become `delta`. A malformed length fails before an event is
 delivered. Existing submit, result, lifecycle, and migration event variants remain separate from
 this runtime-frame union.
-
-## `encodeWebSocketBinaryFrame`
-
-Builds the binary frame used by the WebSocket transport.
-
-| Parameter  | Type                                                | Required | Description                                                                                               |
-| ---------- | --------------------------------------------------- | -------: | --------------------------------------------------------------------------------------------------------- |
-| `header`   | [`NnrpRuntimeFrameHeader`](#nnrpruntimeframeheader) |      Yes | Header fields except `metadataLength` and `bodyLength`; the helper derives both lengths from the buffers. |
-| `metadata` | `Uint8Array`                                        |       No | Metadata payload.                                                                                         |
-| `body`     | `Uint8Array`                                        |       No | Body payload.                                                                                             |
-
-| Returns      |
-| ------------ |
-| `Uint8Array` |
-
-## `decodeWebSocketBinaryFrame`
-
-Splits one WebSocket binary frame into header, metadata view, and body view.
-
-| Parameter | Type         | Required | Description                            |
-| --------- | ------------ | -------: | -------------------------------------- |
-| `frame`   | `Uint8Array` |      Yes | One complete WebSocket binary message. |
-
-| Returns               |
-| --------------------- |
-| `DecodedRuntimeFrame` |
-
-## `decodeWebSocketBinaryFrameBatch`
-
-Decodes concatenated binary frames from local buffers and conformance fixtures.
-
-| Parameter | Type                 | Required | Description                                            |
-| --------- | -------------------- | -------: | ------------------------------------------------------ |
-| `batch`   | `Uint8Array`         |      Yes | Concatenated frames.                                   |
-| `options` | `{ limit?: number }` |       No | Maximum decoded frames; `0` or omitted means no limit. |
-
-| Returns                 |
-| ----------------------- |
-| `DecodedRuntimeFrame[]` |
 
 ## Runtime Control Metadata
 
@@ -293,21 +251,6 @@ below. A metadata object is valid only for the message types listed in its row.
 | `CacheReferenceMetadata`   | `CacheReference`             | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                             |
 | `CacheMissMetadata`        | `CacheMiss`                  | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                     |
 
-## `CachePolicyOptions`
-
-`CachePolicyOptions` is a local opt-in value and never performs an implicit lookup or emits a frame.
-
-| TypeScript field | Type | Default |
-| --- | --- | --- |
-| `enabled` | `boolean` | `false` |
-| `reuseScope` | `CacheReuseScope | undefined` | `undefined` |
-| `expirationHintMs` | `bigint` | `0n` |
-| `invalidationReason` | `CachePolicyInvalidationReason` | `Explicit` |
-
-`CachePolicyInvalidationReason` has `Explicit`, `DependencyInvalidated`, `LeaseExpired`,
-`VersionMismatch`, and `SchemaMismatch`. Enabling requires `reuseScope`; disabling requires
-`reuseScope === undefined` and `expirationHintMs === 0n`.
-
 ## Runtime Enums
 
 | Enum                  | Members                                                                                                                                                                                  |
@@ -320,13 +263,3 @@ below. A metadata object is valid only for the message types listed in its row.
 | `ObjectReleaseReason` | `Completed`, `Cancelled`, `Expired`, `Replaced`, `Invalidated`, `OwnerClosed`, `LeaseExpired`, `ConformanceInjection`                                                                    |
 | `CacheReuseScope`     | `Operation`, `Session`, `Connection`, `Global`, `Tenant`, `Profile`                                                                                                                      |
 | `CacheMissReason`     | `Unknown`, `NotFound`, `Expired`, `Invalidated`, `SchemaMismatch`, `ProducerUnavailable`, `LeaseRequired`, `PermissionDenied`                                                            |
-
-## `NnrpRuntimeFrameHeader`
-
-| Field         | Type                                  | Description         |
-| ------------- | ------------------------------------- | ------------------- |
-| `messageType` | [`NnrpMessageType`](#nnrpmessagetype) | Frame message type. |
-| `flags`       | `number`                              | Header flags.       |
-| `sessionId`   | `number`                              | Session id.         |
-| `generation`  | `number`                              | Session generation. |
-| `frameId`     | `number`                              | Frame id.           |

@@ -263,10 +263,22 @@ Use `expires_at_ms`, `is_expired`, and `validate_version` for local validation.
 
 ## `RuntimeFrameHeader`
 
+`RuntimeFrameHeader` is the lossless caller-supplied projection of the NNRP common header used by
+the binary-frame helpers. It contains every wire field that is neither a protocol constant nor
+derived from the supplied metadata and body buffers. It does not contain native handle or session
+generation state.
+
 | Field | Type | Description |
 |---|---|---|
 | `message_type` | [`MessageType`](./enums.md#messagetypeintenum) | Frame message type. |
 | `flags` | [`HeaderFlags`](./enums.md#headerflagsintflag) | Header flags. |
 | `session_id` | `int` | Session id. |
-| `generation` | `int` | Session generation. |
 | `frame_id` | `int` | Frame id. |
+| `view_id` | `int` | Logical lane or view id. |
+| `route_id` | `int` | Route or scheduling id. |
+| `trace_id` | `int` | End-to-end trace id. |
+| `version_major` | `int` | Protocol major; defaults to the current NNRP/1 value. |
+| `wire_format` | [`WireFormat`](./enums.md#wireformatintenum) | Wire format; defaults to `CURRENT`. |
+
+The codec writes the fixed `NNRP` magic and 40-byte header length, and derives `meta_len` and
+`body_len` from the supplied buffers. Decode returns the same nine caller-controlled fields.

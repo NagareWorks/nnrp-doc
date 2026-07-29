@@ -34,6 +34,11 @@ nnrp-wasm = "1.0.0-preview.4.17"
 | `encodeRuntimeObjectMetadataJson(...)` | 从 JSON 编码 runtime object metadata。 |
 | `decodeRuntimeObjectMetadataJson(...)` | 将 runtime object metadata 解码成 JSON。 |
 
+Binary-frame encode 输入包含 `messageType`、`flags`、`sessionId`、`frameId`、`viewId`、
+`routeId` 和 `traceId`，协议主版本与 wire format 使用当前导出值。Decoder 返回全部公共头字段，
+包括 `versionMajor`、`wireFormat`、`headerLen`、`metaLen` 和 `bodyLen`。Native handle 或 session
+的 `generation` 不是 wire header 字段，helper 不接受也不合成该值。
+
 WASM 表面使用[传输策略与探测](/zh/protocol/v1/transport-strategy)冻结的 provider 元数据、candidate 诊断、拒绝原因
 注册表与确定性排序，不导出加权 score。
 Readiness、probe observation 与原始 sample JSON 都使用 `transport_id` 加 `provider_id`；package 展示名不是
