@@ -93,7 +93,7 @@ message 承载的二进制 runtime frame；text message 永远不能作为 NNRP 
 
 ## `NnrpWebSocketFrameCodec.Decode`
 
-拆分一个 WebSocket 二进制帧。
+把一个 WebSocket 二进制帧解码为 header，以及由 decoder 持有的 metadata/body 副本。
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
@@ -116,7 +116,15 @@ message 承载的二进制 runtime frame；text message 永远不能作为 NNRP 
 |---|
 | `IReadOnlyList<DecodedRuntimeFrame>` |
 
-`DecodedRuntimeFrame` 暴露 `Header`、owned `Metadata` 和 owned `Body`。Decode 会拒绝截断
+`DecodedRuntimeFrame` 暴露以下不可变投影：
+
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `Header` | [`RuntimeFrameHeader`](#runtimeframeheader) | 由调用方控制的 common-header 字段。 |
+| `Metadata` | `ReadOnlyMemory<byte>` | 由 decoder 持有的 metadata 副本。 |
+| `Body` | `ReadOnlyMemory<byte>` | 由 decoder 持有的 body 副本。 |
+
+两个字节区域的 backing storage 均由 decoder 持有，不会借用输入 buffer。Decode 会拒绝截断
 header、metadata/body 长度不匹配、reserved header 值、single-frame decode 中的 trailing byte，
 以及超过 `limit` 的 frame 数量。
 
