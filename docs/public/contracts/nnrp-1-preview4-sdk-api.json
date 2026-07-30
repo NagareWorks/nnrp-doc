@@ -1,21 +1,134 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 1,
+  "contractVersion": 4,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
     "wireFormat": 0,
     "preview": 4
   },
+  "wireLayouts": {
+    "BodyRegionPrelude": {
+      "size": 32,
+      "fields": [
+        { "name": "inline_object_bytes", "type": "u32", "offset": 0 },
+        { "name": "object_reference_bytes", "type": "u32", "offset": 4 },
+        { "name": "typed_payload_descriptor_bytes", "type": "u32", "offset": 8 },
+        { "name": "typed_payload_frame_bytes", "type": "u32", "offset": 12 },
+        { "name": "extension_descriptor_bytes", "type": "u32", "offset": 16 },
+        { "name": "extension_payload_bytes", "type": "u32", "offset": 20 },
+        { "name": "body_flags", "type": "u32", "offset": 24, "constant": 0 },
+        { "name": "reserved", "type": "u32", "offset": 28, "constant": 0 }
+      ]
+    },
+    "InlineObjectBlockHeader": {
+      "size": 16,
+      "fields": [
+        { "name": "object_kind", "type": "u16", "offset": 0 },
+        { "name": "object_flags", "type": "u16", "offset": 2 },
+        { "name": "profile_id", "type": "u16", "offset": 4 },
+        { "name": "reserved0", "type": "u16", "offset": 6, "constant": 0 },
+        { "name": "object_bytes", "type": "u32", "offset": 8 },
+        { "name": "reserved1", "type": "u32", "offset": 12, "constant": 0 }
+      ]
+    },
+    "ObjectReferenceBlock": {
+      "size": 24,
+      "fields": [
+        { "name": "object_kind", "type": "u16", "offset": 0 },
+        { "name": "ref_flags", "type": "u16", "offset": 2 },
+        { "name": "cache_namespace", "type": "u32", "offset": 4 },
+        { "name": "cache_key_hi", "type": "u64", "offset": 8 },
+        { "name": "cache_key_lo", "type": "u64", "offset": 16 }
+      ],
+      "canonicalHex": "0100000003000000887766554433221100ffeeddccbbaa99"
+    },
+    "TypedPayloadDescriptor": {
+      "size": 24,
+      "fields": [
+        { "name": "profile_id", "type": "u16", "offset": 0 },
+        { "name": "payload_kind", "type": "u8", "offset": 2 },
+        { "name": "descriptor_flags", "type": "u8", "offset": 3 },
+        { "name": "schema_id", "type": "u32", "offset": 4 },
+        { "name": "schema_version", "type": "u32", "offset": 8 },
+        { "name": "stream_semantics", "type": "u16", "offset": 12 },
+        { "name": "reserved0", "type": "u16", "offset": 14, "constant": 0 },
+        { "name": "offset", "type": "u32", "offset": 16 },
+        { "name": "length", "type": "u32", "offset": 20 }
+      ],
+      "canonicalHex": "020002020110000003000000020000000800000018000000"
+    },
+    "ExtensionFrameDescriptor": {
+      "size": 16,
+      "fields": [
+        { "name": "extension_kind", "type": "u16", "offset": 0 },
+        { "name": "extension_flags", "type": "u16", "offset": 2 },
+        { "name": "profile_id", "type": "u16", "offset": 4 },
+        { "name": "reserved0", "type": "u16", "offset": 6, "constant": 0 },
+        { "name": "payload_offset", "type": "u32", "offset": 8 },
+        { "name": "payload_length", "type": "u32", "offset": 12 }
+      ]
+    },
+    "TensorSectionDescriptor": {
+      "size": 32,
+      "fields": [
+        { "name": "role_id", "type": "u16", "offset": 0 },
+        { "name": "codec_id", "type": "u8", "offset": 2 },
+        { "name": "dtype_id", "type": "u8", "offset": 3 },
+        { "name": "layout_id", "type": "u8", "offset": 4 },
+        { "name": "scale_policy", "type": "u8", "offset": 5 },
+        { "name": "section_flags", "type": "u16", "offset": 6 },
+        { "name": "element_count_per_tile", "type": "u32", "offset": 8 },
+        { "name": "codec_table_bytes", "type": "u32", "offset": 12 },
+        { "name": "length_table_bytes", "type": "u32", "offset": 16 },
+        { "name": "payload_bytes", "type": "u32", "offset": 20 },
+        { "name": "payload_stride_bytes", "type": "u32", "offset": 24 },
+        { "name": "reserved", "type": "u32", "offset": 28, "constant": 0 }
+      ]
+    }
+  },
   "rules": {
     "languageProjectionMustBeLossless": true,
     "adapterNormalizationDoesNotProveApiParity": true,
     "missingWireFieldsMayNotBeDefaulted": true,
     "ffiCallsRemainCoarseGrained": true,
+    "profileBuildersOwnDerivedWireFields": true,
+    "publicRuntimeEventsRequireWireHeaders": true,
+    "localLifecycleEventsRemainSeparate": true,
+    "currentSuitesRejectLegacyPreviewWireLayouts": true,
+    "typedPayloadKindIsExplicitPerFrame": true,
+    "typedPayloadBitmapMatchesDescriptorUnion": true,
     "legacyPreviewCompatibility": false
   },
   "types": {
+    "TypedPayloadDescriptor": {
+      "description": "Current 24-byte profile and schema binding for one typed payload frame. It contains only fields present on the wire.",
+      "fields": [
+        { "name": "profile_id", "type": "u16", "required": true },
+        { "name": "payload_kind", "type": "PayloadKind", "wireType": "u8", "required": true },
+        {
+          "name": "descriptor_flags",
+          "type": "TypedPayloadDescriptorFlags",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "schema_id", "type": "u32", "required": true },
+        { "name": "schema_version", "type": "u32", "required": true },
+        { "name": "stream_semantics", "type": "u16", "required": true },
+        { "name": "offset", "type": "u32", "required": true },
+        { "name": "length", "type": "u32", "required": true }
+      ],
+      "forbiddenDuplicates": ["payload_offset", "payload_length", "reserved"]
+    },
+    "TypedPayloadFrame": {
+      "description": "Owned descriptor and payload bytes. Each descriptor carries one payload kind and the enclosing bitmap equals the union of descriptor kinds plus tensor when tensor regions are present.",
+      "fields": [
+        { "name": "descriptor", "type": "TypedPayloadDescriptor", "required": true },
+        { "name": "payload", "type": "bytes", "required": true, "ownership": "owned" }
+      ],
+      "resolutionRule": "Consumers validate payload_kind together with profile_id, schema_id, and schema_version. The payload kind is read from the descriptor and is never inferred from descriptor order or a multi-bit bitmap."
+    },
     "RuntimeFrameHeader": {
       "description": "Lossless projection of every non-derived NNRP common-header field.",
       "fields": [
@@ -30,6 +143,157 @@
         { "name": "trace_id", "type": "u64", "required": true }
       ],
       "derivedWireFields": ["header_len", "meta_len", "body_len"]
+    },
+    "SubmitHeaderContext": {
+      "description": "Caller-controlled common-header fields for FRAME_SUBMIT. The active session owns session_id and the request owns frame_id.",
+      "fields": [
+        { "name": "flags", "type": "HeaderFlags", "wireType": "u32", "required": true },
+        { "name": "view_id", "type": "u16", "required": true },
+        { "name": "route_id", "type": "u16", "required": true },
+        { "name": "trace_id", "type": "u64", "required": true }
+      ]
+    },
+    "SubmitIdentity": {
+      "description": "Caller-owned identities and common-header context shared by every submit builder.",
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true, "minimum": 1 },
+        { "name": "frame_id", "type": "u32", "required": true, "minimum": 1 },
+        { "name": "header", "type": "SubmitHeaderContext", "required": true }
+      ]
+    },
+    "SubmitPolicy": {
+      "description": "Caller-controlled scheduling and recovery semantics shared by every submit builder.",
+      "fields": [
+        { "name": "frame_class", "type": "u8", "required": true, "default": 0 },
+        { "name": "latency_budget_ms", "type": "u16", "required": true, "default": 0 },
+        { "name": "target_fps_x100", "type": "u16", "required": true, "default": 0 },
+        { "name": "retry_of_frame", "type": "u32", "required": true, "default": 0 },
+        {
+          "name": "budget_policy",
+          "type": "BudgetPolicy",
+          "wireType": "u8",
+          "required": true,
+          "default": 0
+        },
+        {
+          "name": "loss_tolerance_policy",
+          "type": "LossTolerancePolicy",
+          "wireType": "u8",
+          "required": true,
+          "default": 255
+        },
+        { "name": "dependency_frame_id", "type": "u32", "required": true, "default": 0 }
+      ]
+    },
+    "TensorSection": {
+      "description": "Owned semantic tensor section. Builders derive descriptor flags, table lengths, payload lengths, and fixed- or variable-stride wire representation.",
+      "fields": [
+        { "name": "role_id", "type": "u16", "required": true },
+        { "name": "default_codec_id", "type": "u8", "required": true },
+        { "name": "dtype_id", "type": "u8", "required": true },
+        { "name": "layout_id", "type": "u8", "required": true },
+        { "name": "scale_policy", "type": "u8", "required": true, "default": 0 },
+        { "name": "element_count_per_tile", "type": "u32", "required": true, "default": 0 },
+        { "name": "tile_payloads", "type": "bytes[]", "required": true, "ownership": "owned" },
+        { "name": "codec_ids", "type": "u8[]", "required": true, "default": [] },
+        { "name": "payload_stride_bytes", "type": "u32", "required": true, "default": 0 }
+      ],
+      "derivedWireFields": [
+        "section_flags",
+        "codec_table_bytes",
+        "length_table_bytes",
+        "payload_bytes"
+      ]
+    },
+    "SubmitObjectReferences": {
+      "description": "Optional standard object-reference slots for tensor submits. Builders reject duplicates and derive submit_mode and object_ref_mask from inline values and references.",
+      "fields": [
+        { "name": "camera", "type": "ObjectReferenceBlock?", "required": true, "default": null },
+        {
+          "name": "tile_index",
+          "type": "ObjectReferenceBlock?",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "tensor_section_table",
+          "type": "ObjectReferenceBlock?",
+          "required": true,
+          "default": null
+        }
+      ]
+    },
+    "TensorSubmitInput": {
+      "description": "High-level tensor builder input. Tile, section, body-region, reference-mask, count, and length fields are SDK-derived.",
+      "fields": [
+        { "name": "identity", "type": "SubmitIdentity", "required": true },
+        { "name": "policy", "type": "SubmitPolicy", "required": true },
+        { "name": "src_width", "type": "u16", "required": true },
+        { "name": "src_height", "type": "u16", "required": true },
+        { "name": "tile_width", "type": "u16", "required": true },
+        { "name": "tile_height", "type": "u16", "required": true },
+        { "name": "tile_ids", "type": "u16[]", "required": true },
+        { "name": "sections", "type": "TensorSection[]", "required": true },
+        {
+          "name": "camera_block",
+          "type": "bytes",
+          "required": true,
+          "default": "",
+          "ownership": "owned"
+        },
+        { "name": "input_profile", "type": "InputProfile", "wireType": "u8", "required": true },
+        { "name": "tile_index_mode", "type": "TileIndexMode", "wireType": "u8", "required": true },
+        { "name": "tile_base_id", "type": "u32", "required": true, "default": 0 },
+        { "name": "references", "type": "SubmitObjectReferences", "required": true }
+      ]
+    },
+    "TokenChunk": {
+      "description": "Owned token delta with frozen token profile, schema, and append-stream defaults.",
+      "fields": [
+        { "name": "payload", "type": "bytes", "required": true, "ownership": "owned" },
+        {
+          "name": "descriptor_flags",
+          "type": "TypedPayloadDescriptorFlags",
+          "wireType": "u8",
+          "required": true,
+          "default": 2
+        }
+      ]
+    },
+    "TokenSubmitInput": {
+      "description": "High-level token builder input. The builder emits token typed-payload descriptors and derives the bitmap and frame count.",
+      "fields": [
+        { "name": "identity", "type": "SubmitIdentity", "required": true },
+        { "name": "policy", "type": "SubmitPolicy", "required": true },
+        { "name": "chunks", "type": "TokenChunk[]", "required": true }
+      ]
+    },
+    "TypedPayloadInputFrame": {
+      "description": "Owned semantic typed-payload input. The submit builder derives descriptor offset and length from payload order and size.",
+      "fields": [
+        { "name": "profile_id", "type": "u16", "required": true },
+        { "name": "payload_kind", "type": "PayloadKind", "wireType": "u8", "required": true },
+        {
+          "name": "descriptor_flags",
+          "type": "TypedPayloadDescriptorFlags",
+          "wireType": "u8",
+          "required": true,
+          "default": 0
+        },
+        { "name": "schema_id", "type": "u32", "required": true, "default": 0 },
+        { "name": "schema_version", "type": "u32", "required": true, "default": 0 },
+        { "name": "stream_semantics", "type": "u16", "required": true, "default": 0 },
+        { "name": "payload", "type": "bytes", "required": true, "ownership": "owned" }
+      ],
+      "derivedWireFields": ["offset", "length"]
+    },
+    "TypedPayloadSubmitInput": {
+      "description": "High-level generic typed-payload builder input for token-independent typed profiles.",
+      "fields": [
+        { "name": "identity", "type": "SubmitIdentity", "required": true },
+        { "name": "policy", "type": "SubmitPolicy", "required": true },
+        { "name": "frames", "type": "TypedPayloadInputFrame[]", "required": true }
+      ]
     },
     "SubmitMetadata": {
       "description": "Typed semantic projection of FRAME_SUBMIT metadata excluding operation_id, which is owned by SubmitRequest.",
@@ -67,23 +331,76 @@
         },
         { "name": "payload_frame_count", "type": "u16", "required": true }
       ],
-      "builderRequirement": "Every SDK provides profile-specific builders so ordinary callers do not populate wire-shape counters and byte lengths manually."
+      "builderDerivedFields": [
+        "tile_count",
+        "section_count",
+        "camera_bytes",
+        "tile_index_bytes",
+        "payload_kind_bitmap",
+        "payload_frame_count"
+      ],
+      "builderRequirement": "Every SDK provides tensor, token, and generic typed-payload builders. Ordinary callers do not populate wire-shape counters, byte lengths, or payload bitmaps manually. Direct SubmitMetadata construction is a protocol-expert surface."
     },
     "SubmitRequest": {
       "description": "Profile-neutral, owned, high-level role request. It never accepts an encoded FFI buffer.",
       "fields": [
         { "name": "operation_id", "type": "u64", "required": true, "minimum": 1 },
         { "name": "frame_id", "type": "u32", "required": true, "minimum": 1 },
+        { "name": "header", "type": "SubmitHeaderContext", "required": true },
         { "name": "metadata", "type": "SubmitMetadata", "required": true },
         { "name": "body", "type": "bytes", "required": true, "ownership": "owned" }
       ],
       "wireMapping": {
         "frameSubmitMetadataOperationId": "operation_id",
         "commonHeaderFrameId": "frame_id",
+        "commonHeaderFlagsViewRouteTrace": "header",
         "metadataPrefix": "metadata",
         "body": "body"
       },
-      "ffiRule": "Bindings encode metadata and body once and perform one coarse native submit call. The FFI carrier repeats operation_id and frame_id only for handle correlation and rejects disagreement with encoded metadata or the common header."
+      "ffiRule": "Bindings encode metadata and body once and perform one coarse native submit call. The FFI carrier transports operation_id, frame_id, and SubmitHeaderContext together with the encoded metadata/body payload; Rust owns session_id and the derived header lengths. The carrier rejects operation_id disagreement with encoded metadata.",
+      "builderFamilies": ["tensor", "token", "typed_payload"],
+      "builders": {
+        "tensor": { "input": "TensorSubmitInput", "output": "SubmitRequest" },
+        "token": { "input": "TokenSubmitInput", "output": "SubmitRequest" },
+        "typed_payload": { "input": "TypedPayloadSubmitInput", "output": "SubmitRequest" }
+      }
+    },
+    "RuntimeEventMetadata": {
+      "description": "Closed metadata union used by public role event pumps. The common header message_type selects exactly one variant.",
+      "fields": [],
+      "variants": [
+        "none",
+        "frame_submit",
+        "result_push",
+        "result_hint",
+        "control_request",
+        "scheduling",
+        "supersede",
+        "budget",
+        "progress",
+        "partial_result",
+        "pressure",
+        "capability",
+        "route_hint",
+        "trace_context",
+        "result_drop_reason",
+        "recoverable_error",
+        "retry_after",
+        "flow_update",
+        "object_descriptor",
+        "object_reference",
+        "object_release",
+        "object_delta",
+        "cache_reference",
+        "cache_miss",
+        "cache_invalidate",
+        "session_close"
+      ]
+    },
+    "RuntimeEventTail": {
+      "description": "Closed owned tail union. A tail never aliases a receive buffer or an FFI event handle.",
+      "fields": [],
+      "variants": ["none", "body", "diagnostic", "metadata_body_and_delta"]
     },
     "RuntimeEvent": {
       "description": "Owned event envelope shared by client and server role APIs.",
@@ -110,30 +427,355 @@
         "route_id",
         "trace_id"
       ],
-      "tailVariants": ["none", "body", "diagnostic", "metadata_body_and_delta"],
-      "ownership": "metadata and tail storage remain valid independently of the receive buffer and native event handle"
+      "ownership": "metadata and tail storage remain valid independently of the receive buffer and native event handle",
+      "ffiLifecycleRule": "A native event with header.present == 1 is a wire RuntimeEvent. A native event with header.present == 0 is a local lifecycle event and must remain in a separate SDK lifecycle-event type; bindings must not fabricate a RuntimeFrameHeader for it."
     }
   },
+  "messageTypes": [
+    { "name": "client_hello", "value": "0x01", "delivery": "role_method" },
+    { "name": "server_hello_ack", "value": "0x02", "delivery": "role_method" },
+    { "name": "session_patch", "value": "0x03", "delivery": "role_method" },
+    { "name": "session_patch_ack", "value": "0x04", "delivery": "role_method" },
+    { "name": "close", "value": "0x05", "delivery": "connection_event" },
+    { "name": "error", "value": "0x06", "delivery": "connection_event" },
+    { "name": "session_open", "value": "0x07", "delivery": "role_method" },
+    { "name": "session_open_ack", "value": "0x08", "delivery": "role_method" },
+    { "name": "session_close", "value": "0x09", "delivery": "runtime_event" },
+    { "name": "session_close_ack", "value": "0x0a", "delivery": "role_method" },
+    { "name": "frame_submit", "value": "0x10", "delivery": "runtime_event" },
+    { "name": "frame_cancel", "value": "0x11", "delivery": "runtime_event" },
+    { "name": "result_push", "value": "0x12", "delivery": "runtime_event" },
+    { "name": "result_drop", "value": "0x13", "delivery": "runtime_event" },
+    { "name": "cache_put", "value": "0x14", "delivery": "role_method" },
+    { "name": "cache_ack", "value": "0x15", "delivery": "role_method" },
+    { "name": "cache_invalidate", "value": "0x16", "delivery": "runtime_event" },
+    { "name": "flow_update", "value": "0x17", "delivery": "runtime_event" },
+    { "name": "result_hint", "value": "0x18", "delivery": "runtime_event" },
+    { "name": "transport_probe", "value": "0x19", "delivery": "role_method" },
+    { "name": "transport_probe_ack", "value": "0x1a", "delivery": "role_method" },
+    { "name": "session_migrate", "value": "0x1b", "delivery": "role_method" },
+    { "name": "session_migrate_ack", "value": "0x1c", "delivery": "role_method" },
+    { "name": "ping", "value": "0x20", "delivery": "role_method" },
+    { "name": "pong", "value": "0x21", "delivery": "role_method" },
+    { "name": "cancel", "value": "0x30", "delivery": "runtime_event" },
+    { "name": "abort", "value": "0x31", "delivery": "runtime_event" },
+    { "name": "priority_update", "value": "0x32", "delivery": "runtime_event" },
+    { "name": "deadline", "value": "0x33", "delivery": "runtime_event" },
+    { "name": "expire_at", "value": "0x34", "delivery": "runtime_event" },
+    { "name": "supersede", "value": "0x35", "delivery": "runtime_event" },
+    { "name": "budget_update", "value": "0x36", "delivery": "runtime_event" },
+    { "name": "progress", "value": "0x37", "delivery": "runtime_event" },
+    { "name": "partial_result", "value": "0x38", "delivery": "runtime_event" },
+    { "name": "backpressure", "value": "0x39", "delivery": "runtime_event" },
+    { "name": "credit_update", "value": "0x3a", "delivery": "runtime_event" },
+    { "name": "capability_negotiation", "value": "0x3b", "delivery": "runtime_event" },
+    { "name": "degrade_profile", "value": "0x3c", "delivery": "runtime_event" },
+    { "name": "route_hint", "value": "0x3d", "delivery": "runtime_event" },
+    { "name": "execution_hint", "value": "0x3e", "delivery": "runtime_event" },
+    { "name": "trace_context", "value": "0x3f", "delivery": "runtime_event" },
+    { "name": "result_drop_reason", "value": "0x40", "delivery": "runtime_event" },
+    { "name": "object_declare", "value": "0x41", "delivery": "runtime_event" },
+    { "name": "object_ref", "value": "0x42", "delivery": "runtime_event" },
+    { "name": "object_release", "value": "0x43", "delivery": "runtime_event" },
+    { "name": "object_patch", "value": "0x44", "delivery": "runtime_event" },
+    { "name": "object_delta", "value": "0x45", "delivery": "runtime_event" },
+    { "name": "cache_reference", "value": "0x46", "delivery": "runtime_event" },
+    { "name": "cache_miss", "value": "0x47", "delivery": "runtime_event" },
+    { "name": "error_recoverable", "value": "0x48", "delivery": "runtime_event" },
+    { "name": "retry_after", "value": "0x49", "delivery": "runtime_event" }
+  ],
+  "runtimeEventMessages": [
+    {
+      "messageType": "session_close",
+      "metadata": "session_close",
+      "tail": "none",
+      "client": false,
+      "server": true
+    },
+    {
+      "messageType": "frame_submit",
+      "metadata": "frame_submit",
+      "tail": "body",
+      "client": false,
+      "server": true
+    },
+    {
+      "messageType": "frame_cancel",
+      "metadata": "none",
+      "tail": "none",
+      "client": false,
+      "server": true
+    },
+    {
+      "messageType": "result_push",
+      "metadata": "result_push",
+      "tail": "body",
+      "client": true,
+      "server": false
+    },
+    {
+      "messageType": "result_drop",
+      "metadata": "none",
+      "tail": "none",
+      "client": true,
+      "server": false
+    },
+    {
+      "messageType": "cache_invalidate",
+      "metadata": "cache_invalidate",
+      "tail": "none",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "flow_update",
+      "metadata": "flow_update",
+      "tail": "none",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "result_hint",
+      "metadata": "result_hint",
+      "tail": "none",
+      "client": true,
+      "server": false
+    },
+    {
+      "messageType": "cancel",
+      "metadata": "control_request",
+      "tail": "diagnostic",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "abort",
+      "metadata": "control_request",
+      "tail": "diagnostic",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "priority_update",
+      "metadata": "scheduling",
+      "tail": "none",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "deadline",
+      "metadata": "scheduling",
+      "tail": "none",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "expire_at",
+      "metadata": "scheduling",
+      "tail": "none",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "supersede",
+      "metadata": "supersede",
+      "tail": "diagnostic",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "budget_update",
+      "metadata": "budget",
+      "tail": "none",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "progress",
+      "metadata": "progress",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "partial_result",
+      "metadata": "partial_result",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "backpressure",
+      "metadata": "pressure",
+      "tail": "none",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "credit_update",
+      "metadata": "pressure",
+      "tail": "none",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "capability_negotiation",
+      "metadata": "capability",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "degrade_profile",
+      "metadata": "capability",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "route_hint",
+      "metadata": "route_hint",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "execution_hint",
+      "metadata": "route_hint",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "trace_context",
+      "metadata": "trace_context",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "result_drop_reason",
+      "metadata": "result_drop_reason",
+      "tail": "diagnostic",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "object_declare",
+      "metadata": "object_descriptor",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "object_ref",
+      "metadata": "object_reference",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "object_release",
+      "metadata": "object_release",
+      "tail": "diagnostic",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "object_patch",
+      "metadata": "object_delta",
+      "tail": "metadata_body_and_delta",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "object_delta",
+      "metadata": "object_delta",
+      "tail": "metadata_body_and_delta",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "cache_reference",
+      "metadata": "cache_reference",
+      "tail": "body",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "cache_miss",
+      "metadata": "cache_miss",
+      "tail": "diagnostic",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "error_recoverable",
+      "metadata": "recoverable_error",
+      "tail": "diagnostic",
+      "client": true,
+      "server": true
+    },
+    {
+      "messageType": "retry_after",
+      "metadata": "retry_after",
+      "tail": "diagnostic",
+      "client": true,
+      "server": true
+    }
+  ],
   "languageProjections": {
     "rust": {
       "submitRequest": "nnrp_runtime::NnrpSubmitRequest",
+      "submitHeaderContext": "nnrp_runtime::NnrpSubmitHeaderContext",
+      "submitBuilders": [
+        "NnrpSubmitRequest::tensor",
+        "NnrpSubmitRequest::token",
+        "NnrpSubmitRequest::typed_payload"
+      ],
       "runtimeFrameHeader": "nnrp_runtime::RuntimeFrameHeader",
-      "runtimeEvent": "nnrp_runtime::NnrpRuntimeEvent"
+      "runtimeEvent": "nnrp_runtime::NnrpRuntimeEvent",
+      "typedPayloadDescriptor": "nnrp_core::TypedPayloadDescriptor",
+      "typedPayloadFrame": "nnrp_core::TypedPayloadFrameView"
     },
     "python": {
       "submitRequest": "nnrp.client.SubmitRequest",
+      "submitHeaderContext": "nnrp.client.SubmitHeaderContext",
+      "submitBuilders": [
+        "SubmitRequest.tensor",
+        "SubmitRequest.token",
+        "SubmitRequest.typed_payload"
+      ],
       "runtimeFrameHeader": "nnrp.runtime.RuntimeFrameHeader",
-      "runtimeEvent": "nnrp.runtime.NativeRuntimeEvent"
+      "runtimeEvent": "nnrp.runtime.NativeRuntimeEvent",
+      "typedPayloadDescriptor": "nnrp.core.TypedPayloadDescriptor",
+      "typedPayloadFrame": "nnrp.core.TypedPayloadFrame"
     },
     "javascript": {
       "submitRequest": "@nnrp/core.NnrpSubmitRequest",
+      "submitHeaderContext": "@nnrp/core.NnrpSubmitHeaderContext",
+      "submitBuilders": [
+        "createTensorSubmitRequest",
+        "createTokenSubmitRequest",
+        "createTypedPayloadSubmitRequest"
+      ],
       "runtimeFrameHeader": "@nnrp/core.NnrpRuntimeFrameHeader",
-      "runtimeEvent": "@nnrp/core.NnrpRuntimeEvent"
+      "runtimeEvent": "@nnrp/core.NnrpRuntimeEvent",
+      "typedPayloadDescriptor": "@nnrp/core.NnrpTypedPayloadDescriptor",
+      "typedPayloadFrame": "@nnrp/core.NnrpTypedPayloadFrame"
     },
     "csharp": {
       "submitRequest": "Nnrp.Client.NnrpSubmitRequest",
+      "submitHeaderContext": "Nnrp.Client.NnrpSubmitHeaderContext",
+      "submitBuilders": [
+        "NnrpSubmitRequest.CreateTensor",
+        "NnrpSubmitRequest.CreateToken",
+        "NnrpSubmitRequest.CreateTypedPayload"
+      ],
       "runtimeFrameHeader": "Nnrp.Runtime.RuntimeFrameHeader",
-      "runtimeEvent": "Nnrp.Runtime.NnrpRuntimeEvent"
+      "runtimeEvent": "Nnrp.Runtime.NnrpRuntimeEvent",
+      "typedPayloadDescriptor": "Nnrp.Core.TypedPayloadDescriptor",
+      "typedPayloadFrame": "Nnrp.Core.TypedPayloadFrame"
     }
   }
 }
