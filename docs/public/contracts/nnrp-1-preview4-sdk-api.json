@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract": "nnrp-1-preview4-sdk-api",
+  "contractVersion": 1,
+  "protocol": {
+    "alpn": "nnrp/1",
+    "versionMajor": 1,
+    "wireFormat": 0,
+    "preview": 4
+  },
+  "rules": {
+    "languageProjectionMustBeLossless": true,
+    "adapterNormalizationDoesNotProveApiParity": true,
+    "missingWireFieldsMayNotBeDefaulted": true,
+    "ffiCallsRemainCoarseGrained": true,
+    "legacyPreviewCompatibility": false
+  },
+  "types": {
+    "RuntimeFrameHeader": {
+      "description": "Lossless projection of every non-derived NNRP common-header field.",
+      "fields": [
+        { "name": "version_major", "type": "u8", "required": true, "constant": 1 },
+        { "name": "wire_format", "type": "u8", "required": true, "constant": 0 },
+        { "name": "message_type", "type": "MessageType", "wireType": "u8", "required": true },
+        { "name": "flags", "type": "HeaderFlags", "wireType": "u32", "required": true },
+        { "name": "session_id", "type": "u32", "required": true },
+        { "name": "frame_id", "type": "u32", "required": true },
+        { "name": "view_id", "type": "u16", "required": true },
+        { "name": "route_id", "type": "u16", "required": true },
+        { "name": "trace_id", "type": "u64", "required": true }
+      ],
+      "derivedWireFields": ["header_len", "meta_len", "body_len"]
+    },
+    "SubmitMetadata": {
+      "description": "Typed semantic projection of FRAME_SUBMIT metadata excluding operation_id, which is owned by SubmitRequest.",
+      "fields": [
+        { "name": "src_width", "type": "u16", "required": true },
+        { "name": "src_height", "type": "u16", "required": true },
+        { "name": "tile_width", "type": "u16", "required": true },
+        { "name": "tile_height", "type": "u16", "required": true },
+        { "name": "tile_count", "type": "u16", "required": true },
+        { "name": "section_count", "type": "u16", "required": true },
+        { "name": "frame_class", "type": "u8", "required": true },
+        { "name": "input_profile", "type": "InputProfile", "wireType": "u8", "required": true },
+        { "name": "tile_index_mode", "type": "TileIndexMode", "wireType": "u8", "required": true },
+        { "name": "latency_budget_ms", "type": "u16", "required": true },
+        { "name": "target_fps_x100", "type": "u16", "required": true },
+        { "name": "retry_of_frame", "type": "u32", "required": true },
+        { "name": "tile_base_id", "type": "u32", "required": true },
+        { "name": "camera_bytes", "type": "u32", "required": true },
+        { "name": "tile_index_bytes", "type": "u32", "required": true },
+        { "name": "submit_mode", "type": "SubmitMode", "wireType": "u8", "required": true },
+        { "name": "budget_policy", "type": "BudgetPolicy", "wireType": "u8", "required": true },
+        {
+          "name": "loss_tolerance_policy",
+          "type": "LossTolerancePolicy",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "object_ref_mask", "type": "u32", "required": true },
+        { "name": "dependency_frame_id", "type": "u32", "required": true },
+        {
+          "name": "payload_kind_bitmap",
+          "type": "PayloadKindBitmap",
+          "wireType": "u32",
+          "required": true
+        },
+        { "name": "payload_frame_count", "type": "u16", "required": true }
+      ],
+      "builderRequirement": "Every SDK provides profile-specific builders so ordinary callers do not populate wire-shape counters and byte lengths manually."
+    },
+    "SubmitRequest": {
+      "description": "Profile-neutral, owned, high-level role request. It never accepts an encoded FFI buffer.",
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true, "minimum": 1 },
+        { "name": "frame_id", "type": "u32", "required": true, "minimum": 1 },
+        { "name": "metadata", "type": "SubmitMetadata", "required": true },
+        { "name": "body", "type": "bytes", "required": true, "ownership": "owned" }
+      ],
+      "wireMapping": {
+        "frameSubmitMetadataOperationId": "operation_id",
+        "commonHeaderFrameId": "frame_id",
+        "metadataPrefix": "metadata",
+        "body": "body"
+      },
+      "ffiRule": "Bindings encode metadata and body once and perform one coarse native submit call. The FFI carrier repeats operation_id and frame_id only for handle correlation and rejects disagreement with encoded metadata or the common header."
+    },
+    "RuntimeEvent": {
+      "description": "Owned event envelope shared by client and server role APIs.",
+      "fields": [
+        { "name": "header", "type": "RuntimeFrameHeader", "required": true },
+        {
+          "name": "metadata",
+          "type": "RuntimeEventMetadata",
+          "required": true,
+          "representation": "tagged-union"
+        },
+        {
+          "name": "tail",
+          "type": "RuntimeEventTail",
+          "required": true,
+          "representation": "tagged-union"
+        }
+      ],
+      "forbiddenDuplicates": [
+        "message_type",
+        "frame_id",
+        "session_id",
+        "view_id",
+        "route_id",
+        "trace_id"
+      ],
+      "tailVariants": ["none", "body", "diagnostic", "metadata_body_and_delta"],
+      "ownership": "metadata and tail storage remain valid independently of the receive buffer and native event handle"
+    }
+  },
+  "languageProjections": {
+    "rust": {
+      "submitRequest": "nnrp_runtime::NnrpSubmitRequest",
+      "runtimeFrameHeader": "nnrp_runtime::RuntimeFrameHeader",
+      "runtimeEvent": "nnrp_runtime::NnrpRuntimeEvent"
+    },
+    "python": {
+      "submitRequest": "nnrp.client.SubmitRequest",
+      "runtimeFrameHeader": "nnrp.runtime.RuntimeFrameHeader",
+      "runtimeEvent": "nnrp.runtime.NativeRuntimeEvent"
+    },
+    "javascript": {
+      "submitRequest": "@nnrp/core.NnrpSubmitRequest",
+      "runtimeFrameHeader": "@nnrp/core.NnrpRuntimeFrameHeader",
+      "runtimeEvent": "@nnrp/core.NnrpRuntimeEvent"
+    },
+    "csharp": {
+      "submitRequest": "Nnrp.Client.NnrpSubmitRequest",
+      "runtimeFrameHeader": "Nnrp.Runtime.RuntimeFrameHeader",
+      "runtimeEvent": "Nnrp.Runtime.NnrpRuntimeEvent"
+    }
+  }
+}

@@ -132,7 +132,8 @@ trailing bytes in a single-frame decode, and a decoded frame count above `limit`
 ## `NnrpRuntimeEvent`
 
 `NnrpRuntimeEvent` is the immutable event returned by client and server session event pumps. It
-contains `Header`, `MessageType`, the matching typed metadata value, and the semantic tail value.
+contains `Header`, the matching typed metadata value, and the semantic tail value. The message type
+is available only as `Header.MessageType`; the event does not duplicate common-header fields.
 
 | Event family | Semantic tail property |
 |---|---|

@@ -131,7 +131,8 @@ header、metadata/body 长度不匹配、reserved header 值、single-frame deco
 ## `NnrpRuntimeEvent`
 
 `NnrpRuntimeEvent` 是 client/server session event pump 返回的不可变事件，包含 `Header`、
-`MessageType`、匹配的 typed metadata 和语义化 tail。
+匹配的 typed metadata 和语义化 tail。消息类型只通过 `Header.MessageType` 暴露；事件本身不重复
+公共帧头字段。
 
 | 事件类别 | 语义化 tail 属性 |
 |---|---|
