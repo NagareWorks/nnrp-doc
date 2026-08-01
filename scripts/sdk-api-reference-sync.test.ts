@@ -81,6 +81,8 @@ const references: ReferenceExpectation[] = [
       "`OperationId`",
       "`TerminalState`",
       "`NnrpTerminalEvent`",
+      "`NnrpTerminalEvent.Kind`",
+      "`Match<TResult>(Func<NnrpRuntimeEvent, TResult>, Func<NnrpOperationLifecycleEvent, TResult>)`",
       "### `NnrpOperationLifecycleEvent`",
       "`State`",
     ],
@@ -92,8 +94,29 @@ const references: ReferenceExpectation[] = [
       "`OperationId`",
       "`TerminalState`",
       "`NnrpTerminalEvent`",
+      "`NnrpTerminalEvent.Kind`",
+      "`Match<TResult>(Func<NnrpRuntimeEvent, TResult>, Func<NnrpOperationLifecycleEvent, TResult>)`",
       "### `NnrpOperationLifecycleEvent`",
       "`State`",
+    ],
+  },
+  {
+    path: "docs/en/sdk/csharp/api/runtime.md",
+    required: [
+      "public properties are exactly `Header`, `Metadata`, and `Tail`",
+      "`NnrpRuntimeEventTail`",
+      "`Match<TResult>(...)`",
+      "`MetadataBodyAndDelta`",
+    ],
+  },
+  {
+    path: "docs/zh/sdk/csharp/api/runtime.md",
+    required: [
+      "公开属性严格为",
+      "`Header`、`Metadata` 和 `Tail`",
+      "`NnrpRuntimeEventTail`",
+      "`Match<TResult>(...)`",
+      "`MetadataBodyAndDelta`",
     ],
   },
   {
@@ -152,6 +175,8 @@ Deno.test("language SDK references reject superseded result and lifecycle narrat
     "非成功结果\n保留建立终态的 protocol event",
     "result.event.header.frame_id",
     "print(result.body)",
+    "| Event family | Semantic tail property |",
+    "| 事件类别 | 语义化 tail 属性 |",
     ".submit(FrameSubmitMetadata::default(),",
   ];
 

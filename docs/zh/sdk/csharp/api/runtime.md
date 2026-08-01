@@ -130,20 +130,24 @@ header、metadata/body 长度不匹配、reserved header 值、single-frame deco
 
 ## `NnrpRuntimeEvent`
 
-`NnrpRuntimeEvent` 是 client/server session event pump 返回的不可变事件，包含 `Header`、
-匹配的 typed metadata 和语义化 tail。消息类型只通过 `Header.MessageType` 暴露；事件本身不重复
-公共帧头字段。
+`NnrpRuntimeEvent` 是 client/server session event pump 返回的不可变事件。它的公开属性严格为
+`Header`、`Metadata` 和 `Tail`。消息类型只通过 `Header.MessageType` 暴露；event 不重复 common-header
+或 tail 字段。
 
-| 事件类别 | 语义化 tail 属性 |
+`NnrpRuntimeEventMetadata` 是由 `Kind` 和 typed `Get<T>()` 组成的闭合 union。
+`NnrpRuntimeEventTail` 是由 `Kind` 和 `Match<TResult>(...)` 组成的闭合 union，包含下列变体。
+`Match` 要求为每一行提供 callback，因此应用代码不会静默忽略新增 tail 形态。
+
+| `NnrpRuntimeEventTailKind` | `Match` 传入的 active value |
 |---|---|
-| Cancel、abort、supersede、result drop、recoverable error、retry after | `Diagnostic` |
-| Progress 和 partial result | `Body` |
-| Capability negotiation 和 profile degradation | `CapabilityEntries` |
-| Route 和 execution hint | `HintBody` |
-| Trace context | `TraceAttributes` |
-| Object declare/ref | `ObjectMetadata` |
-| Object patch/delta | `ObjectMetadata` 后接 `Delta` |
-| Cache reference | `CacheMetadata` |
+| `None` | 无值 |
+| `Body` | 一个 owned `ReadOnlyMemory<byte>` body |
+| `Diagnostic` | 一个 owned `ReadOnlyMemory<byte>` diagnostic |
+| `MetadataBodyAndDelta` | 相互独立的 owned `metadataBody` 和 `delta` |
+
+Event 和 tail 类型不公开扁平的 `Body`、`Diagnostic`、`CapabilityEntries`、`HintBody`、
+`TraceAttributes`、`ObjectMetadata`、`Delta` 或 `CacheMetadata` 属性。调用方先判别 `Metadata.Kind`
+与 `Tail.Kind`，再使用 `Metadata.Get<T>()` 和 `Tail.Match`。
 
 事件不暴露 raw native buffer。Native-owned 数据必须复制，或在到达应用前放进显式 lifetime
 guard。

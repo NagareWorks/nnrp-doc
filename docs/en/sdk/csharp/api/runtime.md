@@ -131,20 +131,25 @@ trailing bytes in a single-frame decode, and a decoded frame count above `limit`
 
 ## `NnrpRuntimeEvent`
 
-`NnrpRuntimeEvent` is the immutable event returned by client and server session event pumps. It
-contains `Header`, the matching typed metadata value, and the semantic tail value. The message type
-is available only as `Header.MessageType`; the event does not duplicate common-header fields.
+`NnrpRuntimeEvent` is the immutable event returned by client and server session event pumps. Its
+public properties are exactly `Header`, `Metadata`, and `Tail`. The message type is available only as
+`Header.MessageType`; the event does not duplicate common-header or tail fields.
 
-| Event family | Semantic tail property |
+`NnrpRuntimeEventMetadata` is a closed `Kind` plus typed `Get<T>()` union.
+`NnrpRuntimeEventTail` is a closed `Kind` plus `Match<TResult>(...)` union with the following
+variants. `Match` requires one callback for every row, so application code cannot silently ignore a
+new tail shape.
+
+| `NnrpRuntimeEventTailKind` | Active values passed to `Match` |
 |---|---|
-| Cancel, abort, supersede, result drop, recoverable error, retry after | `Diagnostic` |
-| Progress and partial result | `Body` |
-| Capability negotiation and profile degradation | `CapabilityEntries` |
-| Route and execution hints | `HintBody` |
-| Trace context | `TraceAttributes` |
-| Object declare/ref | `ObjectMetadata` |
-| Object patch/delta | `ObjectMetadata`, then `Delta` |
-| Cache reference | `CacheMetadata` |
+| `None` | No value |
+| `Body` | One owned `ReadOnlyMemory<byte>` body |
+| `Diagnostic` | One owned `ReadOnlyMemory<byte>` diagnostic |
+| `MetadataBodyAndDelta` | Independent owned `metadataBody` and `delta` values |
+
+The event and tail types do not expose flattened `Body`, `Diagnostic`, `CapabilityEntries`,
+`HintBody`, `TraceAttributes`, `ObjectMetadata`, `Delta`, or `CacheMetadata` properties. Callers
+first discriminate `Metadata.Kind` and `Tail.Kind`, then use `Metadata.Get<T>()` and `Tail.Match`.
 
 The event never exposes a raw native buffer. Native-owned data is copied or retained behind an
 explicit lifetime guard before the event reaches application code.

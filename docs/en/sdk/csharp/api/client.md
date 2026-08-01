@@ -69,6 +69,13 @@ Successful results preserve `ResultPush`; non-success results preserve the exact
 lifecycle event that established the terminal state. `NnrpTerminalEvent` contains exactly one
 variant; the managed API never exposes nullable parallel event fields or fabricates headers.
 
+`NnrpTerminalEvent.Kind` is `Runtime` or `Lifecycle`. Its
+`Match<TResult>(Func<NnrpRuntimeEvent, TResult>, Func<NnrpOperationLifecycleEvent, TResult>)` method
+requires both callbacks and exposes only the active value. A runtime terminal maps `ResultPush` to
+`Success`, `ResultDrop` and `ResultDropReason` to `Dropped`; `ResultPushMetadata.StatusCode` never
+selects the protocol terminal state. A lifecycle terminal maps `Completed` to `Success`, `Cancelled`
+to `Cancelled`, `Superseded` to `Dropped`, and `Failed` to `Error`.
+
 ### `NnrpOperationLifecycleEvent`
 
 | Property | Type | Description |
