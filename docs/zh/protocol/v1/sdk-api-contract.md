@@ -7,6 +7,10 @@ NNRP/1 Preview 4 为 Rust、Python、JavaScript/TypeScript 与 C# 冻结同一�
 SDK 的 CI 必须据此校验公共 API。仅通过 adapter 把语言特有对象归一化后完成 wire
 一致性测试，不能证明公共 API 对等。
 
+机器契约把每一项 SDK 投影唯一归入一个必备 domain：submission、runtime events、lifecycle、
+capability、cache、schema、transport 或 roles。新增 SDK 或 feature 时只要缺少任一 domain，
+就属于契约失败；wire adapter 通过一致性测试也不能替代 API domain 覆盖。
+
 ## 提交请求
 
 所有客户端角色都接受同一种拥有数据所有权、与具体 profile 解耦的提交请求：
@@ -91,6 +95,98 @@ FFI carrier 也可以报告本地生命周期状态。此类事件的 `header.pr
 中必须继续使用独立的 lifecycle-event 类型；只有 `header.present == 1` 才能构造
 `RuntimeEvent`。绑定层不得为本地状态伪造 全零 wire header。
 
+## Runtime Metadata 与枚举
+
+机器契约是封闭图，而不是示例清单。它冻结每一种 runtime-event metadata 的全部字段、这些字段引用的
+全部枚举或 bitmask，以及每个枚举成员的数值和 wire 宽度。Metadata 联合类型不得引用契约中不存在的
+类型，SDK 也不得用语言本地状态模型替换已冻结枚举。
+
+`RESULT_PUSH.status_code` 是应用自定义的 `u16` 细节码，不承载协议终态。`RESULT_PUSH` 表示成功完成；
+取消、丢弃和错误由相应协议消息及 operation 生命周期确定。规范终态注册表是
+`ResultTerminalState`：`success`、`cancelled`、`dropped`、`error`。
+
+本地 operation 生命周期统一使用 `OperationState`：`accepted`、`running`、`partial`、
+`waiting_tool`、`superseded`、`cancelled`、`failed`、`completed`，并继续与 wire
+事件分离。终态映射固定为 completed 到 success、cancelled 到 cancelled、superseded 到 dropped、failed
+到 error。
+
+## 缓存与 Provider Host 模型
+
+机器契约同时冻结不直接作为 wire record 的跨 SDK host value。语义枚举具有唯一、闭合的成员集，
+但允许使用符合语言习惯的表示，例如 Rust/C# enum、Python `StrEnum` 或 TypeScript 字符串 union； SDK
+不得增加或遗漏语义成员。
+
+缓存身份、租约、依赖、版本、结果、失效和显式启用策略统一使用 `CacheObjectId`、`CacheLease`、
+`CacheDependency`、`CacheDependencyState`、`CacheObjectVersion`、`CacheLeaseResult`、
+`CacheInvalidation`、`CacheDependencyInvalidation` 与 `CachePolicyOptions`。`CacheValidationFailure`
+只包含失败原因；语言可以通过 `Result`、无异常返回或 `Try` 方法表达成功，但 success 不是额外的
+failure reason。
+
+Provider 发现与选择统一使用规范的 cost、limits、metadata、descriptor、readiness、probe、candidate、
+selection、failure 和 options 类型。选择结果保留全部有序 candidate 及其 rejection evidence；
+`TransportSelection.policy` 记录产生该决策的策略，`TransportSelectionFailure` 保留同一组 candidate
+诊断，而不是把失败压缩成不透明字符串。Provider 包仍然拥有传输行为与产物，这些共享 host value 不会把
+provider 包退化成 feature flag。
+
+## 规范角色 Options
+
+所有 SDK 公开同一套与 transport 无关的 options 模型。语言可以调整大小写、builder 与构造语法，但不得
+增加、遗漏或重新解释字段。
+
+`ClientSessionOptions` 被规范化为 `SESSION_OPEN`：
+
+| 字段                           |                  默认值 | 含义                                         |
+| ------------------------------ | ----------------------: | -------------------------------------------- |
+| `requested_session_id`         |                     `0` | 期望的 wire session id；零表示由服务端分配。 |
+| `profile_id`                   |      标准 token profile | 请求的 profile registry id。                 |
+| `schema_id` / `schema_version` | 标准 token delta schema | 请求的 schema 身份。                         |
+| `priority_class`               |              `balanced` | Session 调度类别。                           |
+| `default_deadline_ms`          |                   `500` | 默认 operation deadline。                    |
+| `max_in_flight_operations`     |                     `4` | 请求的 session 并发上限。                    |
+| `lease_ttl_hint_ms`            |                 `30000` | 请求的 cache lease 生命周期。                |
+| `allow_resume`                 |                 `false` | 是否启用可恢复 session 协商。                |
+| `resume_token_bytes`           |                     `0` | 请求的 resume token 容量。                   |
+| `cache_hints`                  |                      空 | 客户端预计复用的 cache object kind。         |
+
+Runtime 派生 `session_flags`、认证与扩展字节长度以及 client session tag；应用不构造这些 wire 字段。
+
+`ServerSessionOptions` 冻结 `supported_profiles`、`supported_cache_objects`、cache object
+与字节上限、 `schema_registry`、resume token 容量、in-flight 与 granted credit 上限、lease 与 resume
+window 以及 `application_policy`。默认值对应标准 token profile：四个 in-flight operation、两个
+granted credit、 30 秒 lease 与 120 秒 resume window。默认 policy 接受所有 wire 合法的 session。
+
+Client 与 server bootstrap options 包含应用端点、有序 provider route、transport policy 及对应的
+session defaults。`ServerAcceptOptions` 只包含 accept timeout。Connection、session、server handle 或
+generation 都是 FFI 实现细节，不得出现在应用 options。Cadence、quality tier 与应用 metadata 属于
+profile 或 `SESSION_PATCH`，不得改变 `SESSION_OPEN`。
+
+## Schema Registry Host API
+
+所有 SDK 都把继承自 NNRP/1 的 schema registry 公开为应用侧 host object，而不是 FFI handle。
+`SchemaDescriptorHeader` 是规范的 32-byte descriptor。Registry 提供 `install`、`lookup`、
+`invalidate`、`validate_binding` 与 `snapshot`；action 和 failure 使用闭合的 `SchemaRegistryAction`
+与 `SchemaRegistryFailure` registry。Profile 私有 schema body 不进入公共 descriptor。
+
+## 角色接口与结果
+
+客户端和服务端角色 API 都按 session 内 wire 顺序接收 runtime event。Runtime-event 注册表中的接收方
+布尔值同时确定另一角色是允许发送方。每个角色必须通过符合习惯的类型化方法或类型化通用 runtime-frame
+方法覆盖全部允许发送的消息；只接受裸 message code 且不校验 metadata 的入口不属于应用 API。
+
+应用侧 `NnrpResult` 持有非零 operation 标识、规范 `ResultTerminalState` 和终态 `RuntimeEvent`，从而
+完整保留 wire header、类型化 metadata 与语义化 tail，禁止压平成某个 SDK 私有的 payload
+或字符串字典。
+
+每个角色还必须公开不可变的 connection 与 session lifecycle snapshot。Connection state 只能是
+`open`、`closing`、`closed`；session state 只能是 `open`、`resumed`、`closing`、`draining`、
+`closed`。Session snapshot 保留协商后的 profile、priority、schema、in-flight 上限、route scope、
+last operation 与 session error code。SDK 本地 state machine 可以负责状态迁移，但不得公开更小或
+语义名称不同的状态 registry。
+
+一个逻辑 client connection 可以持有多个 session；一个逻辑 server 持有已安装 provider 的 listener
+集合并可接收多个 session。应用端点始终使用 `nnrp://` 或 `nnrps://`；`tcp://`、`quic://`、
+`unix://`、`npipe://`、`ws://` 与 `wss://` 都只是 provider 本地 locator，不能替代应用端点。
+
 ## 发布门禁
 
 Preview 4 SDK 只有同时满足以下条件才允许发布：
@@ -101,3 +197,8 @@ Preview 4 SDK 只有同时满足以下条件才允许发布：
 4. 当前数据面记录与机器契约的精确长度、offset 和 canonical bytes 一致。
 5. Wire 一致性与公共 API 对等性都通过；两者不能互相替代。
 6. 公共 API 不保留任何旧 Preview 兼容 shim。
+7. 所有类型引用、metadata 联合分支、枚举值、角色方向和语言投影均通过机器契约闭包检查。
+8. Cache host 与 provider selection 的公开 value 符合同一语义契约；语言专属便利封装不得替代或
+   截断这些 value。
+9. Client、server、session、schema registry 与 admission policy host API 符合规范的 options 和
+   method 契约，包括默认值与只能内部使用的字段。
