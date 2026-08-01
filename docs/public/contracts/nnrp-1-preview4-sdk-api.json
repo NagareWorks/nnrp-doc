@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 4,
+  "contractVersion": 7,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -86,6 +86,22 @@
         { "name": "payload_stride_bytes", "type": "u32", "offset": 24 },
         { "name": "reserved", "type": "u32", "offset": 28, "constant": 0 }
       ]
+    },
+    "SchemaDescriptorHeader": {
+      "size": 32,
+      "fields": [
+        { "name": "schema_id", "type": "u32", "offset": 0 },
+        { "name": "schema_version", "type": "u32", "offset": 4 },
+        { "name": "profile_id", "type": "u16", "offset": 8 },
+        { "name": "schema_flags", "type": "u16", "offset": 10 },
+        { "name": "min_version_major", "type": "u8", "offset": 12 },
+        { "name": "max_version_major", "type": "u8", "offset": 13 },
+        { "name": "reserved0", "type": "u16", "offset": 14, "constant": 0 },
+        { "name": "body_bytes", "type": "u32", "offset": 16 },
+        { "name": "dependency_count", "type": "u16", "offset": 20 },
+        { "name": "default_stream_semantics", "type": "u16", "offset": 22 },
+        { "name": "schema_hash", "type": "u64", "offset": 24 }
+      ]
     }
   },
   "rules": {
@@ -99,7 +115,430 @@
     "currentSuitesRejectLegacyPreviewWireLayouts": true,
     "typedPayloadKindIsExplicitPerFrame": true,
     "typedPayloadBitmapMatchesDescriptorUnion": true,
+    "roleMessageRegistriesMustBeExhaustive": true,
+    "crossSdkHostModelsRequireMachineProjection": true,
+    "languageProjectionTargetsMustExistBeforeRelease": true,
+    "allSdkApiDomainsRequireMachineProjection": true,
+    "ffiHandlesAreInternalImplementationDetails": true,
+    "sessionOptionsDeriveSessionOpenMetadata": true,
+    "applicationProfileOptionsRemainSeparate": true,
     "legacyPreviewCompatibility": false
+  },
+  "enums": {
+    "HeaderFlags": {
+      "kind": "flags",
+      "wireType": "u32",
+      "values": {
+        "none": 0,
+        "ack_required": 1,
+        "can_drop": 2,
+        "stale": 4,
+        "eos": 8,
+        "retransmit": 16,
+        "keyframe": 32
+      }
+    },
+    "BudgetPolicy": {
+      "kind": "flags",
+      "wireType": "u8",
+      "values": {
+        "none": 0,
+        "allow_partial": 1,
+        "allow_stale_reuse": 2,
+        "allow_degraded": 4,
+        "allow_drop": 8
+      }
+    },
+    "LossTolerancePolicy": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": {
+        "strict": 0,
+        "best_effort": 1,
+        "low_latency": 2,
+        "fire_and_forget": 3,
+        "inherit_session": 255
+      }
+    },
+    "InputProfile": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "unspecified": 0, "changed_tiles_luma": 1, "dense_luma_frame": 2 }
+    },
+    "StandardProfile": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": { "unspecified": 0, "tensor": 1, "token": 2 }
+    },
+    "StreamSemantics": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": { "unspecified": 0, "snapshot": 1, "append": 2 }
+    },
+    "SchemaDescriptorFlags": {
+      "kind": "flags",
+      "wireType": "u16",
+      "values": {
+        "none": 0,
+        "breaking_change": 1,
+        "compatible_update": 2,
+        "dependency_bound": 4,
+        "body_schema_present": 8
+      }
+    },
+    "TileIndexMode": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "dense_range": 0, "raw_u16": 1, "delta_u16": 2, "bitset": 3 }
+    },
+    "SubmitMode": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "inline": 0, "reference": 1, "mixed": 2 }
+    },
+    "ResultClass": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "complete": 0, "partial": 1, "stale_reuse": 2, "degraded": 3 }
+    },
+    "PayloadKind": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": {
+        "tensor": 1,
+        "token_chunk": 2,
+        "audio_chunk": 4,
+        "video_chunk": 8,
+        "structured_event": 16,
+        "tool_delta": 32,
+        "opaque_bytes": 64
+      }
+    },
+    "PayloadKindBitmap": {
+      "kind": "flags",
+      "wireType": "u32",
+      "values": {
+        "tensor": 1,
+        "token_chunk": 2,
+        "audio_chunk": 4,
+        "video_chunk": 8,
+        "structured_event": 16,
+        "tool_delta": 32,
+        "opaque_bytes": 64
+      }
+    },
+    "OperationState": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": {
+        "accepted": 0,
+        "running": 1,
+        "partial": 2,
+        "waiting_tool": 3,
+        "superseded": 4,
+        "cancelled": 5,
+        "failed": 6,
+        "completed": 7
+      }
+    },
+    "ResultTerminalState": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "success": 0, "cancelled": 1, "dropped": 2, "error": 3 }
+    },
+    "CancelScope": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "operation": 0, "subtree": 1, "group": 2, "session": 3 }
+    },
+    "FlowScopeKind": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "connection": 0, "session": 1, "operation": 2 }
+    },
+    "FlowUpdateReason": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "grant": 0, "reduce": 1, "pause": 2, "resume": 3, "congestion": 4 }
+    },
+    "BackpressureLevel": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "none": 0, "soft": 1, "hard": 2, "paused": 3 }
+    },
+    "ResultHintBudgetPolicy": {
+      "kind": "enum",
+      "wireType": "u32",
+      "values": { "none": 0, "full": 1, "partial": 2, "stale_reuse": 3, "drop": 4 }
+    },
+    "ResultHintCongestionState": {
+      "kind": "enum",
+      "wireType": "u32",
+      "values": { "none": 0, "steady": 1, "elevated": 2, "saturated": 3 }
+    },
+    "ResultHintReason": {
+      "kind": "enum",
+      "wireType": "u32",
+      "values": {
+        "none": 0,
+        "queue_full": 1,
+        "server_busy": 2,
+        "budget_exceeded": 3,
+        "superseded": 4
+      }
+    },
+    "ErrorScope": {
+      "kind": "enum",
+      "wireType": "u32",
+      "values": { "connection": 0, "session": 1, "frame": 2 }
+    },
+    "RuntimeObjectKind": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": {
+        "unspecified": 0,
+        "tensor": 1,
+        "token_block": 2,
+        "image_tile": 3,
+        "feature_map": 4,
+        "tool_result": 5,
+        "trace_segment": 6,
+        "opaque_bytes": 7,
+        "document_chunk": 8,
+        "audio_chunk": 9,
+        "video_chunk": 10,
+        "route_plan": 11,
+        "cache_manifest": 12
+      }
+    },
+    "RuntimeRole": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": {
+        "unspecified": 0,
+        "client": 1,
+        "server": 2,
+        "runtime": 3,
+        "subagent": 4,
+        "tool": 5,
+        "scheduler": 6,
+        "conformance_runner": 7
+      }
+    },
+    "MemoryLocationHint": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": {
+        "unspecified": 0,
+        "host_memory": 1,
+        "device_memory": 2,
+        "shared_memory": 3,
+        "remote_memory": 4,
+        "mmap_file": 5,
+        "object_store": 6
+      }
+    },
+    "OwnershipHint": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": {
+        "unspecified": 0,
+        "producer_owned": 1,
+        "consumer_owned": 2,
+        "session_owned": 3,
+        "borrowed": 4,
+        "transfer_on_ref": 5,
+        "release_on_drop": 6
+      }
+    },
+    "ObjectReleaseReason": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": {
+        "completed": 0,
+        "cancelled": 1,
+        "expired": 2,
+        "replaced": 3,
+        "invalidated": 4,
+        "owner_closed": 5,
+        "lease_expired": 6,
+        "conformance_injection": 7
+      }
+    },
+    "CacheReuseScope": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": {
+        "operation": 0,
+        "session": 1,
+        "connection": 2,
+        "global": 3,
+        "tenant": 4,
+        "profile": 5
+      }
+    },
+    "CacheMissReason": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": {
+        "unknown": 0,
+        "not_found": 1,
+        "expired": 2,
+        "invalidated": 3,
+        "schema_mismatch": 4,
+        "producer_unavailable": 5,
+        "lease_required": 6,
+        "permission_denied": 7
+      }
+    },
+    "CacheInvalidateScope": {
+      "kind": "enum",
+      "wireType": "u32",
+      "values": { "whole_session": 0, "namespace": 1, "object_kind": 2, "object_key": 3 }
+    },
+    "CacheObjectKind": {
+      "kind": "enum",
+      "wireType": "u32",
+      "values": {
+        "camera_block": 1,
+        "tile_index_block": 2,
+        "tensor_section_table": 3,
+        "codec_table": 4,
+        "reusable_result_object": 5,
+        "payload_layout_template": 6,
+        "prompt_segment": 7,
+        "tool_schema": 8,
+        "structured_event_schema": 9
+      }
+    },
+    "CacheAckStatus": {
+      "kind": "enum",
+      "wireType": "u32",
+      "values": { "accepted": 0, "rejected": 1, "replaced": 2 }
+    },
+    "CacheLeaseOwnerScope": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "connection": 0, "session": 1, "operation": 2 }
+    },
+    "SessionPriorityClass": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "interactive": 0, "balanced": 1, "background": 2 }
+    },
+    "SessionStatus": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "opened": 0, "rejected": 1, "retry_later": 2, "resumed": 3 }
+    },
+    "SessionCloseStatus": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "acknowledged": 0, "draining": 1, "closed": 2, "rejected": 3 }
+    },
+    "SessionPatchAckStatus": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": { "accepted": 0, "partially_applied": 1, "rejected": 2 }
+    },
+    "SessionPatchRejectReason": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": {
+        "none": 0,
+        "unsupported_field": 1,
+        "invalid_range": 2,
+        "unsupported_strategy": 3,
+        "invalid_lane_mask": 4,
+        "rate_limited": 5
+      }
+    },
+    "TransportId": {
+      "kind": "enum",
+      "wireType": "u32",
+      "values": { "unspecified": 0, "quic": 1, "tcp": 2, "ipc": 3, "websocket": 4 }
+    },
+    "SessionCloseReason": {
+      "kind": "enum",
+      "wireType": "u16",
+      "values": {
+        "normal": 0,
+        "client_shutdown": 1,
+        "server_shutdown": 2,
+        "idle_timeout": 3,
+        "protocol_error": 4,
+        "auth_revoked": 5
+      }
+    },
+    "InFlightPolicy": {
+      "kind": "enum",
+      "wireType": "u8",
+      "values": { "drain": 0, "abort": 1 }
+    }
+  },
+  "semanticEnums": {
+    "TransportPolicy": [
+      "auto",
+      "prefer_quic",
+      "prefer_tcp",
+      "prefer_ipc",
+      "prefer_websocket",
+      "force_quic",
+      "force_tcp",
+      "force_ipc",
+      "force_websocket"
+    ],
+    "TransportProviderKind": ["pure_rust", "native_dynamic", "wasm"],
+    "ProviderLimitation": [
+      "requires_udp",
+      "requires_tcp",
+      "local_host_only",
+      "native_host_only",
+      "browser_host_only",
+      "unix_domain_socket",
+      "windows_named_pipe"
+    ],
+    "ProbeState": ["not_run", "succeeded", "failed", "missing"],
+    "TransportRejectionReason": [
+      "policy_disallowed",
+      "local_unavailable",
+      "peer_unsupported",
+      "limit_exceeded",
+      "route_unresolved",
+      "security_unsatisfied",
+      "probe_missing",
+      "probe_failed"
+    ],
+    "TransportSelectionErrorCode": [
+      "invalid_evidence",
+      "forced_transport_unavailable",
+      "no_viable_transport"
+    ],
+    "CacheValidationFailure": [
+      "miss",
+      "lease_expired",
+      "version_mismatch",
+      "dependency_invalid",
+      "schema_mismatch"
+    ],
+    "CacheLeaseOutcome": ["valid", "expired", "renewed", "released", "missing"],
+    "CacheInvalidationReason": [
+      "explicit",
+      "dependency_invalidated",
+      "lease_expired",
+      "version_mismatch",
+      "schema_mismatch"
+    ],
+    "SchemaRegistryAction": ["installed", "already_installed", "updated", "invalidated"],
+    "SchemaRegistryFailure": [
+      "unknown",
+      "version_unknown",
+      "hash_conflict",
+      "incompatible",
+      "update_rejected"
+    ],
+    "ConnectionLifecycleState": ["open", "closing", "closed"],
+    "SessionLifecycleState": ["open", "resumed", "closing", "draining", "closed"]
   },
   "types": {
     "TypedPayloadDescriptor": {
@@ -109,9 +548,10 @@
         { "name": "payload_kind", "type": "PayloadKind", "wireType": "u8", "required": true },
         {
           "name": "descriptor_flags",
-          "type": "TypedPayloadDescriptorFlags",
+          "type": "u8",
           "wireType": "u8",
-          "required": true
+          "required": true,
+          "allowedMask": 15
         },
         { "name": "schema_id", "type": "u32", "required": true },
         { "name": "schema_version", "type": "u32", "required": true },
@@ -128,6 +568,69 @@
         { "name": "payload", "type": "bytes", "required": true, "ownership": "owned" }
       ],
       "resolutionRule": "Consumers validate payload_kind together with profile_id, schema_id, and schema_version. The payload kind is read from the descriptor and is never inferred from descriptor order or a multi-bit bitmap."
+    },
+    "SchemaDescriptorHeader": {
+      "description": "Public 32-byte schema identity and compatibility descriptor. Profile-private schema bodies remain outside the public header.",
+      "fields": [
+        { "name": "schema_id", "type": "u32", "required": true },
+        { "name": "schema_version", "type": "u32", "required": true },
+        { "name": "profile_id", "type": "u16", "required": true },
+        {
+          "name": "schema_flags",
+          "type": "SchemaDescriptorFlags",
+          "wireType": "u16",
+          "required": true
+        },
+        { "name": "min_version_major", "type": "u8", "required": true },
+        { "name": "max_version_major", "type": "u8", "required": true },
+        { "name": "body_bytes", "type": "u32", "required": true },
+        { "name": "dependency_count", "type": "u16", "required": true },
+        {
+          "name": "default_stream_semantics",
+          "type": "StreamSemantics",
+          "wireType": "u16",
+          "required": true
+        },
+        { "name": "schema_hash", "type": "u64", "required": true }
+      ]
+    },
+    "SchemaRegistry": {
+      "description": "Host registry shared by all SDKs. Handles and FFI entrypoints remain internal.",
+      "fields": [],
+      "methods": [
+        {
+          "name": "install",
+          "parameters": [
+            { "name": "descriptor", "type": "SchemaDescriptorHeader", "required": true }
+          ],
+          "returns": "SchemaRegistryAction"
+        },
+        {
+          "name": "lookup",
+          "parameters": [
+            { "name": "schema_id", "type": "u32", "required": true },
+            { "name": "schema_version", "type": "u32", "required": true }
+          ],
+          "returns": "SchemaDescriptorHeader"
+        },
+        {
+          "name": "invalidate",
+          "parameters": [
+            { "name": "schema_id", "type": "u32", "required": true },
+            { "name": "schema_version", "type": "u32", "required": true }
+          ],
+          "returns": "SchemaRegistryAction"
+        },
+        {
+          "name": "validate_binding",
+          "parameters": [
+            { "name": "descriptor", "type": "TypedPayloadDescriptor", "required": true }
+          ],
+          "returns": "void"
+        },
+        { "name": "snapshot", "parameters": [], "returns": "SchemaDescriptorHeader[]" }
+      ],
+      "failureType": "SchemaRegistryFailure"
     },
     "RuntimeFrameHeader": {
       "description": "Lossless projection of every non-derived NNRP common-header field.",
@@ -253,10 +756,11 @@
         { "name": "payload", "type": "bytes", "required": true, "ownership": "owned" },
         {
           "name": "descriptor_flags",
-          "type": "TypedPayloadDescriptorFlags",
+          "type": "u8",
           "wireType": "u8",
           "required": true,
-          "default": 2
+          "default": 2,
+          "allowedMask": 15
         }
       ]
     },
@@ -275,10 +779,11 @@
         { "name": "payload_kind", "type": "PayloadKind", "wireType": "u8", "required": true },
         {
           "name": "descriptor_flags",
-          "type": "TypedPayloadDescriptorFlags",
+          "type": "u8",
           "wireType": "u8",
           "required": true,
-          "default": 0
+          "default": 0,
+          "allowedMask": 15
         },
         { "name": "schema_id", "type": "u32", "required": true, "default": 0 },
         { "name": "schema_version", "type": "u32", "required": true, "default": 0 },
@@ -365,6 +870,1002 @@
         "typed_payload": { "input": "TypedPayloadSubmitInput", "output": "SubmitRequest" }
       }
     },
+    "ClientHelloMetadata": {
+      "fields": [
+        { "name": "min_version_major", "type": "u8", "required": true },
+        { "name": "max_version_major", "type": "u8", "required": true },
+        { "name": "supported_wire_format_bitmap", "type": "u16", "required": true },
+        { "name": "supported_profile_bitmap", "type": "u32", "required": true },
+        { "name": "supported_payload_kind_bitmap", "type": "u32", "required": true },
+        { "name": "supported_codec_bitmap", "type": "u32", "required": true },
+        { "name": "supported_compression_bitmap", "type": "u32", "required": true },
+        { "name": "supported_dtype_bitmap", "type": "u32", "required": true },
+        { "name": "supported_layout_bitmap", "type": "u32", "required": true },
+        { "name": "cache_digest_bitmap", "type": "u16", "required": true },
+        { "name": "cache_object_bitmap", "type": "u16", "required": true },
+        { "name": "cache_namespace_count", "type": "u16", "required": true },
+        { "name": "max_lane_count", "type": "u16", "required": true },
+        { "name": "max_cache_entries", "type": "u32", "required": true },
+        { "name": "max_cache_bytes", "type": "u32", "required": true },
+        { "name": "target_cadence_x100", "type": "u16", "required": true },
+        { "name": "latency_budget_ms", "type": "u16", "required": true },
+        { "name": "quality_tier", "type": "u16", "required": true },
+        { "name": "degrade_policy", "type": "u16", "required": true },
+        { "name": "requested_session_id", "type": "u32", "required": true },
+        { "name": "auth_bytes", "type": "u32", "required": true },
+        { "name": "control_extension_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "ServerHelloAckMetadata": {
+      "fields": [
+        { "name": "selected_version_major", "type": "u8", "required": true },
+        { "name": "selected_wire_format", "type": "u8", "required": true },
+        { "name": "auth_status", "type": "u8", "required": true },
+        { "name": "session_id", "type": "u32", "required": true },
+        { "name": "accepted_profile_bitmap", "type": "u32", "required": true },
+        { "name": "accepted_payload_kind_bitmap", "type": "u32", "required": true },
+        { "name": "accepted_codec_bitmap", "type": "u32", "required": true },
+        { "name": "accepted_compression_bitmap", "type": "u32", "required": true },
+        { "name": "accepted_dtype_bitmap", "type": "u32", "required": true },
+        { "name": "accepted_layout_bitmap", "type": "u32", "required": true },
+        { "name": "cache_digest_bitmap", "type": "u32", "required": true },
+        { "name": "cache_object_bitmap", "type": "u32", "required": true },
+        { "name": "max_cache_entries", "type": "u32", "required": true },
+        { "name": "max_cache_bytes", "type": "u32", "required": true },
+        { "name": "max_lane_count", "type": "u16", "required": true },
+        { "name": "max_concurrent_frames", "type": "u16", "required": true },
+        { "name": "target_cadence_x100", "type": "u16", "required": true },
+        { "name": "latency_budget_ms", "type": "u16", "required": true },
+        { "name": "quality_tier", "type": "u16", "required": true },
+        { "name": "degrade_policy", "type": "u16", "required": true },
+        { "name": "max_body_bytes", "type": "u32", "required": true },
+        { "name": "token_ttl_ms", "type": "u32", "required": true },
+        { "name": "retry_after_ms", "type": "u32", "required": true },
+        { "name": "control_extension_bytes", "type": "u32", "required": true },
+        { "name": "server_flags", "type": "u32", "required": true }
+      ]
+    },
+    "SessionPatchMetadata": {
+      "fields": [
+        { "name": "profile_id", "type": "u16", "required": true },
+        { "name": "patch_mask", "type": "u32", "required": true },
+        { "name": "target_cadence_x100", "type": "u32", "required": true },
+        { "name": "quality_tier", "type": "u16", "required": true },
+        { "name": "degrade_policy", "type": "u16", "required": true },
+        { "name": "active_lane_mask", "type": "u64", "required": true },
+        { "name": "preferred_codec_bitmap", "type": "u32", "required": true },
+        { "name": "preferred_compression_bitmap", "type": "u32", "required": true },
+        { "name": "profile_patch_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "SessionPatchAckMetadata": {
+      "fields": [
+        {
+          "name": "ack_status",
+          "type": "SessionPatchAckStatus",
+          "wireType": "u16",
+          "required": true
+        },
+        {
+          "name": "reject_reason",
+          "type": "SessionPatchRejectReason",
+          "wireType": "u16",
+          "required": true
+        },
+        { "name": "applied_patch_mask", "type": "u32", "required": true },
+        { "name": "rejected_patch_mask", "type": "u32", "required": true },
+        { "name": "retry_after_ms", "type": "u32", "required": true },
+        { "name": "effective_profile_id", "type": "u16", "required": true },
+        { "name": "effective_target_cadence_x100", "type": "u32", "required": true },
+        { "name": "effective_quality_tier", "type": "u16", "required": true },
+        { "name": "effective_degrade_policy", "type": "u16", "required": true },
+        { "name": "effective_lane_mask", "type": "u64", "required": true },
+        { "name": "effective_codec_bitmap", "type": "u32", "required": true },
+        { "name": "effective_compression_bitmap", "type": "u32", "required": true },
+        { "name": "profile_patch_ack_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "SessionOpenMetadata": {
+      "fields": [
+        { "name": "requested_session_id", "type": "u32", "required": true },
+        { "name": "profile_id", "type": "u16", "required": true },
+        {
+          "name": "priority_class",
+          "type": "SessionPriorityClass",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "session_flags", "type": "u8", "required": true, "allowedMask": 15 },
+        { "name": "schema_id", "type": "u32", "required": true },
+        { "name": "schema_version", "type": "u32", "required": true },
+        { "name": "default_deadline_ms", "type": "u32", "required": true },
+        { "name": "max_in_flight_operations", "type": "u16", "required": true },
+        { "name": "lease_ttl_hint_ms", "type": "u32", "required": true },
+        { "name": "resume_token_bytes", "type": "u32", "required": true },
+        { "name": "auth_bytes", "type": "u32", "required": true },
+        { "name": "session_extension_bytes", "type": "u32", "required": true },
+        { "name": "client_session_tag", "type": "u64", "required": true }
+      ]
+    },
+    "SessionOpenAckMetadata": {
+      "fields": [
+        { "name": "session_id", "type": "u32", "required": true },
+        { "name": "accepted_profile_id", "type": "u16", "required": true },
+        {
+          "name": "accepted_priority_class",
+          "type": "SessionPriorityClass",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "session_status", "type": "SessionStatus", "wireType": "u8", "required": true },
+        { "name": "schema_id", "type": "u32", "required": true },
+        { "name": "schema_version", "type": "u32", "required": true },
+        { "name": "granted_operation_credit", "type": "u16", "required": true },
+        { "name": "max_in_flight_operations", "type": "u16", "required": true },
+        { "name": "lease_ttl_ms", "type": "u32", "required": true },
+        { "name": "resume_window_ms", "type": "u32", "required": true },
+        { "name": "resume_token_bytes", "type": "u32", "required": true },
+        { "name": "session_extension_bytes", "type": "u32", "required": true },
+        { "name": "server_session_tag", "type": "u64", "required": true },
+        { "name": "route_scope_id", "type": "u32", "required": true },
+        { "name": "session_error_code", "type": "u32", "required": true },
+        { "name": "session_flags_ack", "type": "u32", "required": true, "allowedMask": 31 }
+      ]
+    },
+    "SessionCloseAckMetadata": {
+      "fields": [
+        {
+          "name": "close_status",
+          "type": "SessionCloseStatus",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "last_operation_id", "type": "u64", "required": true },
+        { "name": "session_error_code", "type": "u32", "required": true }
+      ]
+    },
+    "FrameSubmitMetadata": {
+      "description": "Complete FRAME_SUBMIT wire metadata, including the operation identity carried on the wire.",
+      "fields": [
+        { "name": "src_width", "type": "u16", "required": true },
+        { "name": "src_height", "type": "u16", "required": true },
+        { "name": "tile_width", "type": "u16", "required": true },
+        { "name": "tile_height", "type": "u16", "required": true },
+        { "name": "tile_count", "type": "u16", "required": true },
+        { "name": "section_count", "type": "u16", "required": true },
+        { "name": "frame_class", "type": "u8", "required": true },
+        { "name": "input_profile", "type": "InputProfile", "wireType": "u8", "required": true },
+        { "name": "tile_index_mode", "type": "TileIndexMode", "wireType": "u8", "required": true },
+        { "name": "latency_budget_ms", "type": "u16", "required": true },
+        { "name": "target_fps_x100", "type": "u16", "required": true },
+        { "name": "retry_of_frame", "type": "u32", "required": true },
+        { "name": "tile_base_id", "type": "u32", "required": true },
+        { "name": "camera_bytes", "type": "u32", "required": true },
+        { "name": "tile_index_bytes", "type": "u32", "required": true },
+        { "name": "operation_id", "type": "u64", "required": true, "minimum": 1 },
+        { "name": "submit_mode", "type": "SubmitMode", "wireType": "u8", "required": true },
+        { "name": "budget_policy", "type": "BudgetPolicy", "wireType": "u8", "required": true },
+        {
+          "name": "loss_tolerance_policy",
+          "type": "LossTolerancePolicy",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "object_ref_mask", "type": "u32", "required": true },
+        { "name": "dependency_frame_id", "type": "u32", "required": true },
+        {
+          "name": "payload_kind_bitmap",
+          "type": "PayloadKindBitmap",
+          "wireType": "u32",
+          "required": true
+        },
+        { "name": "payload_frame_count", "type": "u16", "required": true }
+      ]
+    },
+    "ResultPushMetadata": {
+      "description": "Complete RESULT_PUSH metadata. status_code is an application-defined u16 detail code and does not determine protocol terminal state.",
+      "fields": [
+        {
+          "name": "status_code",
+          "type": "u16",
+          "required": true,
+          "semantic": "application-defined"
+        },
+        { "name": "result_flags", "type": "u16", "required": true, "allowedMask": 7 },
+        { "name": "section_count", "type": "u16", "required": true },
+        { "name": "tile_count", "type": "u16", "required": true },
+        { "name": "active_profile_id", "type": "u16", "required": true },
+        { "name": "inference_ms", "type": "u16", "required": true },
+        { "name": "queue_ms", "type": "u16", "required": true },
+        { "name": "server_total_ms", "type": "u16", "required": true },
+        { "name": "tile_base_id", "type": "u32", "required": true },
+        { "name": "tile_index_bytes", "type": "u32", "required": true },
+        { "name": "result_class", "type": "ResultClass", "wireType": "u8", "required": true },
+        { "name": "applied_budget_policy", "type": "u8", "required": true, "allowedMask": 15 },
+        { "name": "reused_frame_id", "type": "u32", "required": true },
+        { "name": "covered_tile_count", "type": "u16", "required": true },
+        { "name": "dropped_tile_count", "type": "u16", "required": true },
+        {
+          "name": "payload_kind_bitmap",
+          "type": "PayloadKindBitmap",
+          "wireType": "u32",
+          "required": true
+        },
+        { "name": "payload_frame_count", "type": "u16", "required": true }
+      ],
+      "terminalStateRule": "RESULT_PUSH is a successful terminal result. Cancellation, drop, and error terminal states are determined by their protocol messages and operation lifecycle, never by status_code."
+    },
+    "ResultHintMetadata": {
+      "fields": [
+        {
+          "name": "applied_budget_policy",
+          "type": "ResultHintBudgetPolicy",
+          "wireType": "u32",
+          "required": true
+        },
+        {
+          "name": "congestion_state",
+          "type": "ResultHintCongestionState",
+          "wireType": "u32",
+          "required": true
+        },
+        { "name": "reason", "type": "ResultHintReason", "wireType": "u32", "required": true },
+        { "name": "retry_after_ms", "type": "u32", "required": true }
+      ]
+    },
+    "ControlRequestMetadata": {
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "control_sequence", "type": "u64", "required": true },
+        { "name": "reason_code", "type": "u16", "required": true },
+        { "name": "source_role", "type": "RuntimeRole", "wireType": "u8", "required": true },
+        { "name": "flags", "type": "u8", "required": true },
+        { "name": "diagnostic_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "SchedulingMetadata": {
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "control_sequence", "type": "u64", "required": true },
+        { "name": "priority_class", "type": "u16", "required": true },
+        { "name": "priority_delta", "type": "i16", "required": true },
+        { "name": "deadline_unix_ms", "type": "u64", "required": true },
+        { "name": "flags", "type": "u32", "required": true }
+      ]
+    },
+    "SupersedeMetadata": {
+      "fields": [
+        { "name": "old_operation_id", "type": "u64", "required": true },
+        { "name": "new_operation_id", "type": "u64", "required": true },
+        { "name": "control_sequence", "type": "u64", "required": true },
+        { "name": "drop_reason_code", "type": "u16", "required": true },
+        { "name": "flags", "type": "u16", "required": true },
+        { "name": "diagnostic_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "BudgetMetadata": {
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "compute_budget_units", "type": "u64", "required": true },
+        { "name": "memory_budget_bytes", "type": "u64", "required": true },
+        { "name": "bandwidth_budget_bytes", "type": "u64", "required": true },
+        { "name": "token_budget", "type": "u32", "required": true },
+        { "name": "flags", "type": "u32", "required": true }
+      ]
+    },
+    "ProgressMetadata": {
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "progress_sequence", "type": "u64", "required": true },
+        { "name": "stage_code", "type": "u16", "required": true },
+        { "name": "percent_x100", "type": "u16", "required": true, "maximum": 10000 },
+        { "name": "object_id", "type": "u64", "required": true },
+        { "name": "body_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "PartialResultMetadata": {
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "result_sequence", "type": "u64", "required": true },
+        { "name": "object_id", "type": "u64", "required": true },
+        { "name": "delta_sequence", "type": "u64", "required": true },
+        { "name": "body_bytes", "type": "u32", "required": true },
+        { "name": "flags", "type": "u32", "required": true }
+      ]
+    },
+    "PressureMetadata": {
+      "fields": [
+        { "name": "scope_id", "type": "u64", "required": true },
+        { "name": "credit_window", "type": "u64", "required": true },
+        { "name": "pressure_level", "type": "u16", "required": true },
+        { "name": "pressure_reason", "type": "u16", "required": true },
+        { "name": "retry_after_ms", "type": "u32", "required": true },
+        { "name": "flags", "type": "u32", "required": true }
+      ]
+    },
+    "CapabilityMetadata": {
+      "fields": [
+        { "name": "profile_id", "type": "u16", "required": true },
+        { "name": "capability_count", "type": "u16", "required": true },
+        { "name": "cost_model_id", "type": "u16", "required": true },
+        { "name": "preference_rank", "type": "u16", "required": true },
+        { "name": "limit_bytes", "type": "u64", "required": true },
+        { "name": "limit_units", "type": "u64", "required": true },
+        { "name": "body_bytes", "type": "u32", "required": true },
+        { "name": "flags", "type": "u32", "required": true }
+      ]
+    },
+    "RouteHintMetadata": {
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "route_id", "type": "u32", "required": true },
+        { "name": "executor_class", "type": "u16", "required": true },
+        { "name": "affinity_class", "type": "u16", "required": true },
+        { "name": "deadline_unix_ms", "type": "u64", "required": true },
+        { "name": "body_bytes", "type": "u32", "required": true },
+        { "name": "flags", "type": "u32", "required": true }
+      ]
+    },
+    "TraceContextMetadata": {
+      "fields": [
+        { "name": "trace_id", "type": "u64", "required": true },
+        { "name": "span_id", "type": "u64", "required": true },
+        { "name": "parent_span_id", "type": "u64", "required": true },
+        { "name": "stage_code", "type": "u16", "required": true },
+        { "name": "flags", "type": "u16", "required": true },
+        { "name": "body_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "ResultDropReasonMetadata": {
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "result_sequence", "type": "u64", "required": true },
+        { "name": "drop_reason_code", "type": "u16", "required": true },
+        { "name": "source_role", "type": "RuntimeRole", "wireType": "u8", "required": true },
+        { "name": "flags", "type": "u8", "required": true },
+        { "name": "diagnostic_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "RecoverableErrorMetadata": {
+      "fields": [
+        { "name": "error_code", "type": "u32", "required": true },
+        { "name": "error_scope", "type": "ErrorScope", "wireType": "u32", "required": true },
+        { "name": "recovery_action", "type": "u16", "required": true },
+        { "name": "source_role", "type": "RuntimeRole", "wireType": "u8", "required": true },
+        { "name": "flags", "type": "u8", "required": true },
+        { "name": "retry_after_ms", "type": "u32", "required": true },
+        { "name": "related_session_id", "type": "u32", "required": true },
+        { "name": "related_frame_id", "type": "u32", "required": true },
+        { "name": "related_view_id", "type": "u32", "required": true },
+        { "name": "diagnostic_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "RetryAfterMetadata": {
+      "fields": [
+        { "name": "scope_id", "type": "u64", "required": true },
+        { "name": "control_sequence", "type": "u64", "required": true },
+        { "name": "retry_after_ms", "type": "u32", "required": true },
+        { "name": "jitter_ms", "type": "u32", "required": true },
+        { "name": "reason_code", "type": "u16", "required": true },
+        { "name": "source_role", "type": "RuntimeRole", "wireType": "u8", "required": true },
+        { "name": "flags", "type": "u8", "required": true },
+        { "name": "diagnostic_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "FlowUpdateMetadata": {
+      "fields": [
+        { "name": "scope_kind", "type": "FlowScopeKind", "wireType": "u8", "required": true },
+        { "name": "update_reason", "type": "FlowUpdateReason", "wireType": "u8", "required": true },
+        {
+          "name": "backpressure_level",
+          "type": "BackpressureLevel",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "connection_credit", "type": "u16", "required": true },
+        { "name": "session_credit", "type": "u16", "required": true },
+        { "name": "operation_credit", "type": "u16", "required": true },
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "retry_after_ms", "type": "u32", "required": true },
+        { "name": "credit_epoch", "type": "u32", "required": true },
+        { "name": "flow_flags", "type": "u32", "required": true }
+      ]
+    },
+    "ObjectDescriptorMetadata": {
+      "fields": [
+        { "name": "object_id", "type": "u64", "required": true },
+        { "name": "object_kind", "type": "RuntimeObjectKind", "wireType": "u16", "required": true },
+        { "name": "producer_role", "type": "RuntimeRole", "wireType": "u8", "required": true },
+        { "name": "consumer_role", "type": "RuntimeRole", "wireType": "u8", "required": true },
+        { "name": "session_id", "type": "u32", "required": true },
+        { "name": "byte_size", "type": "u64", "required": true },
+        { "name": "compute_cost_units", "type": "u32", "required": true },
+        {
+          "name": "memory_location_hint",
+          "type": "MemoryLocationHint",
+          "wireType": "u16",
+          "required": true
+        },
+        { "name": "ownership_hint", "type": "OwnershipHint", "wireType": "u16", "required": true },
+        { "name": "lifetime_hint_ms", "type": "u32", "required": true },
+        { "name": "metadata_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "ObjectReferenceMetadata": {
+      "fields": [
+        { "name": "object_id", "type": "u64", "required": true },
+        { "name": "operation_id", "type": "u64", "required": true },
+        { "name": "object_version", "type": "u64", "required": true },
+        { "name": "offset", "type": "u64", "required": true },
+        { "name": "length", "type": "u64", "required": true },
+        { "name": "flags", "type": "u32", "required": true },
+        { "name": "metadata_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "ObjectReleaseMetadata": {
+      "fields": [
+        { "name": "object_id", "type": "u64", "required": true },
+        { "name": "operation_id", "type": "u64", "required": true },
+        {
+          "name": "release_reason",
+          "type": "ObjectReleaseReason",
+          "wireType": "u16",
+          "required": true
+        },
+        { "name": "source_role", "type": "RuntimeRole", "wireType": "u8", "required": true },
+        { "name": "flags", "type": "u8", "required": true },
+        { "name": "diagnostic_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "ObjectDeltaMetadata": {
+      "fields": [
+        { "name": "object_id", "type": "u64", "required": true },
+        { "name": "delta_sequence", "type": "u64", "required": true },
+        { "name": "region_offset", "type": "u64", "required": true },
+        { "name": "region_bytes", "type": "u32", "required": true },
+        { "name": "delta_bytes", "type": "u32", "required": true },
+        { "name": "flags", "type": "u32", "required": true },
+        { "name": "metadata_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "CacheReferenceMetadata": {
+      "fields": [
+        { "name": "cache_namespace", "type": "u32", "required": true },
+        { "name": "cache_key_hi", "type": "u64", "required": true },
+        { "name": "cache_key_lo", "type": "u64", "required": true },
+        { "name": "profile_id", "type": "u16", "required": true },
+        { "name": "reuse_scope", "type": "CacheReuseScope", "wireType": "u16", "required": true },
+        { "name": "lease_id", "type": "u64", "required": true },
+        { "name": "producer_trace_id", "type": "u64", "required": true },
+        { "name": "expiration_hint_ms", "type": "u32", "required": true },
+        { "name": "metadata_bytes", "type": "u32", "required": true },
+        { "name": "flags", "type": "u32", "required": true }
+      ]
+    },
+    "CacheMissMetadata": {
+      "fields": [
+        { "name": "cache_namespace", "type": "u32", "required": true },
+        { "name": "cache_key_hi", "type": "u64", "required": true },
+        { "name": "cache_key_lo", "type": "u64", "required": true },
+        { "name": "miss_reason", "type": "CacheMissReason", "wireType": "u16", "required": true },
+        { "name": "profile_id", "type": "u16", "required": true },
+        { "name": "diagnostic_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "CacheInvalidateMetadata": {
+      "fields": [
+        {
+          "name": "invalidate_scope",
+          "type": "CacheInvalidateScope",
+          "wireType": "u32",
+          "required": true
+        },
+        { "name": "cache_namespace", "type": "u32", "required": true },
+        { "name": "cache_key_hi", "type": "u64", "required": true },
+        { "name": "cache_key_lo", "type": "u64", "required": true },
+        { "name": "reason_code", "type": "u32", "required": true }
+      ]
+    },
+    "SessionCloseMetadata": {
+      "fields": [
+        {
+          "name": "close_reason",
+          "type": "SessionCloseReason",
+          "wireType": "u16",
+          "required": true
+        },
+        {
+          "name": "in_flight_policy",
+          "type": "InFlightPolicy",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "drain_timeout_ms", "type": "u32", "required": true },
+        { "name": "last_operation_id", "type": "u64", "required": true },
+        { "name": "session_error_code", "type": "u32", "required": true },
+        { "name": "session_close_tag", "type": "u32", "required": true }
+      ]
+    },
+    "CachePutMetadata": {
+      "fields": [
+        { "name": "cache_namespace", "type": "u32", "required": true },
+        { "name": "cache_key_hi", "type": "u64", "required": true },
+        { "name": "cache_key_lo", "type": "u64", "required": true },
+        { "name": "object_kind", "type": "CacheObjectKind", "wireType": "u32", "required": true },
+        { "name": "ttl_ms", "type": "u32", "required": true },
+        { "name": "object_bytes", "type": "u32", "required": true },
+        { "name": "codec_bitmap", "type": "u32", "required": true },
+        { "name": "flags", "type": "u32", "required": true }
+      ]
+    },
+    "CacheAckMetadata": {
+      "fields": [
+        { "name": "cache_namespace", "type": "u32", "required": true },
+        { "name": "cache_key_hi", "type": "u64", "required": true },
+        { "name": "cache_key_lo", "type": "u64", "required": true },
+        { "name": "status", "type": "CacheAckStatus", "wireType": "u32", "required": true },
+        { "name": "accepted_ttl_ms", "type": "u32", "required": true },
+        { "name": "max_object_bytes", "type": "u32", "required": true },
+        { "name": "detail_code", "type": "u32", "required": true }
+      ]
+    },
+    "TransportProbeMetadata": {
+      "fields": [
+        { "name": "probe_id", "type": "u32", "required": true },
+        { "name": "probe_payload_bytes", "type": "u32", "required": true },
+        { "name": "client_send_ts_us", "type": "u64", "required": true }
+      ]
+    },
+    "TransportProbeAckMetadata": {
+      "fields": [
+        { "name": "probe_id", "type": "u32", "required": true },
+        { "name": "server_recv_ts_us", "type": "u64", "required": true }
+      ]
+    },
+    "SessionMigrateMetadata": {
+      "fields": [
+        { "name": "old_transport_id", "type": "TransportId", "wireType": "u32", "required": true },
+        { "name": "new_transport_id", "type": "TransportId", "wireType": "u32", "required": true },
+        { "name": "last_result_frame_id", "type": "u64", "required": true },
+        { "name": "client_migrate_ts_us", "type": "u64", "required": true }
+      ]
+    },
+    "SessionMigrateAckMetadata": {
+      "fields": [
+        { "name": "accept_code", "type": "u32", "required": true },
+        { "name": "resume_from_frame_id", "type": "u64", "required": true },
+        { "name": "grace_window_ms", "type": "u32", "required": true },
+        { "name": "server_migrate_ts_us", "type": "u64", "required": true }
+      ]
+    },
+    "ErrorMetadata": {
+      "fields": [
+        { "name": "error_code", "type": "u32", "required": true },
+        { "name": "error_scope", "type": "ErrorScope", "wireType": "u32", "required": true },
+        { "name": "is_fatal", "type": "bool", "wireType": "u32", "required": true },
+        { "name": "retry_after_ms", "type": "u32", "required": true },
+        { "name": "related_session_id", "type": "u32", "required": true },
+        { "name": "related_frame_id", "type": "u32", "required": true },
+        { "name": "related_view_id", "type": "u32", "required": true },
+        { "name": "diagnostic_bytes", "type": "u32", "required": true }
+      ]
+    },
+    "CacheObjectId": {
+      "description": "Cross-SDK cache identity. Language projections may spell the high and low key halves idiomatically but preserve their widths and order.",
+      "fields": [
+        { "name": "cache_namespace", "type": "u32", "required": true },
+        { "name": "cache_key_hi", "type": "u64", "required": true },
+        { "name": "cache_key_lo", "type": "u64", "required": true },
+        { "name": "object_kind", "type": "CacheObjectKind", "required": true }
+      ]
+    },
+    "CacheLease": {
+      "description": "Validated local cache lease value. It is not a wire payload or native handle.",
+      "fields": [
+        { "name": "object_id", "type": "CacheObjectId", "required": true },
+        { "name": "object_version", "type": "u64", "required": true },
+        { "name": "lease_id", "type": "u64", "required": true },
+        { "name": "owner_scope", "type": "CacheLeaseOwnerScope", "required": true },
+        { "name": "owner_id", "type": "u64", "required": true },
+        { "name": "granted_at_ms", "type": "u64", "required": true },
+        { "name": "ttl_ms", "type": "u32", "required": true }
+      ]
+    },
+    "CacheDependency": {
+      "fields": [
+        { "name": "object_id", "type": "CacheObjectId", "required": true },
+        { "name": "required_version", "type": "u64", "required": true }
+      ]
+    },
+    "CacheDependencyState": {
+      "fields": [
+        { "name": "object_id", "type": "CacheObjectId", "required": true },
+        { "name": "current_version", "type": "u64", "required": true },
+        { "name": "invalidated", "type": "bool", "required": true }
+      ]
+    },
+    "CacheObjectVersion": {
+      "fields": [
+        { "name": "object_id", "type": "CacheObjectId", "required": true },
+        { "name": "object_version", "type": "u64", "required": true },
+        { "name": "schema_id", "type": "u32", "required": true },
+        { "name": "schema_version", "type": "u32", "required": true }
+      ]
+    },
+    "CacheLeaseResult": {
+      "fields": [
+        { "name": "object_id", "type": "CacheObjectId", "required": true },
+        { "name": "outcome", "type": "CacheLeaseOutcome", "required": true },
+        { "name": "lease", "type": "CacheLease?", "required": false },
+        { "name": "object_version", "type": "CacheObjectVersion?", "required": false },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ]
+    },
+    "CacheInvalidation": {
+      "fields": [
+        { "name": "object_id", "type": "CacheObjectId", "required": true },
+        { "name": "reason", "type": "CacheInvalidationReason", "required": true },
+        { "name": "object_version", "type": "u64", "required": true },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ]
+    },
+    "CacheDependencyInvalidation": {
+      "fields": [
+        { "name": "source", "type": "CacheObjectId", "required": true },
+        { "name": "affected", "type": "CacheObjectId[]", "required": true },
+        { "name": "reason", "type": "CacheInvalidationReason", "required": true },
+        { "name": "schema_id", "type": "u32", "required": true },
+        { "name": "schema_version", "type": "u32", "required": true }
+      ]
+    },
+    "CachePolicyOptions": {
+      "description": "Explicit local cache policy. Disabled policy carries no reuse scope or expiration hint and never emits an implicit cache request.",
+      "fields": [
+        { "name": "enabled", "type": "bool", "required": true },
+        { "name": "reuse_scope", "type": "CacheReuseScope?", "required": false },
+        { "name": "expiration_hint_ms", "type": "u64", "required": true },
+        { "name": "invalidation_reason", "type": "CacheInvalidationReason", "required": true }
+      ]
+    },
+    "ProviderCost": {
+      "fields": [
+        { "name": "model_id", "type": "u16", "required": true },
+        { "name": "units", "type": "u64", "required": true }
+      ]
+    },
+    "ProviderLimits": {
+      "fields": [{ "name": "max_frame_bytes", "type": "u64", "required": true }]
+    },
+    "TransportProviderMetadata": {
+      "fields": [
+        { "name": "id", "type": "string", "required": true },
+        { "name": "cost", "type": "ProviderCost", "required": true },
+        { "name": "preference_rank", "type": "u16", "required": true },
+        { "name": "limits", "type": "ProviderLimits", "required": true },
+        { "name": "limitations", "type": "ProviderLimitation[]", "required": true }
+      ]
+    },
+    "TransportProviderDescriptor": {
+      "fields": [
+        { "name": "name", "type": "string", "required": true },
+        { "name": "version", "type": "string", "required": true },
+        { "name": "transport_id", "type": "TransportId", "required": true },
+        { "name": "kind", "type": "TransportProviderKind", "required": true },
+        { "name": "available", "type": "bool", "required": true },
+        { "name": "library_path", "type": "string?", "required": false },
+        { "name": "metadata", "type": "TransportProviderMetadata", "required": true },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ]
+    },
+    "TransportCandidateReadiness": {
+      "fields": [
+        { "name": "transport_id", "type": "TransportId", "required": true },
+        { "name": "provider_id", "type": "string", "required": true },
+        { "name": "route_resolved", "type": "bool", "required": true },
+        { "name": "security_satisfied", "type": "bool", "required": true },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ]
+    },
+    "ProbeMetrics": {
+      "fields": [
+        { "name": "sample_count", "type": "u32", "required": true },
+        { "name": "success_count", "type": "u32", "required": true },
+        { "name": "median_throughput_bytes_per_sec", "type": "u64", "required": true },
+        { "name": "median_rtt_us", "type": "u64", "required": true }
+      ]
+    },
+    "ProbeSample": {
+      "fields": [
+        { "name": "transport_id", "type": "TransportId", "required": true },
+        { "name": "provider_id", "type": "string", "required": true },
+        { "name": "elapsed_us", "type": "u64", "required": true },
+        { "name": "rtt_us", "type": "u64?", "required": false },
+        { "name": "bytes_sent", "type": "u64", "required": true },
+        { "name": "bytes_received", "type": "u64", "required": true },
+        { "name": "timed_out", "type": "bool", "required": true },
+        { "name": "failed", "type": "bool", "required": true }
+      ]
+    },
+    "TransportProbeObservation": {
+      "fields": [
+        { "name": "transport_id", "type": "TransportId", "required": true },
+        { "name": "provider_id", "type": "string", "required": true },
+        { "name": "state", "type": "ProbeState", "required": true },
+        { "name": "metrics", "type": "ProbeMetrics?", "required": false },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ],
+      "stateConstraint": ["succeeded", "failed"]
+    },
+    "TransportCandidate": {
+      "fields": [
+        { "name": "transport_id", "type": "TransportId", "required": true },
+        { "name": "provider", "type": "TransportProviderMetadata", "required": true },
+        { "name": "local_available", "type": "bool", "required": true },
+        { "name": "peer_supported", "type": "bool", "required": true },
+        { "name": "within_limits", "type": "bool", "required": true },
+        { "name": "probe_state", "type": "ProbeState", "required": true },
+        { "name": "probe", "type": "ProbeMetrics?", "required": false },
+        { "name": "selection_rank", "type": "u32?", "required": false },
+        { "name": "rejection_reason", "type": "TransportRejectionReason?", "required": false },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ]
+    },
+    "TransportSelection": {
+      "fields": [
+        { "name": "selected_provider", "type": "TransportProviderDescriptor", "required": true },
+        { "name": "candidates", "type": "TransportCandidate[]", "required": true },
+        { "name": "policy", "type": "TransportPolicy", "required": true },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ]
+    },
+    "TransportSelectionFailure": {
+      "fields": [
+        { "name": "code", "type": "TransportSelectionErrorCode", "required": true },
+        { "name": "policy", "type": "TransportPolicy?", "required": false },
+        { "name": "transport_id", "type": "TransportId?", "required": false },
+        { "name": "candidates", "type": "TransportCandidate[]", "required": true },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ]
+    },
+    "TransportSelectionOptions": {
+      "fields": [
+        { "name": "peer_supported_transports", "type": "TransportId[]", "required": true },
+        { "name": "policy", "type": "TransportPolicy", "required": true },
+        { "name": "requested_max_frame_bytes", "type": "u64?", "required": false },
+        {
+          "name": "candidate_readiness",
+          "type": "TransportCandidateReadiness[]",
+          "required": true
+        },
+        { "name": "probe_observations", "type": "TransportProbeObservation[]", "required": true }
+      ]
+    },
+    "NnrpEndpoint": {
+      "description": "Validated transport-neutral application endpoint. Only nnrp and nnrps schemes are accepted.",
+      "fields": [{ "name": "uri", "type": "string", "required": true }]
+    },
+    "ProviderEndpoint": {
+      "description": "Validated provider-local locator. Its scheme must match the provider transport.",
+      "fields": [{ "name": "uri", "type": "string", "required": true }]
+    },
+    "ClientTransportSecurity": {
+      "fields": [
+        { "name": "server_name", "type": "string", "required": true },
+        { "name": "trusted_certificate_der", "type": "bytes", "required": true }
+      ]
+    },
+    "ServerTransportSecurity": {
+      "fields": [
+        { "name": "certificate_der", "type": "bytes", "required": true },
+        { "name": "private_key_pkcs8_der", "type": "bytes", "required": true }
+      ]
+    },
+    "ClientProviderRoute": {
+      "fields": [
+        { "name": "provider_endpoint", "type": "ProviderEndpoint?", "required": false },
+        { "name": "security", "type": "ClientTransportSecurity?", "required": false }
+      ]
+    },
+    "ServerProviderRoute": {
+      "fields": [
+        { "name": "provider_endpoint", "type": "ProviderEndpoint?", "required": false },
+        { "name": "security", "type": "ServerTransportSecurity?", "required": false }
+      ]
+    },
+    "ClientProviderRouteEntry": {
+      "fields": [
+        { "name": "transport_id", "type": "TransportId", "required": true },
+        { "name": "route", "type": "ClientProviderRoute", "required": true }
+      ]
+    },
+    "ServerProviderRouteEntry": {
+      "fields": [
+        { "name": "transport_id", "type": "TransportId", "required": true },
+        { "name": "route", "type": "ServerProviderRoute", "required": true }
+      ]
+    },
+    "ClientSessionOptions": {
+      "description": "Transport-neutral application options normalized into SESSION_OPEN metadata. SDK-local handles and generations are forbidden here.",
+      "fields": [
+        { "name": "requested_session_id", "type": "u32", "required": false, "default": 0 },
+        {
+          "name": "profile_id",
+          "type": "u16",
+          "required": false,
+          "default": "STANDARD_PROFILE_TOKEN"
+        },
+        {
+          "name": "schema_id",
+          "type": "u32",
+          "required": false,
+          "default": "TOKEN_DELTA_SCHEMA_ID"
+        },
+        {
+          "name": "schema_version",
+          "type": "u32",
+          "required": false,
+          "default": "TOKEN_DELTA_SCHEMA_VERSION"
+        },
+        {
+          "name": "priority_class",
+          "type": "SessionPriorityClass",
+          "required": false,
+          "default": "balanced"
+        },
+        { "name": "default_deadline_ms", "type": "u32", "required": false, "default": 500 },
+        {
+          "name": "max_in_flight_operations",
+          "type": "u16",
+          "required": false,
+          "default": 4
+        },
+        { "name": "lease_ttl_hint_ms", "type": "u32", "required": false, "default": 30000 },
+        { "name": "allow_resume", "type": "bool", "required": false, "default": false },
+        { "name": "resume_token_bytes", "type": "u32", "required": false, "default": 0 },
+        { "name": "cache_hints", "type": "CacheObjectKind[]", "required": false, "default": [] }
+      ],
+      "derivedWireFields": [
+        "session_flags",
+        "auth_bytes",
+        "session_extension_bytes",
+        "client_session_tag"
+      ]
+    },
+    "ServerSessionPolicyDecision": {
+      "fields": [
+        { "name": "accepted", "type": "bool", "required": true },
+        { "name": "session_error_code", "type": "u32", "required": true },
+        { "name": "diagnostic", "type": "string?", "required": false }
+      ]
+    },
+    "ServerSessionPolicy": {
+      "description": "Application admission policy evaluated once per SESSION_OPEN. The default policy accepts valid sessions.",
+      "fields": [],
+      "methods": [
+        {
+          "name": "evaluate",
+          "parameters": [{ "name": "open", "type": "SessionOpenMetadata", "required": true }],
+          "returns": "ServerSessionPolicyDecision",
+          "async": true
+        }
+      ]
+    },
+    "ServerSessionOptions": {
+      "description": "Transport-neutral server negotiation, cache, credit, schema, and admission policy.",
+      "fields": [
+        {
+          "name": "supported_profiles",
+          "type": "u16[]",
+          "required": false,
+          "default": ["STANDARD_PROFILE_TOKEN"]
+        },
+        {
+          "name": "supported_cache_objects",
+          "type": "CacheObjectKind[]",
+          "required": false,
+          "default": []
+        },
+        { "name": "max_cache_objects", "type": "u64", "required": false, "default": 0 },
+        { "name": "max_cache_object_bytes", "type": "u32", "required": false, "default": 0 },
+        {
+          "name": "schema_registry",
+          "type": "SchemaRegistry",
+          "required": false,
+          "default": "standard"
+        },
+        { "name": "resume_token_bytes", "type": "u32", "required": false, "default": 24 },
+        {
+          "name": "max_in_flight_operations",
+          "type": "u16",
+          "required": false,
+          "default": 4
+        },
+        {
+          "name": "granted_operation_credit",
+          "type": "u16",
+          "required": false,
+          "default": 2
+        },
+        { "name": "lease_ttl_ms", "type": "u32", "required": false, "default": 30000 },
+        { "name": "resume_window_ms", "type": "u32", "required": false, "default": 120000 },
+        {
+          "name": "application_policy",
+          "type": "ServerSessionPolicy",
+          "required": false,
+          "default": "accept_valid_sessions"
+        }
+      ]
+    },
+    "ClientBootstrapOptions": {
+      "fields": [
+        { "name": "endpoint", "type": "NnrpEndpoint", "required": true },
+        {
+          "name": "provider_routes",
+          "type": "ClientProviderRouteEntry[]",
+          "required": false,
+          "default": []
+        },
+        {
+          "name": "transport_policy",
+          "type": "TransportPolicy",
+          "required": false,
+          "default": "auto"
+        },
+        {
+          "name": "session_defaults",
+          "type": "ClientSessionOptions",
+          "required": false,
+          "default": "ClientSessionOptions.default"
+        }
+      ]
+    },
+    "ServerBootstrapOptions": {
+      "fields": [
+        { "name": "endpoint", "type": "NnrpEndpoint", "required": true },
+        {
+          "name": "provider_routes",
+          "type": "ServerProviderRouteEntry[]",
+          "required": false,
+          "default": []
+        },
+        {
+          "name": "transport_policy",
+          "type": "TransportPolicy",
+          "required": false,
+          "default": "auto"
+        },
+        {
+          "name": "session_defaults",
+          "type": "ServerSessionOptions",
+          "required": false,
+          "default": "ServerSessionOptions.default"
+        }
+      ]
+    },
+    "ServerAcceptOptions": {
+      "description": "Local accept wait policy. Native session handles and generations are internal.",
+      "fields": [{ "name": "timeout_ms", "type": "u32", "required": false, "default": 0 }]
+    },
+    "SessionLifecycleSnapshot": {
+      "fields": [
+        { "name": "session_id", "type": "u32", "required": true },
+        { "name": "state", "type": "SessionLifecycleState", "required": true },
+        { "name": "profile_id", "type": "u16", "required": true },
+        { "name": "priority_class", "type": "SessionPriorityClass", "required": true },
+        { "name": "schema_id", "type": "u32", "required": true },
+        { "name": "schema_version", "type": "u32", "required": true },
+        { "name": "max_in_flight_operations", "type": "u16", "required": true },
+        { "name": "route_scope_id", "type": "u32", "required": true },
+        { "name": "last_operation_id", "type": "u64", "required": true },
+        { "name": "session_error_code", "type": "u32", "required": true }
+      ]
+    },
+    "ConnectionLifecycleSnapshot": {
+      "fields": [
+        { "name": "state", "type": "ConnectionLifecycleState", "required": true },
+        { "name": "sessions", "type": "SessionLifecycleSnapshot[]", "required": true }
+      ]
+    },
     "RuntimeEventMetadata": {
       "description": "Closed metadata union used by public role event pumps. The common header message_type selects exactly one variant.",
       "fields": [],
@@ -395,7 +1896,35 @@
         "cache_miss",
         "cache_invalidate",
         "session_close"
-      ]
+      ],
+      "variantTypes": {
+        "none": null,
+        "frame_submit": "FrameSubmitMetadata",
+        "result_push": "ResultPushMetadata",
+        "result_hint": "ResultHintMetadata",
+        "control_request": "ControlRequestMetadata",
+        "scheduling": "SchedulingMetadata",
+        "supersede": "SupersedeMetadata",
+        "budget": "BudgetMetadata",
+        "progress": "ProgressMetadata",
+        "partial_result": "PartialResultMetadata",
+        "pressure": "PressureMetadata",
+        "capability": "CapabilityMetadata",
+        "route_hint": "RouteHintMetadata",
+        "trace_context": "TraceContextMetadata",
+        "result_drop_reason": "ResultDropReasonMetadata",
+        "recoverable_error": "RecoverableErrorMetadata",
+        "retry_after": "RetryAfterMetadata",
+        "flow_update": "FlowUpdateMetadata",
+        "object_descriptor": "ObjectDescriptorMetadata",
+        "object_reference": "ObjectReferenceMetadata",
+        "object_release": "ObjectReleaseMetadata",
+        "object_delta": "ObjectDeltaMetadata",
+        "cache_reference": "CacheReferenceMetadata",
+        "cache_miss": "CacheMissMetadata",
+        "cache_invalidate": "CacheInvalidateMetadata",
+        "session_close": "SessionCloseMetadata"
+      }
     },
     "RuntimeEventTail": {
       "description": "Closed owned tail union. A tail never aliases a receive buffer or an FFI event handle.",
@@ -429,6 +1958,34 @@
       ],
       "ownership": "metadata and tail storage remain valid independently of the receive buffer and native event handle",
       "ffiLifecycleRule": "A native event with header.present == 1 is a wire RuntimeEvent. A native event with header.present == 0 is a local lifecycle event and must remain in a separate SDK lifecycle-event type; bindings must not fabricate a RuntimeFrameHeader for it."
+    },
+    "OperationLifecycleEvent": {
+      "description": "Local role lifecycle notification. It is never represented as a fabricated wire frame.",
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true, "minimum": 1 },
+        { "name": "state", "type": "OperationState", "wireType": "u8", "required": true }
+      ],
+      "terminalMapping": {
+        "completed": "success",
+        "cancelled": "cancelled",
+        "superseded": "dropped",
+        "failed": "error"
+      }
+    },
+    "NnrpResult": {
+      "description": "Application-facing terminal result correlated with one submitted operation. The owned RuntimeEvent preserves the complete wire header, typed metadata, and semantic tail.",
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true, "minimum": 1 },
+        {
+          "name": "terminal_state",
+          "type": "ResultTerminalState",
+          "wireType": "u8",
+          "required": true
+        },
+        { "name": "event", "type": "RuntimeEvent", "required": true }
+      ],
+      "successRule": "A successful result has terminal_state success and an event whose message type is result_push and whose metadata variant is result_push.",
+      "nonSuccessRule": "Cancelled, dropped, and error results preserve the terminal protocol or lifecycle event that established the state; SDKs do not synthesize RESULT_PUSH metadata for them."
     }
   },
   "messageTypes": [
@@ -483,6 +2040,129 @@
     { "name": "cache_miss", "value": "0x47", "delivery": "runtime_event" },
     { "name": "error_recoverable", "value": "0x48", "delivery": "runtime_event" },
     { "name": "retry_after", "value": "0x49", "delivery": "runtime_event" }
+  ],
+  "roleMethodMessages": [
+    {
+      "messageType": "client_hello",
+      "metadataType": "ClientHelloMetadata",
+      "tail": "body",
+      "senders": ["client"],
+      "receivers": ["server"]
+    },
+    {
+      "messageType": "server_hello_ack",
+      "metadataType": "ServerHelloAckMetadata",
+      "tail": "body",
+      "senders": ["server"],
+      "receivers": ["client"]
+    },
+    {
+      "messageType": "session_patch",
+      "metadataType": "SessionPatchMetadata",
+      "tail": "body",
+      "senders": ["client"],
+      "receivers": ["server"]
+    },
+    {
+      "messageType": "session_patch_ack",
+      "metadataType": "SessionPatchAckMetadata",
+      "tail": "body",
+      "senders": ["server"],
+      "receivers": ["client"]
+    },
+    {
+      "messageType": "session_open",
+      "metadataType": "SessionOpenMetadata",
+      "tail": "body",
+      "senders": ["client"],
+      "receivers": ["server"]
+    },
+    {
+      "messageType": "session_open_ack",
+      "metadataType": "SessionOpenAckMetadata",
+      "tail": "body",
+      "senders": ["server"],
+      "receivers": ["client"]
+    },
+    {
+      "messageType": "session_close_ack",
+      "metadataType": "SessionCloseAckMetadata",
+      "tail": "none",
+      "senders": ["server"],
+      "receivers": ["client"]
+    },
+    {
+      "messageType": "cache_put",
+      "metadataType": "CachePutMetadata",
+      "tail": "body",
+      "senders": ["client", "server"],
+      "receivers": ["client", "server"]
+    },
+    {
+      "messageType": "cache_ack",
+      "metadataType": "CacheAckMetadata",
+      "tail": "none",
+      "senders": ["client", "server"],
+      "receivers": ["client", "server"]
+    },
+    {
+      "messageType": "transport_probe",
+      "metadataType": "TransportProbeMetadata",
+      "tail": "body",
+      "senders": ["client", "server"],
+      "receivers": ["client", "server"]
+    },
+    {
+      "messageType": "transport_probe_ack",
+      "metadataType": "TransportProbeAckMetadata",
+      "tail": "none",
+      "senders": ["client", "server"],
+      "receivers": ["client", "server"]
+    },
+    {
+      "messageType": "session_migrate",
+      "metadataType": "SessionMigrateMetadata",
+      "tail": "none",
+      "senders": ["client"],
+      "receivers": ["server"]
+    },
+    {
+      "messageType": "session_migrate_ack",
+      "metadataType": "SessionMigrateAckMetadata",
+      "tail": "none",
+      "senders": ["server"],
+      "receivers": ["client"]
+    },
+    {
+      "messageType": "ping",
+      "metadataType": null,
+      "tail": "none",
+      "senders": ["client", "server"],
+      "receivers": ["client", "server"]
+    },
+    {
+      "messageType": "pong",
+      "metadataType": null,
+      "tail": "none",
+      "senders": ["client", "server"],
+      "receivers": ["client", "server"]
+    }
+  ],
+  "connectionEventMessages": [
+    {
+      "messageType": "close",
+      "metadataType": null,
+      "tail": "none",
+      "senders": ["client", "server"],
+      "receivers": ["client", "server"]
+    },
+    {
+      "messageType": "error",
+      "metadataType": "ErrorMetadata",
+      "tail": "diagnostic",
+      "senders": ["client", "server"],
+      "receivers": ["client", "server"]
+    }
   ],
   "runtimeEventMessages": [
     {
@@ -724,6 +2404,103 @@
       "server": true
     }
   ],
+  "apiDomains": {
+    "submission": [
+      "submitRequest",
+      "submitHeaderContext",
+      "submitBuilders",
+      "typedPayloadDescriptor",
+      "typedPayloadFrame"
+    ],
+    "runtimeEvents": [
+      "runtimeFrameHeader",
+      "runtimeEvent",
+      "runtimeMetadataNamespace",
+      "result"
+    ],
+    "lifecycle": [
+      "connectionLifecycle",
+      "sessionLifecycle",
+      "operationLifecycleEvent"
+    ],
+    "capability": ["capabilityMetadata"],
+    "cache": ["cacheObjectId", "cacheLease", "cacheLeaseResult", "cachePolicyOptions"],
+    "schema": ["schemaDescriptor", "schemaRegistry"],
+    "transport": [
+      "applicationEndpoint",
+      "providerEndpoint",
+      "clientTransportSecurity",
+      "serverTransportSecurity",
+      "clientProviderRoute",
+      "serverProviderRoute",
+      "transportProviderMetadata",
+      "transportProviderDescriptor",
+      "transportSelectionOptions",
+      "transportSelection",
+      "transportSelectionFailure"
+    ],
+    "roles": [
+      "clientRoles",
+      "serverRoles",
+      "clientBootstrapOptions",
+      "clientSessionOptions",
+      "serverBootstrapOptions",
+      "serverSessionOptions",
+      "serverAcceptOptions",
+      "serverSessionPolicy"
+    ]
+  },
+  "roleSurfaces": {
+    "runtimeEventRoleBooleans": "The client and server booleans on runtimeEventMessages identify receiving roles. The opposite role is an allowed sender.",
+    "client": {
+      "sessionCardinality": "many-per-connection",
+      "eventOrdering": "wire-order-per-session",
+      "sendMessages": "all runtimeEventMessages where server is true",
+      "receiveMessages": "all runtimeEventMessages where client is true",
+      "sendRequirement": "Every allowed message is available through an ergonomic named method or a typed generic runtime-frame method. Raw message codes without metadata validation are not an application API.",
+      "resultType": "NnrpResult",
+      "lifecycleEventType": "OperationLifecycleEvent",
+      "bootstrapOptionsType": "ClientBootstrapOptions",
+      "sessionOptionsType": "ClientSessionOptions"
+    },
+    "server": {
+      "listenerCardinality": "one-logical-server-with-many-provider-listeners",
+      "sessionCardinality": "many-per-server",
+      "eventOrdering": "wire-order-per-session",
+      "sendMessages": "all runtimeEventMessages where client is true",
+      "receiveMessages": "all runtimeEventMessages where server is true",
+      "sendRequirement": "Every allowed message is available through an ergonomic named method or a typed generic runtime-frame method. Raw message codes without metadata validation are not an application API.",
+      "resultType": "NnrpResult",
+      "lifecycleEventType": "OperationLifecycleEvent",
+      "bootstrapOptionsType": "ServerBootstrapOptions",
+      "sessionOptionsType": "ServerSessionOptions",
+      "acceptOptionsType": "ServerAcceptOptions",
+      "sessionPolicyType": "ServerSessionPolicy"
+    },
+    "transportBoundary": {
+      "applicationEndpointSchemes": ["nnrp", "nnrps"],
+      "providerLocatorSchemes": ["tcp", "quic", "unix", "npipe", "ws", "wss"],
+      "rule": "Application endpoints are transport-neutral. Provider locators remain provider-local and never replace the application endpoint."
+    },
+    "providerBoundary": {
+      "packageOwns": ["connect", "listen", "probe", "transport-scoped-native-or-wasm-artifact"],
+      "sharedRuntimeOwns": ["provider-selection", "coarse-ffi-lifecycle", "session-runtime"],
+      "rule": "A provider package owns real carrier behavior and its scoped artifact. Installing a provider is not a configuration flag over transport logic hidden in a client or server package."
+    },
+    "publicOptionBoundary": {
+      "internalOnlyFields": [
+        "connection_handle",
+        "connection_generation",
+        "session_handle",
+        "session_generation",
+        "server_handle",
+        "server_generation",
+        "ffi_binding"
+      ],
+      "profilePatchOnlyFields": ["target_cadence", "quality_tier", "metadata"],
+      "rule": "Public bootstrap and session options expose protocol intent. FFI handles stay internal, while application profile and patch values remain outside SESSION_OPEN options."
+    }
+  },
   "languageProjections": {
     "rust": {
       "submitRequest": "nnrp_runtime::NnrpSubmitRequest",
@@ -735,8 +2512,39 @@
       ],
       "runtimeFrameHeader": "nnrp_runtime::RuntimeFrameHeader",
       "runtimeEvent": "nnrp_runtime::NnrpRuntimeEvent",
+      "operationLifecycleEvent": "nnrp_runtime::OperationLifecycleEvent",
+      "result": "nnrp_runtime::NnrpResult",
+      "clientRoles": ["nnrp_runtime::NnrpClient", "nnrp_runtime::NnrpClientSession"],
+      "serverRoles": ["nnrp_runtime::NnrpServer", "nnrp_runtime::NnrpServerSession"],
+      "runtimeMetadataNamespace": "nnrp_core",
+      "capabilityMetadata": "nnrp_core::CapabilityMetadata",
+      "connectionLifecycle": "nnrp_core::ConnectionLifecycle",
+      "sessionLifecycle": "nnrp_core::SessionLifecycle",
       "typedPayloadDescriptor": "nnrp_core::TypedPayloadDescriptor",
-      "typedPayloadFrame": "nnrp_core::TypedPayloadFrameView"
+      "typedPayloadFrame": "nnrp_core::TypedPayloadFrameView",
+      "cacheObjectId": "nnrp_core::CacheObjectId",
+      "cacheLease": "nnrp_core::CacheLease",
+      "cacheLeaseResult": "nnrp_runtime::CacheLeaseResult",
+      "cachePolicyOptions": "nnrp_runtime::CachePolicyOptions",
+      "transportProviderMetadata": "nnrp_transport_provider::TransportProviderMetadata",
+      "transportProviderDescriptor": "nnrp_transport_provider::TransportProviderDescriptor",
+      "transportSelectionOptions": "nnrp_transport_provider::TransportSelectionOptions",
+      "transportSelection": "nnrp_transport_provider::TransportSelection",
+      "transportSelectionFailure": "nnrp_transport_provider::TransportSelectionError",
+      "applicationEndpoint": "nnrp_runtime::NnrpEndpoint",
+      "providerEndpoint": "nnrp_runtime::ProviderEndpoint",
+      "clientTransportSecurity": "nnrp_runtime::ClientTransportSecurity",
+      "serverTransportSecurity": "nnrp_runtime::ServerTransportSecurity",
+      "clientProviderRoute": "nnrp_runtime::ClientProviderRoute",
+      "serverProviderRoute": "nnrp_runtime::ServerProviderRoute",
+      "schemaDescriptor": "nnrp_core::SchemaDescriptorHeader",
+      "schemaRegistry": "nnrp_core::SchemaRegistry",
+      "clientBootstrapOptions": "nnrp_runtime::NnrpClientOptions",
+      "clientSessionOptions": "nnrp_runtime::NnrpClientConfig",
+      "serverBootstrapOptions": "nnrp_runtime::NnrpServerOptions",
+      "serverSessionOptions": "nnrp_runtime::NnrpServerConfig",
+      "serverAcceptOptions": "nnrp_runtime::NnrpServerAcceptOptions",
+      "serverSessionPolicy": "nnrp_runtime::NnrpServerPolicy"
     },
     "python": {
       "submitRequest": "nnrp.client.SubmitRequest",
@@ -748,8 +2556,39 @@
       ],
       "runtimeFrameHeader": "nnrp.runtime.RuntimeFrameHeader",
       "runtimeEvent": "nnrp.runtime.NativeRuntimeEvent",
+      "operationLifecycleEvent": "nnrp.runtime.OperationLifecycleEvent",
+      "result": "nnrp.NativeRuntimeResult",
+      "clientRoles": ["nnrp.client.NativeClientConnection", "nnrp.NativeRuntimeSession"],
+      "serverRoles": ["nnrp.server.NativeServer", "nnrp.NativeRuntimeServerSession"],
+      "runtimeMetadataNamespace": "nnrp.runtime",
+      "capabilityMetadata": "nnrp.runtime.CapabilityMetadata",
+      "connectionLifecycle": "nnrp.lifecycle.ConnectionLifecycleSnapshot",
+      "sessionLifecycle": "nnrp.lifecycle.SessionLifecycleSnapshot",
       "typedPayloadDescriptor": "nnrp.core.TypedPayloadDescriptor",
-      "typedPayloadFrame": "nnrp.core.TypedPayloadFrame"
+      "typedPayloadFrame": "nnrp.core.TypedPayloadFrame",
+      "cacheObjectId": "nnrp.cache.CacheObjectIdentity",
+      "cacheLease": "nnrp.cache.CacheLeaseDescriptor",
+      "cacheLeaseResult": "nnrp.cache.CacheLeaseResult",
+      "cachePolicyOptions": "nnrp.cache.CachePolicyOptions",
+      "transportProviderMetadata": "nnrp.native.NativeTransportProviderMetadata",
+      "transportProviderDescriptor": "nnrp.native.NativeTransportProvider",
+      "transportSelectionOptions": "nnrp.native.NativeTransportSelectionOptions",
+      "transportSelection": "nnrp.native.NativeTransportSelection",
+      "transportSelectionFailure": "nnrp.native.NativeTransportSelectionError",
+      "applicationEndpoint": "nnrp.native.NnrpEndpoint",
+      "providerEndpoint": "nnrp.native.NativeTransportEndpoint",
+      "clientTransportSecurity": "nnrp.native.NativeTransportClientSecurity",
+      "serverTransportSecurity": "nnrp.native.NativeTransportServerSecurity",
+      "clientProviderRoute": "nnrp.client.NativeClientProviderRoute",
+      "serverProviderRoute": "nnrp.server.NativeServerProviderRoute",
+      "schemaDescriptor": "nnrp.schema.SchemaDescriptorHeader",
+      "schemaRegistry": "nnrp.schema.SchemaRegistryCatalog",
+      "clientBootstrapOptions": "nnrp.client.NativeClientOptions",
+      "clientSessionOptions": "nnrp.client.NativeClientSessionOptions",
+      "serverBootstrapOptions": "nnrp.server.NativeServerBootstrapOptions",
+      "serverSessionOptions": "nnrp.server.NativeServerSessionOptions",
+      "serverAcceptOptions": "nnrp.server.NativeServerAcceptOptions",
+      "serverSessionPolicy": "nnrp.server.NativeServerSessionPolicy"
     },
     "javascript": {
       "submitRequest": "@nnrp/core.NnrpSubmitRequest",
@@ -761,8 +2600,42 @@
       ],
       "runtimeFrameHeader": "@nnrp/core.NnrpRuntimeFrameHeader",
       "runtimeEvent": "@nnrp/core.NnrpRuntimeEvent",
+      "operationLifecycleEvent": "@nnrp/core.NnrpOperationLifecycleEvent",
+      "result": "@nnrp/core.NnrpResult",
+      "clientRoles": [
+        "@nnrp/native-client.NnrpClientSession",
+        "@nnrp/browser-client.NnrpBrowserClientSession"
+      ],
+      "serverRoles": ["@nnrp/native-server.NnrpServerSession"],
+      "runtimeMetadataNamespace": "@nnrp/core",
+      "capabilityMetadata": "@nnrp/core.CapabilityMetadata",
+      "connectionLifecycle": "@nnrp/core.NnrpConnectionLifecycle",
+      "sessionLifecycle": "@nnrp/core.NnrpSessionLifecycle",
       "typedPayloadDescriptor": "@nnrp/core.NnrpTypedPayloadDescriptor",
-      "typedPayloadFrame": "@nnrp/core.NnrpTypedPayloadFrame"
+      "typedPayloadFrame": "@nnrp/core.NnrpTypedPayloadFrame",
+      "cacheObjectId": "@nnrp/core.CacheObjectId",
+      "cacheLease": "@nnrp/core.CacheLease",
+      "cacheLeaseResult": "@nnrp/core.NnrpCacheLeaseResult",
+      "cachePolicyOptions": "@nnrp/core.NnrpCachePolicyOptions",
+      "transportProviderMetadata": "@nnrp/core.NnrpTransportProviderMetadata",
+      "transportProviderDescriptor": "@nnrp/core.NnrpTransportProviderDescriptor",
+      "transportSelectionOptions": "@nnrp/core.NnrpTransportSelectionOptions",
+      "transportSelection": "@nnrp/core.NnrpTransportSelection",
+      "transportSelectionFailure": "@nnrp/core.NnrpTransportSelectionError",
+      "applicationEndpoint": "@nnrp/core.NnrpEndpoint",
+      "providerEndpoint": "@nnrp/core.NnrpProviderEndpoint",
+      "clientTransportSecurity": "@nnrp/core.NnrpTransportClientSecurity",
+      "serverTransportSecurity": "@nnrp/core.NnrpTransportServerSecurity",
+      "clientProviderRoute": "@nnrp/core.NnrpClientProviderRoute",
+      "serverProviderRoute": "@nnrp/core.NnrpServerProviderRoute",
+      "schemaDescriptor": "@nnrp/core.NnrpSchemaDescriptorHeader",
+      "schemaRegistry": "@nnrp/core.NnrpSchemaRegistry",
+      "clientBootstrapOptions": "@nnrp/native-client.NnrpNativeClientOptions",
+      "clientSessionOptions": "@nnrp/native-client.NnrpSessionOptions",
+      "serverBootstrapOptions": "@nnrp/native-server.NnrpListenOptions",
+      "serverSessionOptions": "@nnrp/native-server.NnrpServerSessionOptions",
+      "serverAcceptOptions": "@nnrp/native-server.NnrpServerAcceptOptions",
+      "serverSessionPolicy": "@nnrp/native-server.NnrpServerSessionPolicy"
     },
     "csharp": {
       "submitRequest": "Nnrp.Client.NnrpSubmitRequest",
@@ -774,8 +2647,39 @@
       ],
       "runtimeFrameHeader": "Nnrp.Runtime.RuntimeFrameHeader",
       "runtimeEvent": "Nnrp.Runtime.NnrpRuntimeEvent",
+      "operationLifecycleEvent": "Nnrp.Runtime.NnrpOperationLifecycleEvent",
+      "result": "Nnrp.Client.NnrpResult",
+      "clientRoles": ["Nnrp.Client.NnrpClient", "Nnrp.Client.NnrpClientSession"],
+      "serverRoles": ["Nnrp.Server.NnrpServer", "Nnrp.Server.NnrpServerSession"],
+      "runtimeMetadataNamespace": "Nnrp.Runtime",
+      "capabilityMetadata": "Nnrp.Runtime.CapabilityMetadata",
+      "connectionLifecycle": "Nnrp.Core.NnrpConnectionLifecycle",
+      "sessionLifecycle": "Nnrp.Core.NnrpSessionLifecycle",
       "typedPayloadDescriptor": "Nnrp.Core.TypedPayloadDescriptor",
-      "typedPayloadFrame": "Nnrp.Core.TypedPayloadFrame"
+      "typedPayloadFrame": "Nnrp.Core.TypedPayloadFrameView",
+      "cacheObjectId": "Nnrp.Core.NnrpCacheObjectId",
+      "cacheLease": "Nnrp.Core.NnrpCacheLease",
+      "cacheLeaseResult": "Nnrp.Core.NnrpCacheLeaseResult",
+      "cachePolicyOptions": "Nnrp.Core.CachePolicyOptions",
+      "transportProviderMetadata": "Nnrp.Core.NnrpTransportProviderMetadata",
+      "transportProviderDescriptor": "Nnrp.Core.NnrpTransportProviderDescriptor",
+      "transportSelectionOptions": "Nnrp.Core.NnrpTransportSelectionOptions",
+      "transportSelection": "Nnrp.Core.NnrpTransportSelection",
+      "transportSelectionFailure": "Nnrp.Core.NnrpTransportSelectionException",
+      "applicationEndpoint": "Nnrp.Core.NnrpEndpoint",
+      "providerEndpoint": "Nnrp.Core.NnrpProviderEndpoint",
+      "clientTransportSecurity": "Nnrp.Core.NnrpTransportClientSecurity",
+      "serverTransportSecurity": "Nnrp.Core.NnrpTransportServerSecurity",
+      "clientProviderRoute": "Nnrp.Core.NnrpClientProviderRoute",
+      "serverProviderRoute": "Nnrp.Core.NnrpServerProviderRoute",
+      "schemaDescriptor": "Nnrp.Core.NnrpSchemaDescriptorHeader",
+      "schemaRegistry": "Nnrp.Core.NnrpSchemaRegistry",
+      "clientBootstrapOptions": "Nnrp.Client.NnrpClientOptions",
+      "clientSessionOptions": "Nnrp.Client.NnrpClientSessionOptions",
+      "serverBootstrapOptions": "Nnrp.Server.NnrpServerOptions",
+      "serverSessionOptions": "Nnrp.Server.NnrpServerSessionOptions",
+      "serverAcceptOptions": "Nnrp.Server.NnrpServerAcceptOptions",
+      "serverSessionPolicy": "Nnrp.Server.INnrpServerSessionPolicy"
     }
   }
 }
