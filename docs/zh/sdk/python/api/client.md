@@ -140,16 +140,26 @@ typed metadata。SDK 拒绝 `operation_id` 与方法参数不一致的 metadata�
 |---|
 | `NativeRuntimeResult` |
 
-对于 `RESULT_PUSH`，`NativeRuntimeResult` 提供：
+`NativeRuntimeResult` 保留每一种终态：
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `metadata` | `ResultPushMetadata` | 已解码的固定 result metadata。 |
-| `body` | `bytes` | Metadata 前缀之后、由 Python 持有的应用 result body。 |
-| `operation_id` | `int` | 已关联的 wire operation identity。 |
-| `frame_id` | `int` | 已关联的 wire frame identity。 |
+| `operation_id` | `int` | 非零 submitted operation identity。 |
+| `terminal_state` | `ResultTerminalState` | `SUCCESS`、`CANCELLED`、`DROPPED` 或 `ERROR`。 |
+| `event` | `NativeRuntimeEvent` | 拥有完整 header、typed metadata 与 semantic tail 的终态 wire event。 |
 
-应用侧 result 不暴露包含序列化 metadata 的 FFI payload。
+成功结果保留 `RESULT_PUSH`；非成功结果保留建立终态的 protocol event。应用侧 result 不暴露序列化
+FFI payload。
+
+### `OperationLifecycleEvent`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `operation_id` | `int` | 非零 operation identity。 |
+| `state` | `OperationState` | 精确的本地生命周期状态。 |
+
+这是本地 role 通知，不会伪造 `RuntimeFrameHeader`。Native event 的 header 不存在时必须投影为该类型，
+不能冒充 wire `NativeRuntimeEvent`。
 
 ### Runtime control helper
 
@@ -402,6 +412,9 @@ finally:
 | `deadline_ms`         | `int`                                          |   否 | 绝对 Unix 毫秒时间戳。                                           |
 
 ### `Result`
+
+这是 pure packet/router API 使用的解码 helper，不是 Preview4 native role 的 result 投影；role session
+返回上文的 `NativeRuntimeResult`。
 
 | 字段             | 类型                                | 说明                     |
 | ---------------- | ----------------------------------- | ------------------------ |

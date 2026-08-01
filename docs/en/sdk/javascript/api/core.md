@@ -278,16 +278,36 @@ contract error. Missing probe observations remain distinguishable from observati
 | `NnrpInputProfile`     | One of the standard profiles: `tensor`, `token`, `structured_event`, or `tool_delta`.       |
 | `NnrpSubmitMode`       | `"inline" \| "object-reference"`.                                                           |
 | `NnrpSubmitRequest`    | Non-zero `operationId: bigint`, independent `frameId`, payload/tensors, profile, submit mode, cache key, descriptor, and metadata. |
-| `NnrpResult`           | Frame id, optional payload, optional diagnostic, and metadata.                              |
-| `NnrpRuntimeEvent`     | Result, flow update, result hint, drop, close, or diagnostic event.                         |
+| `NnrpResult`           | Non-zero operation id, canonical terminal state, and the owned terminal runtime event.      |
+| `NnrpRuntimeEvent`     | Complete wire header, typed metadata union, and semantic tail.                              |
 | `NnrpEventPollOptions` | Optional `timeoutMillis`.                                                                   |
+
+```ts
+interface NnrpResult {
+  readonly operationId: bigint;
+  readonly terminalState: NnrpResultTerminalState;
+  readonly event: NnrpRuntimeEvent;
+}
+
+interface NnrpOperationLifecycleEvent {
+  readonly operationId: bigint;
+  readonly state: NnrpOperationState;
+}
+```
+
+`NnrpResultTerminalState` is `"success" | "cancelled" | "dropped" | "error"`.
+`NnrpOperationState` is `"accepted" | "running" | "partial" | "waiting-tool" |
+"superseded" | "cancelled" | "failed" | "completed"`. Successful results preserve
+`RESULT_PUSH`; non-success results preserve the terminal protocol event. An
+`NnrpOperationLifecycleEvent` is local role state and never carries a fabricated
+`NnrpRuntimeFrameHeader`.
 
 Additional public types used by these contracts:
 
 | Type | Description |
 | ---- | ----------- |
 | `NnrpOperationId` | Non-zero operation identity represented as `bigint`. |
-| `NnrpOperationState` | `pending`, `dispatched`, `completed`, `dropped`, or `cancelled`. |
+| `NnrpOperationState` | Canonical eight-state operation lifecycle listed above. |
 | `NnrpSubmitCapacityPolicy` | `"reject" \| "await"` behavior when local submit credit is exhausted. |
 | `NnrpBinaryPayload` | `Uint8Array \| ArrayBufferView`. |
 | `NnrpTensorSection`, `NnrpNormalizedTensorSection` | Tensor byte section before and after request normalization. |

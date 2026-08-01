@@ -20,6 +20,7 @@ interface ContractMethod {
 
 interface ContractType {
   fields: ContractField[];
+  terminalMapping?: Record<string, string>;
   forbiddenDuplicates?: string[];
   variants?: string[];
   variantTypes?: Record<string, string | null>;
@@ -238,10 +239,46 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
       "TransportSelectionOptions",
       "TransportSelection",
       "TransportSelectionFailure",
+      "OperationLifecycleEvent",
+      "NnrpResult",
     ]
   ) {
     assert(contract.types[typeName] !== undefined, `${typeName} must be frozen`);
   }
+});
+
+Deno.test("terminal result and local lifecycle contracts are exact", async () => {
+  const contract = await loadContract();
+  const lifecycle = requireContractType(contract, "OperationLifecycleEvent");
+  const result = requireContractType(contract, "NnrpResult");
+
+  assertEquals(
+    lifecycle.fields.map(({ name, type }) => ({ name, type })),
+    [
+      { name: "operation_id", type: "u64" },
+      { name: "state", type: "OperationState" },
+    ],
+  );
+  assertEquals(
+    requireRecord(
+      lifecycle.terminalMapping,
+      "OperationLifecycleEvent.terminalMapping",
+    ),
+    {
+      completed: "success",
+      cancelled: "cancelled",
+      superseded: "dropped",
+      failed: "error",
+    },
+  );
+  assertEquals(
+    result.fields.map(({ name, type }) => ({ name, type })),
+    [
+      { name: "operation_id", type: "u64" },
+      { name: "terminal_state", type: "ResultTerminalState" },
+      { name: "event", type: "RuntimeEvent" },
+    ],
+  );
 });
 
 Deno.test("canonical type and enum references form a closed graph", async () => {

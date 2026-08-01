@@ -47,12 +47,20 @@ let client = NnrpClient::connect(
 ).await?;
 let mut session = client.open_session().await?;
 
+let operation_id = 1;
 let frame_id = session
-    .submit(FrameSubmitMetadata::default(), b"hello".to_vec())
+    .submit_encoded(
+        FrameSubmitMetadata {
+            operation_id,
+            ..FrameSubmitMetadata::default()
+        },
+        b"hello".to_vec(),
+    )
     .await?;
 
 let result = session.await_result().await?;
-assert_eq!(result.frame_id, frame_id);
+assert_eq!(result.operation_id, operation_id);
+assert_eq!(result.event.header.frame_id, frame_id);
 session.close().await?;
 ```
 

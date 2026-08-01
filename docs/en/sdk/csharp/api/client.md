@@ -57,6 +57,27 @@ non-zero when their corresponding IDs are explicit.
 profile, schema and cache metadata, and submit mode. The role API owns packing and performs one coarse
 native submit call; callers never construct an FFI buffer.
 
+### `NnrpResult`
+
+| Property | Type | Description |
+|---|---|---|
+| `OperationId` | `ulong` | Non-zero submitted operation identity. |
+| `TerminalState` | `NnrpResultTerminalState` | `Success`, `Cancelled`, `Dropped`, or `Error`. |
+| `Event` | `NnrpRuntimeEvent` | Owned terminal wire event with its complete header, typed metadata, and semantic tail. |
+
+Successful results preserve `ResultPush`; non-success results preserve the protocol event that
+established the terminal state. The managed API never fabricates successful result metadata.
+
+### `NnrpOperationLifecycleEvent`
+
+| Property | Type | Description |
+|---|---|---|
+| `OperationId` | `ulong` | Non-zero operation identity. |
+| `State` | `NnrpOperationState` | Exact local lifecycle state. |
+
+This is a local role notification. It never contains a fabricated `RuntimeFrameHeader`; native
+lifecycle records without a header remain separate from wire `NnrpRuntimeEvent` values.
+
 ## Client Control Methods
 
 Every method validates metadata/tail lengths and emits the named runtime frame through the active

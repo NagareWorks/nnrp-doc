@@ -148,16 +148,26 @@ budget. Custom profiles pass their own typed metadata. The SDK rejects metadata 
 |---|
 | `NativeRuntimeResult` |
 
-For `RESULT_PUSH`, `NativeRuntimeResult` exposes:
+`NativeRuntimeResult` preserves every terminal outcome:
 
 | Field | Type | Description |
 |---|---|---|
-| `metadata` | `ResultPushMetadata` | Decoded fixed result metadata. |
-| `body` | `bytes` | Owned application result body after the metadata prefix. |
-| `operation_id` | `int` | Correlated wire operation identity. |
-| `frame_id` | `int` | Correlated wire frame identity. |
+| `operation_id` | `int` | Non-zero submitted operation identity. |
+| `terminal_state` | `ResultTerminalState` | `SUCCESS`, `CANCELLED`, `DROPPED`, or `ERROR`. |
+| `event` | `NativeRuntimeEvent` | Owned terminal wire event with its complete header, typed metadata, and semantic tail. |
 
-The application-facing result does not expose the FFI payload containing serialized metadata.
+Successful results preserve `RESULT_PUSH`; non-success results preserve the terminal protocol event
+that established their state. The application-facing result does not expose serialized FFI payloads.
+
+### `OperationLifecycleEvent`
+
+| Field | Type | Description |
+|---|---|---|
+| `operation_id` | `int` | Non-zero operation identity. |
+| `state` | `OperationState` | Exact local lifecycle state. |
+
+This is a local role notification. It never fabricates a `RuntimeFrameHeader`; a native event whose
+header is absent is projected here instead of becoming a wire `NativeRuntimeEvent`.
 
 ### Runtime control helpers
 
@@ -439,7 +449,8 @@ Non-tensor payload container.
 
 ### `Result`
 
-Server-pushed inference result.
+Decoded packet helper used by the pure packet/router API. It is not the Preview4 native role result
+projection; role sessions return `NativeRuntimeResult` above.
 
 | Field            | Type                                | Description                 |
 | ---------------- | ----------------------------------- | --------------------------- |

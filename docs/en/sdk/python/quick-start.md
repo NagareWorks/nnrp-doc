@@ -84,7 +84,7 @@ with connect_native_client_connection(
         body=b"hello",
         timeout_ms=30_000,
     )
-    print(result.body)
+    print(result.event.tail.body)
 ```
 
 When the installation contains several transport artifacts, the SDK can discover and select providers:
