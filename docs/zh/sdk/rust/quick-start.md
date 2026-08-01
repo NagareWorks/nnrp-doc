@@ -33,7 +33,9 @@ cargo add nnrp-wasm@1.0.0-preview.4.17
 ```rust
 use std::sync::Arc;
 use nnrp_core::{FrameSubmitMetadata, TransportPolicy};
-use nnrp_runtime::{ClientProviderRoutes, NnrpClient, NnrpClientConfig, NnrpClientOptions};
+use nnrp_runtime::{
+    ClientProviderRoutes, NnrpClient, NnrpClientConfig, NnrpClientOptions, NnrpTerminalEvent,
+};
 use nnrp_transport_tcp::TcpProvider;
 
 let client = NnrpClient::connect(
@@ -60,7 +62,12 @@ let frame_id = session
 
 let result = session.await_result().await?;
 assert_eq!(result.operation_id, operation_id);
-assert_eq!(result.event.header.frame_id, frame_id);
+match result.event {
+    NnrpTerminalEvent::Runtime(event) => assert_eq!(event.header.frame_id, frame_id),
+    NnrpTerminalEvent::Lifecycle(event) => {
+        eprintln!("operation {} ended locally as {:?}", event.operation_id, event.state)
+    }
+};
 session.close().await?;
 ```
 

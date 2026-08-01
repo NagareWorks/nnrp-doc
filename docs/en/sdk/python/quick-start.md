@@ -63,6 +63,7 @@ from nnrp.client import (
     NativeClientSessionOpenOptions,
     connect_native_client_connection,
 )
+from nnrp.runtime import NativeRuntimeEvent
 
 with connect_native_client_connection(
     "nnrps://runtime.example/session/default",
@@ -84,7 +85,10 @@ with connect_native_client_connection(
         body=b"hello",
         timeout_ms=30_000,
     )
-    print(result.event.tail.body)
+    if isinstance(result.event, NativeRuntimeEvent):
+        print(result.event.tail.body)
+    else:
+        print(result.event.state)
 ```
 
 When the installation contains several transport artifacts, the SDK can discover and select providers:

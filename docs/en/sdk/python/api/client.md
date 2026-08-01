@@ -154,10 +154,11 @@ budget. Custom profiles pass their own typed metadata. The SDK rejects metadata 
 |---|---|---|
 | `operation_id` | `int` | Non-zero submitted operation identity. |
 | `terminal_state` | `ResultTerminalState` | `SUCCESS`, `CANCELLED`, `DROPPED`, or `ERROR`. |
-| `event` | `NativeRuntimeEvent` | Owned terminal wire event with its complete header, typed metadata, and semantic tail. |
+| `event` | `NativeTerminalEvent` | Closed `NativeRuntimeEvent \| OperationLifecycleEvent` terminal-evidence union. |
 
-Successful results preserve `RESULT_PUSH`; non-success results preserve the terminal protocol event
-that established their state. The application-facing result does not expose serialized FFI payloads.
+Successful results preserve `RESULT_PUSH`; non-success results preserve the exact wire or local
+lifecycle event that established their state. The union never uses nullable parallel fields and the
+application-facing result does not expose serialized FFI payloads.
 
 ### `OperationLifecycleEvent`
 

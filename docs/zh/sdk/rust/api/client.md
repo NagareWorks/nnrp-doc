@@ -292,10 +292,10 @@ match session.await_event().await? {
 |---|---|---|
 | `operation_id` | `u64` | 非零 submitted operation identity。 |
 | `terminal_state` | `ResultTerminalState` | `Success`、`Cancelled`、`Dropped` 或 `Error`。 |
-| `event` | `NnrpRuntimeEvent` | 拥有完整 header、typed metadata 与 semantic tail 的终态 wire event。 |
+| `event` | `NnrpTerminalEvent` | 闭合的 `Runtime(NnrpRuntimeEvent) \| Lifecycle(OperationLifecycleEvent)` 终态证据。 |
 
-成功结果保留 `RESULT_PUSH`；丢弃结果保留 `RESULT_DROP` 或 `RESULT_DROP_REASON`。SDK 不会为非成功终态
-伪造成功 result metadata。
+成功结果在 `Runtime` 变体中保留 `RESULT_PUSH`。非成功结果保留建立该状态的 wire event 或精确本地
+lifecycle event；SDK 不会伪造 wire header 或成功结果 metadata。
 
 ## `OperationLifecycleEvent`
 

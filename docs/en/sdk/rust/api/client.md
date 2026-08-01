@@ -298,10 +298,11 @@ The wire definitions for these frames live in [Runtime Control Profiles](/en/pro
 |---|---|---|
 | `operation_id` | `u64` | Non-zero submitted operation identity. |
 | `terminal_state` | `ResultTerminalState` | `Success`, `Cancelled`, `Dropped`, or `Error`. |
-| `event` | `NnrpRuntimeEvent` | Owned terminal wire event with its complete header, typed metadata, and semantic tail. |
+| `event` | `NnrpTerminalEvent` | Closed `Runtime(NnrpRuntimeEvent) \| Lifecycle(OperationLifecycleEvent)` terminal evidence. |
 
-Successful results preserve `RESULT_PUSH`. Dropped results preserve `RESULT_DROP` or
-`RESULT_DROP_REASON`; the SDK never fabricates successful result metadata for a non-success terminal state.
+Successful results preserve `RESULT_PUSH` in the `Runtime` variant. Non-success results preserve the
+wire event or exact local lifecycle event that established the state. The SDK never fabricates a
+wire header or successful result metadata.
 
 ## `OperationLifecycleEvent`
 

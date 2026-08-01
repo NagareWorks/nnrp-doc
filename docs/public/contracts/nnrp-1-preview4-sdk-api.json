@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 7,
+  "contractVersion": 8,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -1972,8 +1972,19 @@
         "failed": "error"
       }
     },
+    "TerminalEvent": {
+      "description": "Closed terminal-evidence union. It preserves either a complete wire RuntimeEvent or a headerless local OperationLifecycleEvent without flattening or fabrication.",
+      "fields": [],
+      "variants": ["runtime", "lifecycle"],
+      "variantTypes": {
+        "runtime": "RuntimeEvent",
+        "lifecycle": "OperationLifecycleEvent"
+      },
+      "representation": "tagged-union",
+      "invariant": "Exactly one variant is present. SDKs must not expose nullable parallel runtime-event and lifecycle-event fields."
+    },
     "NnrpResult": {
-      "description": "Application-facing terminal result correlated with one submitted operation. The owned RuntimeEvent preserves the complete wire header, typed metadata, and semantic tail.",
+      "description": "Application-facing terminal result correlated with one submitted operation. Its terminal evidence preserves either the complete wire event or the exact headerless local lifecycle event.",
       "fields": [
         { "name": "operation_id", "type": "u64", "required": true, "minimum": 1 },
         {
@@ -1982,7 +1993,7 @@
           "wireType": "u8",
           "required": true
         },
-        { "name": "event", "type": "RuntimeEvent", "required": true }
+        { "name": "event", "type": "TerminalEvent", "required": true }
       ],
       "successRule": "A successful result has terminal_state success and an event whose message type is result_push and whose metadata variant is result_push.",
       "nonSuccessRule": "Cancelled, dropped, and error results preserve the terminal protocol or lifecycle event that established the state; SDKs do not synthesize RESULT_PUSH metadata for them."
@@ -2416,6 +2427,7 @@
       "runtimeFrameHeader",
       "runtimeEvent",
       "runtimeMetadataNamespace",
+      "terminalEvent",
       "result"
     ],
     "lifecycle": [
@@ -2513,6 +2525,7 @@
       "runtimeFrameHeader": "nnrp_runtime::RuntimeFrameHeader",
       "runtimeEvent": "nnrp_runtime::NnrpRuntimeEvent",
       "operationLifecycleEvent": "nnrp_runtime::OperationLifecycleEvent",
+      "terminalEvent": "nnrp_runtime::NnrpTerminalEvent",
       "result": "nnrp_runtime::NnrpResult",
       "clientRoles": ["nnrp_runtime::NnrpClient", "nnrp_runtime::NnrpClientSession"],
       "serverRoles": ["nnrp_runtime::NnrpServer", "nnrp_runtime::NnrpServerSession"],
@@ -2557,6 +2570,7 @@
       "runtimeFrameHeader": "nnrp.runtime.RuntimeFrameHeader",
       "runtimeEvent": "nnrp.runtime.NativeRuntimeEvent",
       "operationLifecycleEvent": "nnrp.runtime.OperationLifecycleEvent",
+      "terminalEvent": "nnrp.runtime.NativeTerminalEvent",
       "result": "nnrp.NativeRuntimeResult",
       "clientRoles": ["nnrp.client.NativeClientConnection", "nnrp.NativeRuntimeSession"],
       "serverRoles": ["nnrp.server.NativeServer", "nnrp.NativeRuntimeServerSession"],
@@ -2601,6 +2615,7 @@
       "runtimeFrameHeader": "@nnrp/core.NnrpRuntimeFrameHeader",
       "runtimeEvent": "@nnrp/core.NnrpRuntimeEvent",
       "operationLifecycleEvent": "@nnrp/core.NnrpOperationLifecycleEvent",
+      "terminalEvent": "@nnrp/core.NnrpTerminalEvent",
       "result": "@nnrp/core.NnrpResult",
       "clientRoles": [
         "@nnrp/native-client.NnrpClientSession",
@@ -2648,6 +2663,7 @@
       "runtimeFrameHeader": "Nnrp.Runtime.RuntimeFrameHeader",
       "runtimeEvent": "Nnrp.Runtime.NnrpRuntimeEvent",
       "operationLifecycleEvent": "Nnrp.Runtime.NnrpOperationLifecycleEvent",
+      "terminalEvent": "Nnrp.Runtime.NnrpTerminalEvent",
       "result": "Nnrp.Client.NnrpResult",
       "clientRoles": ["Nnrp.Client.NnrpClient", "Nnrp.Client.NnrpClientSession"],
       "serverRoles": ["Nnrp.Server.NnrpServer", "Nnrp.Server.NnrpServerSession"],
