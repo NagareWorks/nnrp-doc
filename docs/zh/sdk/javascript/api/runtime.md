@@ -1,8 +1,8 @@
 # 运行时控制与对象
 
 JavaScript/TypeScript Preview 4 API 公开运行时控制、对象引用 codec 与 typed runtime event。WebSocket
-packet framing 保持在 WebSocket Provider 内部，不作为应用层公开 helper。运行时无关
-helper 位于 `@nnrp/core`；浏览器包可以通过 `@nnrp/browser-client` 使用 WASM 支撑的
+packet framing 保持在 WebSocket Provider 内部，不作为应用层公开 helper。运行时无关 helper 位于
+`@nnrp/core`；浏览器包可以通过 `@nnrp/browser-client` 使用 WASM 支撑的
 helper；后端包通过角色包和传输包接入 native
 能力。传输包必须维护自己的传输行为，不只是隐藏实现上的配置开关。
 
@@ -82,20 +82,21 @@ const payload = encodeRuntimeControlMetadata(NnrpMessageType.Progress, {
 
 ## `encodeRuntimeObjectMetadataSegments`
 
-把运行时对象 metadata 与有序 tail segment 直接编码到一个独立 payload。对象 metadata 与大块 delta 分开提供时，
-该 helper 不需要先构造中间拼接缓冲区。
+把运行时对象 metadata 与有序 tail segment 直接编码到一个独立 payload。对象 metadata 与大块 delta
+分开提供时，该 helper 不需要先构造中间拼接缓冲区。
 
 | 参数           | 类型                                        | 必填 | 说明                                                                                           |
 | -------------- | ------------------------------------------- | ---: | ---------------------------------------------------------------------------------------------- |
 | `messageType`  | [`NnrpMessageType`](#nnrpmessagetype)       |   是 | [`encodeRuntimeObjectMetadata`](#encoderuntimeobjectmetadata) 接受的运行时对象或缓存消息类型。 |
-| `metadata`     | [运行时对象 metadata](#运行时对象-metadata) |   是 | 与 `messageType` 匹配；声明的 tail 长度应用于所有 segment 的长度总和。                          |
-| `tailSegments` | `readonly Uint8Array[]`                     |   是 | 按 wire 顺序排列的 tail segment；每段直接复制到返回的独立 payload。                             |
+| `metadata`     | [运行时对象 metadata](#运行时对象-metadata) |   是 | 与 `messageType` 匹配；声明的 tail 长度应用于所有 segment 的长度总和。                         |
+| `tailSegments` | `readonly Uint8Array[]`                     |   是 | 按 wire 顺序排列的 tail segment；每段直接复制到返回的独立 payload。                            |
 
 | 返回         |
 | ------------ |
 | `Uint8Array` |
 
-`ObjectPatch` 与 `ObjectDelta` 必须传 `[metadataBody, delta]`。即使其中一段为空，segment 顺序仍有语义。
+`ObjectPatch` 与 `ObjectDelta` 必须传 `[metadataBody, delta]`。即使其中一段为空，segment
+顺序仍有语义。
 
 ## `decodeRuntimeObjectMetadata`
 
@@ -127,26 +128,26 @@ Preview4 复用已有的 NNRP/1 `CacheInvalidate` frame，不再定义第二种 
 
 `CacheLease` 是已经授予租约的 TypeScript 本地校验值，不是 wire payload，也不是 native/WASM handle。
 
-| TypeScript 字段 | 类型 | 协议字段 |
-|---|---|---|
-| `objectId` | `CacheObjectId` | `object_id` |
-| `objectVersion` | `bigint` | `object_version` |
-| `leaseId` | `bigint` | `lease_id` |
-| `ownerScope` | `CacheLeaseOwnerScope` | `owner_scope` |
-| `ownerId` | `bigint` | `owner_id` |
-| `grantedAtMillis` | `bigint` | `granted_at_ms` |
-| `ttlMillis` | `number`（`u32`） | `ttl_ms` |
+| TypeScript 字段   | 类型                   | 协议字段         |
+| ----------------- | ---------------------- | ---------------- |
+| `objectId`        | `CacheObjectId`        | `object_id`      |
+| `objectVersion`   | `bigint`               | `object_version` |
+| `leaseId`         | `bigint`               | `lease_id`       |
+| `ownerScope`      | `CacheLeaseOwnerScope` | `owner_scope`    |
+| `ownerId`         | `bigint`               | `owner_id`       |
+| `grantedAtMillis` | `bigint`               | `granted_at_ms`  |
+| `ttlMillis`       | `number`（`u32`）      | `ttl_ms`         |
 
-`CacheObjectId` 包含 `cacheNamespace: number`（`u32`）、`cacheKeyHi: bigint`、
-`cacheKeyLo: bigint` 和 `objectKind: NnrpCacheObjectKind`（`u32`）。
-`CacheLeaseOwnerScope` 的取值为 `Connection = 0`、`Session = 1` 或 `Operation = 2`。
-本地校验应使用 `expiresAtMillis`、`isExpiredAt` 和 `validateVersion`。
+`CacheObjectId` 包含 `cacheNamespace: number`（`u32`）、`cacheKeyHi: bigint`、`cacheKeyLo: bigint`
+和 `objectKind: NnrpCacheObjectKind`（`u32`）。`CacheLeaseOwnerScope` 的取值为
+`Connection = 0`、`Session = 1` 或 `Operation = 2`。本地校验应使用 `expiresAtMillis`、`isExpiredAt`
+和 `validateVersion`。
 
 ## 高层 Runtime Frame 契约
 
-应用通过 client 或 server session 方法发送 Preview4 控制帧、运行时对象和缓存帧，不需要
-自行构造 native request、选择 ABI 符号或拼接 metadata buffer。SDK 校验并编码 typed 参数后，
-每个 session 方法只执行一次粗粒度 runtime 调用。
+应用通过 client 或 server session 方法发送 Preview4 控制帧、运行时对象和缓存帧，不需要自行构造
+native request、选择 ABI 符号或拼接 metadata buffer。SDK 校验并编码 typed 参数后，每个 session
+方法只执行一次粗粒度 runtime 调用。
 
 内部 native/WASM binding 方法冻结为：
 
@@ -154,42 +155,66 @@ Preview4 复用已有的 NNRP/1 `CacheInvalidate` frame，不再定义第二种 
 sendRuntimeFrame(request: NnrpRuntimeFrameSendRequest): void | Promise<void>;
 ```
 
-`NnrpRuntimeFrameSendRequest` 的 readonly 字段为 `sessionOptions`、`messageType`、`frameId`
-和 `payload`。`payload` 是完整编码后的 metadata 与声明 tail。它属于内部 binding 契约；应用
-使用 client 和 server 页面记录的具名 session 方法。
+`NnrpRuntimeFrameSendRequest` 的 readonly 字段为 `sessionOptions`、`messageType`、`frameId` 和
+`payload`。`payload` 是完整编码后的 metadata 与声明 tail。它属于内部 binding 契约；应用使用 client
+和 server 页面记录的具名 session 方法。
 
-## `NnrpRuntimeFrameEvent`
+## `NnrpRuntimeEvent`
 
-Preview4 入站帧必须在交给应用前完成解码。每个 event 都包含 `type`、`messageType`、
-`metadata`、`sessionId`，并按照下表提供语义化 tail 字段。Tail buffer 是 SDK 持有的
-`Uint8Array` 副本；没有 tail 的 event 不提供 tail 字段。
+每个入站 role event 都解码为一个包含完整 wire header 和两个闭合 tagged union 的 envelope。应用通过
+`event.metadata.type` 与 `event.tail.type` 做判别；已删除的扁平 `NnrpRuntimeFrameEvent.type` 不属于
+Preview4 API。
 
-| Event `type` | 消息 | Metadata | 语义化 tail 字段 |
-|---|---|---|---|
-| `cancel`, `abort` | `Cancel`, `Abort` | `ControlRequestMetadata` | `diagnostic` |
-| `priority-update`, `deadline`, `expire-at` | 对应调度消息 | `SchedulingMetadata` | 无 |
-| `supersede` | `Supersede` | `SupersedeMetadata` | `diagnostic` |
-| `budget-update` | `BudgetUpdate` | `BudgetMetadata` | 无 |
-| `progress` | `Progress` | `ProgressMetadata` | `body` |
-| `partial-result` | `PartialResult` | `PartialResultMetadata` | `body` |
-| `backpressure`, `credit-update` | 对应 pressure 消息 | `PressureMetadata` | 无 |
-| `capability-negotiation`, `degrade-profile` | 对应 capability 消息 | `CapabilityMetadata` | `body` |
-| `route-hint`, `execution-hint` | 对应 routing 消息 | `RouteHintMetadata` | `body` |
-| `trace-context` | `TraceContext` | `TraceContextMetadata` | `body` |
-| `result-drop-reason` | `ResultDropReason` | `ResultDropReasonMetadata` | `diagnostic` |
-| `recoverable-error` | `ErrorRecoverable` | `RecoverableErrorMetadata` | `diagnostic` |
-| `retry-after` | `RetryAfter` | `RetryAfterMetadata` | `diagnostic` |
-| `object-declare` | `ObjectDeclare` | `ObjectDescriptorMetadata` | `body` |
-| `object-ref` | `ObjectRef` | `ObjectReferenceMetadata` | `body` |
-| `object-release` | `ObjectRelease` | `ObjectReleaseMetadata` | `diagnostic` |
-| `object-patch`, `object-delta` | 对应 object update 消息 | `ObjectDeltaMetadata` | `metadataBody`, `delta` |
-| `cache-reference` | `CacheReference` | `CacheReferenceMetadata` | `body` |
-| `cache-miss` | `CacheMiss` | `CacheMissMetadata` | `diagnostic` |
-| `cache-invalidate` | `CacheInvalidate` | `CacheInvalidateMetadata` | 无 |
+```ts
+interface NnrpRuntimeEvent {
+  readonly header: NnrpRuntimeFrameHeader;
+  readonly metadata: NnrpRuntimeEventMetadata;
+  readonly tail: NnrpRuntimeEventTail;
+}
+```
 
-Object patch 和 delta event 由 SDK 在 `metadata.metadataBytes` 位置切分 wire tail，剩余的
-`metadata.deltaBytes` 字节作为 `delta`。长度错误必须在 event 交付前失败。既有 submit、result、
-lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
+`NnrpRuntimeEventMetadata` 与 `NnrpRuntimeEventTail` 都是闭合 tagged union；下方穷举表根据
+`header.messageType` 唯一确定两个 union 的 variant。
+
+`NnrpRuntimeFrameHeader` 完整保留 `versionMajor`、`wireFormat`、`messageType`、`flags`、
+`sessionId`、`frameId`、`viewId`、`routeId` 和 `traceId`。本地 lifecycle 通知没有 wire
+header，因此保持为 `NnrpOperationLifecycleEvent`；SDK 不会伪造全零 header。
+
+下表是穷举映射。消息类型在 event 交付给应用前确定唯一 metadata variant 和 tail variant。
+
+| 消息                                      | `metadata.type`      | Metadata 值                | `tail.type`               |
+| ----------------------------------------- | -------------------- | -------------------------- | ------------------------- |
+| `SessionClose`                            | `session_close`      | `NnrpSessionCloseMetadata` | `none`                    |
+| `FrameSubmit`                             | `frame_submit`       | `NnrpFrameSubmitMetadata`  | `body`                    |
+| `FrameCancel`、`ResultDrop`               | `none`               | 无                         | `none`                    |
+| `ResultPush`                              | `result_push`        | `NnrpResultPushMetadata`   | `body`                    |
+| `ResultHint`                              | `result_hint`        | `NnrpResultHintMetadata`   | `none`                    |
+| `FlowUpdate`                              | `flow_update`        | `NnrpFlowUpdateMetadata`   | `none`                    |
+| `Cancel`、`Abort`                         | `control_request`    | `ControlRequestMetadata`   | `diagnostic`              |
+| `PriorityUpdate`、`Deadline`、`ExpireAt`  | `scheduling`         | `SchedulingMetadata`       | `none`                    |
+| `Supersede`                               | `supersede`          | `SupersedeMetadata`        | `diagnostic`              |
+| `BudgetUpdate`                            | `budget`             | `BudgetMetadata`           | `none`                    |
+| `Progress`                                | `progress`           | `ProgressMetadata`         | `body`                    |
+| `PartialResult`                           | `partial_result`     | `PartialResultMetadata`    | `body`                    |
+| `Backpressure`、`CreditUpdate`            | `pressure`           | `PressureMetadata`         | `none`                    |
+| `CapabilityNegotiation`、`DegradeProfile` | `capability`         | `CapabilityMetadata`       | `body`                    |
+| `RouteHint`、`ExecutionHint`              | `route_hint`         | `RouteHintMetadata`        | `body`                    |
+| `TraceContext`                            | `trace_context`      | `TraceContextMetadata`     | `body`                    |
+| `ResultDropReason`                        | `result_drop_reason` | `ResultDropReasonMetadata` | `diagnostic`              |
+| `ErrorRecoverable`                        | `recoverable_error`  | `RecoverableErrorMetadata` | `diagnostic`              |
+| `RetryAfter`                              | `retry_after`        | `RetryAfterMetadata`       | `diagnostic`              |
+| `ObjectDeclare`                           | `object_descriptor`  | `ObjectDescriptorMetadata` | `body`                    |
+| `ObjectRef`                               | `object_reference`   | `ObjectReferenceMetadata`  | `body`                    |
+| `ObjectRelease`                           | `object_release`     | `ObjectReleaseMetadata`    | `diagnostic`              |
+| `ObjectPatch`、`ObjectDelta`              | `object_delta`       | `ObjectDeltaMetadata`      | `metadata_body_and_delta` |
+| `CacheReference`                          | `cache_reference`    | `CacheReferenceMetadata`   | `body`                    |
+| `CacheMiss`                               | `cache_miss`         | `CacheMissMetadata`        | `diagnostic`              |
+| `CacheInvalidate`                         | `cache_invalidate`   | `CacheInvalidateMetadata`  | `none`                    |
+
+Tail variant 独立持有字节：`body` 包含 `body`，`diagnostic` 包含 `diagnostic`，
+`metadata_body_and_delta` 包含彼此独立的 `metadataBody` 和 `delta`。声明长度不合法时，event
+会在交付前失败。握手回复、probe 回复、迁移确认、缓存命令确认、ping/pong、连接关闭和
+致命连接错误由各自的专用 API 消费，不会被重新分类为 runtime event。
 
 ## 运行时控制 Metadata
 
@@ -200,8 +225,8 @@ lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
 编码器复制可选 `tail`；解码器返回独立 `Uint8Array`，不暴露调用方输入缓冲区的 view。
 `ProgressMetadata.percentX100` 接受 `0..10000`，以及表示未知值的冻结哨兵 `0xffff`。
 
-`RuntimeControlMetadata` 是下表全部 metadata interface 的 union。每个 metadata 对象只允许与其所在行列出的
-消息类型配对。
+`RuntimeControlMetadata` 是下表全部 metadata interface 的 union。每个 metadata
+对象只允许与其所在行列出的消息类型配对。
 
 | 类型                       | 消息类型                                  | 冻结字段                                                                                                                                                     |
 | -------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -228,7 +253,7 @@ lifecycle 和 migration event 与这组 runtime-frame union 保持独立。
 | `ObjectReleaseMetadata`    | `ObjectRelease`              | `objectId`, `operationId`, `releaseReason`, `sourceRole`, `flags`, `diagnosticBytes`                                                                                            |
 | `ObjectDeltaMetadata`      | `ObjectPatch`, `ObjectDelta` | `objectId`, `deltaSequence`, `regionOffset`, `regionBytes`, `deltaBytes`, `flags`, `metadataBytes`                                                                              |
 | `CacheReferenceMetadata`   | `CacheReference`             | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `profileId`, `reuseScope`, `leaseId`, `producerTraceId`, `expirationHintMs`, `metadataBytes`, `flags`                             |
-| `CacheMissMetadata`        | `CacheMiss`                  | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                     |
+| `CacheMissMetadata`        | `CacheMiss`                  | `cacheNamespace`, `cacheKeyHi`, `cacheKeyLo`, `missReason`, `profileId`, `diagnosticBytes`                                                                                      |
 
 ## 运行时枚举
 

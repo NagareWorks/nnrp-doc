@@ -173,9 +173,10 @@ profile 或 `SESSION_PATCH`，不得改变 `SESSION_OPEN`。
 布尔值同时确定另一角色是允许发送方。每个角色必须通过符合习惯的类型化方法或类型化通用 runtime-frame
 方法覆盖全部允许发送的消息；只接受裸 message code 且不校验 metadata 的入口不属于应用 API。
 
-应用侧 `NnrpResult` 持有非零 operation 标识、规范 `ResultTerminalState` 和终态 `RuntimeEvent`，从而
-完整保留 wire header、类型化 metadata 与语义化 tail，禁止压平成某个 SDK 私有的 payload
-或字符串字典。
+应用侧 `NnrpResult` 持有非零 operation 标识、规范 `ResultTerminalState` 和一个闭合的 `TerminalEvent`
+variant。Runtime variant 完整保留 wire header、类型化 metadata 与语义化 tail； lifecycle variant
+保留不带 header 的原始本地 operation event。SDK 禁止把任一 variant 压平成私有 payload
+或字符串字典，也不得公开 nullable 的并行 event 字段或伪造 wire header。
 
 每个角色还必须公开不可变的 connection 与 session lifecycle snapshot。Connection state 只能是
 `open`、`closing`、`closed`；session state 只能是 `open`、`resumed`、`closing`、`draining`、
