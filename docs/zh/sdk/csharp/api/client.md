@@ -67,6 +67,13 @@ buffer。
 成功结果保留 `ResultPush`；非成功结果保留建立终态的精确 wire 或本地 lifecycle event。
 `NnrpTerminalEvent` 恰好包含一个变体；Managed API 不暴露 nullable 并行 event 字段，也不伪造 header。
 
+`NnrpTerminalEvent.Kind` 为 `Runtime` 或 `Lifecycle`。它的
+`Match<TResult>(Func<NnrpRuntimeEvent, TResult>, Func<NnrpOperationLifecycleEvent, TResult>)` 方法要求
+同时传入两个 callback，并且只暴露 active value。Runtime terminal 将 `ResultPush` 映射为 `Success`，
+将 `ResultDrop` 和 `ResultDropReason` 映射为 `Dropped`；`ResultPushMetadata.StatusCode` 绝不决定协议
+terminal state。Lifecycle terminal 将 `Completed` 映射为 `Success`、`Cancelled` 映射为 `Cancelled`、
+`Superseded` 映射为 `Dropped`、`Failed` 映射为 `Error`。
+
 ### `NnrpOperationLifecycleEvent`
 
 | 属性 | 类型 | 说明 |
