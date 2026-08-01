@@ -56,6 +56,27 @@ public NnrpClientSession OpenSession(NnrpClientSessionOptions? options = null);
 metadata 和 submit mode。角色 API 负责打包并执行一次粗粒度 native submit；调用方不构造 FFI
 buffer。
 
+### `NnrpResult`
+
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `OperationId` | `ulong` | 非零 submitted operation identity。 |
+| `TerminalState` | `NnrpResultTerminalState` | `Success`、`Cancelled`、`Dropped` 或 `Error`。 |
+| `Event` | `NnrpRuntimeEvent` | 拥有完整 header、typed metadata 与 semantic tail 的终态 wire event。 |
+
+成功结果保留 `ResultPush`；非成功结果保留建立终态的 protocol event。Managed API 不会伪造成功 result
+metadata。
+
+### `NnrpOperationLifecycleEvent`
+
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `OperationId` | `ulong` | 非零 operation identity。 |
+| `State` | `NnrpOperationState` | 精确的本地生命周期状态。 |
+
+这是本地 role 通知，不包含伪造的 `RuntimeFrameHeader`；没有 header 的 native lifecycle record 必须与
+wire `NnrpRuntimeEvent` 分开投影。
+
 ## Client Control 方法
 
 每个方法都会校验 metadata/tail 长度，并通过 active native session 发出对应 runtime frame。

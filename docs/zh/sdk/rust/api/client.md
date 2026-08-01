@@ -134,8 +134,7 @@ let mut session = client.open_session().await?;
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
-| `metadata` | [`FrameSubmitMetadata`](./core#framesubmitmetadata) | 是 | 有效 submit metadata | Profile、schema、priority 与 timing context。 |
-| `body` | `Vec<u8>` | 是 | 可为空 | 序列化后的请求 body。 |
+| `request` | `NnrpSubmitRequest` | 是 | 有效 typed submit request | Identity、header context、encoded metadata 与 owned body。 |
 
 | 返回 | 错误 |
 |---|---|
@@ -143,11 +142,24 @@ let mut session = client.open_session().await?;
 
 ```rust
 let frame_id = session
-    .submit(FrameSubmitMetadata::default(), request_bytes)
+    .submit(request)
     .await?;
 ```
 
 ## `NnrpClientSession::submit_nowait`
+
+| 参数 | 类型 | 必填 | 取值范围 | 说明 |
+|---|---|---:|---|---|
+| `request` | `NnrpSubmitRequest` | 是 | 有效 typed submit request | Identity、header context、encoded metadata 与 owned body。 |
+
+| 返回 | 错误 |
+|---|---|
+| `Result<u32, RuntimeError>` | 写入 frame 后返回；结果后续从 event 接收。 |
+
+## `NnrpClientSession::submit_encoded`
+
+这个高级方法接收已编码 submit metadata，并分配下一个 frame id。普通应用应优先使用 profile
+builder 构造 `NnrpSubmitRequest`，再调用 `submit`。
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
@@ -156,12 +168,14 @@ let frame_id = session
 
 | 返回 | 错误 |
 |---|---|
-| `Result<u32, RuntimeError>` | 写入 frame 后返回；结果后续从 event 接收。 |
+| `Result<u32, RuntimeError>` | frame 写入后返回分配的 frame id。 |
 
-## `NnrpClientSession::submit_with_frame_id`
+`submit_encoded_nowait` 是相同的 encoded 边界，名称明确表达 fire-and-poll 语义。
 
-当 embedding 或粗粒度 FFI 边界已经持有 frame identifier 时使用该方法。它执行与 `submit_nowait`
-相同的校验和 carrier 写入，不绕过 session runtime。
+## `NnrpClientSession::submit_encoded_with_frame_id`
+
+当 embedding 或粗粒度 FFI 边界已经持有 frame identifier 时使用该方法。它执行与
+`submit_nowait` 相同的校验和 carrier 写入，不绕过 session runtime。
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
@@ -173,8 +187,8 @@ let frame_id = session
 |---|---|
 | `Result<u32, RuntimeError>` | frame 写入后返回传入的 id。拒绝零值、复用或回退，失败时不修改当前 allocator。 |
 
-显式提交成功后，session allocator 前进到 `frame_id + 1`，后续 `submit` 与 `submit_nowait` 不会复用该
-id。粗粒度 native FFI submit 必须使用这条 canonical 路径；binding 不得自行构造或写出 packet。
+显式提交成功后，session allocator 前进到 `frame_id + 1`，后续 submit 调用不会复用该 id。
+粗粒度 native FFI submit 必须使用这条 canonical 路径；binding 不得自行构造或写出 packet。
 
 ## `NnrpClientSession::await_event`
 
@@ -186,15 +200,25 @@ Preview4 应用优先使用这个方法。它能接收普通 result，也能接�
 
 | 返回 | 错误 |
 |---|---|
-| `Result<NnrpClientEvent, RuntimeError>` | Transport、解析、生命周期或 unexpected-message 错误。 |
+| `Result<NnrpRuntimeEvent, RuntimeError>` | Transport、解析、生命周期或 unexpected-message 错误。 |
 
 ```rust
 match session.await_event().await? {
-    NnrpClientEvent::Result(result) => handle_result(result),
-    NnrpClientEvent::PartialResult { metadata, body } => handle_partial(metadata, body),
-    NnrpClientEvent::Progress { metadata, body } => update_progress(metadata, body),
-    NnrpClientEvent::Backpressure(metadata) => slow_down(metadata),
-    NnrpClientEvent::ResultDropReason { metadata, body } => record_drop(metadata, body),
+    NnrpRuntimeEvent {
+        metadata: NnrpRuntimeEventMetadata::PartialResult(metadata),
+        tail: NnrpRuntimeEventTail::Body(body),
+        ..
+    } => handle_partial(metadata, body),
+    NnrpRuntimeEvent {
+        metadata: NnrpRuntimeEventMetadata::Progress(metadata),
+        tail: NnrpRuntimeEventTail::Body(body),
+        ..
+    } => update_progress(metadata, body),
+    NnrpRuntimeEvent {
+        metadata: NnrpRuntimeEventMetadata::ResultDropReason(metadata),
+        tail: NnrpRuntimeEventTail::Diagnostic(body),
+        ..
+    } => record_drop(metadata, body),
     _ => {}
 }
 ```
@@ -203,11 +227,11 @@ match session.await_event().await? {
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
-| 无 | - | - | - | 读取直到下一个 result packet。 |
+| 无 | - | - | - | 读取下一条 event，并要求它是终态 result。 |
 
 | 返回 | 错误 |
 |---|---|
-| `Result<NnrpResult, RuntimeError>` | 如果非 result event 合法，应改用 `await_event`。 |
+| `Result<NnrpResult, RuntimeError>` | 返回 `Success`、`Cancelled`、`Dropped` 或 `Error`，不压平终态 event；允许非终态 event 时使用 `await_event`。 |
 
 ## Runtime Control Methods
 
@@ -262,28 +286,23 @@ match session.await_event().await? {
 `CachePolicyInvalidationReason` 包含 `Explicit`、`DependencyInvalidated`、`LeaseExpired`、
 `VersionMismatch` 和 `SchemaMismatch`。`CachePolicyOptions::validate` 执行共享校验规则。
 
-## `NnrpClientEvent`
-
-| Variant | 数据 | 说明 |
-|---|---|---|
-| `Result` | [`NnrpResult`](#nnrpresult) | 最终 result bytes。 |
-| `PartialResult` | metadata, body | 增量输出。 |
-| `Progress` | metadata, body | 进度更新。 |
-| `ResultDrop` | frame id | 没有 detail body 的 result drop。 |
-| `ResultDropReason` | metadata, body | 结构化 drop reason。 |
-| `FlowUpdate` / `Backpressure` / `CreditUpdate` | control metadata | 流控和调度反馈。 |
-| `ObjectDeclare` / `ObjectRef` / `ObjectRelease` / `ObjectDelta` | object metadata | Runtime object 生命周期事件。 |
-| `CacheReference` / `CacheMiss` / `CacheInvalidate` | cache metadata | Cache 协调事件。 |
-| `Capability` / `RouteHint` | control metadata | 能力协商和路由提示。 |
-
 ## `NnrpResult`
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `frame_id` | `u32` | Result frame id。 |
-| `metadata` | [`ResultPushMetadata`](./core#resultpushmetadata) | Result metadata。 |
-| `body` | `Vec<u8>` | Result body bytes。 |
+| `operation_id` | `u64` | 非零 submitted operation identity。 |
+| `terminal_state` | `ResultTerminalState` | `Success`、`Cancelled`、`Dropped` 或 `Error`。 |
+| `event` | `NnrpRuntimeEvent` | 拥有完整 header、typed metadata 与 semantic tail 的终态 wire event。 |
 
-::: warning
-Preview4 应用优先使用 `await_event`。`await_result` 只适合最简单的 echo-style flow，无法表达 progress、backpressure、cache/object event 或详细 result drop。
-:::
+成功结果保留 `RESULT_PUSH`；丢弃结果保留 `RESULT_DROP` 或 `RESULT_DROP_REASON`。SDK 不会为非成功终态
+伪造成功 result metadata。
+
+## `OperationLifecycleEvent`
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `operation_id` | `u64` | 非零 operation identity。 |
+| `state` | `OperationState` | 精确的本地生命周期状态。 |
+
+这是本地 role 通知，不是 wire event，不携带也不伪造 `RuntimeFrameHeader`。终态映射固定为
+`Completed -> Success`、`Cancelled -> Cancelled`、`Superseded -> Dropped`、`Failed -> Error`。

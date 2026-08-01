@@ -265,16 +265,35 @@ Readiness 与 probe observation 按 `(kind, providerId)` 匹配；重复或无�
 | `NnrpInputProfile`     | 标准 profile：`tensor`、`token`、`structured_event`、`tool_delta`。                        |
 | `NnrpSubmitMode`       | `"inline" \| "object-reference"`。                                                         |
 | `NnrpSubmitRequest`    | 非零 `operationId: bigint`、独立的 `frameId`、payload/tensors、profile、submit mode、cache key、descriptor 与 metadata。 |
-| `NnrpResult`           | Frame id、可选 payload、可选 diagnostic 和 metadata。                                      |
-| `NnrpRuntimeEvent`     | Result、flow update、result hint、drop、close 或 diagnostic event。                        |
+| `NnrpResult`           | 非零 operation id、规范 terminal state 与拥有所有权的终态 runtime event。                  |
+| `NnrpRuntimeEvent`     | 完整 wire header、typed metadata union 与 semantic tail。                                  |
 | `NnrpEventPollOptions` | 可选 `timeoutMillis`。                                                                     |
+
+```ts
+interface NnrpResult {
+  readonly operationId: bigint;
+  readonly terminalState: NnrpResultTerminalState;
+  readonly event: NnrpRuntimeEvent;
+}
+
+interface NnrpOperationLifecycleEvent {
+  readonly operationId: bigint;
+  readonly state: NnrpOperationState;
+}
+```
+
+`NnrpResultTerminalState` 固定为 `"success" | "cancelled" | "dropped" | "error"`。
+`NnrpOperationState` 固定为 `"accepted" | "running" | "partial" | "waiting-tool" |
+"superseded" | "cancelled" | "failed" | "completed"`。成功结果保留 `RESULT_PUSH`，非成功结果
+保留建立终态的 protocol event。`NnrpOperationLifecycleEvent` 是本地 role 状态，绝不携带伪造的
+`NnrpRuntimeFrameHeader`。
 
 这些 contract 还公开以下类型：
 
 | 类型 | 说明 |
 | ---- | ---- |
 | `NnrpOperationId` | 使用 `bigint` 表示的非零 operation identity。 |
-| `NnrpOperationState` | `pending`、`dispatched`、`completed`、`dropped` 或 `cancelled`。 |
+| `NnrpOperationState` | 上文列出的规范八状态 operation lifecycle。 |
 | `NnrpSubmitCapacityPolicy` | 本地 submit credit 耗尽时使用的 `"reject" \| "await"` 策略。 |
 | `NnrpBinaryPayload` | `Uint8Array \| ArrayBufferView`。 |
 | `NnrpTensorSection`、`NnrpNormalizedTensorSection` | 请求规范化前后的 tensor byte section。 |

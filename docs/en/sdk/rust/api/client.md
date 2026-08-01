@@ -137,8 +137,7 @@ let mut session = client.open_session().await?;
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
-| `metadata` | [`FrameSubmitMetadata`](./core#framesubmitmetadata) | Yes | Valid submit metadata | Profile, schema, priority, and timing context. |
-| `body` | `Vec<u8>` | Yes | May be empty | Serialized request body. |
+| `request` | `NnrpSubmitRequest` | Yes | Valid typed submit request | Identity, header context, encoded metadata, and owned body. |
 
 | Returns | Errors |
 |---|---|
@@ -146,11 +145,24 @@ let mut session = client.open_session().await?;
 
 ```rust
 let frame_id = session
-    .submit(FrameSubmitMetadata::default(), request_bytes)
+    .submit(request)
     .await?;
 ```
 
 ## `NnrpClientSession::submit_nowait`
+
+| Parameter | Type | Required | Values / Range | Description |
+|---|---|---:|---|---|
+| `request` | `NnrpSubmitRequest` | Yes | Valid typed submit request | Identity, header context, encoded metadata, and owned body. |
+
+| Returns | Errors |
+|---|---|
+| `Result<u32, RuntimeError>` | Returns after the frame is written; result is received later through events. |
+
+## `NnrpClientSession::submit_encoded`
+
+This advanced method accepts already encoded submit metadata and allocates the next frame id. Normal
+applications should prefer `submit` with a profile-built `NnrpSubmitRequest`.
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
@@ -159,12 +171,15 @@ let frame_id = session
 
 | Returns | Errors |
 |---|---|
-| `Result<u32, RuntimeError>` | Returns after the frame is written; result is received later through events. |
+| `Result<u32, RuntimeError>` | Returns the allocated frame id after the frame is written. |
 
-## `NnrpClientSession::submit_with_frame_id`
+`submit_encoded_nowait` is the same encoded boundary with explicit fire-and-poll naming.
 
-Use this method when an embedding or coarse FFI boundary already owns the frame identifier. It performs the same
-validation and carrier write as `submit_nowait`; it does not bypass the session runtime.
+## `NnrpClientSession::submit_encoded_with_frame_id`
+
+Use this method when an embedding or coarse FFI boundary already owns the frame identifier. It
+performs the same validation and carrier write as `submit_nowait`; it does not bypass the session
+runtime.
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
@@ -176,8 +191,8 @@ validation and carrier write as `submit_nowait`; it does not bypass the session 
 |---|---|
 | `Result<u32, RuntimeError>` | Returns the supplied id after the frame is written. Rejects zero, reuse, or backward movement and preserves the current allocator on failure. |
 
-A successful explicit submission advances the session allocator to `frame_id + 1`, so later `submit` and
-`submit_nowait` calls cannot reuse the explicit id. This is the canonical path used by the coarse native FFI submit
+A successful explicit submission advances the session allocator to `frame_id + 1`, so later submit
+calls cannot reuse the explicit id. This is the canonical path used by the coarse native FFI submit
 call; bindings must not construct or write the packet themselves.
 
 ## `NnrpClientSession::await_event`
@@ -191,15 +206,25 @@ object/cache, and scheduling events.
 
 | Returns | Errors |
 |---|---|
-| `Result<NnrpClientEvent, RuntimeError>` | Transport, parse, lifecycle, or unexpected-message errors. |
+| `Result<NnrpRuntimeEvent, RuntimeError>` | Transport, parse, lifecycle, or unexpected-message errors. |
 
 ```rust
 match session.await_event().await? {
-    NnrpClientEvent::Result(result) => handle_result(result),
-    NnrpClientEvent::PartialResult { metadata, body } => handle_partial(metadata, body),
-    NnrpClientEvent::Progress { metadata, body } => update_progress(metadata, body),
-    NnrpClientEvent::Backpressure(metadata) => slow_down(metadata),
-    NnrpClientEvent::ResultDropReason { metadata, body } => record_drop(metadata, body),
+    NnrpRuntimeEvent {
+        metadata: NnrpRuntimeEventMetadata::PartialResult(metadata),
+        tail: NnrpRuntimeEventTail::Body(body),
+        ..
+    } => handle_partial(metadata, body),
+    NnrpRuntimeEvent {
+        metadata: NnrpRuntimeEventMetadata::Progress(metadata),
+        tail: NnrpRuntimeEventTail::Body(body),
+        ..
+    } => update_progress(metadata, body),
+    NnrpRuntimeEvent {
+        metadata: NnrpRuntimeEventMetadata::ResultDropReason(metadata),
+        tail: NnrpRuntimeEventTail::Diagnostic(body),
+        ..
+    } => record_drop(metadata, body),
     _ => {}
 }
 ```
@@ -208,11 +233,11 @@ match session.await_event().await? {
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
-| None | - | - | - | Reads until the next result packet. |
+| None | - | - | - | Reads the next event and requires it to be a terminal result. |
 
 | Returns | Errors |
 |---|---|
-| `Result<NnrpResult, RuntimeError>` | Use `await_event` when non-result events are valid. |
+| `Result<NnrpResult, RuntimeError>` | Returns `Success`, `Cancelled`, `Dropped`, or `Error` without flattening the terminal event. Use `await_event` when non-terminal events are valid. |
 
 ## Runtime Control Methods
 
@@ -267,29 +292,24 @@ The wire definitions for these frames live in [Runtime Control Profiles](/en/pro
 `CachePolicyInvalidationReason` has `Explicit`, `DependencyInvalidated`, `LeaseExpired`,
 `VersionMismatch`, and `SchemaMismatch`. `CachePolicyOptions::validate` enforces the shared contract.
 
-## `NnrpClientEvent`
-
-| Variant | Data | Description |
-|---|---|---|
-| `Result` | [`NnrpResult`](#nnrpresult) | Final result bytes. |
-| `PartialResult` | metadata, body | Incremental output. |
-| `Progress` | metadata, body | Progress update. |
-| `ResultDrop` | frame id | Result was dropped without a detail body. |
-| `ResultDropReason` | metadata, body | Structured drop reason. |
-| `FlowUpdate` / `Backpressure` / `CreditUpdate` | control metadata | Flow-control and scheduling feedback. |
-| `ObjectDeclare` / `ObjectRef` / `ObjectRelease` / `ObjectDelta` | object metadata | Runtime object lifecycle events. |
-| `CacheReference` / `CacheMiss` / `CacheInvalidate` | cache metadata | Cache coordination events. |
-| `Capability` / `RouteHint` | control metadata | Negotiation and routing hints. |
-
 ## `NnrpResult`
 
 | Field | Type | Description |
 |---|---|---|
-| `frame_id` | `u32` | Result frame id. |
-| `metadata` | [`ResultPushMetadata`](./core#resultpushmetadata) | Result metadata. |
-| `body` | `Vec<u8>` | Result body bytes. |
+| `operation_id` | `u64` | Non-zero submitted operation identity. |
+| `terminal_state` | `ResultTerminalState` | `Success`, `Cancelled`, `Dropped`, or `Error`. |
+| `event` | `NnrpRuntimeEvent` | Owned terminal wire event with its complete header, typed metadata, and semantic tail. |
 
-::: warning
-Use `await_event` for Preview4 applications. `await_result` is convenient for the simplest echo-style
-flow, but it cannot represent progress, backpressure, cache/object events, or detailed result drops.
-:::
+Successful results preserve `RESULT_PUSH`. Dropped results preserve `RESULT_DROP` or
+`RESULT_DROP_REASON`; the SDK never fabricates successful result metadata for a non-success terminal state.
+
+## `OperationLifecycleEvent`
+
+| Field | Type | Description |
+|---|---|---|
+| `operation_id` | `u64` | Non-zero operation identity. |
+| `state` | `OperationState` | Exact local lifecycle state. |
+
+This is a local role notification, not a wire event. It never carries or fabricates a
+`RuntimeFrameHeader`. Terminal mapping is `Completed -> Success`, `Cancelled -> Cancelled`,
+`Superseded -> Dropped`, and `Failed -> Error`.
