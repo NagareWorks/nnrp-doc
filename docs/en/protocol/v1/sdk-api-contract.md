@@ -193,9 +193,10 @@ or a typed generic runtime-frame method. A raw message code paired with unchecke
 application API.
 
 The application-facing `NnrpResult` owns a non-zero operation identity, a canonical
-`ResultTerminalState`, and the terminal `RuntimeEvent`. This preserves the complete wire header,
-typed metadata, and semantic tail instead of flattening the result into an SDK-specific payload or
-string map.
+`ResultTerminalState`, and one closed `TerminalEvent` variant. The runtime variant preserves the
+complete wire header, typed metadata, and semantic tail; the lifecycle variant preserves the exact
+headerless local operation event. SDKs must not flatten either variant into a private payload or
+string map, expose nullable parallel event fields, or fabricate a wire header.
 
 Every role also exposes immutable connection and session lifecycle snapshots. Connection state is
 exactly `open`, `closing`, or `closed`; session state is exactly `open`, `resumed`, `closing`,
