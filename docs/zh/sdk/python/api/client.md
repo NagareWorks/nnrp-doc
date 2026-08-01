@@ -146,10 +146,10 @@ typed metadata。SDK 拒绝 `operation_id` 与方法参数不一致的 metadata�
 |---|---|---|
 | `operation_id` | `int` | 非零 submitted operation identity。 |
 | `terminal_state` | `ResultTerminalState` | `SUCCESS`、`CANCELLED`、`DROPPED` 或 `ERROR`。 |
-| `event` | `NativeRuntimeEvent` | 拥有完整 header、typed metadata 与 semantic tail 的终态 wire event。 |
+| `event` | `NativeTerminalEvent` | 闭合的 `NativeRuntimeEvent \| OperationLifecycleEvent` 终态证据联合。 |
 
-成功结果保留 `RESULT_PUSH`；非成功结果保留建立终态的 protocol event。应用侧 result 不暴露序列化
-FFI payload。
+成功结果保留 `RESULT_PUSH`；非成功结果保留建立该状态的精确 wire 或本地 lifecycle event。联合类型
+不使用两个 nullable 并行字段，应用侧 result 也不暴露序列化 FFI payload。
 
 ### `OperationLifecycleEvent`
 

@@ -265,7 +265,7 @@ Readiness 与 probe observation 按 `(kind, providerId)` 匹配；重复或无�
 | `NnrpInputProfile`     | 标准 profile：`tensor`、`token`、`structured_event`、`tool_delta`。                        |
 | `NnrpSubmitMode`       | `"inline" \| "object-reference"`。                                                         |
 | `NnrpSubmitRequest`    | 非零 `operationId: bigint`、独立的 `frameId`、payload/tensors、profile、submit mode、cache key、descriptor 与 metadata。 |
-| `NnrpResult`           | 非零 operation id、规范 terminal state 与拥有所有权的终态 runtime event。                  |
+| `NnrpResult`           | 非零 operation id、规范 terminal state 与闭合的 runtime-or-lifecycle 终态证据。            |
 | `NnrpRuntimeEvent`     | 完整 wire header、typed metadata union 与 semantic tail。                                  |
 | `NnrpEventPollOptions` | 可选 `timeoutMillis`。                                                                     |
 
@@ -273,8 +273,12 @@ Readiness 与 probe observation 按 `(kind, providerId)` 匹配；重复或无�
 interface NnrpResult {
   readonly operationId: bigint;
   readonly terminalState: NnrpResultTerminalState;
-  readonly event: NnrpRuntimeEvent;
+  readonly event: NnrpTerminalEvent;
 }
+
+type NnrpTerminalEvent =
+  | { readonly type: "runtime"; readonly event: NnrpRuntimeEvent }
+  | { readonly type: "lifecycle"; readonly event: NnrpOperationLifecycleEvent };
 
 interface NnrpOperationLifecycleEvent {
   readonly operationId: bigint;
@@ -285,8 +289,9 @@ interface NnrpOperationLifecycleEvent {
 `NnrpResultTerminalState` 固定为 `"success" | "cancelled" | "dropped" | "error"`。
 `NnrpOperationState` 固定为 `"accepted" | "running" | "partial" | "waiting-tool" |
 "superseded" | "cancelled" | "failed" | "completed"`。成功结果保留 `RESULT_PUSH`，非成功结果
-保留建立终态的 protocol event。`NnrpOperationLifecycleEvent` 是本地 role 状态，绝不携带伪造的
-`NnrpRuntimeFrameHeader`。
+保留建立终态的精确 wire 或本地 lifecycle event。`NnrpOperationLifecycleEvent` 是本地 role 状态，绝不携带伪造的
+`NnrpRuntimeFrameHeader`。`NnrpTerminalEvent` 必须恰好包含一个变体；API 不提供 nullable 的并行
+runtime/lifecycle 字段。
 
 这些 contract 还公开以下类型：
 

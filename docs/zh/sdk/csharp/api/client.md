@@ -62,10 +62,10 @@ buffer。
 |---|---|---|
 | `OperationId` | `ulong` | 非零 submitted operation identity。 |
 | `TerminalState` | `NnrpResultTerminalState` | `Success`、`Cancelled`、`Dropped` 或 `Error`。 |
-| `Event` | `NnrpRuntimeEvent` | 拥有完整 header、typed metadata 与 semantic tail 的终态 wire event。 |
+| `Event` | `NnrpTerminalEvent` | 封闭的 `Runtime` 或 `Lifecycle` 终态证据值。 |
 
-成功结果保留 `ResultPush`；非成功结果保留建立终态的 protocol event。Managed API 不会伪造成功 result
-metadata。
+成功结果保留 `ResultPush`；非成功结果保留建立终态的精确 wire 或本地 lifecycle event。
+`NnrpTerminalEvent` 恰好包含一个变体；Managed API 不暴露 nullable 并行 event 字段，也不伪造 header。
 
 ### `NnrpOperationLifecycleEvent`
 

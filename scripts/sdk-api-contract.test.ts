@@ -172,7 +172,7 @@ async function loadContract(): Promise<SdkApiContract> {
 Deno.test("Preview4 SDK contract freezes the required semantic types", async () => {
   const contract = await loadContract();
   assertEquals(contract.contract, "nnrp-1-preview4-sdk-api");
-  assertEquals(contract.contractVersion, 7);
+  assertEquals(contract.contractVersion, 8);
   assertEquals(contract.rules.languageProjectionMustBeLossless, true);
   assertEquals(contract.rules.adapterNormalizationDoesNotProveApiParity, true);
   assertEquals(contract.rules.missingWireFieldsMayNotBeDefaulted, true);
@@ -240,6 +240,7 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
       "TransportSelection",
       "TransportSelectionFailure",
       "OperationLifecycleEvent",
+      "TerminalEvent",
       "NnrpResult",
     ]
   ) {
@@ -250,6 +251,7 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
 Deno.test("terminal result and local lifecycle contracts are exact", async () => {
   const contract = await loadContract();
   const lifecycle = requireContractType(contract, "OperationLifecycleEvent");
+  const terminalEvent = requireContractType(contract, "TerminalEvent");
   const result = requireContractType(contract, "NnrpResult");
 
   assertEquals(
@@ -272,11 +274,22 @@ Deno.test("terminal result and local lifecycle contracts are exact", async () =>
     },
   );
   assertEquals(
+    requireStringArray(terminalEvent.variants, "TerminalEvent.variants"),
+    ["runtime", "lifecycle"],
+  );
+  assertEquals(
+    requireRecord(terminalEvent.variantTypes, "TerminalEvent.variantTypes"),
+    {
+      runtime: "RuntimeEvent",
+      lifecycle: "OperationLifecycleEvent",
+    },
+  );
+  assertEquals(
     result.fields.map(({ name, type }) => ({ name, type })),
     [
       { name: "operation_id", type: "u64" },
       { name: "terminal_state", type: "ResultTerminalState" },
-      { name: "event", type: "RuntimeEvent" },
+      { name: "event", type: "TerminalEvent" },
     ],
   );
 });
@@ -600,6 +613,7 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
     "submitRequest",
     "submitHeaderContext",
     "submitBuilders",
+    "terminalEvent",
     "runtimeFrameHeader",
     "runtimeEvent",
     "typedPayloadDescriptor",

@@ -63,10 +63,11 @@ native submit call; callers never construct an FFI buffer.
 |---|---|---|
 | `OperationId` | `ulong` | Non-zero submitted operation identity. |
 | `TerminalState` | `NnrpResultTerminalState` | `Success`, `Cancelled`, `Dropped`, or `Error`. |
-| `Event` | `NnrpRuntimeEvent` | Owned terminal wire event with its complete header, typed metadata, and semantic tail. |
+| `Event` | `NnrpTerminalEvent` | Sealed `Runtime` or `Lifecycle` terminal-evidence value. |
 
-Successful results preserve `ResultPush`; non-success results preserve the protocol event that
-established the terminal state. The managed API never fabricates successful result metadata.
+Successful results preserve `ResultPush`; non-success results preserve the exact wire or local
+lifecycle event that established the terminal state. `NnrpTerminalEvent` contains exactly one
+variant; the managed API never exposes nullable parallel event fields or fabricates headers.
 
 ### `NnrpOperationLifecycleEvent`
 

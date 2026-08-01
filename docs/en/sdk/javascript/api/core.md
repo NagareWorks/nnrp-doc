@@ -278,7 +278,7 @@ contract error. Missing probe observations remain distinguishable from observati
 | `NnrpInputProfile`     | One of the standard profiles: `tensor`, `token`, `structured_event`, or `tool_delta`.       |
 | `NnrpSubmitMode`       | `"inline" \| "object-reference"`.                                                           |
 | `NnrpSubmitRequest`    | Non-zero `operationId: bigint`, independent `frameId`, payload/tensors, profile, submit mode, cache key, descriptor, and metadata. |
-| `NnrpResult`           | Non-zero operation id, canonical terminal state, and the owned terminal runtime event.      |
+| `NnrpResult`           | Non-zero operation id, canonical terminal state, and closed runtime-or-lifecycle evidence.  |
 | `NnrpRuntimeEvent`     | Complete wire header, typed metadata union, and semantic tail.                              |
 | `NnrpEventPollOptions` | Optional `timeoutMillis`.                                                                   |
 
@@ -286,8 +286,12 @@ contract error. Missing probe observations remain distinguishable from observati
 interface NnrpResult {
   readonly operationId: bigint;
   readonly terminalState: NnrpResultTerminalState;
-  readonly event: NnrpRuntimeEvent;
+  readonly event: NnrpTerminalEvent;
 }
+
+type NnrpTerminalEvent =
+  | { readonly type: "runtime"; readonly event: NnrpRuntimeEvent }
+  | { readonly type: "lifecycle"; readonly event: NnrpOperationLifecycleEvent };
 
 interface NnrpOperationLifecycleEvent {
   readonly operationId: bigint;
@@ -298,9 +302,10 @@ interface NnrpOperationLifecycleEvent {
 `NnrpResultTerminalState` is `"success" | "cancelled" | "dropped" | "error"`.
 `NnrpOperationState` is `"accepted" | "running" | "partial" | "waiting-tool" |
 "superseded" | "cancelled" | "failed" | "completed"`. Successful results preserve
-`RESULT_PUSH`; non-success results preserve the terminal protocol event. An
+`RESULT_PUSH`; non-success results preserve the exact wire or local lifecycle event. An
 `NnrpOperationLifecycleEvent` is local role state and never carries a fabricated
-`NnrpRuntimeFrameHeader`.
+`NnrpRuntimeFrameHeader`. `NnrpTerminalEvent` always contains exactly one variant; nullable parallel
+runtime and lifecycle fields are not part of the API.
 
 Additional public types used by these contracts:
 
