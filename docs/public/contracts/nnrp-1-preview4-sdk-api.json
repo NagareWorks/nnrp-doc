@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 8,
+  "contractVersion": 9,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -121,6 +121,9 @@
     "allSdkApiDomainsRequireMachineProjection": true,
     "ffiHandlesAreInternalImplementationDetails": true,
     "sessionOptionsDeriveSessionOpenMetadata": true,
+    "clientHelloRunsAutomaticallyBeforeSessions": true,
+    "oneConnectionMayOwnManySessions": true,
+    "resumeTokensAreRuntimeOwnedOpaqueValues": true,
     "applicationProfileOptionsRemainSeparate": true,
     "legacyPreviewCompatibility": false
   },
@@ -1685,7 +1688,7 @@
       ]
     },
     "ClientSessionOptions": {
-      "description": "Transport-neutral application options normalized into SESSION_OPEN metadata. SDK-local handles and generations are forbidden here.",
+      "description": "Transport-neutral application options. Session fields are normalized into SESSION_OPEN metadata, cache_hints contributes to the automatic CLIENT_HELLO cache bitmap, and resume_token_bytes is a local receive-capacity request. SDK-local handles and generations are forbidden here.",
       "fields": [
         { "name": "requested_session_id", "type": "u32", "required": false, "default": 0 },
         {
@@ -1721,14 +1724,77 @@
         },
         { "name": "lease_ttl_hint_ms", "type": "u32", "required": false, "default": 30000 },
         { "name": "allow_resume", "type": "bool", "required": false, "default": false },
-        { "name": "resume_token_bytes", "type": "u32", "required": false, "default": 0 },
-        { "name": "cache_hints", "type": "CacheObjectKind[]", "required": false, "default": [] }
+        {
+          "name": "resume_token_bytes",
+          "type": "u32",
+          "required": false,
+          "default": 0,
+          "description": "Maximum opaque recovery-token bytes the client accepts; zero selects the runtime default. This is not the SESSION_OPEN resume_token_bytes field."
+        },
+        {
+          "name": "cache_hints",
+          "type": "CacheObjectKind[]",
+          "required": false,
+          "default": [],
+          "description": "Connection capability hints folded into CLIENT_HELLO.cache_object_bitmap before the first session opens."
+        }
       ],
       "derivedWireFields": [
         "session_flags",
         "auth_bytes",
         "session_extension_bytes",
         "client_session_tag"
+      ],
+      "derivedConnectionFields": [
+        "CLIENT_HELLO.cache_object_bitmap"
+      ]
+    },
+    "SessionRecoveryTicket": {
+      "description": "Runtime-issued opaque proof used to resume one session. Applications may persist and return the value but may not construct, truncate, inspect, or replace resume_token.",
+      "fields": [
+        { "name": "session_id", "type": "u32", "required": true },
+        { "name": "resume_token", "type": "bytes", "required": true },
+        { "name": "resume_from_operation_id", "type": "u64?", "required": false },
+        { "name": "resume_window_ms", "type": "u32", "required": true }
+      ],
+      "invariants": [
+        "session_id is non-zero",
+        "resume_token is non-empty and runtime-issued",
+        "resume_token is compared as an opaque byte sequence",
+        "resume_window_ms records the negotiated validity window",
+        "the persisted encoding is canonical and contains exactly fixed_prefix_bytes plus resume_token_bytes"
+      ],
+      "opaqueEncoding": {
+        "name": "NRTK",
+        "version": 1,
+        "byteOrder": "little-endian",
+        "fixedPrefixBytes": 28,
+        "fields": [
+          { "name": "magic", "type": "bytes[4]", "offset": 0, "constant": "NRTK" },
+          { "name": "version", "type": "u16", "offset": 4, "constant": 1 },
+          { "name": "flags", "type": "u16", "offset": 6 },
+          { "name": "session_id", "type": "u32", "offset": 8 },
+          { "name": "resume_token_bytes", "type": "u32", "offset": 12 },
+          { "name": "resume_window_ms", "type": "u32", "offset": 16 },
+          { "name": "resume_from_operation_id", "type": "u64", "offset": 20 }
+        ],
+        "flags": { "resume_from_operation_id_present": 1 },
+        "reservedFlagsMask": 65534,
+        "tail": "resume_token[resume_token_bytes]",
+        "validation": [
+          "magic and version match exactly",
+          "reserved flags are zero",
+          "session_id and resume_token_bytes are non-zero",
+          "the input ends exactly after resume_token"
+        ]
+      },
+      "methods": [
+        { "name": "to_bytes", "parameters": [], "returns": "bytes" },
+        {
+          "name": "from_bytes",
+          "parameters": [{ "name": "encoded", "type": "bytes", "required": true }],
+          "returns": "SessionRecoveryTicket"
+        }
       ]
     },
     "ServerSessionPolicyDecision": {
@@ -2459,13 +2525,17 @@
       "serverBootstrapOptions",
       "serverSessionOptions",
       "serverAcceptOptions",
-      "serverSessionPolicy"
+      "serverSessionPolicy",
+      "sessionRecoveryTicket",
+      "sessionRecoveryTicketEncode",
+      "sessionRecoveryTicketDecode"
     ]
   },
   "roleSurfaces": {
     "runtimeEventRoleBooleans": "The client and server booleans on runtimeEventMessages identify receiving roles. The opposite role is an allowed sender.",
     "client": {
       "sessionCardinality": "many-per-connection",
+      "connectionHandshake": "automatic CLIENT_HELLO followed by SERVER_HELLO_ACK before the first SESSION_OPEN",
       "eventOrdering": "wire-order-per-session",
       "sendMessages": "all runtimeEventMessages where server is true",
       "receiveMessages": "all runtimeEventMessages where client is true",
@@ -2473,11 +2543,13 @@
       "resultType": "NnrpResult",
       "lifecycleEventType": "OperationLifecycleEvent",
       "bootstrapOptionsType": "ClientBootstrapOptions",
-      "sessionOptionsType": "ClientSessionOptions"
+      "sessionOptionsType": "ClientSessionOptions",
+      "recoveryTicketType": "SessionRecoveryTicket"
     },
     "server": {
       "listenerCardinality": "one-logical-server-with-many-provider-listeners",
       "sessionCardinality": "many-per-server",
+      "connectionHandshake": "accept and validate one CLIENT_HELLO, then emit SERVER_HELLO_ACK before accepting SESSION_OPEN messages",
       "eventOrdering": "wire-order-per-session",
       "sendMessages": "all runtimeEventMessages where client is true",
       "receiveMessages": "all runtimeEventMessages where server is true",
@@ -2511,6 +2583,26 @@
       ],
       "profilePatchOnlyFields": ["target_cadence", "quality_tier", "metadata"],
       "rule": "Public bootstrap and session options expose protocol intent. FFI handles stay internal, while application profile and patch values remain outside SESSION_OPEN options."
+    }
+  },
+  "roleOperations": {
+    "client.open_session": {
+      "parameters": [{ "name": "options", "type": "ClientSessionOptions?", "required": false }],
+      "returns": "ClientSession",
+      "async": true
+    },
+    "client.resume_session": {
+      "parameters": [
+        { "name": "ticket", "type": "SessionRecoveryTicket", "required": true },
+        { "name": "options", "type": "ClientSessionOptions?", "required": false }
+      ],
+      "returns": "ClientSession",
+      "async": true
+    },
+    "client_session.recovery_ticket": {
+      "parameters": [],
+      "returns": "SessionRecoveryTicket?",
+      "async": false
     }
   },
   "languageProjections": {
@@ -2554,6 +2646,9 @@
       "schemaRegistry": "nnrp_core::SchemaRegistry",
       "clientBootstrapOptions": "nnrp_runtime::NnrpClientOptions",
       "clientSessionOptions": "nnrp_runtime::NnrpClientConfig",
+      "sessionRecoveryTicket": "nnrp_runtime::NnrpSessionRecoveryTicket",
+      "sessionRecoveryTicketEncode": "NnrpSessionRecoveryTicket::to_bytes",
+      "sessionRecoveryTicketDecode": "NnrpSessionRecoveryTicket::from_bytes",
       "serverBootstrapOptions": "nnrp_runtime::NnrpServerOptions",
       "serverSessionOptions": "nnrp_runtime::NnrpServerConfig",
       "serverAcceptOptions": "nnrp_runtime::NnrpServerAcceptOptions",
@@ -2599,6 +2694,9 @@
       "schemaRegistry": "nnrp.schema.SchemaRegistryCatalog",
       "clientBootstrapOptions": "nnrp.client.NativeClientOptions",
       "clientSessionOptions": "nnrp.client.NativeClientSessionOptions",
+      "sessionRecoveryTicket": "nnrp.client.NativeSessionRecoveryTicket",
+      "sessionRecoveryTicketEncode": "NativeSessionRecoveryTicket.to_bytes",
+      "sessionRecoveryTicketDecode": "NativeSessionRecoveryTicket.from_bytes",
       "serverBootstrapOptions": "nnrp.server.NativeServerBootstrapOptions",
       "serverSessionOptions": "nnrp.server.NativeServerSessionOptions",
       "serverAcceptOptions": "nnrp.server.NativeServerAcceptOptions",
@@ -2647,6 +2745,9 @@
       "schemaRegistry": "@nnrp/core.NnrpSchemaRegistry",
       "clientBootstrapOptions": "@nnrp/native-client.NnrpNativeClientOptions",
       "clientSessionOptions": "@nnrp/native-client.NnrpSessionOptions",
+      "sessionRecoveryTicket": "@nnrp/core.NnrpSessionRecoveryTicket",
+      "sessionRecoveryTicketEncode": "NnrpSessionRecoveryTicket.toBytes",
+      "sessionRecoveryTicketDecode": "NnrpSessionRecoveryTicket.fromBytes",
       "serverBootstrapOptions": "@nnrp/native-server.NnrpListenOptions",
       "serverSessionOptions": "@nnrp/native-server.NnrpServerSessionOptions",
       "serverAcceptOptions": "@nnrp/native-server.NnrpServerAcceptOptions",
@@ -2692,6 +2793,9 @@
       "schemaRegistry": "Nnrp.Core.NnrpSchemaRegistry",
       "clientBootstrapOptions": "Nnrp.Client.NnrpClientOptions",
       "clientSessionOptions": "Nnrp.Client.NnrpClientSessionOptions",
+      "sessionRecoveryTicket": "Nnrp.Core.NnrpSessionRecoveryTicket",
+      "sessionRecoveryTicketEncode": "NnrpSessionRecoveryTicket.ToBytes",
+      "sessionRecoveryTicketDecode": "NnrpSessionRecoveryTicket.FromBytes",
       "serverBootstrapOptions": "Nnrp.Server.NnrpServerOptions",
       "serverSessionOptions": "Nnrp.Server.NnrpServerSessionOptions",
       "serverAcceptOptions": "Nnrp.Server.NnrpServerAcceptOptions",

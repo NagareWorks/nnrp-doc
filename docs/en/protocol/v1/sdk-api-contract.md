@@ -146,23 +146,28 @@ these shared host values do not turn a provider package into a feature flag.
 Every SDK exposes the same transport-neutral option model. Language conventions may change casing,
 builders, and constructor syntax, but may not add, remove, or reinterpret fields.
 
-`ClientSessionOptions` is normalized into `SESSION_OPEN`:
+`ClientSessionOptions` is the canonical host model used when opening a session. Most fields are
+normalized into `SESSION_OPEN`; the two exceptions are called out below.
 
-| Field                          |                     Default | Meaning                                                    |
-| ------------------------------ | --------------------------: | ---------------------------------------------------------- |
-| `requested_session_id`         |                         `0` | Preferred wire session id; zero lets the server assign it. |
-| `profile_id`                   |      standard token profile | Requested profile registry id.                             |
-| `schema_id` / `schema_version` | standard token delta schema | Requested schema identity.                                 |
-| `priority_class`               |                  `balanced` | Session scheduling class.                                  |
-| `default_deadline_ms`          |                       `500` | Default operation deadline.                                |
-| `max_in_flight_operations`     |                         `4` | Requested session concurrency ceiling.                     |
-| `lease_ttl_hint_ms`            |                     `30000` | Requested cache lease lifetime.                            |
-| `allow_resume`                 |                     `false` | Enables resumable-session negotiation.                     |
-| `resume_token_bytes`           |                         `0` | Requested resume-token capacity.                           |
-| `cache_hints`                  |                       empty | Cache object kinds the client expects to reuse.            |
+| Field                          |                     Default | Meaning                                                                          |
+| ------------------------------ | --------------------------: | -------------------------------------------------------------------------------- |
+| `requested_session_id`         |                         `0` | Preferred wire session id; zero lets the server assign it.                       |
+| `profile_id`                   |      standard token profile | Requested profile registry id.                                                   |
+| `schema_id` / `schema_version` | standard token delta schema | Requested schema identity.                                                       |
+| `priority_class`               |                  `balanced` | Session scheduling class.                                                        |
+| `default_deadline_ms`          |                       `500` | Default operation deadline.                                                      |
+| `max_in_flight_operations`     |                         `4` | Requested session concurrency ceiling.                                           |
+| `lease_ttl_hint_ms`            |                     `30000` | Requested cache lease lifetime.                                                  |
+| `allow_resume`                 |                     `false` | Enables resumable-session negotiation.                                           |
+| `resume_token_bytes`           |                         `0` | Maximum recovery-token bytes accepted locally; zero selects the runtime default. |
+| `cache_hints`                  |                       empty | Cache object kinds folded into the connection's automatic `CLIENT_HELLO`.        |
 
 The runtime derives `session_flags`, authentication and extension byte lengths, and the client
-session tag. Applications do not construct those wire fields.
+session tag. Applications do not construct those wire fields. `resume_token_bytes` is not copied to
+the wire `SESSION_OPEN.resume_token_bytes` field during a fresh open: that wire field is the length
+of an actual runtime-issued token and is non-zero only during resume. Likewise, `cache_hints` is a
+connection capability input and contributes to `CLIENT_HELLO.cache_object_bitmap` before the first
+session opens.
 
 `ServerSessionOptions` freezes `supported_profiles`, `supported_cache_objects`, cache object and
 byte limits, `schema_registry`, resume-token capacity, in-flight and granted-credit limits, lease
@@ -204,10 +209,38 @@ exactly `open`, `closing`, or `closed`; session state is exactly `open`, `resume
 in-flight limit, route scope, last operation, and session error code. SDK-local state machines may
 own transitions, but they may not publish a smaller or differently named semantic state registry.
 
-One logical client connection may own many sessions. One logical server owns a set of installed
-provider listeners and may accept many sessions. Application endpoints remain `nnrp://` or
-`nnrps://`; `tcp://`, `quic://`, `unix://`, `npipe://`, `ws://`, and `wss://` are provider-local
-locators and never replace the application endpoint.
+Connection setup is automatic at the role API boundary. A client sends exactly one `CLIENT_HELLO`
+and validates `SERVER_HELLO_ACK` before it sends the first `SESSION_OPEN`; a server validates that
+hello pair before it accepts session opens. Applications do not inject or bypass these handshake
+records.
+
+One logical client connection may own many concurrent sessions. Calling `open_session` does not
+consume the client connection. One logical server owns a set of installed provider listeners and may
+accept many sessions, including several sessions multiplexed over one accepted carrier. Application
+endpoints remain `nnrp://` or `nnrps://`; `tcp://`, `quic://`, `unix://`, `npipe://`, `ws://`, and
+`wss://` are provider-local locators and never replace the application endpoint.
+
+## Session Recovery Ticket
+
+Resume is exposed through one opaque `SessionRecoveryTicket` value in every SDK. The runtime issues
+the ticket after a resumable session is accepted; `client_session.recovery_ticket()` returns it when
+available. The application may persist the ticket and later pass it unchanged to
+`client.resume_session(ticket, options)`. It must not construct or alter the token bytes.
+
+The ticket contains the non-zero session id, opaque non-empty resume token, optional last confirmed
+operation id, and negotiated resume window. The server stores and validates the actual token. A
+fresh open therefore carries no token body even when resume is enabled; a resume open carries the
+runtime-issued token and its exact byte length. Invalid, truncated, expired, or unknown tickets are
+rejected rather than treated as a fresh session.
+
+SDKs persist the value only through the canonical `NRTK` version 1 envelope exposed by
+`ticket.to_bytes()` and `SessionRecoveryTicket.from_bytes(...)` (with idiomatic casing per
+language). The envelope is little-endian and consists of a 28-byte prefix followed by the exact
+resume token: `"NRTK"`, `version:u16`, `flags:u16`, `session_id:u32`, `resume_token_bytes:u32`,
+`resume_window_ms:u32`, and `resume_from_operation_id:u64`. Flag bit 0 marks the operation id as
+present; every other flag bit must be zero. Decoders reject a wrong magic or version, zero session
+id, empty token, reserved flags, truncation, and trailing bytes. This format is a host persistence
+envelope, not an NNRP wire message and not an application extension point.
 
 ## Release Gate
 

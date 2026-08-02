@@ -439,6 +439,21 @@ export const capabilityVersionPresets = [
     "recommendedPath": "conformance/nnrp-1-preview4.capabilities.json",
     "capabilities": [
       {
+        "token": "payload.typed",
+        "layers": "L0",
+        "categories": [
+          "mandatory"
+        ],
+        "description": {
+          "zh": "解析并重新输出当前的 24 字节 typed payload descriptor，保留每帧显式的 payload kind、schema 绑定、stream 语义、offset 和 length。",
+          "en": "Parse and re-emit the current 24-byte typed payload descriptor with its explicit per-frame payload kind, schema binding, stream semantics, offset, and length."
+        },
+        "combination": {
+          "zh": "通常与 frame_submit.tensor.inline 同时声明。",
+          "en": "Usually claimed with frame_submit.tensor.inline."
+        }
+      },
+      {
         "token": "control.cancel_abort",
         "layers": "L1",
         "categories": [
