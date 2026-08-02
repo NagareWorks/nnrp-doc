@@ -133,22 +133,26 @@ provider 包退化成 feature flag。
 所有 SDK 公开同一套与 transport 无关的 options 模型。语言可以调整大小写、builder 与构造语法，但不得
 增加、遗漏或重新解释字段。
 
-`ClientSessionOptions` 被规范化为 `SESSION_OPEN`：
+`ClientSessionOptions` 是建立 session 时统一使用的 host model。多数成员被规范化为
+`SESSION_OPEN`，两个例外在下文单独说明。
 
-| 字段                           |                  默认值 | 含义                                         |
-| ------------------------------ | ----------------------: | -------------------------------------------- |
-| `requested_session_id`         |                     `0` | 期望的 wire session id；零表示由服务端分配。 |
-| `profile_id`                   |      标准 token profile | 请求的 profile registry id。                 |
-| `schema_id` / `schema_version` | 标准 token delta schema | 请求的 schema 身份。                         |
-| `priority_class`               |              `balanced` | Session 调度类别。                           |
-| `default_deadline_ms`          |                   `500` | 默认 operation deadline。                    |
-| `max_in_flight_operations`     |                     `4` | 请求的 session 并发上限。                    |
-| `lease_ttl_hint_ms`            |                 `30000` | 请求的 cache lease 生命周期。                |
-| `allow_resume`                 |                 `false` | 是否启用可恢复 session 协商。                |
-| `resume_token_bytes`           |                     `0` | 请求的 resume token 容量。                   |
-| `cache_hints`                  |                      空 | 客户端预计复用的 cache object kind。         |
+| 字段                           |                  默认值 | 含义                                                              |
+| ------------------------------ | ----------------------: | ----------------------------------------------------------------- |
+| `requested_session_id`         |                     `0` | 期望的 wire session id；零表示由服务端分配。                      |
+| `profile_id`                   |      标准 token profile | 请求的 profile registry id。                                      |
+| `schema_id` / `schema_version` | 标准 token delta schema | 请求的 schema 身份。                                              |
+| `priority_class`               |              `balanced` | Session 调度类别。                                                |
+| `default_deadline_ms`          |                   `500` | 默认 operation deadline。                                         |
+| `max_in_flight_operations`     |                     `4` | 请求的 session 并发上限。                                         |
+| `lease_ttl_hint_ms`            |                 `30000` | 请求的 cache lease 生命周期。                                     |
+| `allow_resume`                 |                 `false` | 是否启用可恢复 session 协商。                                     |
+| `resume_token_bytes`           |                     `0` | 本地可接受的 recovery token 字节上限；零表示使用 runtime 默认值。 |
+| `cache_hints`                  |                      空 | 合并到连接自动发送的 `CLIENT_HELLO` 的 cache object kind。        |
 
 Runtime 派生 `session_flags`、认证与扩展字节长度以及 client session tag；应用不构造这些 wire 字段。
+新建 session 时，`resume_token_bytes` 不会复制到 wire 的 `SESSION_OPEN.resume_token_bytes`：wire
+字段表示实际 runtime-issued token 的长度，仅在恢复 session 时非零。`cache_hints` 同样不是
+SESSION_OPEN 字段，而是在第一个 session 建立前参与派生 `CLIENT_HELLO.cache_object_bitmap`。
 
 `ServerSessionOptions` 冻结 `supported_profiles`、`supported_cache_objects`、cache object
 与字节上限、 `schema_registry`、resume token 容量、in-flight 与 granted credit 上限、lease 与 resume
@@ -184,9 +188,35 @@ variant。Runtime variant 完整保留 wire header、类型化 metadata 与语�
 last operation 与 session error code。SDK 本地 state machine 可以负责状态迁移，但不得公开更小或
 语义名称不同的状态 registry。
 
-一个逻辑 client connection 可以持有多个 session；一个逻辑 server 持有已安装 provider 的 listener
-集合并可接收多个 session。应用端点始终使用 `nnrp://` 或 `nnrps://`；`tcp://`、`quic://`、
-`unix://`、`npipe://`、`ws://` 与 `wss://` 都只是 provider 本地 locator，不能替代应用端点。
+角色 API 会自动完成连接握手。Client 在第一个 `SESSION_OPEN` 前只发送一次 `CLIENT_HELLO` 并校验
+`SERVER_HELLO_ACK`；server 完成同一组校验后才接收 session open。应用不能注入或绕过这些握手记录。
+
+一个逻辑 client connection 可以并发持有多个 session，调用 `open_session` 不会消耗 client
+connection。一个逻辑 server 持有已安装 provider 的 listener 集合并可接收多个 session，其中包括
+在同一条已接收 carrier 上多路复用的多个 session。应用端点始终使用 `nnrp://` 或
+`nnrps://`；`tcp://`、`quic://`、 `unix://`、`npipe://`、`ws://` 与 `wss://` 都只是 provider 本地
+locator，不能替代应用端点。
+
+## Session 恢复票据
+
+所有 SDK 都通过同一个不透明 `SessionRecoveryTicket` value 提供恢复能力。可恢复 session 被接受后，
+runtime 生成票据，`client_session.recovery_ticket()`
+在票据可用时返回它。应用可以持久化票据，并在之后原样传给
+`client.resume_session(ticket, options)`，但不得构造或修改 token 字节。
+
+票据包含非零 session id、不为空的不透明 resume token、可选的最后确认 operation id，以及协商后的
+resume window。服务端保存并校验实际 token。因此，即便启用了恢复能力，新建 session 也不会携带 token
+body；恢复 session 才携带 runtime 生成的 token 及其精确字节长度。无效、截断、过期或未知票据必须被
+拒绝，不能退化成新建 session。
+
+SDK 只能通过规范的 `NRTK` version 1 envelope 持久化该 value，各语言以惯用命名提供
+`ticket.to_bytes()` 与 `SessionRecoveryTicket.from_bytes(...)`。该 envelope 使用小端序，由 28-byte
+固定前缀和长度精确匹配的 resume token 组成：`"NRTK"`、`version:u16`、`flags:u16`、
+`session_id:u32`、`resume_token_bytes:u32`、`resume_window_ms:u32` 以及
+`resume_from_operation_id:u64`。flag bit 0 表示 operation id 存在，其余 flag bit
+必须为零。解码器必须拒绝错误 magic 或 version、零 session id、空 token、保留
+flags、截断数据及尾随数据。该格式只是 host 持久化 envelope，不是 NNRP wire
+message，也不是留给应用扩展的接口。
 
 ## 发布门禁
 

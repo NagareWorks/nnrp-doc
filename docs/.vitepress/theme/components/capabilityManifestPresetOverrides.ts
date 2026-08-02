@@ -269,6 +269,16 @@ export const capabilityManifestPresetOverrides: Record<string, CapabilityVersion
       en: "Covers Preview4 runtime control frames, runtime objects, cache references, IPC/WebSocket transports, and wire-level test capabilities."
     },
     capabilityOverrides: {
+      "payload.typed": {
+        description: {
+          zh: "解析并重新输出当前的 24 字节 typed payload descriptor，保留每帧显式的 payload kind、schema 绑定、stream 语义、offset 和 length。",
+          en: "Parse and re-emit the current 24-byte typed payload descriptor with its explicit per-frame payload kind, schema binding, stream semantics, offset, and length."
+        },
+        combination: {
+          zh: "通常与 frame_submit.tensor.inline 同时声明。",
+          en: "Usually claimed with frame_submit.tensor.inline."
+        }
+      },
       "control.cancel_abort": {
         description: {
           zh: "按操作标识取消或中止任务，并输出带 trace context 的类型化终态。",

@@ -20,6 +20,7 @@ interface ContractMethod {
 
 interface ContractType {
   fields: ContractField[];
+  invariants?: string[];
   terminalMapping?: Record<string, string>;
   forbiddenDuplicates?: string[];
   variants?: string[];
@@ -27,6 +28,17 @@ interface ContractType {
   builders?: Record<string, { input: string; output: string }>;
   methods?: ContractMethod[];
   failureType?: string;
+  opaqueEncoding?: {
+    name: string;
+    version: number;
+    byteOrder: string;
+    fixedPrefixBytes: number;
+    fields: Array<{ name: string; type: string; offset: number; constant?: string | number }>;
+    flags: Record<string, number>;
+    reservedFlagsMask: number;
+    tail: string;
+    validation: string[];
+  };
 }
 
 interface ContractEnum {
@@ -84,6 +96,10 @@ interface SdkApiContract {
   runtimeEventMessages: RuntimeEventMessage[];
   apiDomains: Record<string, string[]>;
   roleSurfaces: Record<string, unknown>;
+  roleOperations: Record<
+    string,
+    { parameters: ContractField[]; returns: string; async: boolean }
+  >;
   languageProjections: Record<string, Record<string, string | string[]>>;
 }
 
@@ -149,6 +165,7 @@ async function loadContract(): Promise<SdkApiContract> {
       "types",
       "apiDomains",
       "roleSurfaces",
+      "roleOperations",
       "languageProjections",
     ] as const
   ) {
@@ -172,7 +189,7 @@ async function loadContract(): Promise<SdkApiContract> {
 Deno.test("Preview4 SDK contract freezes the required semantic types", async () => {
   const contract = await loadContract();
   assertEquals(contract.contract, "nnrp-1-preview4-sdk-api");
-  assertEquals(contract.contractVersion, 8);
+  assertEquals(contract.contractVersion, 9);
   assertEquals(contract.rules.languageProjectionMustBeLossless, true);
   assertEquals(contract.rules.adapterNormalizationDoesNotProveApiParity, true);
   assertEquals(contract.rules.missingWireFieldsMayNotBeDefaulted, true);
@@ -189,6 +206,9 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
   assertEquals(contract.rules.allSdkApiDomainsRequireMachineProjection, true);
   assertEquals(contract.rules.ffiHandlesAreInternalImplementationDetails, true);
   assertEquals(contract.rules.sessionOptionsDeriveSessionOpenMetadata, true);
+  assertEquals(contract.rules.clientHelloRunsAutomaticallyBeforeSessions, true);
+  assertEquals(contract.rules.oneConnectionMayOwnManySessions, true);
+  assertEquals(contract.rules.resumeTokensAreRuntimeOwnedOpaqueValues, true);
   assertEquals(contract.rules.applicationProfileOptionsRemainSeparate, true);
   assertEquals(contract.rules.legacyPreviewCompatibility, false);
 
@@ -226,6 +246,7 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
       "ClientProviderRouteEntry",
       "ServerProviderRouteEntry",
       "ClientSessionOptions",
+      "SessionRecoveryTicket",
       "ServerSessionOptions",
       "ClientBootstrapOptions",
       "ServerBootstrapOptions",
@@ -569,6 +590,73 @@ Deno.test("public role options freeze protocol intent and exclude FFI handles", 
   }
 });
 
+Deno.test("connection handshake, multiplexing, and recovery are frozen as role behavior", async () => {
+  const contract = await loadContract();
+  const clientSurface = requireRecord(contract.roleSurfaces.client, "roleSurfaces.client");
+  const serverSurface = requireRecord(contract.roleSurfaces.server, "roleSurfaces.server");
+  assertEquals(clientSurface.sessionCardinality, "many-per-connection");
+  assert(
+    requireString(clientSurface.connectionHandshake, "client connectionHandshake").includes(
+      "CLIENT_HELLO",
+    ),
+    "client handshake must include CLIENT_HELLO",
+  );
+  assert(
+    requireString(serverSurface.connectionHandshake, "server connectionHandshake").includes(
+      "SERVER_HELLO_ACK",
+    ),
+    "server handshake must include SERVER_HELLO_ACK",
+  );
+
+  const ticket = requireContractType(contract, "SessionRecoveryTicket");
+  assertEquals(
+    ticket.fields.map(({ name, type, required }) => ({ name, type, required })),
+    [
+      { name: "session_id", type: "u32", required: true },
+      { name: "resume_token", type: "bytes", required: true },
+      { name: "resume_from_operation_id", type: "u64?", required: false },
+      { name: "resume_window_ms", type: "u32", required: true },
+    ],
+  );
+  assert((ticket.invariants?.length ?? 0) >= 4, "recovery ticket invariants are incomplete");
+  assertEquals(ticket.methods?.map((method) => method.name), ["to_bytes", "from_bytes"]);
+  assertEquals(ticket.opaqueEncoding, {
+    name: "NRTK",
+    version: 1,
+    byteOrder: "little-endian",
+    fixedPrefixBytes: 28,
+    fields: [
+      { name: "magic", type: "bytes[4]", offset: 0, constant: "NRTK" },
+      { name: "version", type: "u16", offset: 4, constant: 1 },
+      { name: "flags", type: "u16", offset: 6 },
+      { name: "session_id", type: "u32", offset: 8 },
+      { name: "resume_token_bytes", type: "u32", offset: 12 },
+      { name: "resume_window_ms", type: "u32", offset: 16 },
+      { name: "resume_from_operation_id", type: "u64", offset: 20 },
+    ],
+    flags: { resume_from_operation_id_present: 1 },
+    reservedFlagsMask: 0xfffe,
+    tail: "resume_token[resume_token_bytes]",
+    validation: [
+      "magic and version match exactly",
+      "reserved flags are zero",
+      "session_id and resume_token_bytes are non-zero",
+      "the input ends exactly after resume_token",
+    ],
+  });
+
+  assertEquals(contract.roleOperations["client.open_session"].returns, "ClientSession");
+  assertEquals(contract.roleOperations["client.resume_session"].parameters[0], {
+    name: "ticket",
+    type: "SessionRecoveryTicket",
+    required: true,
+  });
+  assertEquals(
+    contract.roleOperations["client_session.recovery_ticket"].returns,
+    "SessionRecoveryTicket?",
+  );
+});
+
 Deno.test("schema registry contract freezes inherited NNRP/1 host semantics", async () => {
   const contract = await loadContract();
   const header = requireWireLayout(contract, "SchemaDescriptorHeader");
@@ -595,6 +683,9 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
     "clientProviderRoute",
     "clientRoles",
     "clientSessionOptions",
+    "sessionRecoveryTicket",
+    "sessionRecoveryTicketEncode",
+    "sessionRecoveryTicketDecode",
     "clientTransportSecurity",
     "operationLifecycleEvent",
     "providerEndpoint",
