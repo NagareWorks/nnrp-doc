@@ -41,7 +41,8 @@ Use `@nnrp/native-client` for Node.js/Deno CLI tools, agent runtimes, backend se
 processes. Install one or more transport packages; the runtime probes installed providers and
 applies the selected transport policy.
 
-The example assumes `trustedCertificateDer` is a `Uint8Array` loaded from the deployment's trust configuration.
+The example assumes `trustedCertificateDer` is a `Uint8Array` loaded from the deployment's trust
+configuration.
 
 ```ts
 import { openNativeClient } from "@nnrp/native-client";
@@ -65,7 +66,7 @@ const client = await openNativeClient({
   ],
 });
 
-const session = client.openSession({ inputProfile: "tensor" });
+const session = await client.openSession({ profileId: 1 });
 
 const result = await session.submit({
   operationId: 1n,
@@ -81,8 +82,9 @@ await client.close();
 
 ## Backend Native Server
 
-Use `@nnrp/native-server` when the application exposes an NNRP endpoint. For WSS routes, `certificateDer` and
-`privateKeyPkcs8Der` are `Uint8Array` values loaded from the server's credential store.
+Use `@nnrp/native-server` when the application exposes an NNRP endpoint. For WSS routes,
+`certificateDer` and `privateKeyPkcs8Der` are `Uint8Array` values loaded from the server's
+credential store.
 
 ```ts
 import { openBackendRuntime } from "@nnrp/native-server";
@@ -128,7 +130,7 @@ const client = runtime.connect({
   transportPolicy: "auto",
 });
 
-const session = client.openSession({ inputProfile: "token" });
+const session = await client.openSession({ profileId: 2 });
 ```
 
 ## Package Boundary Checklist

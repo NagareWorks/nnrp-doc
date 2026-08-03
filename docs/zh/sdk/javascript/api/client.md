@@ -97,17 +97,36 @@ const client = runtime.connect({
 
 打开 client session。Native 与 browser client 暴露同一个 session 概念。
 
-| 参数      | 类型                                                                                                     | 必填 | 说明                                               |
-| --------- | -------------------------------------------------------------------------------------------------------- | ---: | -------------------------------------------------- |
-| `options` | [`NnrpSessionOptions`](#nnrpsessionoptions) 或 [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |   否 | Input profile、cadence、quality tier 与 metadata。 |
+| 参数      | 类型                                                                                                     | 必填 | 说明                                                    |
+| --------- | -------------------------------------------------------------------------------------------------------- | ---: | ------------------------------------------------------- |
+| `options` | [`NnrpSessionOptions`](#nnrpsessionoptions) 或 [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |   否 | 与 transport 无关的 `SESSION_OPEN` 意图和本地恢复容量。 |
 
-| 返回                                              |
-| ------------------------------------------------- |
-| `NnrpClientSession` 或 `NnrpBrowserClientSession` |
+| 返回                                                                |
+| ------------------------------------------------------------------- |
+| `Promise<NnrpClientSession>` 或 `Promise<NnrpBrowserClientSession>` |
 
 ```ts
-const session = client.openSession({ inputProfile: "tensor" });
+const session = await client.openSession({ profileId: 1 });
 ```
+
+`openSession` 只有在 runtime 完成自动 connection handshake 并收到 `SESSION_OPEN_ACK` 后才完成；
+它不会返回延迟握手的 session wrapper。
+
+## `NnrpClient.resumeSession`
+
+在现有逻辑 client connection 上恢复 runtime 签发的 session。Native 与 browser client
+暴露相同的异步操作。
+
+| 参数      | 类型                                                                                                     | 必填 | 说明                                          |
+| --------- | -------------------------------------------------------------------------------------------------------- | ---: | --------------------------------------------- |
+| `ticket`  | [`NnrpSessionRecoveryTicket`](./core#nnrpsessionrecoveryticket)                                          |   是 | Runtime 签发的 opaque canonical NRTK ticket。 |
+| `options` | [`NnrpSessionOptions`](#nnrpsessionoptions) 或 [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |   否 | 恢复 session open 的可选 override。           |
+
+| 返回                                                                |
+| ------------------------------------------------------------------- |
+| `Promise<NnrpClientSession>` 或 `Promise<NnrpBrowserClientSession>` |
+
+无效、过期、截断或未知 ticket 必须拒绝，禁止回退为 fresh session。
 
 ## Client 生命周期方法
 
@@ -115,7 +134,7 @@ const session = client.openSession({ inputProfile: "tensor" });
 
 | 方法                                    | 参数                                                                           | 返回值                      | 说明                                               |
 | --------------------------------------- | ------------------------------------------------------------------------------ | --------------------------- | -------------------------------------------------- |
-| `nextSessionEvent(sessionId, options?)` | `sessionId: string`、[`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>` | 读取指定 session 的下一个 event。                  |
+| `nextSessionEvent(sessionId, options?)` | `sessionId: number`、[`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>` | 读取指定协商 session 的下一个 event。              |
 | `close()`                               | 无                                                                             | `Promise<void>`             | 关闭所拥有的 session、role connection 与 runtime。 |
 
 ## `ClientSession.submit`
@@ -245,15 +264,16 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 
 ## Client Session 生命周期与结果方法
 
-| 方法                   | 参数                                                             | 返回值                            | 说明                                                         |
-| ---------------------- | ---------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------ |
-| `inFlightFrames()`     | 无                                                               | `readonly number[]`               | 返回尚未进入终态的 frame id。                                |
-| `completeEvent(event)` | [`event: NnrpRuntimeEvent`](./runtime#typed-runtime-frame-event) | `void`                            | 为外部消费的 event 执行终态记账。                            |
-| `nextResult(options?)` | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `Promise<NnrpResult>`             | 跳过非结果 event，返回下一个终态结果。                       |
-| `migrate(request)`     | [`request: NnrpSessionMigrationRequest`](./core#数据类型)        | `Promise<void>`                   | 请求 session 迁移；不支持的 runtime 返回 typed diagnostic。  |
-| `patch(request)`       | [`request: NnrpSessionPatchRequest`](./core#数据类型)            | `Promise<NnrpSessionPatchResult>` | 修改 session metadata、profile、cadence、quality 或 credit。 |
-| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `AsyncIterable<NnrpRuntimeEvent>` | 持续迭代 event，直到 session 关闭或 polling 失败。           |
-| `close()`              | 无                                                               | `Promise<void>`                   | 关闭 role session 并释放其 in-flight 状态。                  |
+| 方法                   | 参数                                                             | 返回值                                   | 说明                                                         |
+| ---------------------- | ---------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| `inFlightFrames()`     | 无                                                               | `readonly number[]`                      | 返回尚未进入终态的 frame id。                                |
+| `completeEvent(event)` | [`event: NnrpRuntimeEvent`](./runtime#typed-runtime-frame-event) | `void`                                   | 为外部消费的 event 执行终态记账。                            |
+| `nextResult(options?)` | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `Promise<NnrpResult>`                    | 跳过非结果 event，返回下一个终态结果。                       |
+| `migrate(request)`     | [`request: NnrpSessionMigrationRequest`](./core#数据类型)        | `Promise<void>`                          | 请求 session 迁移；不支持的 runtime 返回 typed diagnostic。  |
+| `patch(request)`       | [`request: NnrpSessionPatchRequest`](./core#数据类型)            | `Promise<NnrpSessionPatchResult>`        | 修改 session metadata、profile、cadence、quality 或 credit。 |
+| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `AsyncIterable<NnrpRuntimeEvent>`        | 持续迭代 event，直到 session 关闭或 polling 失败。           |
+| `recoveryTicket()`     | 无                                                               | `NnrpSessionRecoveryTicket \| undefined` | Resume 协商成功时返回最新 runtime ticket snapshot。          |
+| `close()`              | 无                                                               | `Promise<void>`                          | 关闭 role session 并释放其 in-flight 状态。                  |
 
 ## 运行时差异
 
@@ -268,14 +288,14 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 
 ### `NnrpNativeClientOptions`
 
-| 字段               | 类型                                                    | 必填 | 说明                                                                     |
-| ------------------ | ------------------------------------------------------- | ---: | ------------------------------------------------------------------------ |
-| `endpoint`         | `string \| URL`                                         |   是 | 远端 NNRP endpoint。                                                     |
-| `providerRoutes`   | `NnrpClientProviderRoutes`                              |   否 | 按 carrier 隔离的 locator 与对端验证配置。                               |
-| `transportPolicy`  | [`NnrpTransportPolicy`](./core#数据类型)                |   否 | `auto`、`prefer-*` 或 `force-*` 选择策略。                               |
-| `transports`       | `readonly NnrpNativeTransportProvider[]`                |   否 | 已安装 native transport provider。见 [Transport Provider](./transport)。 |
-| `sessionDefaults`  | [`NnrpSessionOptions`](#nnrpsessionoptions)             |   否 | session 未设置字段时使用的默认值。                                       |
-| `ffi`              | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |   否 | 受控集成和测试用显式 native binding。                                    |
+| 字段              | 类型                                                    | 必填 | 说明                                                                     |
+| ----------------- | ------------------------------------------------------- | ---: | ------------------------------------------------------------------------ |
+| `endpoint`        | `string \| URL`                                         |   是 | 远端 NNRP endpoint。                                                     |
+| `providerRoutes`  | `NnrpClientProviderRoutes`                              |   否 | 按 carrier 隔离的 locator 与对端验证配置。                               |
+| `transportPolicy` | [`NnrpTransportPolicy`](./core#数据类型)                |   否 | `auto`、`prefer-*` 或 `force-*` 选择策略。                               |
+| `transports`      | `readonly NnrpNativeTransportProvider[]`                |   否 | 已安装 native transport provider。见 [Transport Provider](./transport)。 |
+| `sessionDefaults` | [`NnrpSessionOptions`](#nnrpsessionoptions)             |   否 | session 未设置字段时使用的默认值。                                       |
+| `ffi`             | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |   否 | 受控集成和测试用显式 native binding。                                    |
 
 ### `NnrpBrowserRuntimeOptions`
 
@@ -292,26 +312,45 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 | 字段                 | 类型                                                      | 必填 | 说明                                         |
 | -------------------- | --------------------------------------------------------- | ---: | -------------------------------------------- |
 | `endpoint`           | `string`                                                  |   是 | 远端 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
-| `providerRoutes`     | `NnrpClientProviderRoutes`                              |   否 | WebSocket route；浏览器信任仍由宿主持有。    |
+| `providerRoutes`     | `NnrpClientProviderRoutes`                                |   否 | WebSocket route；浏览器信任仍由宿主持有。    |
 | `transportPolicy`    | [`NnrpTransportPolicy`](./core#数据类型)                  |   否 | Selection policy。                           |
 | `transportProviders` | `readonly NnrpBrowserTransportProvider[]`                 |   否 | 本连接允许的 browser provider。              |
 | `sessionDefaults`    | [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |   否 | session 未设置字段时使用的默认值。           |
 
+### `NnrpSessionPriorityClass`
+
+| 成员          | 线值 | 语义                                       |
+| ------------- | ---: | ------------------------------------------ |
+| `Interactive` |    0 | 需要优先调度、对时延敏感的工作。           |
+| `Balanced`    |    1 | 普通交互工作负载使用的默认调度类别。       |
+| `Background`  |    2 | 可以让位于交互流量、以吞吐为主的后台工作。 |
+
 ### `NnrpSessionOptions`
 
-| 字段                   | 类型                                  | 必填 | 说明                                                 |
-| ---------------------- | ------------------------------------- | ---: | ---------------------------------------------------- |
-| `sessionId`            | `string`                              |   否 | 调用方可见的 session identity。                      |
-| `inputProfile`         | [`NnrpInputProfile`](./core#数据类型) |   否 | `tensor`、`token` 或 `tool_delta` 等 input profile。 |
-| `targetCadence`        | `number`                              |   否 | 请求 cadence。                                       |
-| `qualityTier`          | `number`                              |   否 | 应用质量层级。                                       |
-| `metadata`             | `Readonly<Record<string, string>>`    |   否 | 附加到 session 的应用 metadata。                     |
-| `submitCapacityPolicy` | `"reject" \| "await"`                 |   否 | 本地 submit credit 耗尽时的处理方式。                |
-| `initialCredits`       | `number`                              |   否 | Client 侧容量控制使用的初始 submit credit。          |
+| 字段                    | 类型                                                    | 默认值                     | 说明                                                                   |
+| ----------------------- | ------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------- |
+| `requestedSessionId`    | `number`                                                | `0`                        | 首选 wire session id；零值由 server 分配。                             |
+| `profileId`             | `number`                                                | 标准 token profile         | 请求的 profile registry id。                                           |
+| `schemaId`              | `number`                                                | token-delta schema id      | 请求的 schema registry id。                                            |
+| `schemaVersion`         | `number`                                                | token-delta schema version | 请求的 schema version。                                                |
+| `priorityClass`         | [`NnrpSessionPriorityClass`](#nnrpsessionpriorityclass) | `Balanced`                 | 请求的调度类别。                                                       |
+| `defaultDeadlineMillis` | `number`                                                | `500`                      | 默认 operation deadline。                                              |
+| `maxInFlightOperations` | `number`                                                | `4`                        | 请求的 session 并发上限。                                              |
+| `leaseTtlHintMillis`    | `number`                                                | `30000`                    | 请求的 cache lease lifetime。                                          |
+| `allowResume`           | `boolean`                                               | `false`                    | 启用 resumable-session 协商。                                          |
+| `resumeTokenBytes`      | `number`                                                | `0`                        | 本地接受的 opaque recovery-token 最大字节数；零值使用 runtime 默认值。 |
+| `cacheHints`            | `readonly NnrpCacheObjectKind[]`                        | `[]`                       | 合入自动 `CLIENT_HELLO` 的 connection capability hint。                |
+
+所有数值字段都按冻结 wire 宽度校验。Handle、generation、认证长度、extension 长度与 client tag 均由
+runtime 派生或仅供内部使用，不是公开选项。Cadence、quality tier、application metadata、
+submit-capacity policy 与本地 credit update 属于 profile、patch 或 flow-control API，不属于
+`SESSION_OPEN`。
 
 ### `NnrpBrowserSessionOptions`
 
-与 [`NnrpSessionOptions`](#nnrpsessionoptions) 相同，但作用域是 browser client。
+与 [`NnrpSessionOptions`](#nnrpsessionoptions) 具有相同字段和默认值，但作用域是 browser client。
+Browser host 持有 WebSocket carrier；Rust WASM 持有 handshake、多 session、resume 与 recovery-ticket
+语义。
 
 ### `NnrpEventPollOptions`
 

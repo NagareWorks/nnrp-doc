@@ -97,17 +97,36 @@ const client = runtime.connect({
 
 Opens a client session. Native and browser clients expose the same session concept.
 
-| Parameter | Type                                                                                                     | Required | Description                                         |
-| --------- | -------------------------------------------------------------------------------------------------------- | -------: | --------------------------------------------------- |
-| `options` | [`NnrpSessionOptions`](#nnrpsessionoptions) or [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |       No | Input profile, cadence, quality tier, and metadata. |
+| Parameter | Type                                                                                                     | Required | Description                                                          |
+| --------- | -------------------------------------------------------------------------------------------------------- | -------: | -------------------------------------------------------------------- |
+| `options` | [`NnrpSessionOptions`](#nnrpsessionoptions) or [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |       No | Transport-neutral `SESSION_OPEN` intent and local recovery capacity. |
 
-| Returns                                           |
-| ------------------------------------------------- |
-| `NnrpClientSession` or `NnrpBrowserClientSession` |
+| Returns                                                             |
+| ------------------------------------------------------------------- |
+| `Promise<NnrpClientSession>` or `Promise<NnrpBrowserClientSession>` |
 
 ```ts
-const session = client.openSession({ inputProfile: "tensor" });
+const session = await client.openSession({ profileId: 1 });
 ```
+
+`openSession` completes only after the runtime has finished the automatic connection handshake and
+received `SESSION_OPEN_ACK`. It does not return a lazy session wrapper.
+
+## `NnrpClient.resumeSession`
+
+Resumes one runtime-issued session on the existing logical client connection. Native and browser
+clients expose the same asynchronous operation.
+
+| Parameter | Type                                                                                                     | Required | Description                                      |
+| --------- | -------------------------------------------------------------------------------------------------------- | -------: | ------------------------------------------------ |
+| `ticket`  | [`NnrpSessionRecoveryTicket`](./core#nnrpsessionrecoveryticket)                                          |      Yes | Opaque canonical NRTK ticket issued by runtime.  |
+| `options` | [`NnrpSessionOptions`](#nnrpsessionoptions) or [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |       No | Optional overrides for the resumed session open. |
+
+| Returns                                                             |
+| ------------------------------------------------------------------- |
+| `Promise<NnrpClientSession>` or `Promise<NnrpBrowserClientSession>` |
+
+Invalid, expired, truncated, or unknown tickets reject. They never fall back to a fresh session.
 
 ## Client Lifecycle Methods
 
@@ -115,7 +134,7 @@ These methods have the same shape on `NnrpClient` and `NnrpBrowserClient`.
 
 | Method                                  | Parameters                                                                     | Returns                     | Description                                                  |
 | --------------------------------------- | ------------------------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------ |
-| `nextSessionEvent(sessionId, options?)` | `sessionId: string`, [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>` | Reads the next event for one session.                        |
+| `nextSessionEvent(sessionId, options?)` | `sessionId: number`, [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>` | Reads the next event for one negotiated session.             |
 | `close()`                               | None                                                                           | `Promise<void>`             | Closes owned sessions, the role connection, and the runtime. |
 
 ## `ClientSession.submit`
@@ -250,15 +269,16 @@ Reads the next runtime event.
 
 ## Client Session Lifecycle And Results
 
-| Method                 | Parameters                                                        | Returns                           | Description                                                                 |
-| ---------------------- | ----------------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------- |
-| `inFlightFrames()`     | None                                                              | `readonly number[]`               | Returns frame ids that have not reached terminal state.                     |
-| `completeEvent(event)` | [`event: NnrpRuntimeEvent`](./runtime#typed-runtime-frame-events) | `void`                            | Applies terminal bookkeeping for an externally consumed event.              |
-| `nextResult(options?)` | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `Promise<NnrpResult>`             | Skips non-result events and returns the next terminal result.               |
-| `migrate(request)`     | [`request: NnrpSessionMigrationRequest`](./core#data-types)       | `Promise<void>`                   | Requests session migration; unsupported runtimes return a typed diagnostic. |
-| `patch(request)`       | [`request: NnrpSessionPatchRequest`](./core#data-types)           | `Promise<NnrpSessionPatchResult>` | Applies mutable session metadata, profile, cadence, quality, or credits.    |
-| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `AsyncIterable<NnrpRuntimeEvent>` | Iterates events until the session closes or polling fails.                  |
-| `close()`              | None                                                              | `Promise<void>`                   | Closes the role session and releases its in-flight state.                   |
+| Method                 | Parameters                                                        | Returns                                  | Description                                                                   |
+| ---------------------- | ----------------------------------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------- |
+| `inFlightFrames()`     | None                                                              | `readonly number[]`                      | Returns frame ids that have not reached terminal state.                       |
+| `completeEvent(event)` | [`event: NnrpRuntimeEvent`](./runtime#typed-runtime-frame-events) | `void`                                   | Applies terminal bookkeeping for an externally consumed event.                |
+| `nextResult(options?)` | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `Promise<NnrpResult>`                    | Skips non-result events and returns the next terminal result.                 |
+| `migrate(request)`     | [`request: NnrpSessionMigrationRequest`](./core#data-types)       | `Promise<void>`                          | Requests session migration; unsupported runtimes return a typed diagnostic.   |
+| `patch(request)`       | [`request: NnrpSessionPatchRequest`](./core#data-types)           | `Promise<NnrpSessionPatchResult>`        | Applies mutable session metadata, profile, cadence, quality, or credits.      |
+| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `AsyncIterable<NnrpRuntimeEvent>`        | Iterates events until the session closes or polling fails.                    |
+| `recoveryTicket()`     | None                                                              | `NnrpSessionRecoveryTicket \| undefined` | Returns the latest runtime-issued ticket snapshot when resume was negotiated. |
+| `close()`              | None                                                              | `Promise<void>`                          | Closes the role session and releases its in-flight state.                     |
 
 ## Runtime Differences
 
@@ -273,14 +293,14 @@ Reads the next runtime event.
 
 ### `NnrpNativeClientOptions`
 
-| Field              | Type                                                    | Required | Description                                                                             |
-| ------------------ | ------------------------------------------------------- | -------: | --------------------------------------------------------------------------------------- |
-| `endpoint`         | `string \| URL`                                         |      Yes | Remote NNRP endpoint.                                                                   |
-| `providerRoutes`   | `NnrpClientProviderRoutes`                              |       No | Per-carrier locator and peer-verification configuration.                                |
-| `transportPolicy`  | [`NnrpTransportPolicy`](./core#data-types)              |       No | `auto`, `prefer-*`, or `force-*` selection policy.                                      |
-| `transports`       | `readonly NnrpNativeTransportProvider[]`                |       No | Installed native transport providers. See [Transport Providers](./transport).           |
-| `sessionDefaults`  | [`NnrpSessionOptions`](#nnrpsessionoptions)             |       No | Defaults applied when sessions omit values.                                             |
-| `ffi`              | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled integration and tests.                           |
+| Field             | Type                                                    | Required | Description                                                                   |
+| ----------------- | ------------------------------------------------------- | -------: | ----------------------------------------------------------------------------- |
+| `endpoint`        | `string \| URL`                                         |      Yes | Remote NNRP endpoint.                                                         |
+| `providerRoutes`  | `NnrpClientProviderRoutes`                              |       No | Per-carrier locator and peer-verification configuration.                      |
+| `transportPolicy` | [`NnrpTransportPolicy`](./core#data-types)              |       No | `auto`, `prefer-*`, or `force-*` selection policy.                            |
+| `transports`      | `readonly NnrpNativeTransportProvider[]`                |       No | Installed native transport providers. See [Transport Providers](./transport). |
+| `sessionDefaults` | [`NnrpSessionOptions`](#nnrpsessionoptions)             |       No | Defaults applied when sessions omit values.                                   |
+| `ffi`             | [`NnrpNativeFfiBinding`](./native#nnrpnativeffibinding) |       No | Explicit native binding for controlled integration and tests.                 |
 
 ### `NnrpBrowserRuntimeOptions`
 
@@ -297,26 +317,45 @@ Reads the next runtime event.
 | Field                | Type                                                      | Required | Description                                          |
 | -------------------- | --------------------------------------------------------- | -------: | ---------------------------------------------------- |
 | `endpoint`           | `string`                                                  |      Yes | Remote `nnrp://` or `nnrps://` application endpoint. |
-| `providerRoutes`     | `NnrpClientProviderRoutes`                              |       No | WebSocket route; browser trust remains host-owned.   |
+| `providerRoutes`     | `NnrpClientProviderRoutes`                                |       No | WebSocket route; browser trust remains host-owned.   |
 | `transportPolicy`    | [`NnrpTransportPolicy`](./core#data-types)                |       No | Selection policy.                                    |
 | `transportProviders` | `readonly NnrpBrowserTransportProvider[]`                 |       No | Browser providers for this connection.               |
 | `sessionDefaults`    | [`NnrpBrowserSessionOptions`](#nnrpbrowsersessionoptions) |       No | Defaults applied when sessions omit values.          |
 
+### `NnrpSessionPriorityClass`
+
+| Member        | Wire value | Meaning                                                         |
+| ------------- | ---------: | --------------------------------------------------------------- |
+| `Interactive` |          0 | Latency-sensitive work that should be scheduled first.          |
+| `Balanced`    |          1 | Default scheduling class for ordinary interactive workloads.    |
+| `Background`  |          2 | Throughput-oriented work that may yield to interactive traffic. |
+
 ### `NnrpSessionOptions`
 
-| Field                  | Type                                    | Required | Description                                                    |
-| ---------------------- | --------------------------------------- | -------: | -------------------------------------------------------------- |
-| `sessionId`            | `string`                                |       No | Caller-visible session identity.                               |
-| `inputProfile`         | [`NnrpInputProfile`](./core#data-types) |       No | Input profile such as `tensor`, `token`, or `tool_delta`.      |
-| `targetCadence`        | `number`                                |       No | Requested cadence.                                             |
-| `qualityTier`          | `number`                                |       No | Application quality tier.                                      |
-| `metadata`             | `Readonly<Record<string, string>>`      |       No | Application metadata attached to the session.                  |
-| `submitCapacityPolicy` | `"reject" \| "await"`                   |       No | Behavior when local submit credits are exhausted.              |
-| `initialCredits`       | `number`                                |       No | Initial local submit credits for client-side capacity control. |
+| Field                   | Type                                                    | Default                    | Description                                                                      |
+| ----------------------- | ------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------- |
+| `requestedSessionId`    | `number`                                                | `0`                        | Preferred wire session id; zero lets the server assign it.                       |
+| `profileId`             | `number`                                                | standard token profile     | Requested profile registry id.                                                   |
+| `schemaId`              | `number`                                                | token-delta schema id      | Requested schema registry id.                                                    |
+| `schemaVersion`         | `number`                                                | token-delta schema version | Requested schema version.                                                        |
+| `priorityClass`         | [`NnrpSessionPriorityClass`](#nnrpsessionpriorityclass) | `Balanced`                 | Requested scheduling class.                                                      |
+| `defaultDeadlineMillis` | `number`                                                | `500`                      | Default operation deadline.                                                      |
+| `maxInFlightOperations` | `number`                                                | `4`                        | Requested session concurrency ceiling.                                           |
+| `leaseTtlHintMillis`    | `number`                                                | `30000`                    | Requested cache lease lifetime.                                                  |
+| `allowResume`           | `boolean`                                               | `false`                    | Enables resumable-session negotiation.                                           |
+| `resumeTokenBytes`      | `number`                                                | `0`                        | Maximum opaque recovery-token bytes accepted locally; zero uses runtime default. |
+| `cacheHints`            | `readonly NnrpCacheObjectKind[]`                        | `[]`                       | Connection capability hints folded into automatic `CLIENT_HELLO`.                |
+
+All numeric fields are range-checked against their frozen wire widths. Handles, generations,
+authentication lengths, extension lengths, and client tags are derived or internal and are not
+public options. Cadence, quality tier, application metadata, submit-capacity policy, and local
+credit updates belong to profile, patch, or flow-control APIs rather than `SESSION_OPEN`.
 
 ### `NnrpBrowserSessionOptions`
 
-Same shape as [`NnrpSessionOptions`](#nnrpsessionoptions), scoped to browser clients.
+Same shape and defaults as [`NnrpSessionOptions`](#nnrpsessionoptions), scoped to browser clients.
+The browser host owns the WebSocket carrier while Rust WASM owns handshake, multiplexed session,
+resume, and recovery-ticket semantics.
 
 ### `NnrpEventPollOptions`
 

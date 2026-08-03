@@ -63,7 +63,7 @@ const client = await openNativeClient({
   ],
 });
 
-const session = client.openSession({ inputProfile: "tensor" });
+const session = await client.openSession({ profileId: 1 });
 
 const result = await session.submit({
   operationId: 1n,
@@ -126,7 +126,7 @@ const client = runtime.connect({
   transportPolicy: "auto",
 });
 
-const session = client.openSession({ inputProfile: "token" });
+const session = await client.openSession({ profileId: 2 });
 ```
 
 ## 包边界清单

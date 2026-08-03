@@ -59,8 +59,9 @@ Creates the default browser WASM capability manifest.
 
 ## `selectTransport`
 
-Selects rank `0` from candidates ordered by the frozen transport comparator. When no candidate is selectable it throws
-`NnrpTransportSelectionError`, whose `selection` retains the complete ordered candidate list.
+Selects rank `0` from candidates ordered by the frozen transport comparator. When no candidate is
+selectable it throws `NnrpTransportSelectionError`, whose `selection` retains the complete ordered
+candidate list.
 
 | Parameter    | Type                                | Required | Description                                                               |
 | ------------ | ----------------------------------- | -------: | ------------------------------------------------------------------------- |
@@ -75,8 +76,8 @@ Selects rank `0` from candidates ordered by the frozen transport comparator. Whe
 
 Builds transport candidates from local and peer manifests.
 
-| Parameter | Type                            | Required | Description                                         |
-| --------- | ------------------------------- | -------: | --------------------------------------------------- |
+| Parameter | Type                            | Required | Description                                                                                        |
+| --------- | ------------------------------- | -------: | -------------------------------------------------------------------------------------------------- |
 | `options` | `NnrpTransportCandidateOptions` |      Yes | Local/peer manifests, provider metadata, requested frame limit, readiness, and probe observations. |
 
 | Returns                             |
@@ -139,23 +140,37 @@ Validates and normalizes submit payloads.
 
 ## Cache and Schema Helpers
 
-| Function | Parameters | Returns | Description |
-| -------- | ---------- | ------- | ----------- |
-| `createCacheKey` | `kind: NnrpCacheObjectKind`, `key: bigint \| number \| string`, `namespaceId?: number` | `NnrpCacheKey` | Creates the canonical 128-bit cache identity used by submit and cache operations. |
-| `createSchemaDescriptor` | `descriptor: NnrpSchemaDescriptor` | `NnrpSchemaDescriptor` | Validates and snapshots a schema descriptor. |
-| `normalizeCachePutRequest` | `request: NnrpCachePutRequest` | `NnrpCachePutRequest` | Validates cache identity, lease, payload, and metadata fields. |
-| `normalizeCacheInvalidateRequest` | `request: NnrpCacheInvalidateRequest` | `NnrpCacheInvalidateRequest` | Validates an explicit cache invalidation request. |
-| `isStandardInputProfile` | `profile: string` | `profile is NnrpInputProfile` | Tests membership in `NNRP_STANDARD_INPUT_PROFILES`. |
+| Function                          | Parameters                                                                             | Returns                       | Description                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------- |
+| `createCacheKey`                  | `kind: NnrpCacheObjectKind`, `key: bigint \| number \| string`, `namespaceId?: number` | `NnrpCacheKey`                | Creates the canonical 128-bit cache identity used by submit and cache operations. |
+| `createSchemaDescriptor`          | `descriptor: NnrpSchemaDescriptor`                                                     | `NnrpSchemaDescriptor`        | Validates and snapshots a schema descriptor.                                      |
+| `normalizeCachePutRequest`        | `request: NnrpCachePutRequest`                                                         | `NnrpCachePutRequest`         | Validates cache identity, lease, payload, and metadata fields.                    |
+| `normalizeCacheInvalidateRequest` | `request: NnrpCacheInvalidateRequest`                                                  | `NnrpCacheInvalidateRequest`  | Validates an explicit cache invalidation request.                                 |
+| `isStandardInputProfile`          | `profile: string`                                                                      | `profile is NnrpInputProfile` | Tests membership in `NNRP_STANDARD_INPUT_PROFILES`.                               |
 
 ## Recovery and Session Helpers
 
-| Function | Parameters | Returns | Description |
-| -------- | ---------- | ------- | ----------- |
-| `createRecoveryToken` | `token: string \| NnrpBinaryPayload`, `metadata?: Readonly<Record<string, string>>` | `NnrpRecoveryToken` | Creates an owned recovery token and metadata snapshot. |
-| `normalizeSessionMigrationRequest` | `request: NnrpSessionMigrationRequest` | `NnrpSessionMigrationRequest` | Validates the destination and recovery token for session migration. |
-| `throwIfResultDrop` | `event: NnrpRuntimeEvent` | `void` | Throws `NnrpResultDropError` when the event records a dropped result. |
-| `validateSessionMetadata` | `options?: NnrpSessionMetadataOptions` | `void` | Validates profile, cadence, quality, and metadata fields. |
-| `normalizeSessionPatchRequest` | `request: NnrpSessionPatchRequest` | `NnrpSessionPatchRequest` | Validates and snapshots a session metadata or flow-control patch. |
+| Function                           | Parameters                                                                          | Returns                       | Description                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------- |
+| `createRecoveryToken`              | `token: string \| NnrpBinaryPayload`, `metadata?: Readonly<Record<string, string>>` | `NnrpRecoveryToken`           | Creates an owned recovery token and metadata snapshot.                |
+| `normalizeSessionMigrationRequest` | `request: NnrpSessionMigrationRequest`                                              | `NnrpSessionMigrationRequest` | Validates the destination and recovery token for session migration.   |
+| `throwIfResultDrop`                | `event: NnrpRuntimeEvent`                                                           | `void`                        | Throws `NnrpResultDropError` when the event records a dropped result. |
+| `validateSessionMetadata`          | `options?: NnrpSessionMetadataOptions`                                              | `void`                        | Validates profile, cadence, quality, and metadata fields.             |
+| `normalizeSessionPatchRequest`     | `request: NnrpSessionPatchRequest`                                                  | `NnrpSessionPatchRequest`     | Validates and snapshots a session metadata or flow-control patch.     |
+
+## `NnrpSessionRecoveryTicket`
+
+`NnrpSessionRecoveryTicket` is the opaque runtime-issued value used by `resumeSession`. Applications
+may persist it, but cannot construct or mutate its resume token.
+
+| Member                                         | Parameters            | Returns                     | Description                                                  |
+| ---------------------------------------------- | --------------------- | --------------------------- | ------------------------------------------------------------ |
+| `toBytes()`                                    | None                  | `Uint8Array`                | Encodes the canonical little-endian NRTK version 1 envelope. |
+| `NnrpSessionRecoveryTicket.fromBytes(encoded)` | `encoded: Uint8Array` | `NnrpSessionRecoveryTicket` | Validates and decodes one exact NRTK envelope.               |
+
+The readonly semantic fields are `sessionId`, a defensive-copy `resumeToken`, optional
+`resumeFromOperationId`, and `resumeWindowMillis`. Decoding rejects wrong magic or version, reserved
+flags, zero session id, an empty token, truncation, and trailing bytes.
 
 ## `validateEventPollOptions`
 
@@ -173,45 +188,60 @@ Validates event polling options.
 
 ### Capability and Transport
 
-| Type                            | Description                                                                                                                    |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `NnrpBuildMode`                 | `"backend-native" \| "browser-wasm"`.                                                                                          |
-| `NnrpTransportKind`             | `"tcp" \| "quic" \| "ipc" \| "websocket"`.                                                                                     |
-| `NnrpTransportPolicy`           | `"auto"`, `"prefer-quic"`, `"prefer-tcp"`, `"prefer-ipc"`, `"prefer-websocket"`, and the four corresponding `force-*` values.  |
-| `NnrpCapability`                | Capability claim such as `client.session`, `server.session`, `native.loader`, `wasm.loader`, `cache`, `schema`, or `recovery`. |
-| `NnrpCapabilityManifest`        | Protocol name/version, build mode, transports, and capabilities.                                                               |
-| `NnrpTransportProviderCost`     | Frozen provider `modelId` and `units`.                                                                                          |
-| `NnrpTransportProviderLimits`   | Frozen provider `maxFrameBytes`.                                                                                                |
-| `NnrpTransportProviderLimitation` | Union of the seven registered limitation strings.                                                                             |
-| `NnrpTransportProviderMetadata` | Provider id, cost, preference rank, limits, and registered limitations.                                                         |
-| `NnrpTransportProviderObservation` | Provider kind, metadata, local availability, and optional diagnostic.                                                       |
-| `NnrpTransportCandidateReadiness` | Provider identity, route/security readiness, and optional diagnostic.                                                               |
-| `NnrpTransportProbeState`       | `"not-run" \| "succeeded" \| "failed" \| "missing"`.                                                                    |
-| `NnrpTransportProbeMetrics`     | Sample/success counts, median throughput, and median RTT.                                                                       |
-| `NnrpTransportProbeObservation` | Provider identity, succeeded/failed state, optional metrics, and optional diagnostic.                                           |
-| `NnrpTransportRejectionReason`  | Union of the eight registered rejection strings.                                                                                |
-| `NnrpTransportCandidate`        | Provider metadata, availability, peer/limit eligibility, probe state/metrics, selection rank, rejection reason, and diagnostic. |
-| `NnrpTransportSelectionSummary` | Selected transport plus rejected candidates.                                                                                   |
-| `NnrpTransportSelectionError`   | Typed error with `code`, diagnostic, and optional `selection`; `INVALID_EVIDENCE` occurs before selection, while valid selection failures retain every ordered candidate. |
+| Type                               | Description                                                                                                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NnrpBuildMode`                    | `"backend-native" \| "browser-wasm"`.                                                                                                                                     |
+| `NnrpTransportKind`                | `"tcp" \| "quic" \| "ipc" \| "websocket"`.                                                                                                                                |
+| `NnrpTransportPolicy`              | `"auto"`, `"prefer-quic"`, `"prefer-tcp"`, `"prefer-ipc"`, `"prefer-websocket"`, and the four corresponding `force-*` values.                                             |
+| `NnrpCapability`                   | Capability claim such as `client.session`, `server.session`, `native.loader`, `wasm.loader`, `cache`, `schema`, or `recovery`.                                            |
+| `NnrpCapabilityManifest`           | Protocol name/version, build mode, transports, and capabilities.                                                                                                          |
+| `NnrpTransportProviderCost`        | Frozen provider `modelId` and `units`.                                                                                                                                    |
+| `NnrpTransportProviderLimits`      | Frozen provider `maxFrameBytes`.                                                                                                                                          |
+| `NnrpTransportProviderLimitation`  | Union of the seven registered limitation strings.                                                                                                                         |
+| `NnrpTransportProviderMetadata`    | Provider id, cost, preference rank, limits, and registered limitations.                                                                                                   |
+| `NnrpTransportProviderObservation` | Provider kind, metadata, local availability, and optional diagnostic.                                                                                                     |
+| `NnrpTransportCandidateReadiness`  | Provider identity, route/security readiness, and optional diagnostic.                                                                                                     |
+| `NnrpTransportProbeState`          | `"not-run" \| "succeeded" \| "failed" \| "missing"`.                                                                                                                      |
+| `NnrpTransportProbeMetrics`        | Sample/success counts, median throughput, and median RTT.                                                                                                                 |
+| `NnrpTransportProbeObservation`    | Provider identity, succeeded/failed state, optional metrics, and optional diagnostic.                                                                                     |
+| `NnrpTransportRejectionReason`     | Union of the eight registered rejection strings.                                                                                                                          |
+| `NnrpTransportCandidate`           | Provider metadata, availability, peer/limit eligibility, probe state/metrics, selection rank, rejection reason, and diagnostic.                                           |
+| `NnrpTransportSelectionSummary`    | Selected transport plus rejected candidates.                                                                                                                              |
+| `NnrpTransportSelectionError`      | Typed error with `code`, diagnostic, and optional `selection`; `INVALID_EVIDENCE` occurs before selection, while valid selection failures retain every ordered candidate. |
 
 `NnrpTransportCandidate` uses camelCase forms of the canonical fields frozen in
-[Transport Strategy and Probing](/en/protocol/v1/transport-strategy): `kind`, `provider`, `localAvailable`,
-`peerSupported`, `withinLimits`, `probeState`, optional `probe`, optional `selectionRank`, optional
-`rejectionReason`, and optional `diagnostic`. The public type has no opaque `score` field.
+[Transport Strategy and Probing](/en/protocol/v1/transport-strategy): `kind`, `provider`,
+`localAvailable`, `peerSupported`, `withinLimits`, `probeState`, optional `probe`, optional
+`selectionRank`, optional `rejectionReason`, and optional `diagnostic`. The public type has no
+opaque `score` field.
 
 ```ts
 type NnrpTransportProviderLimitation =
-  | "requires-udp" | "requires-tcp" | "local-host-only"
-  | "native-host-only" | "browser-host-only"
-  | "unix-domain-socket" | "windows-named-pipe";
+  | "requires-udp"
+  | "requires-tcp"
+  | "local-host-only"
+  | "native-host-only"
+  | "browser-host-only"
+  | "unix-domain-socket"
+  | "windows-named-pipe";
 type NnrpTransportProbeState = "not-run" | "succeeded" | "failed" | "missing";
 type NnrpTransportRejectionReason =
-  | "policy-disallowed" | "local-unavailable" | "peer-unsupported"
-  | "limit-exceeded" | "route-unresolved" | "security-unsatisfied"
-  | "probe-missing" | "probe-failed";
+  | "policy-disallowed"
+  | "local-unavailable"
+  | "peer-unsupported"
+  | "limit-exceeded"
+  | "route-unresolved"
+  | "security-unsatisfied"
+  | "probe-missing"
+  | "probe-failed";
 
-interface NnrpTransportProviderCost { readonly modelId: number; readonly units: bigint; }
-interface NnrpTransportProviderLimits { readonly maxFrameBytes: bigint; }
+interface NnrpTransportProviderCost {
+  readonly modelId: number;
+  readonly units: bigint;
+}
+interface NnrpTransportProviderLimits {
+  readonly maxFrameBytes: bigint;
+}
 interface NnrpTransportProviderMetadata {
   readonly id: string;
   readonly cost: NnrpTransportProviderCost;
@@ -267,20 +297,21 @@ interface NnrpTransportCandidateOptions {
 }
 ```
 
-Provider observations must contain unique transport kinds and unique provider ids. Readiness is required for every
-provider. Readiness and probe observations are matched by `(kind, providerId)`; duplicate or unmatched evidence is a
-contract error. Missing probe observations remain distinguishable from observations whose state is `"failed"`.
+Provider observations must contain unique transport kinds and unique provider ids. Readiness is
+required for every provider. Readiness and probe observations are matched by `(kind, providerId)`;
+duplicate or unmatched evidence is a contract error. Missing probe observations remain
+distinguishable from observations whose state is `"failed"`.
 
 ### Submit, Result, and Events
 
-| Type                   | Description                                                                                 |
-| ---------------------- | ------------------------------------------------------------------------------------------- |
-| `NnrpInputProfile`     | One of the standard profiles: `tensor`, `token`, `structured_event`, or `tool_delta`.       |
-| `NnrpSubmitMode`       | `"inline" \| "object-reference"`.                                                           |
+| Type                   | Description                                                                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `NnrpInputProfile`     | One of the standard profiles: `tensor`, `token`, `structured_event`, or `tool_delta`.                                              |
+| `NnrpSubmitMode`       | `"inline" \| "object-reference"`.                                                                                                  |
 | `NnrpSubmitRequest`    | Non-zero `operationId: bigint`, independent `frameId`, payload/tensors, profile, submit mode, cache key, descriptor, and metadata. |
-| `NnrpResult`           | Non-zero operation id, canonical terminal state, and closed runtime-or-lifecycle evidence.  |
-| `NnrpRuntimeEvent`     | Complete wire header, typed metadata union, and semantic tail.                              |
-| `NnrpEventPollOptions` | Optional `timeoutMillis`.                                                                   |
+| `NnrpResult`           | Non-zero operation id, canonical terminal state, and closed runtime-or-lifecycle evidence.                                         |
+| `NnrpRuntimeEvent`     | Complete wire header, typed metadata union, and semantic tail.                                                                     |
+| `NnrpEventPollOptions` | Optional `timeoutMillis`.                                                                                                          |
 
 ```ts
 interface NnrpResult {
@@ -299,33 +330,34 @@ interface NnrpOperationLifecycleEvent {
 }
 ```
 
-`NnrpResultTerminalState` is `"success" | "cancelled" | "dropped" | "error"`.
-`NnrpOperationState` is `"accepted" | "running" | "partial" | "waiting-tool" |
-"superseded" | "cancelled" | "failed" | "completed"`. Successful results preserve
-`RESULT_PUSH`; non-success results preserve the exact wire or local lifecycle event. An
-`NnrpOperationLifecycleEvent` is local role state and never carries a fabricated
+`NnrpResultTerminalState` is `"success" | "cancelled" | "dropped" | "error"`. `NnrpOperationState`
+is
+`"accepted" | "running" | "partial" | "waiting-tool" |
+"superseded" | "cancelled" | "failed" | "completed"`.
+Successful results preserve `RESULT_PUSH`; non-success results preserve the exact wire or local
+lifecycle event. An `NnrpOperationLifecycleEvent` is local role state and never carries a fabricated
 `NnrpRuntimeFrameHeader`. `NnrpTerminalEvent` always contains exactly one variant; nullable parallel
 runtime and lifecycle fields are not part of the API.
 
 Additional public types used by these contracts:
 
-| Type | Description |
-| ---- | ----------- |
-| `NnrpOperationId` | Non-zero operation identity represented as `bigint`. |
-| `NnrpOperationState` | Canonical eight-state operation lifecycle listed above. |
-| `NnrpSubmitCapacityPolicy` | `"reject" \| "await"` behavior when local submit credit is exhausted. |
-| `NnrpBinaryPayload` | `Uint8Array \| ArrayBufferView`. |
-| `NnrpTensorSection`, `NnrpNormalizedTensorSection` | Tensor byte section before and after request normalization. |
-| `NnrpPayloadDescriptor` | Optional schema id, content type, and encoding for a payload. |
-| `NnrpSchemaFlag`, `NnrpSchemaDescriptor` | Registered schema flags and the validated schema contract. |
-| `NnrpCacheKey`, `NnrpCacheMetadata` | Canonical cache identity and caller metadata. |
-| `NnrpCacheOperationStatus` | `accepted`, `stored`, `invalidated`, `miss`, or `rejected`. |
-| `NnrpCachePutRequest`, `NnrpCachePutResult` | Explicit cache put request and result. |
-| `NnrpCacheInvalidateRequest`, `NnrpCacheInvalidateResult` | Explicit invalidation request and result. |
-| `NnrpRecoveryToken`, `NnrpSessionMigrationEvent` | Recovery token and typed migration lifecycle events. |
-| `NnrpSessionMetadataOptions`, `NnrpSessionFlowControlOptions` | Reusable session metadata and credit-window options. |
-| `NnrpFlowUpdateMetadata`, `NnrpResultHintMetadata` | Structured flow update and result-hint payloads. |
-| `NnrpAbortSignalLike` | Runtime-neutral abort signal accepted by asynchronous SDK methods. |
+| Type                                                          | Description                                                           |
+| ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `NnrpOperationId`                                             | Non-zero operation identity represented as `bigint`.                  |
+| `NnrpOperationState`                                          | Canonical eight-state operation lifecycle listed above.               |
+| `NnrpSubmitCapacityPolicy`                                    | `"reject" \| "await"` behavior when local submit credit is exhausted. |
+| `NnrpBinaryPayload`                                           | `Uint8Array \| ArrayBufferView`.                                      |
+| `NnrpTensorSection`, `NnrpNormalizedTensorSection`            | Tensor byte section before and after request normalization.           |
+| `NnrpPayloadDescriptor`                                       | Optional schema id, content type, and encoding for a payload.         |
+| `NnrpSchemaFlag`, `NnrpSchemaDescriptor`                      | Registered schema flags and the validated schema contract.            |
+| `NnrpCacheKey`, `NnrpCacheMetadata`                           | Canonical cache identity and caller metadata.                         |
+| `NnrpCacheOperationStatus`                                    | `accepted`, `stored`, `invalidated`, `miss`, or `rejected`.           |
+| `NnrpCachePutRequest`, `NnrpCachePutResult`                   | Explicit cache put request and result.                                |
+| `NnrpCacheInvalidateRequest`, `NnrpCacheInvalidateResult`     | Explicit invalidation request and result.                             |
+| `NnrpRecoveryToken`, `NnrpSessionMigrationEvent`              | Recovery token and typed migration lifecycle events.                  |
+| `NnrpSessionMetadataOptions`, `NnrpSessionFlowControlOptions` | Reusable session metadata and credit-window options.                  |
+| `NnrpFlowUpdateMetadata`, `NnrpResultHintMetadata`            | Structured flow update and result-hint payloads.                      |
+| `NnrpAbortSignalLike`                                         | Runtime-neutral abort signal accepted by asynchronous SDK methods.    |
 
 ### Errors
 
@@ -336,8 +368,8 @@ Additional public types used by these contracts:
 | `NnrpTransportError`  | Transport error.                                    |
 | `NnrpTimeoutError`    | Timeout error.                                      |
 | `NnrpProtocolError`   | Request shape or protocol validation error.         |
-| `NnrpResultDropError` | Typed terminal evidence for a dropped result.        |
-| `NnrpRecoveryError`   | Recovery or migration capability failure.            |
+| `NnrpResultDropError` | Typed terminal evidence for a dropped result.       |
+| `NnrpRecoveryError`   | Recovery or migration capability failure.           |
 
 `NnrpDiagnosticSource` identifies the producing layer as `core`, `native`, `wasm`, `transport`,
 `protocol`, or `runtime`.
