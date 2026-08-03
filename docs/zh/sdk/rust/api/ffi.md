@@ -303,6 +303,13 @@ handle 不能跨 transport artifact 或同一 artifact 的重复加载实例传�
 `nnrp_server_accept` 接受 carrier connection，读取并校验 `SESSION_OPEN`，写回 ack，再返回 live
 server-session handle；它不能根据调用方传入的 profile/schema 值伪造 session。
 
+`nnrp_session_id(session, out_session_id)` 返回 live client-session 或 server-session handle
+协商完成后的 wire session id。只有传入 session handle 和非空 `uint32_t*` 输出指针时才成功。
+返回值是 runtime 握手确认的 id，不是调用方管理的 handle id，也不是
+`NnrpSessionOpenRequest.requested_session_id` 的回显。特别是 client 请求 id 为零时，该 accessor
+必须返回 server 分配的非零 id。binding 在 open、resume 或 accept 后必须通过该 accessor 填充公开的
+session identity。
+
 多 provider host 使用持久化 server-accept ticket API，因为 transport-scoped native library 各自拥有
 独立 handle store，不能跨 library 传递 Rust listener 对象。Host 使用 `nnrp_server_accept_begin` 为每个
 owned provider server 启动一个 ticket。Rust 持续持有 carrier accept 与 NNRP handshake future，直到
@@ -352,6 +359,7 @@ benchmark helper；它不能支撑 SDK client/server API 或 conformance harness
 | `nnrp_current_protocol_version` | 返回当前 protocol version。 |
 | `nnrp_client_connect` | 接管选中的 carrier connection，并创建 client connection handle。 |
 | `nnrp_client_open_session` | 执行 wire handshake，并创建 live client session handle。 |
+| `nnrp_session_id` | 返回 live client 或 server session handle 协商后的 wire session id。 |
 | `nnrp_client_submit` | 通过被接管 carrier 编码并写出一个 operation。 |
 | `nnrp_client_cancel` | 通过被接管 carrier 写出一条 `FRAME_CANCEL`。 |
 | `nnrp_client_await_event` | 从被接管 carrier 读取并解码一个 event。 |
