@@ -317,6 +317,13 @@ library instance; handles are never transferable across transport artifacts or d
 ack, and returns a live server-session handle. It does not manufacture a session from caller-supplied
 profile or schema values.
 
+`nnrp_session_id(session, out_session_id)` returns the negotiated wire session id for either a live
+client-session or server-session handle. It succeeds only for a session handle and a non-null
+`uint32_t*` output pointer argument. The value is the id confirmed by the runtime handshake, not the
+caller-owned handle id and not an echo of `NnrpSessionOpenRequest.requested_session_id`. In particular, when the
+client requests id zero, the accessor returns the non-zero id allocated by the server. Bindings MUST
+use this accessor to populate their public session identity after open, resume, or accept.
+
 Multi-provider hosts use the persistent server-accept ticket API because transport-scoped native
 libraries have independent handle stores and cannot exchange Rust listener objects. A host starts
 one ticket per owned provider server with `nnrp_server_accept_begin`. Rust keeps the carrier accept
@@ -373,6 +380,7 @@ they cannot back SDK client/server APIs or conformance harnesses.
 | `nnrp_current_protocol_version` | Returns the current protocol version. |
 | `nnrp_client_connect` | Adopts a selected carrier connection and creates a client connection handle. |
 | `nnrp_client_open_session` | Performs the wire handshake and creates a live client session handle. |
+| `nnrp_session_id` | Returns the negotiated wire session id for a live client or server session handle. |
 | `nnrp_client_submit` | Encodes and writes one operation through the adopted carrier. |
 | `nnrp_client_cancel` | Writes one `FRAME_CANCEL` through the adopted carrier. |
 | `nnrp_client_await_event` | Reads and decodes one event from the adopted carrier. |
