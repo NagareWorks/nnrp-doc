@@ -60,12 +60,40 @@ closes listeners already opened for this call and rejects the first `accept()`. 
 cannot derive a bind locator from `endpoint` requires an entry in `providerRoutes`; it is never
 omitted silently.
 
+`sessionDefaults` freezes transport-neutral negotiation, cache, credit, schema, recovery, and
+application admission settings for every accepted session. The application policy is evaluated
+exactly once for each wire-valid `SESSION_OPEN` and may complete asynchronously:
+
+```ts
+const server = runtime.listen({
+  endpoint: "nnrp://0.0.0.0:4433",
+  sessionDefaults: {
+    applicationPolicy: {
+      async evaluate(open) {
+        if (open.maxInFlightOperations > 32) {
+          return {
+            accepted: false,
+            sessionErrorCode: 17,
+            diagnostic: "requested concurrency is too high",
+          };
+        }
+        return { accepted: true, sessionErrorCode: 0 };
+      },
+    },
+  },
+});
+```
+
+The policy receives [`NnrpSessionOpenMetadata`](./core#data-types) and returns a
+`Promise<NnrpServerSessionPolicyDecision>`. Rejection is scoped to that peer handshake; it does not
+close the logical listener set.
+
 ## `NnrpBackendRuntime.selectTransport`
 
 Selects a transport against a peer manifest.
 
-| Parameter | Type                                                              | Required | Description                                                          |
-| --------- | ----------------------------------------------------------------- | -------: | -------------------------------------------------------------------- |
+| Parameter | Type                                                              | Required | Description                                                                          |
+| --------- | ----------------------------------------------------------------- | -------: | ------------------------------------------------------------------------------------ |
 | `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |      Yes | Peer manifest, workload limit, providers, policy, readiness, and probe observations. |
 
 | Returns                         |
@@ -77,18 +105,20 @@ Selects a transport against a peer manifest.
 | Method                                 | Parameters                                                        | Returns                      | Description                                                     |
 | -------------------------------------- | ----------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------- |
 | `NnrpBackendRuntime.close()`           | None                                                              | `Promise<void>`              | Closes accepted sessions, listeners, and the explicit FFI seam. |
-| `NnrpServer.accept()`                  | None                                                              | `Promise<NnrpServerSession>` | Accepts the next session from the owned carrier-listener set.   |
+| `NnrpServer.accept(options?)`          | [`options?: NnrpServerAcceptOptions`](#nnrpserveracceptoptions)   | `Promise<NnrpServerSession>` | Accepts the next session from the owned carrier-listener set.   |
 | `NnrpServer.close()`                   | None                                                              | `Promise<void>`              | Closes every owned carrier listener and accepted session.       |
 | `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>`  | Reads the next ordered submit, control, object, or cache event. |
 | `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#data-types)                         | `Promise<void>`              | Sends the one terminal result for the current operation.        |
 | `NnrpServerSession.close()`            | None                                                              | `Promise<void>`              | Closes the accepted role session exactly once.                  |
 
-`NnrpServerSession.activeTransport` is the `NnrpTransportKind` of the listener that accepted the carrier. It matches
-the negotiated active transport and is not derived from listener preference order.
+`NnrpServerSession.activeTransport` is the `NnrpTransportKind` of the listener that accepted the
+carrier. It matches the negotiated active transport and is not derived from listener preference
+order.
 
-`NnrpServer.boundProviderEndpoints` is a readonly partial record keyed by `NnrpTransportKind`, containing the actual
-endpoint of every opened listener. A terminal provider-listener failure fails the logical server and closes the
-remaining listener set; a rejected peer handshake affects only that accepted carrier.
+`NnrpServer.boundProviderEndpoints` is a readonly partial record keyed by `NnrpTransportKind`,
+containing the actual endpoint of every opened listener. A terminal provider-listener failure fails
+the logical server and closes the remaining listener set; a rejected peer handshake affects only
+that accepted carrier.
 
 ## Preview4 Server Session Methods
 
@@ -149,20 +179,57 @@ object-delta frames.
 
 ### `NnrpListenOptions`
 
-| Field               | Type                                                          | Required | Description                                               |
-| ------------------- | ------------------------------------------------------------- | -------: | --------------------------------------------------------- |
-| `endpoint`          | `string \| URL`                                               |      Yes | Local NNRP endpoint shared by the logical listener set.   |
-| `providerRoutes`    | `NnrpServerProviderRoutes`                                     |       No | Per-carrier bind locator and server security.              |
-| `transportPolicy`   | [`NnrpTransportPolicy`](./core#data-types)                    |       No | Listener-set eligibility and stable preference policy.    |
-| `transports`        | `readonly NnrpNativeTransportProvider[]`                      |       No | Transport providers allowed in this logical listener set. |
+| Field             | Type                                                    | Required | Description                                               |
+| ----------------- | ------------------------------------------------------- | -------: | --------------------------------------------------------- |
+| `endpoint`        | `string \| URL`                                         |      Yes | Local NNRP endpoint shared by the logical listener set.   |
+| `providerRoutes`  | `NnrpServerProviderRoutes`                              |       No | Per-carrier bind locator and server security.             |
+| `transportPolicy` | [`NnrpTransportPolicy`](./core#data-types)              |       No | Listener-set eligibility and stable preference policy.    |
+| `transports`      | `readonly NnrpNativeTransportProvider[]`                |       No | Transport providers allowed in this logical listener set. |
+| `sessionDefaults` | [`NnrpServerSessionOptions`](#nnrpserversessionoptions) |       No | Negotiation and admission defaults for accepted sessions. |
+
+### `NnrpServerSessionOptions`
+
+| Field                    | Type                                                  | Default                    | Description                                              |
+| ------------------------ | ----------------------------------------------------- | -------------------------- | -------------------------------------------------------- |
+| `supportedProfiles`      | `readonly number[]`                                   | `[STANDARD_PROFILE_TOKEN]` | Profiles accepted during `SESSION_OPEN`.                 |
+| `supportedCacheObjects`  | `readonly NnrpCacheObjectKind[]`                      | `[]`                       | Cache object kinds advertised by the server.             |
+| `maxCacheObjects`        | `bigint`                                              | `0n`                       | Maximum retained cache objects; zero disables the limit. |
+| `maxCacheObjectBytes`    | `number`                                              | `0`                        | Maximum bytes per cache object; zero disables the limit. |
+| `schemaRegistry`         | [`NnrpSchemaRegistry`](./core#data-types)             | standard registry          | Schemas accepted by the server session.                  |
+| `resumeTokenBytes`       | `number`                                              | `24`                       | Opaque recovery-token capacity.                          |
+| `maxInFlightOperations`  | `number`                                              | `4`                        | Maximum concurrent operations negotiated per session.    |
+| `grantedOperationCredit` | `number`                                              | `2`                        | Initial operation credit granted to the peer.            |
+| `leaseTtlMs`             | `number`                                              | `30_000`                   | Default operation lease lifetime.                        |
+| `resumeWindowMs`         | `number`                                              | `120_000`                  | Time during which a disconnected session may resume.     |
+| `applicationPolicy`      | [`NnrpServerSessionPolicy`](#nnrpserversessionpolicy) | accept valid sessions      | Asynchronous application admission policy.               |
+
+### `NnrpServerSessionPolicy`
+
+```ts
+interface NnrpServerSessionPolicy {
+  evaluate(open: NnrpSessionOpenMetadata): Promise<NnrpServerSessionPolicyDecision>;
+}
+```
+
+`NnrpServerSessionPolicyDecision` contains `accepted: boolean`, `sessionErrorCode: number`, and an
+optional `diagnostic: string`. Accepted decisions use error code `0`; rejected decisions use a
+non-zero application-defined session error code.
+
+### `NnrpServerAcceptOptions`
+
+| Field       | Type     | Default | Description                                                     |
+| ----------- | -------- | ------- | --------------------------------------------------------------- |
+| `timeoutMs` | `number` | `0`     | Bounded accept wait; zero uses the runtime's non-blocking mode. |
+
+Native session handles and generations are internal and are never accepted through this option.
 
 ### `NnrpTransportSelectionOptions`
 
-| Field                      | Type                                                  | Required | Description                                                   |
-| -------------------------- | ----------------------------------------------------- | -------: | ------------------------------------------------------------- |
-| `peerManifest`             | [`NnrpCapabilityManifest`](./core#data-types)         |      Yes | Peer capability manifest.                                     |
-| `providers`                | `readonly NnrpTransportProvider[]`                    |       No | Local providers to consider.                                  |
-| `policy`                   | [`NnrpTransportPolicy`](./core#data-types)            |       No | Selection policy override.                                    |
-| `requestedMaxFrameBytes`   | `bigint`                                              |       No | Workload limit checked against provider limits.               |
-| `candidateReadiness`       | `readonly NnrpTransportCandidateReadiness[]`          |      Yes | Route/security evidence for every provider candidate.          |
-| `probeObservations`        | `readonly NnrpTransportProbeObservation[]`            |       No | Succeeded/failed probe evidence keyed by provider identity.     |
+| Field                    | Type                                          | Required | Description                                                 |
+| ------------------------ | --------------------------------------------- | -------: | ----------------------------------------------------------- |
+| `peerManifest`           | [`NnrpCapabilityManifest`](./core#data-types) |      Yes | Peer capability manifest.                                   |
+| `providers`              | `readonly NnrpTransportProvider[]`            |       No | Local providers to consider.                                |
+| `policy`                 | [`NnrpTransportPolicy`](./core#data-types)    |       No | Selection policy override.                                  |
+| `requestedMaxFrameBytes` | `bigint`                                      |       No | Workload limit checked against provider limits.             |
+| `candidateReadiness`     | `readonly NnrpTransportCandidateReadiness[]`  |      Yes | Route/security evidence for every provider candidate.       |
+| `probeObservations`      | `readonly NnrpTransportProbeObservation[]`    |       No | Succeeded/failed probe evidence keyed by provider identity. |

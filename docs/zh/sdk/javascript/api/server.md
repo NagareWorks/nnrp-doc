@@ -58,12 +58,38 @@ Listener set 必须原子打开。如果任一已配置的 eligible listener 打
 已经打开的 listener，并让首次 `accept()` 失败。无法从 `endpoint` 推导 bind locator 的 carrier 必须在
 `providerRoutes` 中提供对应项，不得静默忽略。
 
+`sessionDefaults` 为每个 accepted session 冻结与 transport 无关的协商、缓存、credit、schema、恢复
+和应用准入设置。应用 policy 对每个 wire-valid `SESSION_OPEN` 只评估一次，并且可以异步完成：
+
+```ts
+const server = runtime.listen({
+  endpoint: "nnrp://0.0.0.0:4433",
+  sessionDefaults: {
+    applicationPolicy: {
+      async evaluate(open) {
+        if (open.maxInFlightOperations > 32) {
+          return {
+            accepted: false,
+            sessionErrorCode: 17,
+            diagnostic: "requested concurrency is too high",
+          };
+        }
+        return { accepted: true, sessionErrorCode: 0 };
+      },
+    },
+  },
+});
+```
+
+Policy 接收 [`NnrpSessionOpenMetadata`](./core#数据类型)，返回
+`Promise<NnrpServerSessionPolicyDecision>`。拒绝只影响该 peer handshake，不会关闭逻辑 listener set。
+
 ## `NnrpBackendRuntime.selectTransport`
 
 根据 peer manifest 选择 transport。
 
-| 参数      | 类型                                                              | 必填 | 说明                                                                |
-| --------- | ----------------------------------------------------------------- | ---: | ------------------------------------------------------------------- |
+| 参数      | 类型                                                              | 必填 | 说明                                                                               |
+| --------- | ----------------------------------------------------------------- | ---: | ---------------------------------------------------------------------------------- |
 | `options` | [`NnrpTransportSelectionOptions`](#nnrptransportselectionoptions) |   是 | Peer manifest、workload limit、providers、policy、readiness 与 probe observation。 |
 
 | 返回                            |
@@ -75,18 +101,18 @@ Listener set 必须原子打开。如果任一已配置的 eligible listener 打
 | 方法                                   | 参数                                                              | 返回值                       | 说明                                                    |
 | -------------------------------------- | ----------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------- |
 | `NnrpBackendRuntime.close()`           | 无                                                                | `Promise<void>`              | 关闭 accepted session、listener 与显式 FFI seam。       |
-| `NnrpServer.accept()`                  | 无                                                                | `Promise<NnrpServerSession>` | 接受 owned carrier-listener set 的下一个 session。      |
+| `NnrpServer.accept(options?)`          | [`options?: NnrpServerAcceptOptions`](#nnrpserveracceptoptions)   | `Promise<NnrpServerSession>` | 接受 owned carrier-listener set 的下一个 session。      |
 | `NnrpServer.close()`                   | 无                                                                | `Promise<void>`              | 关闭全部 owned carrier listener 与 accepted session。   |
 | `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>`  | 读取下一条有序 submit、control、object 或 cache event。 |
 | `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#数据类型)                           | `Promise<void>`              | 为当前 operation 发送唯一终态结果。                     |
 | `NnrpServerSession.close()`            | 无                                                                | `Promise<void>`              | 只关闭一次 accepted role session。                      |
 
-`NnrpServerSession.activeTransport` 是实际接受 carrier 的 listener 对应的 `NnrpTransportKind`。它必须与协商
-得到的 active transport 一致，不能从 listener preference 顺序推断。
+`NnrpServerSession.activeTransport` 是实际接受 carrier 的 listener 对应的
+`NnrpTransportKind`。它必须与协商得到的 active transport 一致，不能从 listener preference 顺序推断。
 
-`NnrpServer.boundProviderEndpoints` 是按 `NnrpTransportKind` 索引的 readonly partial record，保存每个已打开
-listener 的实际 endpoint。Provider listener 的致命失败会让逻辑 server 失败并关闭其余 listener set；被
-拒绝的 peer handshake 只影响该 accepted carrier。
+`NnrpServer.boundProviderEndpoints` 是按 `NnrpTransportKind` 索引的 readonly partial
+record，保存每个已打开 listener 的实际 endpoint。Provider listener 的致命失败会让逻辑 server
+失败并关闭其余 listener set；被拒绝的 peer handshake 只影响该 accepted carrier。
 
 ## Preview4 Server Session 方法
 
@@ -144,20 +170,57 @@ Object patch 与 delta 方法要求 `metadataBody.byteLength` 等于 `metadata.m
 
 ### `NnrpListenOptions`
 
-| 字段                | 类型                                                          | 必填 | 说明                                                  |
-| ------------------- | ------------------------------------------------------------- | ---: | ----------------------------------------------------- |
-| `endpoint`          | `string \| URL`                                               |   是 | 逻辑 listener set 共享的本地 NNRP endpoint。          |
-| `providerRoutes`    | `NnrpServerProviderRoutes`                                     |   否 | 按 carrier 隔离的 bind locator 与 server security。   |
-| `transportPolicy`   | [`NnrpTransportPolicy`](./core#数据类型)                      |   否 | Listener-set eligibility 与稳定 preference policy。   |
-| `transports`        | `readonly NnrpNativeTransportProvider[]`                      |   否 | 允许进入该逻辑 listener set 的 transport Provider。   |
+| 字段              | 类型                                                    | 必填 | 说明                                                |
+| ----------------- | ------------------------------------------------------- | ---: | --------------------------------------------------- |
+| `endpoint`        | `string \| URL`                                         |   是 | 逻辑 listener set 共享的本地 NNRP endpoint。        |
+| `providerRoutes`  | `NnrpServerProviderRoutes`                              |   否 | 按 carrier 隔离的 bind locator 与 server security。 |
+| `transportPolicy` | [`NnrpTransportPolicy`](./core#数据类型)                |   否 | Listener-set eligibility 与稳定 preference policy。 |
+| `transports`      | `readonly NnrpNativeTransportProvider[]`                |   否 | 允许进入该逻辑 listener set 的 transport Provider。 |
+| `sessionDefaults` | [`NnrpServerSessionOptions`](#nnrpserversessionoptions) |   否 | Accepted session 的协商与准入默认值。               |
+
+### `NnrpServerSessionOptions`
+
+| 字段                     | 类型                                                  | 默认值                     | 说明                                         |
+| ------------------------ | ----------------------------------------------------- | -------------------------- | -------------------------------------------- |
+| `supportedProfiles`      | `readonly number[]`                                   | `[STANDARD_PROFILE_TOKEN]` | `SESSION_OPEN` 接受的 profile。              |
+| `supportedCacheObjects`  | `readonly NnrpCacheObjectKind[]`                      | `[]`                       | Server 声明支持的缓存对象类型。              |
+| `maxCacheObjects`        | `bigint`                                              | `0n`                       | 最大缓存对象数；零表示不启用该限制。         |
+| `maxCacheObjectBytes`    | `number`                                              | `0`                        | 单个缓存对象最大字节数；零表示不启用该限制。 |
+| `schemaRegistry`         | [`NnrpSchemaRegistry`](./core#数据类型)               | 标准 registry              | Server session 接受的 schema。               |
+| `resumeTokenBytes`       | `number`                                              | `24`                       | Opaque recovery token 容量。                 |
+| `maxInFlightOperations`  | `number`                                              | `4`                        | 每个 session 协商的最大并发 operation 数。   |
+| `grantedOperationCredit` | `number`                                              | `2`                        | 初始授予 peer 的 operation credit。          |
+| `leaseTtlMs`             | `number`                                              | `30_000`                   | 默认 operation lease 生命周期。              |
+| `resumeWindowMs`         | `number`                                              | `120_000`                  | 断连 session 可以恢复的时间窗口。            |
+| `applicationPolicy`      | [`NnrpServerSessionPolicy`](#nnrpserversessionpolicy) | 接受有效 session           | 异步应用准入 policy。                        |
+
+### `NnrpServerSessionPolicy`
+
+```ts
+interface NnrpServerSessionPolicy {
+  evaluate(open: NnrpSessionOpenMetadata): Promise<NnrpServerSessionPolicyDecision>;
+}
+```
+
+`NnrpServerSessionPolicyDecision` 包含 `accepted: boolean`、`sessionErrorCode: number` 与可选的
+`diagnostic: string`。接受时 error code 必须为 `0`；拒绝时使用非零、由应用定义的 session error
+code。
+
+### `NnrpServerAcceptOptions`
+
+| 字段        | 类型     | 默认值 | 说明                                            |
+| ----------- | -------- | ------ | ----------------------------------------------- |
+| `timeoutMs` | `number` | `0`    | 有界 accept 等待；零使用 runtime 的非阻塞模式。 |
+
+Native session handle 与 generation 保持内部，不会通过该 options 暴露。
 
 ### `NnrpTransportSelectionOptions`
 
-| 字段                       | 类型                                                  | 必填 | 说明                                         |
-| -------------------------- | ----------------------------------------------------- | ---: | -------------------------------------------- |
-| `peerManifest`             | [`NnrpCapabilityManifest`](./core#数据类型)           |   是 | Peer capability manifest。                   |
-| `providers`                | `readonly NnrpTransportProvider[]`                    |   否 | 需要考虑的本地 providers。                   |
-| `policy`                   | [`NnrpTransportPolicy`](./core#数据类型)              |   否 | Selection policy 覆盖。                      |
-| `requestedMaxFrameBytes`   | `bigint`                                              |   否 | 对照 provider limits 校验的 workload limit。 |
-| `candidateReadiness`       | `readonly NnrpTransportCandidateReadiness[]`          |   是 | 每个 provider candidate 的 route/security evidence。 |
-| `probeObservations`        | `readonly NnrpTransportProbeObservation[]`            |   否 | 按 provider identity 匹配的成功/失败 probe evidence。 |
+| 字段                     | 类型                                         | 必填 | 说明                                                  |
+| ------------------------ | -------------------------------------------- | ---: | ----------------------------------------------------- |
+| `peerManifest`           | [`NnrpCapabilityManifest`](./core#数据类型)  |   是 | Peer capability manifest。                            |
+| `providers`              | `readonly NnrpTransportProvider[]`           |   否 | 需要考虑的本地 providers。                            |
+| `policy`                 | [`NnrpTransportPolicy`](./core#数据类型)     |   否 | Selection policy 覆盖。                               |
+| `requestedMaxFrameBytes` | `bigint`                                     |   否 | 对照 provider limits 校验的 workload limit。          |
+| `candidateReadiness`     | `readonly NnrpTransportCandidateReadiness[]` |   是 | 每个 provider candidate 的 route/security evidence。  |
+| `probeObservations`      | `readonly NnrpTransportProbeObservation[]`   |   否 | 按 provider identity 匹配的成功/失败 probe evidence。 |
