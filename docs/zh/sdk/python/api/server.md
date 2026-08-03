@@ -8,7 +8,10 @@ Server 文档按使用路径组织：接受 session、接收提交、发送结�
 from nnrp import NativeTransportBinding, NativeTransportServerSecurity, TransportPolicy
 from nnrp.server import (
     NativeServerAcceptOptions,
+    NativeServerBootstrapOptions,
     NativeServerProviderRoute,
+    NativeServerSessionOptions,
+    NativeServerSessionPolicyDecision,
     ServerProfile,
     ServerSession,
     ServerSessionAcceptResolution,
@@ -45,33 +48,48 @@ Packet transport helper 只用于诊断和自定义 carrier：
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
-| `endpoint` | `str \| NnrpEndpoint` | 是 | 本地 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
-| `provider_routes` | `Mapping[str, NativeServerProviderRoute] \| None` | 否 | 按 carrier 隔离的 bind locator 与 server security。 |
-| `transports` | `Sequence[NativeTransportBinding] \| None` | 否 | 具有决定性的 Provider 注册表；可用 `NativeTransportBinding.unavailable(...)` 声明已知但未安装的 Provider；`None` 自动发现已安装的官方 binding。 |
-| `transport_policy` | `TransportPolicy \| str \| int` | 否 | Provider 选择策略，默认 `auto`。 |
-| `options` | `NativeServerOptions \| None` | 否 | Native server id 与 generation。 |
-| `require_native` | `bool` | 否 | 生产代码设为 `True`，native 不可用时直接失败。 |
+| `options` | `NativeServerBootstrapOptions` | 是 | 应用 endpoint、Provider route、transport policy 与 session defaults。 |
 
-`NativeServer.accept(options=None)` 接收包含 `session_handle_id`、`session_generation` 和
-`timeout_ms` 的 `NativeServerAcceptOptions`，并返回 carrier-backed
-`NativeRuntimeServerSession`。它不会创建 synthetic local submit。
+`NativeServer.accept(options=None)` 接收只包含 `timeout_ms` 的 `NativeServerAcceptOptions`，
+并返回 carrier-backed `NativeRuntimeServerSession`。Native handle 与 generation 保持内部，
+该路径不会创建 synthetic local submit。
 
 `NativeServer.bound_provider_endpoints` 是从规范 transport 名到实际绑定 `NativeTransportEndpoint` 的不可变
 mapping，并保留操作系统分配的端口。Provider listener 的致命失败会让完整逻辑 server 失败并关闭；拒绝
 单个 peer handshake 只影响该 accepted carrier。
 
-显式传入的 `transports` 集合具有决定性，不会与自动发现结果合并。第三方 Provider 和
-一致性测试故障 Provider 因而可以通过同一个公开的原子 listener-set 契约参与运行。每个可用
-binding 真正拥有 listener 和 Rust role adoption；Provider route 只提供局部 locator 与安全配置。
-`local_available=False` 的 binding 只贡献候选身份与诊断，绝不会参与 bind。
+已安装 Provider package 通过同一个原子 listener-set 契约参与运行。每个可用 binding 真正拥有
+listener 和 Rust role adoption；Provider route 只提供局部 locator 与安全配置。
 
 ```python
-with listen_native_server(
-    "nnrp://0.0.0.0:4433/runtime/default",
+options = NativeServerBootstrapOptions(
+    endpoint="nnrp://0.0.0.0:4433/runtime/default",
     transport_policy=TransportPolicy.FORCE_TCP,
-) as server:
+)
+with listen_native_server(options) as server:
     session = server.accept(NativeServerAcceptOptions(timeout_ms=30_000))
 ```
+
+`NativeServerSessionOptions` 冻结 supported profile/cache object 集合、cache 限额、schema
+registry、recovery token 容量、in-flight 与 credit 限额、lease/resume window 以及应用准入
+policy。默认 policy 接受所有 wire-valid session。
+
+`NativeServerSessionPolicyDecision` 是 policy 的返回结果。`accept()` 接受 session；
+`reject(reason_code, diagnostic)` 使用应用定义的原因码和诊断信息拒绝 session。异步 policy
+方法必须返回这类 decision。
+
+应用 policy 实现以下 async 方法：
+
+```python
+class AdmissionPolicy:
+    async def evaluate(self, open_metadata):
+        if open_metadata.max_in_flight_operations > 32:
+            return NativeServerSessionPolicyDecision.reject(17, "requested concurrency is too high")
+        return NativeServerSessionPolicyDecision.accept()
+```
+
+通过 `NativeServerBootstrapOptions.session_defaults` 安装该 policy。SDK 对每个
+`SESSION_OPEN` 评估一次，即使 host 已有正在运行的 asyncio event loop 也保持该语义。
 
 ## `NativeRuntimeServerSession` Preview4 Frame
 

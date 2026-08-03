@@ -57,38 +57,50 @@ Preview4 wheels carry transport-scoped native artifacts. Production host code sh
 The example assumes `trusted_certificate_der` contains the DER certificate loaded from deployment trust configuration.
 
 ```python
+import asyncio
+
 from nnrp import NativeTransportClientSecurity, TransportPolicy
 from nnrp.client import (
+    NativeClientOptions,
     NativeClientProviderRoute,
-    NativeClientSessionOpenOptions,
+    NativeClientSessionOptions,
+    SubmitIdentity,
+    SubmitPolicy,
+    SubmitRequest,
+    TokenChunk,
+    TokenSubmitInput,
     connect_native_client_connection,
 )
-from nnrp.runtime import NativeRuntimeEvent
 
-with connect_native_client_connection(
-    "nnrps://runtime.example/session/default",
-    provider_routes={
-        "tcp": NativeClientProviderRoute(
-            security=NativeTransportClientSecurity(
-                server_name="runtime.example",
-                trusted_certificate_der=trusted_certificate_der,
+
+async def main() -> None:
+    options = NativeClientOptions(
+        endpoint="nnrps://runtime.example/session/default",
+        provider_routes={
+            "tcp": NativeClientProviderRoute(
+                security=NativeTransportClientSecurity(
+                    server_name="runtime.example",
+                    trusted_certificate_der=trusted_certificate_der,
+                )
+            )
+        },
+        transport_policy=TransportPolicy.FORCE_TCP,
+    )
+    with connect_native_client_connection(options) as connection:
+        session = await connection.open_session(NativeClientSessionOptions(requested_session_id=1))
+        request = SubmitRequest.token(
+            TokenSubmitInput(
+                identity=SubmitIdentity(operation_id=1, frame_id=1),
+                policy=SubmitPolicy(),
+                chunks=(TokenChunk(b"hello"),),
             )
         )
-    },
-    transport_policy=TransportPolicy.FORCE_TCP,
-) as connection:
-    session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=1))
-    result = connection.submit_and_poll_result(
-        session,
-        operation_id=1,
-        frame_id=1,
-        body=b"hello",
-        timeout_ms=30_000,
-    )
-    if isinstance(result.event, NativeRuntimeEvent):
-        print(result.event.tail.body)
-    else:
-        print(result.event.state)
+        result = connection.submit_and_poll_result(session, request, timeout_ms=30_000)
+        runtime_event = result.event.as_runtime()
+        print(runtime_event.tail.body if runtime_event is not None else result.event.as_lifecycle().state)
+
+
+asyncio.run(main())
 ```
 
 When the installation contains several transport artifacts, the SDK can discover and select providers:
@@ -100,13 +112,8 @@ print([provider.name for provider in discover_native_transport_providers()])
 print(select_native_transport_provider("auto").selected_transport_name)
 ```
 
-If you are developing on a machine that cannot build or load the cffi API fast path, force the compiler-free fallback:
-
-```bash
-NNRP_NATIVE_BINDING_MODE=ctypes python -m pytest
-```
-
-Use `NNRP_NATIVE_BINDING_MODE=cffi_api` only when you want to require the cffi API fast path and fail immediately if it is unavailable.
+The production runtime uses the packaged ABI 4 `ctypes` binding. The retired compiled CFFI side
+runtime is not a selectable fallback.
 
 ## Conformance and Benchmark Entrypoints
 

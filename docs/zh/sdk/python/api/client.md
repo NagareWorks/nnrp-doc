@@ -10,8 +10,10 @@ from nnrp import NativeTransportBinding, NativeTransportClientSecurity, Transpor
 from nnrp.client import (
     ClientProfile,
     ClientSession,
+    NativeClientOptions,
     NativeClientProviderRoute,
-    NativeClientSessionOpenOptions,
+    NativeClientSessionOptions,
+    NativeSessionRecoveryTicket,
     SubmitRequest,
     connect_client_control,
     connect_client_control_with_probe,
@@ -47,42 +49,31 @@ Rust role runtime，完成 NNRP 握手，并返回 `NativeClientConnection` 上�
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
-| `endpoint` | `str \| NnrpEndpoint` | 是 | 远端 `nnrp://` 或 `nnrps://` 应用 endpoint。 |
-| `provider_routes` | `Mapping[str, NativeClientProviderRoute] \| None` | 否 | 按 carrier 隔离的 locator 与对端验证配置。 |
-| `transports` | `Sequence[NativeTransportBinding] \| None` | 否 | 具有决定性的 Provider 注册表；可用 `NativeTransportBinding.unavailable(...)` 声明已知但未安装的 Provider；`None` 自动发现已安装的官方 binding。 |
-| `transport_policy` | `TransportPolicy \| str \| int` | 否 | Provider 选择策略，默认 `auto`。 |
-| `options` | `NativeClientConnectionOptions \| None` | 否 | Native connection id 与 generation。 |
-| `artifact_path` | `Path \| str \| None` | 否 | 显式 native library 路径；通常不需要。 |
-| `root` | `Path \| str \| None` | 否 | Native artifact 根目录。 |
-| `native_platform` | `NativePlatform \| None` | 否 | 诊断或测试时覆盖平台选择。 |
-| `library` | `Any \| None` | 否 | 测试注入用 library。 |
-| `fallback` | `NativeRuntimeBackend \| None` | 否 | 测试或诊断 fallback。 |
-| `require_native` | `bool` | 否 | 生产路径建议设为 `True`，native 不可用时直接失败。 |
+| `options` | `NativeClientOptions` | 是 | 应用 endpoint、Provider route、transport policy 与 session defaults。 |
 
 ```python
-with connect_native_client_connection(
-    "nnrps://runtime.example/session/default",
-    provider_routes={
-        "tcp": NativeClientProviderRoute(
-            security=NativeTransportClientSecurity(
-                server_name="runtime.example",
-                trusted_certificate_der=trusted_certificate_der,
+async def run() -> None:
+    options = NativeClientOptions(
+        endpoint="nnrps://runtime.example/session/default",
+        provider_routes={
+            "tcp": NativeClientProviderRoute(
+                security=NativeTransportClientSecurity(
+                    server_name="runtime.example",
+                    trusted_certificate_der=trusted_certificate_der,
+                )
             )
-        )
-    },
-    transport_policy=TransportPolicy.FORCE_TCP,
-) as connection:
-    print(connection.active_transport_name)
-    session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
-    result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, body=b"payload")
+        },
+        transport_policy=TransportPolicy.FORCE_TCP,
+    )
+    with connect_native_client_connection(options) as connection:
+        print(connection.active_transport_name)
+        await connection.open_session(NativeClientSessionOptions(requested_session_id=42))
 ```
 
 `NativeClientConnection.transport_selection` 保留完整且不可变的
 `NativeTransportSelection`，包含最终 Provider 和全部接受或拒绝的候选项；
-`active_transport_name` 是最终 Provider 的规范 transport 名。显式传入的 `transports`
-集合具有决定性，SDK 不会再静默补入自动发现的 binding。每个可用 binding 必须真正负责该
-Provider 的探测、carrier 建立和 role adoption，不能只是配置开关。`local_available=False`
-的 binding 保留在候选证据中，但绝不会被 probe 或调用。
+`active_transport_name` 是最终 Provider 的规范 transport 名。SDK 会发现已安装的 Provider package；
+每个 package 必须真正负责自己的探测、carrier 建立和 role adoption，不能只是配置开关。
 
 TCP 与 QUIC 使用应用 endpoint 的 authority，authority 未提供端口时默认使用 `4433`。IPC route 必须
 提供匹配的 `unix://` 或 `npipe://` locator；WebSocket route 必须提供匹配的 `ws://` 或 `wss://`
@@ -95,46 +86,57 @@ Native client connection 是 preview4 Python host API 的主入口。它不让 P
 
 ### `NativeClientConnection.open_session`
 
-`NativeClientSessionOpenOptions` 的冻结默认值如下：
+`NativeClientSessionOptions` 的冻结默认值如下：
 
 | 字段 | 默认值 | 说明 |
 |---|---:|---|
-| `requested_session_id` | `1` | 初始 wire session id 请求值。 |
-| `session_generation` | `1` | 本地 handle generation。 |
+| `requested_session_id` | `0` | 首选 wire session id；零表示由服务端分配。 |
 | `profile_id` | `2`（`STANDARD_PROFILE_TOKEN`） | 标准 token profile。 |
 | `schema_id` | `0x00001001`（`TOKEN_DELTA_SCHEMA_ID`） | Token-delta schema。 |
 | `schema_version` | `3`（`TOKEN_DELTA_SCHEMA_VERSION`） | Token-delta schema version。 |
+| `priority_class` | `balanced` | Session 调度等级。 |
+| `default_deadline_ms` | `500` | Operation 默认 deadline。 |
+| `max_in_flight_operations` | `4` | 请求的并发上限。 |
+| `lease_ttl_hint_ms` | `30000` | 请求的 cache lease 生命周期。 |
+| `allow_resume` | `False` | 启用 resumable-session 协商。 |
+| `resume_token_bytes` | `0` | 本地 recovery token 容量；零表示 runtime 默认值。 |
+| `cache_hints` | `()` | 自动折叠进 `CLIENT_HELLO` 的 cache object kind。 |
 
 无参数 `open_session()` 必须使用这一组值，与 Rust runtime 默认契约一致。只有在选择其他已安装
 profile/schema 组合时才覆盖这些字段。
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
-| `options` | `NativeClientSessionOpenOptions \| None` | 否 | Session id、generation、profile、schema 等打开参数。 |
+| `options` | `NativeClientSessionOptions \| None` | 否 | Session 协商参数；默认使用 `NativeClientOptions.session_defaults`。 |
 
 | 返回 |
 |---|
 | `NativeRuntimeSession` |
+
+Session 协商可能等待 Provider 与对端 I/O，因此该方法是 async。一个 connection 保持打开，
+并可同时持有多个 session。
+
+### `NativeClientConnection.resume_session`
+
+`await connection.resume_session(ticket, options=None)` 使用 runtime 签发的
+`NativeSessionRecoveryTicket` 恢复 session。应用可通过 `ticket.to_bytes()` 持久化，并通过
+`NativeSessionRecoveryTicket.from_bytes(encoded)` 恢复该值，但不得构造或修改不透明 token。
+协商了恢复能力后，`session.recovery_ticket()` 返回当前 ticket。
 
 ### `NativeClientConnection.submit_and_poll_result`
 
 | 参数 | 类型 | 必填 | 说明 |
 |---|---|---:|---|
 | `session` | `NativeRuntimeSession` | 是 | 已打开的 native session。 |
-| `operation_id` | `int` | 是 | Operation id。 |
-| `frame_id` | `int` | 是 | Frame id。 |
-| `metadata` | `FrameSubmitMetadata \| None` | 否 | Typed submit metadata；默认生成 canonical token metadata。 |
-| `body` | `bytes \| bytearray \| memoryview` | 否 | Submit metadata 之后的应用 body。 |
+| `request` | `SubmitRequest` | 是 | Typed tensor、token 或 typed-payload submit request。 |
 | `parent_operation_id` | `int \| None` | 否 | 父 operation。 |
 | `operation_group_id` | `int \| None` | 否 | Operation 分组。 |
 | `max_events` | `int \| None` | 否 | 本次 poll 最多处理事件数。 |
+| `timeout_ms` | `int` | 否 | Native event poll 最长等待时间；`0` 表示非阻塞。 |
 
-`NativeRuntimeSession.submit()` 与 `submit_operation()` 使用同一套 `metadata` + `body` 契约。
-未传 `metadata` 时，SDK 使用给定的非零 `operation_id` 构造 canonical token submit metadata：
-`TOKEN_CHUNK`、一个 payload frame、inline mode、25 ms latency budget。其他 profile 传入自己的
-typed metadata。SDK 拒绝 `operation_id` 与方法参数不一致的 metadata，随后拼装 metadata 与 body，
-只跨一次 FFI。
-| `timeout_ms` | `int` | 否 | Native role event poll 的最长等待时间；`0` 表示非阻塞 poll。 |
+使用 `SubmitRequest.tensor(...)`、`SubmitRequest.token(...)` 或
+`SubmitRequest.typed_payload(...)` 构造请求。SDK 校验并打包 typed request，submit 与有界 result
+poll 各跨一次 FFI。
 
 | 返回 |
 |---|

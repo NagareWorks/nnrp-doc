@@ -21,19 +21,20 @@ pages are reference material linked from method parameter tables.
 |---|---|
 | Distribution | `nnrp-py` |
 | Import package | `nnrp` |
-| Current preview package | `1.0.0rc4` |
+| Current published preview package | `1.0.0rc4.post12` |
+| Frozen next role contract | Contract v9, Rust FFI ABI `4.4.0` |
 | Min Python | `3.11` |
-| Runtime deps | `aioquic >= 1.2.0`, `cffi >= 2.0.0` |
+| Runtime deps | `aioquic >= 1.2.0` |
 
 ```bash
-pip install --pre "nnrp-py==1.0.0rc4"
+pip install --pre "nnrp-py==1.0.0rc4.post12"
 ```
 
 ## Native Runtime Facades
 
 The top-level `nnrp` package also exports native runtime helpers such as `load_native_runtime`, `load_native_client`, `probe_native_artifact`, `NativeRuntimeBackend`, `NativeRuntimeClient`, `NativeRuntimeConnection`, `NativeRuntimeSession`, `NativeSchemaCodec`, `NativeRecoveryCodec`, and cache/session diagnostic types.
 
-Preview4 wheels use transport-scoped native artifacts. Entrypoints such as `load_native_runtime(..., transport="tcp")` and `load_native_client(..., transport="ipc")` validate the artifact manifest, ABI `4.1.x`, protocol version, and transport slot. Production host code should prefer `nnrp.client.connect_native_client_connection("nnrps://...", provider_routes=...)`.
+Preview4 wheels use transport-scoped native artifacts. Entrypoints such as `load_native_runtime(..., transport="tcp")` and `load_native_client(..., transport="ipc")` validate the artifact manifest, exact ABI version, protocol version, and transport slot. Contract v9 requires ABI `4.4.0`. Production host code passes one `NativeClientOptions` value to `nnrp.client.connect_native_client_connection(...)`.
 
 ## Native Transport Providers
 
@@ -46,7 +47,8 @@ Preview4 wheels use transport-scoped native artifacts. Entrypoints such as `load
 | `diagnose_native_transport_endpoint_support(endpoint)` | Diagnoses provider-local endpoints such as `unix://`, `npipe://`, `ws://`, and `wss://`. |
 | `native_transport_slot_names(mask)` | Converts a native transport slot bitmask to names. |
 
-The default binding mode is `auto`. It prefers the packaged cffi API fast path and falls back to `ctypes` when the fast path is unavailable. Set `NNRP_NATIVE_BINDING_MODE=ctypes` to force the compiler-free path during local development, or `NNRP_NATIVE_BINDING_MODE=cffi_api` to require the fast path.
+The production facade uses coarse ABI 4 `ctypes` calls. The retired compiled CFFI side runtime is not
+shipped and is not a fallback mode.
 
 ## Tool Entrypoints
 
@@ -66,6 +68,6 @@ Only NNRP/1 wire format `0` is supported. Every packet header's `wire_format` fi
 ## Python-specific Expectations
 
 1. Async-first methods are the primary host API contract.
-2. Sync helpers are convenience wrappers over the same protocol semantics.
+2. Packet-level tooling helpers are separate from the native host role API and are not a runtime fallback.
 3. Public method names, parameter groups, and returned state objects should not drift without a formal SDK version change.
 4. Code blocks should show usage examples; method signatures belong in method-level parameter tables.

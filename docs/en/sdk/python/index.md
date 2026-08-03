@@ -9,7 +9,7 @@
 | Core protocol types, headers, packets, and message builders | Available |
 | Client and server host API | Available |
 | Native runtime facade | Available through packaged Rust artifacts |
-| Native binding modes | `auto`, `ctypes`, and `cffi_api` |
+| Native binding | ABI 4 `ctypes` facade over packaged Rust artifacts |
 | Native transport providers | TCP, QUIC, IPC, and WebSocket, packaged as transport-scoped artifacts in platform wheels |
 | Packet transport adapters | TCP available, QUIC available through `aioquic`; used for smoke tests, diagnostics, and custom transports |
 | Cache, schema, recovery, diagnostics, and session lifecycle helpers | Available through Python facades backed by native runtime calls |
@@ -23,19 +23,14 @@
 - A normal `pip` or `uv` installation path.
 - The wheel contains platform-specific native artifacts when a supported wheel is available.
 - Preview4 native artifacts are transport scoped; `tcp`, `quic`, `ipc`, and `websocket` providers each declare capability, limitations, and cost/preference metadata.
-- `NNRP_NATIVE_BINDING_MODE=ctypes` forces the compiler-free fallback path for local development environments that cannot build a cffi API extension.
+- The production package does not ship the retired compiled CFFI side runtime.
 
-## Binding Selection
+## Native Boundary
 
-The default binding mode is `auto`. In production wheels, `auto` prefers the packaged cffi API fast path and falls back to `ctypes` when that module is unavailable. Local editable checkouts can still run through `ctypes` without a compiler toolchain.
-
-Use `NNRP_NATIVE_BINDING_MODE` only for diagnostics or local development:
-
-| Value | Behavior |
-|---|---|
-| `auto` | Prefer the fastest packaged binding and fall back when needed. |
-| `cffi_api` | Require the cffi API fast path. Fails if it is unavailable. |
-| `ctypes` | Force the compiler-free native binding. |
+The Python facade uses coarse ABI 4 role calls through `ctypes`. Transport providers own their
+transport-scoped Rust libraries, while connection/session runtime behavior remains in the shared
+Rust role runtime. Python never substitutes a pure-Python or CFFI side runtime when a production
+artifact is missing.
 
 ## Contents
 

@@ -9,7 +9,10 @@ send results or drops, then close. Message and packet pages remain the low-level
 from nnrp import NativeTransportBinding, NativeTransportServerSecurity, TransportPolicy
 from nnrp.server import (
     NativeServerAcceptOptions,
+    NativeServerBootstrapOptions,
     NativeServerProviderRoute,
+    NativeServerSessionOptions,
+    NativeServerSessionPolicyDecision,
     ServerProfile,
     ServerSession,
     ServerSessionAcceptResolution,
@@ -49,34 +52,49 @@ each listener to its Rust server runtime, and returns one logical `NativeServer`
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
-| `endpoint` | `str \| NnrpEndpoint` | Yes | Local `nnrp://` or `nnrps://` application endpoint. |
-| `provider_routes` | `Mapping[str, NativeServerProviderRoute] \| None` | No | Per-carrier bind locator and server-security configuration. |
-| `transports` | `Sequence[NativeTransportBinding] \| None` | No | Authoritative provider registry. It may include `NativeTransportBinding.unavailable(...)` entries for known uninstalled providers; `None` discovers installed official bindings. |
-| `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
-| `options` | `NativeServerOptions \| None` | No | Native server id and generation. |
-| `require_native` | `bool` | No | Production code sets `True`; missing native support is an error. |
+| `options` | `NativeServerBootstrapOptions` | Yes | Application endpoint, provider routes, transport policy, and session defaults. |
 
-`NativeServer.accept(options=None)` takes `NativeServerAcceptOptions` containing
-`session_handle_id`, `session_generation`, and `timeout_ms`, and returns a carrier-backed
-`NativeRuntimeServerSession`. It never creates a synthetic local submit.
+`NativeServer.accept(options=None)` takes `NativeServerAcceptOptions` containing only `timeout_ms`
+and returns a carrier-backed `NativeRuntimeServerSession`. Native handles and generations remain
+internal. It never creates a synthetic local submit.
 
 `NativeServer.bound_provider_endpoints` is an immutable mapping from canonical transport name to the actual bound
 `NativeTransportEndpoint`, including operating-system-assigned ports. A terminal provider-listener failure fails and
 closes the complete logical server; rejecting one peer handshake affects only that accepted carrier.
 
-An explicit `transports` collection is authoritative and is not supplemented by discovery. It lets
-third-party providers and conformance fault providers participate through the same public atomic
-listener-set contract. Every available binding owns its listener and Rust role adoption; provider
-routes only supply provider-local locators and security.
-Bindings with `local_available=False` contribute candidate identity and diagnostics but are never bound.
+Installed Provider packages participate through the same atomic listener-set contract. Every
+available binding owns its listener and Rust role adoption; Provider routes only supply local
+locators and security.
 
 ```python
-with listen_native_server(
-    "nnrp://0.0.0.0:4433/runtime/default",
+options = NativeServerBootstrapOptions(
+    endpoint="nnrp://0.0.0.0:4433/runtime/default",
     transport_policy=TransportPolicy.FORCE_TCP,
-) as server:
+)
+with listen_native_server(options) as server:
     session = server.accept(NativeServerAcceptOptions(timeout_ms=30_000))
 ```
+
+`NativeServerSessionOptions` freezes the supported profile and cache-object sets, cache limits,
+schema registry, recovery-token capacity, in-flight and granted-credit limits, lease and resume
+windows, and application admission policy. The default policy accepts every wire-valid session.
+
+`NativeServerSessionPolicyDecision` is the policy result. `accept()` admits the session;
+`reject(reason_code, diagnostic)` rejects it with the application-defined reason and diagnostic.
+The asynchronous policy method must return one of these decisions.
+
+An application policy implements this asynchronous method:
+
+```python
+class AdmissionPolicy:
+    async def evaluate(self, open_metadata):
+        if open_metadata.max_in_flight_operations > 32:
+            return NativeServerSessionPolicyDecision.reject(17, "requested concurrency is too high")
+        return NativeServerSessionPolicyDecision.accept()
+```
+
+Install it through `NativeServerBootstrapOptions.session_defaults`. The SDK evaluates it once per
+`SESSION_OPEN`, including when the host already owns an active asyncio event loop.
 
 ## `NativeRuntimeServerSession` Preview4 Frames
 

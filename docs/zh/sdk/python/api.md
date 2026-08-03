@@ -20,19 +20,20 @@ Python SDK（`nnrp-py`）的公开 API 分为协议基础类型、客户端/服�
 |---|---|
 | Distribution | `nnrp-py` |
 | 导入包名 | `nnrp` |
-| 当前预览包 | `1.0.0rc4` |
+| 当前已发布预览包 | `1.0.0rc4.post12` |
+| 已冻结的下一版 role contract | Contract v9、Rust FFI ABI `4.4.0` |
 | 最低 Python | `3.11` |
-| 运行时依赖 | `aioquic >= 1.2.0`、`cffi >= 2.0.0` |
+| 运行时依赖 | `aioquic >= 1.2.0` |
 
 ```bash
-pip install --pre "nnrp-py==1.0.0rc4"
+pip install --pre "nnrp-py==1.0.0rc4.post12"
 ```
 
 ## Native Runtime Facade
 
 顶层 `nnrp` 包也导出了 native runtime helper，例如 `load_native_runtime`、`load_native_client`、`probe_native_artifact`、`NativeRuntimeBackend`、`NativeRuntimeClient`、`NativeRuntimeConnection`、`NativeRuntimeSession`、`NativeSchemaCodec`、`NativeRecoveryCodec`，以及缓存、session 和诊断相关类型。
 
-Preview4 wheel 使用 transport-scoped native artifact。`load_native_runtime(..., transport="tcp")`、`load_native_client(..., transport="ipc")` 这类入口会校验 artifact manifest、ABI `4.1.x`、协议版本和 transport slot。生产路径应优先使用 `nnrp.client.connect_native_client_connection("nnrps://...", provider_routes=...)`。
+Preview4 wheel 使用 transport-scoped native artifact。`load_native_runtime(..., transport="tcp")`、`load_native_client(..., transport="ipc")` 这类入口会校验 artifact manifest、精确 ABI 版本、协议版本和 transport slot。Contract v9 要求 ABI `4.4.0`。生产路径向 `nnrp.client.connect_native_client_connection(...)` 传入单个 `NativeClientOptions`。
 
 ## Native Transport Provider
 
@@ -45,7 +46,7 @@ Preview4 wheel 使用 transport-scoped native artifact。`load_native_runtime(..
 | `diagnose_native_transport_endpoint_support(endpoint)` | 诊断 provider-local endpoint，例如 `unix://`、`npipe://`、`ws://`、`wss://`。 |
 | `native_transport_slot_names(mask)` | 将 native transport slot bitmask 转成名称。 |
 
-默认 binding 模式为 `auto`，会优先使用已打包的 cffi API 快路径；如果快路径不可用，则回退到 `ctypes`。本地开发需要免编译路径时设置 `NNRP_NATIVE_BINDING_MODE=ctypes`；需要强制快路径并在不可用时失败时设置 `NNRP_NATIVE_BINDING_MODE=cffi_api`。
+生产 facade 使用粗粒度 ABI 4 `ctypes` call。已退役的 compiled CFFI side runtime 不再打包，也不再作为 fallback。
 
 ## 工具入口
 
@@ -65,6 +66,6 @@ Preview4 wheel 使用 transport-scoped native artifact。`load_native_runtime(..
 ## Python 侧约定
 
 1. Async-first 方法是主要 host API 合约。
-2. 同步 helper 只是同一协议语义上的便利包装。
+2. Packet-level tooling helper 与 native host role API 分离，不是 runtime fallback。
 3. 公开方法名、参数分组和返回状态对象不应在没有正式 SDK 版本变更的情况下漂移。
 4. 代码块只展示用例；方法签名和参数说明应放在方法级参数表中。

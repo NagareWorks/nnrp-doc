@@ -302,7 +302,8 @@ class NativeTransportListener:
 | `ipc` | 是 | 无 Python packet adapter |
 | `websocket` | 是 | 无 Python packet adapter；WebSocket binary frame helper 在 [运行时控制与对象](./runtime) |
 
-生产代码需要打开 runtime session 时，优先使用 `connect_native_client_connection("nnrps://...", provider_routes=...)`。只有协议测试、诊断工具或自定义 transport 才直接使用下面的 packet adapter。
+生产代码需要打开 runtime session 时，向 `connect_native_client_connection(options)` 传入单个
+`NativeClientOptions`。只有协议测试、诊断工具或自定义 transport 才直接使用下面的 packet adapter。
 
 ---
 

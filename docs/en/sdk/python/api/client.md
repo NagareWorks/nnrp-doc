@@ -14,8 +14,10 @@ from nnrp import NativeTransportBinding, NativeTransportClientSecurity, Transpor
 from nnrp.client import (
     ClientProfile,
     ClientSession,
+    NativeClientOptions,
     NativeClientProviderRoute,
-    NativeClientSessionOpenOptions,
+    NativeClientSessionOptions,
+    NativeSessionRecoveryTicket,
     SubmitRequest,
     connect_client_control,
     connect_client_control_with_probe,
@@ -53,43 +55,32 @@ endpoint in normal host configuration.
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
-| `endpoint` | `str \| NnrpEndpoint` | Yes | Remote `nnrp://` or `nnrps://` application endpoint. |
-| `provider_routes` | `Mapping[str, NativeClientProviderRoute] \| None` | No | Per-carrier locator and peer-verification configuration. |
-| `transports` | `Sequence[NativeTransportBinding] \| None` | No | Authoritative provider registry. It may include `NativeTransportBinding.unavailable(...)` entries for known uninstalled providers; `None` discovers installed official bindings. |
-| `transport_policy` | `TransportPolicy \| str \| int` | No | Provider selection policy; defaults to `auto`. |
-| `options` | `NativeClientConnectionOptions \| None` | No | Native connection id and generation options. |
-| `artifact_path` | `Path \| str \| None` | No | Explicit native library path; usually unnecessary. |
-| `root` | `Path \| str \| None` | No | Native artifact root. |
-| `native_platform` | `NativePlatform \| None` | No | Platform override for diagnostics or tests. |
-| `library` | `Any \| None` | No | Test-injected library. |
-| `fallback` | `NativeRuntimeBackend \| None` | No | Test or diagnostic fallback. |
-| `require_native` | `bool` | No | Recommended as `True` for production; fails when native runtime is unavailable. |
+| `options` | `NativeClientOptions` | Yes | Application endpoint, provider routes, transport policy, and session defaults. |
 
 ```python
-with connect_native_client_connection(
-    "nnrps://runtime.example/session/default",
-    provider_routes={
-        "tcp": NativeClientProviderRoute(
-            security=NativeTransportClientSecurity(
-                server_name="runtime.example",
-                trusted_certificate_der=trusted_certificate_der,
+async def run() -> None:
+    options = NativeClientOptions(
+        endpoint="nnrps://runtime.example/session/default",
+        provider_routes={
+            "tcp": NativeClientProviderRoute(
+                security=NativeTransportClientSecurity(
+                    server_name="runtime.example",
+                    trusted_certificate_der=trusted_certificate_der,
+                )
             )
-        )
-    },
-    transport_policy=TransportPolicy.FORCE_TCP,
-) as connection:
-    print(connection.active_transport_name)
-    session = connection.open_session(NativeClientSessionOpenOptions(requested_session_id=42))
-    result = connection.submit_and_poll_result(session, operation_id=1001, frame_id=1, body=b"payload")
+        },
+        transport_policy=TransportPolicy.FORCE_TCP,
+    )
+    with connect_native_client_connection(options) as connection:
+        print(connection.active_transport_name)
+        await connection.open_session(NativeClientSessionOptions(requested_session_id=42))
 ```
 
 `NativeClientConnection.transport_selection` retains the complete immutable
 `NativeTransportSelection`, including the selected provider and every accepted or rejected candidate.
-`active_transport_name` is the canonical name of the selected provider transport. An explicit
-`transports` collection is authoritative: the SDK does not silently add discovered bindings to it.
-Each available binding owns probing, carrier creation, and role adoption for its provider; it is not
-a configuration-only feature switch. Bindings with `local_available=False` remain in candidate
-evidence but are never probed or invoked.
+`active_transport_name` is the canonical name of the selected provider transport. Installed provider
+packages are discovered by the SDK; each package owns probing, carrier creation, and role adoption
+for its provider rather than acting as a configuration-only feature switch.
 
 TCP and QUIC resolve the application authority and default to port `4433` when the authority omits
 a port. IPC requires a matching `unix://` or `npipe://` route locator; WebSocket requires a matching
@@ -103,46 +94,57 @@ failure leaves the carrier wrapper closable by Python.
 
 ### `NativeClientConnection.open_session`
 
-`NativeClientSessionOpenOptions` has these frozen defaults:
+`NativeClientSessionOptions` has these frozen defaults:
 
 | Field | Default | Description |
 |---|---:|---|
-| `requested_session_id` | `1` | Initial wire session id request. |
-| `session_generation` | `1` | Local handle generation. |
+| `requested_session_id` | `0` | Preferred wire session id; zero lets the server assign it. |
 | `profile_id` | `2` (`STANDARD_PROFILE_TOKEN`) | Standard token profile. |
 | `schema_id` | `0x00001001` (`TOKEN_DELTA_SCHEMA_ID`) | Token-delta schema. |
 | `schema_version` | `3` (`TOKEN_DELTA_SCHEMA_VERSION`) | Token-delta schema version. |
+| `priority_class` | `balanced` | Session scheduling class. |
+| `default_deadline_ms` | `500` | Default operation deadline. |
+| `max_in_flight_operations` | `4` | Requested concurrency ceiling. |
+| `lease_ttl_hint_ms` | `30000` | Requested cache lease lifetime. |
+| `allow_resume` | `False` | Enable resumable-session negotiation. |
+| `resume_token_bytes` | `0` | Local recovery-token capacity; zero selects the runtime default. |
+| `cache_hints` | `()` | Cache object kinds folded into automatic `CLIENT_HELLO`. |
 
 The no-argument `open_session()` path uses exactly these values, matching the Rust runtime default.
 Applications override them only when selecting another installed profile/schema pair.
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
-| `options` | `NativeClientSessionOpenOptions \| None` | No | Session id, generation, profile, and schema open options. |
+| `options` | `NativeClientSessionOptions \| None` | No | Session negotiation options; defaults to `NativeClientOptions.session_defaults`. |
 
 | Returns |
 |---|
 | `NativeRuntimeSession` |
+
+The method is asynchronous because session negotiation may wait for provider and peer I/O. One
+connection remains open and may own many concurrently opened sessions.
+
+### `NativeClientConnection.resume_session`
+
+`await connection.resume_session(ticket, options=None)` resumes a session with one runtime-issued
+`NativeSessionRecoveryTicket`. Applications may persist a ticket with `ticket.to_bytes()` and restore
+it with `NativeSessionRecoveryTicket.from_bytes(encoded)`, but cannot construct or alter its opaque
+resume token. `session.recovery_ticket()` returns the current ticket when resumability was negotiated.
 
 ### `NativeClientConnection.submit_and_poll_result`
 
 | Parameter | Type | Required | Description |
 |---|---|---:|---|
 | `session` | `NativeRuntimeSession` | Yes | Open native session. |
-| `operation_id` | `int` | Yes | Operation id. |
-| `frame_id` | `int` | Yes | Frame id. |
-| `metadata` | `FrameSubmitMetadata \| None` | No | Typed submit metadata; defaults to canonical token metadata. |
-| `body` | `bytes \| bytearray \| memoryview` | No | Application body after submit metadata. |
+| `request` | `SubmitRequest` | Yes | Typed tensor, token, or typed-payload submit request. |
 | `parent_operation_id` | `int \| None` | No | Parent operation. |
 | `operation_group_id` | `int \| None` | No | Operation group. |
 | `max_events` | `int \| None` | No | Maximum events processed by this poll. |
+| `timeout_ms` | `int` | No | Maximum native event-poll wait; `0` performs a non-blocking poll. |
 
-`NativeRuntimeSession.submit()` and `submit_operation()` use the same `metadata` plus `body`
-contract. When `metadata` is omitted, the SDK builds the canonical token submit metadata with the
-given non-zero `operation_id`, `TOKEN_CHUNK`, one payload frame, inline mode, and a 25 ms latency
-budget. Custom profiles pass their own typed metadata. The SDK rejects metadata whose
-`operation_id` does not equal the method argument, packs metadata and body, and crosses the FFI once.
-| `timeout_ms` | `int` | No | Maximum time the native role event poll may wait; `0` performs a non-blocking poll. |
+Build `SubmitRequest` with `SubmitRequest.tensor(...)`, `SubmitRequest.token(...)`, or
+`SubmitRequest.typed_payload(...)`. The SDK validates and packs the typed request, then crosses the
+FFI once for submit and once for the bounded result poll.
 
 | Returns |
 |---|
