@@ -37,6 +37,11 @@ const references: ReferenceExpectation[] = [
       "`NativeTerminalEvent`",
       "### `OperationLifecycleEvent`",
       "`state`",
+      "`NativeClientOptions`",
+      "`NativeClientSessionOptions`",
+      "`NativeSessionRecoveryTicket`",
+      "await connection.open_session",
+      "await connection.resume_session",
     ],
   },
   {
@@ -48,6 +53,31 @@ const references: ReferenceExpectation[] = [
       "`NativeTerminalEvent`",
       "### `OperationLifecycleEvent`",
       "`state`",
+      "`NativeClientOptions`",
+      "`NativeClientSessionOptions`",
+      "`NativeSessionRecoveryTicket`",
+      "await connection.open_session",
+      "await connection.resume_session",
+    ],
+  },
+  {
+    path: "docs/en/sdk/python/api/server.md",
+    required: [
+      "`NativeServerBootstrapOptions`",
+      "`NativeServerSessionOptions`",
+      "`NativeServerAcceptOptions` containing only `timeout_ms`",
+      "`NativeServerSessionPolicyDecision`",
+      "async def evaluate",
+    ],
+  },
+  {
+    path: "docs/zh/sdk/python/api/server.md",
+    required: [
+      "`NativeServerBootstrapOptions`",
+      "`NativeServerSessionOptions`",
+      "只包含 `timeout_ms` 的 `NativeServerAcceptOptions`",
+      "`NativeServerSessionPolicyDecision`",
+      "async def evaluate",
     ],
   },
   {
@@ -129,11 +159,19 @@ const references: ReferenceExpectation[] = [
   },
   {
     path: "docs/en/sdk/python/quick-start.md",
-    required: ["isinstance(result.event, NativeRuntimeEvent)", "print(result.event.state)"],
+    required: [
+      "await connection.open_session",
+      "result.event.as_runtime()",
+      "result.event.as_lifecycle().state",
+    ],
   },
   {
     path: "docs/zh/sdk/python/quick-start.md",
-    required: ["isinstance(result.event, NativeRuntimeEvent)", "print(result.event.state)"],
+    required: [
+      "await connection.open_session",
+      "result.event.as_runtime()",
+      "result.event.as_lifecycle().state",
+    ],
   },
 ];
 
@@ -178,6 +216,13 @@ Deno.test("language SDK references reject superseded result and lifecycle narrat
     "| Event family | Semantic tail property |",
     "| 事件类别 | 语义化 tail 属性 |",
     ".submit(FrameSubmitMetadata::default(),",
+    "NativeClientSessionOpenOptions",
+    "NativeClientConnectionOptions",
+    "NativeServerOptions",
+    "session_handle_id",
+    "session_generation",
+    "NNRP_NATIVE_BINDING_MODE",
+    "cffi_api",
   ];
 
   for (const { path, source } of sources) {

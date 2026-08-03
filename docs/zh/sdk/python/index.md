@@ -9,7 +9,7 @@
 | 核心协议类型、包头、数据包与消息构造器 | 可用 |
 | 客户端与服务端 host API | 可用 |
 | Native runtime facade | 通过打包的 Rust artifact 可用 |
-| Native binding 模式 | `auto`、`ctypes`、`cffi_api` |
+| Native binding | 基于已打包 Rust artifact 的 ABI 4 `ctypes` facade |
 | Native transport providers | TCP、QUIC、IPC、WebSocket，随 platform wheel 以 transport-scoped artifact 打包 |
 | Packet transport adapters | TCP 可用，QUIC 通过 `aioquic` 可用；用于 smoke、诊断和自定义 transport |
 | 缓存、schema、恢复、诊断与 session lifecycle helper | 通过 native runtime 支撑的 Python facade 可用 |
@@ -23,19 +23,13 @@
 - 可正常使用 `pip` 或 `uv` 安装包的环境。
 - 对支持的平台，wheel 会携带平台对应的 native artifact。
 - Preview4 native artifact 以 transport 为粒度打包；`tcp`、`quic`、`ipc`、`websocket` provider 各自声明能力、限制和成本偏好。
-- 在无法构建 cffi API 扩展的本地开发环境里，可以使用 `NNRP_NATIVE_BINDING_MODE=ctypes` 强制走免编译 fallback。
+- 生产包不再携带已退役的 compiled CFFI side runtime。
 
-## Binding 选择
+## Native 边界
 
-默认 binding 模式是 `auto`。生产 wheel 中，`auto` 会优先选择已打包的 cffi API 快路径；如果该模块不可用，则回退到 `ctypes`。本地 editable checkout 即使没有编译工具链，也可以通过 `ctypes` 跑通测试和联调。
-
-`NNRP_NATIVE_BINDING_MODE` 主要用于诊断和本地开发：
-
-| 取值 | 行为 |
-|---|---|
-| `auto` | 优先选择最快的已打包 binding，必要时回退。 |
-| `cffi_api` | 强制要求 cffi API 快路径；不可用时失败。 |
-| `ctypes` | 强制使用免编译 native binding。 |
+Python facade 通过 `ctypes` 使用粗粒度 ABI 4 role call。Transport provider 各自拥有
+transport-scoped Rust library，connection/session runtime 行为仍由共享 Rust role runtime
+负责。生产 artifact 缺失时，Python 不会替换为纯 Python 或 CFFI side runtime。
 
 ## 目录
 

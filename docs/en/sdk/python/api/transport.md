@@ -311,7 +311,9 @@ thread.
 | `ipc` | Yes | No Python packet adapter |
 | `websocket` | Yes | No Python packet adapter; WebSocket binary frame helpers live in [Runtime Control & Objects](./runtime) |
 
-When production code needs runtime sessions, prefer `connect_native_client_connection("nnrps://...", provider_routes=...)`. Use the packet adapters below only for protocol tests, diagnostic tooling, or custom transports.
+When production code needs runtime sessions, pass one `NativeClientOptions` value to
+`connect_native_client_connection(options)`. Use the packet adapters below only for protocol tests,
+diagnostic tooling, or custom transports.
 
 ---
 
