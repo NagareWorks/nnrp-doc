@@ -27,7 +27,6 @@ falling back to a managed protocol implementation.
 | `Endpoint` | [`NnrpEndpoint`](./transport#nnrpendpoint) | Yes | `nnrp://` or `nnrps://` application endpoint. |
 | `ProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpClientProviderRoute>?` | No | Per-carrier locator and peer-verification configuration. |
 | `TransportPolicy` | [`TransportPolicy`](./enums#transportpolicy) | No | Defaults to `Auto`. |
-| `Transports` | `IReadOnlyList<INnrpNativeTransportProvider>?` | No | Explicit providers; `null` uses the default registry. |
 | `SessionDefaults` | `NnrpClientSessionOptions?` | No | Defaults merged into each opened session. |
 
 TCP and QUIC may derive their host and port from `Endpoint`. IPC and WebSocket routes require a
@@ -40,9 +39,49 @@ in candidate diagnostics and probes every viable route; Force fails without fall
 public NnrpClientSession OpenSession(NnrpClientSessionOptions? options = null);
 ```
 
-`NnrpClientSessionOptions` freezes `SessionId`, `SessionGeneration`, `ProfileId`, `SchemaId`, and
-`SchemaVersion`. Zero-valued IDs request runtime allocation; generations and schema versions must be
-non-zero when their corresponding IDs are explicit.
+`NnrpClientSessionOptions` contains only transport-neutral protocol intent. Native handles and
+generations are internal and never appear in this type.
+
+| Property | Type | Default | Description |
+|---|---|---:|---|
+| `RequestedSessionId` | `uint` | `0` | Preferred wire session id; zero lets the server assign it. |
+| `ProfileId` | `ushort` | Standard token profile | Requested profile id. |
+| `SchemaId` | `uint` | Standard token delta schema | Requested schema id. |
+| `SchemaVersion` | `uint` | Standard token delta version | Requested schema version. |
+| `PriorityClass` | `SessionPriorityClass` | `Balanced` | Session scheduling class. |
+| `DefaultDeadlineMilliseconds` | `uint` | `500` | Default operation deadline. |
+| `MaxInFlightOperations` | `ushort` | `4` | Requested session concurrency ceiling. |
+| `LeaseTtlHintMilliseconds` | `uint` | `30000` | Requested cache lease lifetime. |
+| `AllowResume` | `bool` | `false` | Enables resumable-session negotiation. |
+| `ResumeTokenBytes` | `uint` | `0` | Local recovery-token capacity; zero selects the runtime default. |
+| `CacheHints` | `IReadOnlyList<CacheObjectKind>` | Empty | Cache kinds folded into the automatic connection hello. |
+
+The runtime derives wire flags, extension lengths, and the client session tag. `ResumeTokenBytes`
+does not create or carry a token on a fresh open, and `CacheHints` contributes to the connection
+hello before the first session opens.
+
+## Session Recovery
+
+```csharp
+public NnrpClientSession ResumeSession(
+    NnrpSessionRecoveryTicket ticket,
+    NnrpClientSessionOptions? options = null);
+```
+
+`NnrpClientSession.GetRecoveryTicket()` returns the current runtime-issued
+`NnrpSessionRecoveryTicket?`. Applications may persist it with `ToBytes()` and restore it with
+`NnrpSessionRecoveryTicket.FromBytes(ReadOnlySpan<byte>)`, but may not construct, inspect, truncate,
+or replace its opaque resume token.
+
+| Property | Type | Description |
+|---|---|---|
+| `SessionId` | `uint` | Non-zero runtime session id. |
+| `ResumeToken` | `ReadOnlyMemory<byte>` | Non-empty opaque runtime proof. |
+| `ResumeFromOperationId` | `ulong?` | Optional last confirmed operation id. |
+| `ResumeWindowMilliseconds` | `uint` | Negotiated ticket validity window. |
+
+The persisted value is the canonical little-endian NRTK version 1 envelope. Decoding rejects wrong
+magic or version, reserved flags, zero ids, empty tokens, truncation, and trailing bytes.
 
 ## Submission And Results
 
