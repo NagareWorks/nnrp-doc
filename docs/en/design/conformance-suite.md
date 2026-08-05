@@ -206,6 +206,19 @@ suite acts as client or proxy; the latter two configure the suite listener when 
 QUIC and secure WebSocket targets must provide all four fields. Plain TCP, IPC, and `ws` targets must
 not provide `security`.
 
+Frame-level scenario expectations use two complementary lists with frozen matching semantics:
+
+1. `expect.frames` is the ordered required subsequence. The runner projects
+   `observed_frames[].frame` in report order and must find every required frame in the declared
+   order. A missing or reordered required frame fails validation.
+2. `expect.allowed_frames` is the exhaustive set of frame names that the scenario may report. Every
+   observed frame must belong to this set; any other frame fails validation as unexpected.
+3. Repeated occurrences of an allowed frame remain valid because progress and partial-result streams
+   may emit the same frame type more than once. Ordering is enforced only for the required
+   subsequence.
+4. Every mandatory frame-level scenario declares both non-empty lists. Route-only scenarios omit
+   both lists and are validated through typed route evidence instead.
+
 Wire-level conformance is especially important for preview4 control frames such as cancellation,
 priority updates, deadlines, partial results, backpressure, route hints, cache references, trace
 context, and result drop reasons. These semantics only matter if independent clients and servers can

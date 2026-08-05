@@ -869,8 +869,8 @@ export const wireConformancePresets = [
       "en": "nnrp-1-preview4 Wire-level Conformance"
     },
     "note": {
-      "zh": "从线路级测试场景声明派生，覆盖 17 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
-      "en": "Derived from wire-level conformance scenario manifests. Covers 17 protocol scenarios where the runner directly acts as client, server, or proxy."
+      "zh": "从线路级测试场景声明派生，覆盖 18 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
+      "en": "Derived from wire-level conformance scenario manifests. Covers 18 protocol scenarios where the runner directly acts as client, server, or proxy."
     },
     "recommendedPath": "conformance/nnrp-1-preview4.wire-target.json",
     "modes": [
@@ -938,7 +938,8 @@ export const wireConformancePresets = [
           "native"
         ],
         "securityModes": [
-          "plain"
+          "plain",
+          "wss"
         ]
       },
       {
@@ -1673,6 +1674,49 @@ export const wireConformancePresets = [
               "security": {
                 "mode": "plain",
                 "credential_owner": "none"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "id": "wire.host-route.native.websocket-wss-client",
+        "mode": "suite_as_server",
+        "status": "mandatory",
+        "feature": "host.routes",
+        "requiredCapabilities": [
+          "host.routes"
+        ],
+        "description": "A native client keeps suite-owned WSS trust on its route-local WebSocket carrier while the application endpoint remains nnrps.",
+        "summary": {
+          "zh": "原生客户端保持 nnrps 应用端点，并通过由测试套件持有凭据的 WSS WebSocket 载体建立连接。",
+          "en": "A native client keeps suite-owned WSS trust on its route-local WebSocket carrier while the application endpoint remains nnrps."
+        },
+        "steps": [
+          {
+            "action": "connect_routes",
+            "timeout_ms": 3000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "route": {
+            "selected_count": 1,
+            "selected_transport": "websocket"
+          }
+        },
+        "hostRoute": {
+          "role": "client",
+          "platform": "native",
+          "application_endpoint": "nnrps://host-route.test",
+          "routes": [
+            {
+              "transport": "websocket",
+              "provider_id": "nnrp.transport.websocket.native",
+              "locator": "suite://allocate/websocket/native-wss-client",
+              "security": {
+                "mode": "wss",
+                "credential_owner": "suite"
               }
             }
           ]

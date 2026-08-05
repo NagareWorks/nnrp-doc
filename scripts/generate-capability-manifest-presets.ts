@@ -341,6 +341,10 @@ function wireConformanceNote(scenarioCount: number): LocalizedText {
 }
 
 function wireScenarioSummary(scenario: WireConformanceScenario): LocalizedText {
+  const zhByScenario: Record<string, string> = {
+    "wire.host-route.native.websocket-wss-client":
+      "原生客户端保持 nnrps 应用端点，并通过由测试套件持有凭据的 WSS WebSocket 载体建立连接。",
+  };
   const zhByFeature: Record<string, string> = {
     "control.cancel_abort":
       "提交操作后发送取消帧，并验证对端通过协作终止或结构化丢弃原因完成收敛。",
@@ -353,7 +357,7 @@ function wireScenarioSummary(scenario: WireConformanceScenario): LocalizedText {
   };
 
   return {
-    zh: zhByFeature[scenario.feature] ??
+    zh: zhByScenario[scenario.id] ?? zhByFeature[scenario.feature] ??
       "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
     en: scenario.description,
   };

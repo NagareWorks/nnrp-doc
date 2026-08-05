@@ -161,6 +161,7 @@ Deno.test("wire generator preserves every frozen host-route carrier and oracle",
       transport: string;
       platforms: string[];
       installed: boolean;
+      security_modes: string[];
     }>;
   }).host_route_providers;
   const providerById = new Map(providers.map((provider) => [provider.provider_id, provider]));
@@ -190,6 +191,10 @@ Deno.test("wire generator preserves every frozen host-route carrier and oracle",
     providerById.get("example.transport.quic.uninstalled")?.installed === false,
     "known-but-uninstalled provider must remain explicitly unavailable",
   );
+  assert(
+    providerById.get("nnrp.transport.websocket.native")?.security_modes?.includes("wss"),
+    "native WebSocket provider must preserve the frozen WSS carrier",
+  );
 
   const scenarios = scenarioManifest.scenarios as Array<{
     id: string;
@@ -200,7 +205,7 @@ Deno.test("wire generator preserves every frozen host-route carrier and oracle",
     expect: { route: Record<string, unknown> };
   }>;
   const scenarioById = new Map(scenarios.map((scenario) => [scenario.id, scenario]));
-  assert(scenarios.length === 11, "all 11 frozen host-route scenarios must be generated");
+  assert(scenarios.length === 12, "all 12 frozen host-route scenarios must be generated");
   for (const scenario of scenarios) {
     assert(
       /^nnrps?:\/\//.test(scenario.host_route.application_endpoint),

@@ -198,6 +198,14 @@ target manifest 不声明第二个 proxy 地址。启用 TLS 的 transport 必�
 suite 作为 client 或 proxy 时认证实现侧 server，后两项用于 suite 作为 server 时配置 listener。QUIC 和安全 WebSocket target 必须提供全部
 四项；明文 TCP、IPC 和 `ws` target 不得提供 `security`。
 
+帧级场景通过两个互补列表声明期望，其匹配语义冻结如下：
+
+1. `expect.frames` 是按顺序出现的必需子序列。runner 按 report 顺序投影 `observed_frames[].frame`，并按声明顺序匹配每个必需帧；缺少必需帧或
+   必需帧乱序都必须导致验证失败。
+2. `expect.allowed_frames` 是该场景允许报告的帧名全集。每个观测帧都必须属于该集合；集合外的帧必须以 unexpected frame 导致验证失败。
+3. 同一种 allowed frame 可以重复出现，因为 progress 和 partial-result 流可能多次发送同类帧；顺序约束只作用于必需子序列。
+4. 每个 mandatory 帧级场景都必须同时声明两个非空列表。只验证路由的场景省略这两个列表，并改由 typed route evidence 验证。
+
 线路级一致性测试对 preview4 控制帧尤其重要，例如 cancellation、priority update、deadline、partial result、backpressure、route
 hint、cache reference、trace context 和 result drop reason。这些语义只有在独立客户端与服务端能在线路上观察到一致行为时才成立。
 
