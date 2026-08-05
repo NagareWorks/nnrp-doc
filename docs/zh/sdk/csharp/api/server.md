@@ -26,13 +26,38 @@ public static ValueTask<NnrpServer> ListenAsync(
 | `Endpoint` | [`NnrpEndpoint`](./transport#nnrpendpoint) | 是 | `nnrp://` 或 `nnrps://` 应用 endpoint。 |
 | `ProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpServerProviderRoute>?` | 否 | 按 carrier 隔离的 bind locator 与 server security。 |
 | `TransportPolicy` | [`TransportPolicy`](./enums#transportpolicy) | 否 | 默认 `Auto`。 |
-| `Transports` | `IReadOnlyList<INnrpNativeTransportProvider>?` | 否 | 显式 provider；`null` 使用默认 registry。 |
-| `ServerId` | `ulong` | 否 | 零表示请求 runtime 分配。 |
-| `ServerGeneration` | `uint` | 否 | 默认 `1`。 |
+| `SessionDefaults` | `NnrpServerSessionOptions?` | 否 | 应用到每个 accepted session 的默认值。 |
 
 TCP 与 QUIC 可以从 `Endpoint` 派生 bind host 和 port。IPC 与 WebSocket 必须提供匹配的
 provider-local locator。Auto/Prefer 要求全部允许的已安装 provider route 都能解析，并原子打开完整
 listener set；Force 限制该集合且不回退。
+
+## `NnrpServerSessionOptions`
+
+| 属性 | 类型 | 默认值 | 说明 |
+|---|---|---:|---|
+| `SupportedProfiles` | `IReadOnlyList<ushort>` | 标准 token profile | 支持的 profile id。 |
+| `SupportedCacheObjects` | `IReadOnlyList<CacheObjectKind>` | 空 | 支持的 cache object kind。 |
+| `MaxCacheObjects` | `ulong` | `0` | Cache object 数量上限；零表示不声明限制。 |
+| `MaxCacheObjectBytes` | `uint` | `0` | 单个 object 字节上限；零表示不声明限制。 |
+| `SchemaRegistry` | `NnrpSchemaRegistry` | 标准 | 应用侧 schema registry。 |
+| `ResumeTokenBytes` | `uint` | `24` | Runtime 签发的 recovery token 长度。 |
+| `MaxInFlightOperations` | `ushort` | `4` | 协商的 in-flight operation 上限。 |
+| `GrantedOperationCredit` | `ushort` | `2` | 初始 operation credit。 |
+| `LeaseTtlMilliseconds` | `uint` | `30000` | Cache lease 生命周期。 |
+| `ResumeWindowMilliseconds` | `uint` | `120000` | Recovery ticket 有效窗口。 |
+| `ApplicationPolicy` | `INnrpServerSessionPolicy` | 接受有效 session | 异步 admission policy。 |
+
+```csharp
+public interface INnrpServerSessionPolicy
+{
+    ValueTask<NnrpServerSessionPolicyDecision> EvaluateAsync(SessionOpenMetadata open);
+}
+```
+
+`NnrpServerSessionPolicyDecision` 包含 `Accepted`、`SessionErrorCode` 和可选 `Diagnostic`。Policy 对每个
+`SESSION_OPEN` 恰好执行一次，且不能在 native callback 线程内运行；host 通过 Rust ABI completion
+边界回报 decision。拒绝必须使用有效的非零 session error code，异常会转换为确定性的 policy failure。
 
 ## `NnrpServer.AcceptAsync`
 
@@ -42,8 +67,9 @@ public ValueTask<NnrpServerSession> AcceptAsync(
     CancellationToken cancellationToken = default);
 ```
 
-`NnrpServerAcceptOptions` 冻结 `SessionId`、`SessionGeneration` 和 `TimeoutMilliseconds`。返回的
-session 持有自己的 native session handle，并保留选中 provider identity。
+`NnrpServerAcceptOptions` 只包含默认值为 `0` 的 `TimeoutMilliseconds`。Native accept ticket、session
+handle 和 generation 都是内部实现。返回的 session 持有自己的 native session handle，并保留选中
+provider identity。
 
 `NnrpServerSession.ActiveTransportId` 是实际接受 carrier 的 listener 对应的 `TransportId`。它必须与协商得到的
 active transport 一致，不能从 listener preference 顺序推断。

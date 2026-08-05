@@ -26,7 +26,6 @@ public static ValueTask<NnrpClient> ConnectAsync(
 | `Endpoint` | [`NnrpEndpoint`](./transport#nnrpendpoint) | 是 | `nnrp://` 或 `nnrps://` 应用 endpoint。 |
 | `ProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpClientProviderRoute>?` | 否 | 按 carrier 隔离的 locator 与对端验证配置。 |
 | `TransportPolicy` | [`TransportPolicy`](./enums#transportpolicy) | 否 | 默认 `Auto`。 |
-| `Transports` | `IReadOnlyList<INnrpNativeTransportProvider>?` | 否 | 显式 provider；`null` 使用默认 registry。 |
 | `SessionDefaults` | `NnrpClientSessionOptions?` | 否 | 合并到每个新 session 的默认值。 |
 
 TCP 与 QUIC 可以从 `Endpoint` 派生 host 和 port。IPC 与 WebSocket route 必须提供匹配的
@@ -39,9 +38,48 @@ route，并 probe 全部可用 route；Force 失败且不回退。
 public NnrpClientSession OpenSession(NnrpClientSessionOptions? options = null);
 ```
 
-`NnrpClientSessionOptions` 冻结 `SessionId`、`SessionGeneration`、`ProfileId`、`SchemaId` 和
-`SchemaVersion`。ID 为零时请求 runtime 分配；显式 ID 对应的 generation 或 schema version 必须
-非零。
+`NnrpClientSessionOptions` 只包含 transport-neutral 协议意图。Native handle 和 generation
+属于内部实现，不得出现在这个类型中。
+
+| 属性 | 类型 | 默认值 | 说明 |
+|---|---|---:|---|
+| `RequestedSessionId` | `uint` | `0` | 期望的 wire session id；零表示由 server 分配。 |
+| `ProfileId` | `ushort` | 标准 token profile | 请求的 profile id。 |
+| `SchemaId` | `uint` | 标准 token delta schema | 请求的 schema id。 |
+| `SchemaVersion` | `uint` | 标准 token delta version | 请求的 schema version。 |
+| `PriorityClass` | `SessionPriorityClass` | `Balanced` | Session 调度类别。 |
+| `DefaultDeadlineMilliseconds` | `uint` | `500` | Operation 默认 deadline。 |
+| `MaxInFlightOperations` | `ushort` | `4` | 请求的 session 并发上限。 |
+| `LeaseTtlHintMilliseconds` | `uint` | `30000` | 请求的 cache lease 生命周期。 |
+| `AllowResume` | `bool` | `false` | 启用可恢复 session 协商。 |
+| `ResumeTokenBytes` | `uint` | `0` | 本地 recovery token 容量；零表示 runtime 默认值。 |
+| `CacheHints` | `IReadOnlyList<CacheObjectKind>` | 空 | 合并进自动 connection hello 的 cache kind。 |
+
+Runtime 负责派生 wire flags、extension 长度和 client session tag。新建 session 时，
+`ResumeTokenBytes` 不会创建或携带 token；`CacheHints` 会在第一个 session 打开前参与 connection hello。
+
+## Session 恢复
+
+```csharp
+public NnrpClientSession ResumeSession(
+    NnrpSessionRecoveryTicket ticket,
+    NnrpClientSessionOptions? options = null);
+```
+
+`NnrpClientSession.GetRecoveryTicket()` 返回当前 runtime 签发的
+`NnrpSessionRecoveryTicket?`。应用可以通过 `ToBytes()` 持久化，并通过
+`NnrpSessionRecoveryTicket.FromBytes(ReadOnlySpan<byte>)` 恢复，但不得构造、检查、截断或替换其中的
+opaque resume token。
+
+| 属性 | 类型 | 说明 |
+|---|---|---|
+| `SessionId` | `uint` | 非零 runtime session id。 |
+| `ResumeToken` | `ReadOnlyMemory<byte>` | 非空 opaque runtime proof。 |
+| `ResumeFromOperationId` | `ulong?` | 可选的最后确认 operation id。 |
+| `ResumeWindowMilliseconds` | `uint` | 协商得到的 ticket 有效窗口。 |
+
+持久化值使用 canonical little-endian NRTK version 1 envelope。解码必须拒绝错误 magic/version、
+reserved flag、零 id、空 token、截断和尾随字节。
 
 ## 提交与结果
 

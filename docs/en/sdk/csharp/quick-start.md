@@ -40,8 +40,9 @@ var result = await session.SubmitAsync(request, cancellationToken);
 
 The example assumes `trustedCertificateDer` is a `byte[]` loaded from deployment trust configuration.
 
-The default provider registry contains providers registered by the installed transport packages. Set
-`NnrpClientOptions.Transports` only for controlled deployments or tests that need an explicit list.
+The default provider registry contains providers registered by the installed transport packages.
+Installing a provider makes its real carrier implementation and scoped native artifact available;
+the application options remain transport-neutral and do not carry a provider instance list.
 
 ## Server
 

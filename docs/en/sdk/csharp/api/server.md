@@ -27,13 +27,39 @@ server.
 | `Endpoint` | [`NnrpEndpoint`](./transport#nnrpendpoint) | Yes | `nnrp://` or `nnrps://` application endpoint. |
 | `ProviderRoutes` | `IReadOnlyDictionary<TransportId, NnrpServerProviderRoute>?` | No | Per-carrier bind locator and server-security configuration. |
 | `TransportPolicy` | [`TransportPolicy`](./enums#transportpolicy) | No | Defaults to `Auto`. |
-| `Transports` | `IReadOnlyList<INnrpNativeTransportProvider>?` | No | Explicit providers; `null` uses the default registry. |
-| `ServerId` | `ulong` | No | Zero requests runtime allocation. |
-| `ServerGeneration` | `uint` | No | Defaults to `1`. |
+| `SessionDefaults` | `NnrpServerSessionOptions?` | No | Defaults applied to every accepted session. |
 
 TCP and QUIC may derive their bind host and port from `Endpoint`. IPC and WebSocket require matching
 provider-local locators. Auto/Prefer requires every allowed installed provider route to resolve and
 opens the complete listener set atomically; Force restricts the set without fallback.
+
+## `NnrpServerSessionOptions`
+
+| Property | Type | Default | Description |
+|---|---|---:|---|
+| `SupportedProfiles` | `IReadOnlyList<ushort>` | Standard token profile | Supported profile ids. |
+| `SupportedCacheObjects` | `IReadOnlyList<CacheObjectKind>` | Empty | Supported cache object kinds. |
+| `MaxCacheObjects` | `ulong` | `0` | Cache object-count limit; zero means no advertised limit. |
+| `MaxCacheObjectBytes` | `uint` | `0` | Per-object byte limit; zero means no advertised limit. |
+| `SchemaRegistry` | `NnrpSchemaRegistry` | Standard | Application-facing schema registry. |
+| `ResumeTokenBytes` | `uint` | `24` | Runtime-issued recovery-token size. |
+| `MaxInFlightOperations` | `ushort` | `4` | Negotiated in-flight operation limit. |
+| `GrantedOperationCredit` | `ushort` | `2` | Initial operation credit. |
+| `LeaseTtlMilliseconds` | `uint` | `30000` | Cache lease lifetime. |
+| `ResumeWindowMilliseconds` | `uint` | `120000` | Recovery-ticket validity window. |
+| `ApplicationPolicy` | `INnrpServerSessionPolicy` | Accept valid sessions | Asynchronous admission policy. |
+
+```csharp
+public interface INnrpServerSessionPolicy
+{
+    ValueTask<NnrpServerSessionPolicyDecision> EvaluateAsync(SessionOpenMetadata open);
+}
+```
+
+`NnrpServerSessionPolicyDecision` contains `Accepted`, `SessionErrorCode`, and optional `Diagnostic`.
+The policy runs exactly once for each `SESSION_OPEN`. It executes away from the native callback
+thread, and the host reports its decision through the Rust ABI completion boundary. Rejections must
+use a valid non-zero session error code; exceptions become deterministic policy failures.
 
 ## `NnrpServer.AcceptAsync`
 
@@ -43,8 +69,9 @@ public ValueTask<NnrpServerSession> AcceptAsync(
     CancellationToken cancellationToken = default);
 ```
 
-`NnrpServerAcceptOptions` freezes `SessionId`, `SessionGeneration`, and `TimeoutMilliseconds`. The
-accepted session owns its native session handle and preserves the selected provider identity.
+`NnrpServerAcceptOptions` contains only `TimeoutMilliseconds`, which defaults to `0`. Native accept
+tickets, session handles, and generations are internal. The accepted session owns its native
+session handle and preserves the selected provider identity.
 
 `NnrpServerSession.ActiveTransportId` is the `TransportId` of the listener that accepted the carrier. It matches the
 negotiated active transport and is not inferred from listener preference order.

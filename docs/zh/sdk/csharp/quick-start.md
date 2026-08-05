@@ -40,8 +40,8 @@ var result = await session.SubmitAsync(request, cancellationToken);
 
 下面假设 `trustedCertificateDer` 是从部署信任配置加载的 `byte[]`。
 
-默认 provider registry 包含已安装 transport 包注册的 provider。只有受控部署或测试需要固定
-provider 列表时，才设置 `NnrpClientOptions.Transports`。
+默认 provider registry 包含已安装 transport 包注册的 provider。安装 provider 会提供真实 carrier
+实现及其 scoped native artifact；应用 options 保持 transport-neutral，不携带 provider instance 列表。
 
 ## Server
 
