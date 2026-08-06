@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 9,
+  "contractVersion": 10,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -1913,6 +1913,7 @@
       "fields": [{ "name": "timeout_ms", "type": "u32", "required": false, "default": 0 }]
     },
     "SessionLifecycleSnapshot": {
+      "description": "Public session lifecycle state. A rejected SESSION_CLOSE_ACK restores the established open or resumed state. Unknown close-status values are protocol failures and must not be surfaced as language exceptions by Try-style transition APIs.",
       "fields": [
         { "name": "session_id", "type": "u32", "required": true },
         { "name": "state", "type": "SessionLifecycleState", "required": true },
@@ -1927,6 +1928,7 @@
       ]
     },
     "ConnectionLifecycleSnapshot": {
+      "description": "Public connection lifecycle state with deterministic session ordering. Closing a connection closes every installed session.",
       "fields": [
         { "name": "state", "type": "ConnectionLifecycleState", "required": true },
         { "name": "sessions", "type": "SessionLifecycleSnapshot[]", "required": true }

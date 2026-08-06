@@ -224,6 +224,20 @@ runtime-control value registry.
 and `ObjectKind: CacheObjectKind`. `CacheLeaseOwnerScope` is `Connection = 0`, `Session = 1`, or
 `Operation = 2`. Use `ExpiresAtMilliseconds`, `TryValidateLiveAt`, and `TryValidateVersion` for local validation.
 
+`NnrpCacheObjectVersion` binds that complete object identity to `ObjectVersion`, `SchemaId`, and
+`SchemaVersion`. `NnrpCacheLeaseResult` is the closed result returned by native cache operations:
+
+| C# property | Type |
+|---|---|
+| `ObjectId` | `NnrpCacheObjectId` |
+| `Outcome` | `NnrpCacheLeaseOutcome` |
+| `Lease` | `NnrpCacheLease?` |
+| `ObjectVersion` | `NnrpCacheObjectVersion?` |
+| `Diagnostic` | `string?` |
+
+`NnrpCacheLeaseOutcome` is `Valid`, `Expired`, `Renewed`, `Released`, or `Missing`. A present lease
+or object-version value must carry the same complete object identity as `ObjectId`.
+
 ## `CachePolicyOptions`
 
 `CachePolicyOptions` is the local opt-in policy described by the runtime-control profile. It never
@@ -239,6 +253,36 @@ performs a lookup or serializes a cache frame by itself.
 `CachePolicyInvalidationReason` has `Explicit`, `DependencyInvalidated`, `LeaseExpired`,
 `VersionMismatch`, and `SchemaMismatch`. Enabling the policy requires `ReuseScope`; disabling it
 requires `ReuseScope == null` and `ExpirationHintMilliseconds == 0`.
+
+## Connection And Session Lifecycle
+
+`NnrpConnectionLifecycle` is the application-facing Preview4 lifecycle model. It starts in `Open`,
+keeps sessions ordered by session id, and exposes immutable session snapshots through `Sessions`,
+`TryGetSession`, and `Snapshot`. `TryCloseConnection` moves the connection and every installed
+session to `Closed`.
+
+`NnrpSessionLifecycle` exposes the frozen session snapshot fields: `SessionId`, `State`, `ProfileId`,
+`PriorityClass`, `SchemaId`, `SchemaVersion`, `MaxInFlightOperations`, `RouteScopeId`,
+`LastOperationId`, and `SessionErrorCode`. `AcceptsSessionScopedMessages` and
+`AcceptsNewOperations` are derived C# convenience properties, not additional wire fields.
+
+The transition methods are `TryApplySessionOpenAck`, `TryBeginSessionClose`,
+`TryApplySessionCloseAck`, and `TryValidateFlowUpdate`. A rejected close acknowledgement restores
+the session's established `Open` or `Resumed` state. Unknown close-status values return an
+`NnrpProtocolFailure`; `Try` methods do not translate malformed peer state into language exceptions.
+
+## Schema Registry
+
+`NnrpSchemaDescriptorHeader` is the 32-byte C# projection of the frozen schema descriptor header.
+It exposes schema identity and version, profile assignment, flags, supported protocol-version
+range, body size, dependency count, default stream semantics, and schema hash. Use `TryParse` and
+`TryWrite` for validated wire access.
+
+`NnrpSchemaRegistry` stores descriptors by `(SchemaId, SchemaVersion)`. `WithStandardProfiles`
+installs the standard bindings; `TryInstall`, `TryGet`, `TryInvalidate`, and
+`TryValidateDescriptorBinding` implement the public registry lifecycle. `SchemaRegistryAction`
+reports whether an install was new, already present, updated, or invalidated, while
+`SchemaErrorCode` carries protocol-defined failures.
 
 ## Native Object Delta Metadata Copies
 

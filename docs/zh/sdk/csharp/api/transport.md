@@ -136,8 +136,9 @@ Metadata 必须与 Rust artifact manifest 一致。C# 使用
 | `Resolve(NnrpTransportSelectionOptions)` | 执行过滤和选择；没有 provider 可选时抛出携带完整 candidates 的 `NnrpTransportSelectionException`。 |
 
 安装的一方包会注册 `NnrpNativeTcpTransportProvider`、`NnrpNativeQuicTransportProvider`、
-`NnrpNativeIpcTransportProvider` 或 `NnrpNativeWebSocketTransportProvider`。角色 options 可以用显式
-provider 列表替换默认 registry。
+`NnrpNativeIpcTransportProvider` 或 `NnrpNativeWebSocketTransportProvider` 到内部默认 registry。
+公开角色 options 不接受 provider 实例或 native handle；`ProviderRoutes` 提供 provider endpoint 意图，
+`TransportPolicy` 则约束对已安装包的选择。
 
 只有一个有效 provider 时直接选择；多个有效 provider 才进入冻结的 probe/comparison 路径。
 被拒绝的 candidate 仍保留在 `NnrpTransportSelection` 中。

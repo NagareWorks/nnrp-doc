@@ -189,7 +189,7 @@ async function loadContract(): Promise<SdkApiContract> {
 Deno.test("Preview4 SDK contract freezes the required semantic types", async () => {
   const contract = await loadContract();
   assertEquals(contract.contract, "nnrp-1-preview4-sdk-api");
-  assertEquals(contract.contractVersion, 9);
+  assertEquals(contract.contractVersion, 10);
   assertEquals(contract.rules.languageProjectionMustBeLossless, true);
   assertEquals(contract.rules.adapterNormalizationDoesNotProveApiParity, true);
   assertEquals(contract.rules.missingWireFieldsMayNotBeDefaulted, true);
