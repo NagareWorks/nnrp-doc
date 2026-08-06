@@ -220,6 +220,20 @@ guard。
 和 `ObjectKind: CacheObjectKind`。`CacheLeaseOwnerScope` 的取值为 `Connection = 0`、`Session = 1`
 或 `Operation = 2`。本地校验应使用 `ExpiresAtMilliseconds`、`TryValidateLiveAt` 和 `TryValidateVersion`。
 
+`NnrpCacheObjectVersion` 将完整对象身份与 `ObjectVersion`、`SchemaId` 和 `SchemaVersion`
+绑定。Native 缓存操作统一返回封闭结果 `NnrpCacheLeaseResult`：
+
+| C# 属性 | 类型 |
+|---|---|
+| `ObjectId` | `NnrpCacheObjectId` |
+| `Outcome` | `NnrpCacheLeaseOutcome` |
+| `Lease` | `NnrpCacheLease?` |
+| `ObjectVersion` | `NnrpCacheObjectVersion?` |
+| `Diagnostic` | `string?` |
+
+`NnrpCacheLeaseOutcome` 包含 `Valid`、`Expired`、`Renewed`、`Released` 和 `Missing`。如果结果中
+存在 lease 或 object-version，它们必须与 `ObjectId` 使用同一份完整对象身份。
+
 ## `CachePolicyOptions`
 
 `CachePolicyOptions` 是 runtime-control profile 定义的本地显式启用策略。它本身不会执行查询，
@@ -235,6 +249,33 @@ guard。
 `CachePolicyInvalidationReason` 包含 `Explicit`、`DependencyInvalidated`、`LeaseExpired`、
 `VersionMismatch` 和 `SchemaMismatch`。启用策略时必须提供 `ReuseScope`；禁用时要求
 `ReuseScope == null` 且 `ExpirationHintMilliseconds == 0`。
+
+## 连接与会话生命周期
+
+`NnrpConnectionLifecycle` 是面向应用的 Preview4 生命周期模型。它从 `Open` 开始，按 session id
+稳定排序会话，并通过 `Sessions`、`TryGetSession` 和 `Snapshot` 暴露不可变会话快照。
+`TryCloseConnection` 会将连接及其全部已安装会话迁移到 `Closed`。
+
+`NnrpSessionLifecycle` 暴露冻结的会话快照字段：`SessionId`、`State`、`ProfileId`、
+`PriorityClass`、`SchemaId`、`SchemaVersion`、`MaxInFlightOperations`、`RouteScopeId`、
+`LastOperationId` 和 `SessionErrorCode`。`AcceptsSessionScopedMessages` 与
+`AcceptsNewOperations` 是 C# 的派生便利属性，不是额外线路字段。
+
+状态迁移方法包括 `TryApplySessionOpenAck`、`TryBeginSessionClose`、
+`TryApplySessionCloseAck` 和 `TryValidateFlowUpdate`。关闭确认被拒绝时，会话必须恢复到此前建立的
+`Open` 或 `Resumed` 状态。未知 close-status 返回 `NnrpProtocolFailure`；`Try` 方法不会把对端的
+非法状态转换为语言异常。
+
+## Schema Registry
+
+`NnrpSchemaDescriptorHeader` 是冻结 schema descriptor header 的 32 字节 C# 投影，包含 schema
+身份与版本、profile 绑定、flags、支持的协议版本范围、body 大小、依赖数量、默认流语义和 schema
+hash。使用 `TryParse` 与 `TryWrite` 进行带校验的线路读写。
+
+`NnrpSchemaRegistry` 按 `(SchemaId, SchemaVersion)` 保存 descriptor。`WithStandardProfiles`
+安装标准绑定；`TryInstall`、`TryGet`、`TryInvalidate` 和 `TryValidateDescriptorBinding` 实现公开的
+registry 生命周期。`SchemaRegistryAction` 区分新增、已存在、更新和失效，`SchemaErrorCode`
+承载协议定义的失败原因。
 
 ## Native Object Delta Metadata Copies
 

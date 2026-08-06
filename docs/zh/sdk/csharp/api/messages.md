@@ -97,6 +97,10 @@ bool TryGetServerPayloadCapabilitiesAckExtension(
 角色 API 负责维护生命周期顺序。底层调用者必须通过
 [`NnrpSessionStateMachine`](./protocol#nnrpsessionstatemachine) 执行相同状态迁移。
 
+Preview4 面向应用的生命周期模型见
+[`NnrpConnectionLifecycle` 与 `NnrpSessionLifecycle`](./runtime#连接与会话生命周期)。关闭请求被拒绝时，
+该模型会保留会话此前由 open 或 resume 建立的状态。
+
 ## 提交与结果
 
 ### `FrameSubmitMessage`

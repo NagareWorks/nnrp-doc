@@ -99,6 +99,10 @@ surface. `ErrorMessage` carries `ErrorMetadata` plus optional diagnostic bytes.
 Role APIs own lifecycle ordering. Low-level callers must enforce the same state transitions through
 [`NnrpSessionStateMachine`](./protocol#nnrpsessionstatemachine).
 
+For the Preview4 application-facing lifecycle model, use
+[`NnrpConnectionLifecycle` and `NnrpSessionLifecycle`](./runtime#connection-and-session-lifecycle).
+The model preserves whether a session was opened or resumed when a close request is rejected.
+
 ## Submission And Results
 
 ### `FrameSubmitMessage`

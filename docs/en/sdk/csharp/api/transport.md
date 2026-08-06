@@ -141,8 +141,9 @@ score.
 
 Installed first-party packages register `NnrpNativeTcpTransportProvider`,
 `NnrpNativeQuicTransportProvider`, `NnrpNativeIpcTransportProvider`, or
-`NnrpNativeWebSocketTransportProvider`. A role option may provide an explicit provider list instead
-of the default registry.
+`NnrpNativeWebSocketTransportProvider` in the internal default registry. Public role options do not
+accept provider instances or native handles; `ProviderRoutes` supplies provider endpoint intent and
+`TransportPolicy` constrains selection over the installed packages.
 
 One valid provider is selected directly. More than one valid provider triggers the frozen probe and
 comparison path. Rejected candidates remain visible in `NnrpTransportSelection`.
