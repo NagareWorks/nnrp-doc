@@ -118,17 +118,17 @@ HTTP SSE chunk 映射为 NNRP result push event。流式事件在单个 submitte
 
 Level 1 必需 streaming event type：
 
-| Event type                     | 必需字段                                           | 说明                                     |
-| ------------------------------ | -------------------------------------------------- | ---------------------------------------- |
-| `response.output_text.delta`   | `index`、`delta`                                   | 增量文本输出。                           |
-| `response.tool_call.started`   | `index`、`item_id`、`call_id`、`name`              | 开始一个工具调用。                       |
-| `response.tool_call.delta`     | `index`、`item_id`、`call_id`、`arguments_delta`   | 追加参数文本。                           |
-| `response.tool_call.completed` | `index`、`item_id`、`call_id`、`name`、`arguments` | 完成一个工具调用。                       |
-| `response.tool_call.error`     | `index`、`item_id`、`call_id`、`error`             | 以错误终止一个工具调用。                 |
-| `response.usage`               | `usage`                                            | Usage summary。                          |
-| `response.completed`           | `body`                                             | 存在最终 OpenAI 兼容响应 body 时发送。   |
-| `response.error`               | `error`                                            | 面向应用的 OpenAI 兼容 error body。      |
-| `response.cancelled`           | `reason`                                           | Adapter 观测到取消时发送的终止取消通知。 |
+| Event type                     | 必需字段                                                   | 说明                                     |
+| ------------------------------ | ---------------------------------------------------------- | ---------------------------------------- |
+| `response.output_text.delta`   | `index`、`delta`                                           | 增量文本输出。                           |
+| `response.tool_call.started`   | `type`、`index`、`item_id`、`call_id`、`name`              | 开始一个工具调用。                       |
+| `response.tool_call.delta`     | `type`、`index`、`item_id`、`call_id`、`arguments_delta`   | 追加参数文本。                           |
+| `response.tool_call.completed` | `type`、`index`、`item_id`、`call_id`、`name`、`arguments` | 完成一个工具调用。                       |
+| `response.tool_call.error`     | `type`、`index`、`item_id`、`call_id`、`error`             | 以错误终止一个工具调用。                 |
+| `response.usage`               | `usage`                                                    | Usage summary。                          |
+| `response.completed`           | `body`                                                     | 存在最终 OpenAI 兼容响应 body 时发送。   |
+| `response.error`               | `error`                                                    | 面向应用的 OpenAI 兼容 error body。      |
+| `response.cancelled`           | `reason`                                                   | Adapter 观测到取消时发送的终止取消通知。 |
 
 Text delta 示例：
 

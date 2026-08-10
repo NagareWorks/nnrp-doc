@@ -130,17 +130,17 @@ HTTP SSE chunks map to NNRP result push events. The stream is ordered per submit
 
 Mandatory Level 1 streaming event types:
 
-| Event type                     | Required fields                                    | Description                                                                |
-| ------------------------------ | -------------------------------------------------- | -------------------------------------------------------------------------- |
-| `response.output_text.delta`   | `index`, `delta`                                   | Incremental text output.                                                   |
-| `response.tool_call.started`   | `index`, `item_id`, `call_id`, `name`              | Starts one tool call.                                                      |
-| `response.tool_call.delta`     | `index`, `item_id`, `call_id`, `arguments_delta`   | Appends argument text.                                                     |
-| `response.tool_call.completed` | `index`, `item_id`, `call_id`, `name`, `arguments` | Completes one tool call.                                                   |
-| `response.tool_call.error`     | `index`, `item_id`, `call_id`, `error`             | Terminates one tool call with an error.                                    |
-| `response.usage`               | `usage`                                            | Usage summary.                                                             |
-| `response.completed`           | `body`                                             | Final OpenAI-compatible response body when available.                      |
-| `response.error`               | `error`                                            | Application-facing OpenAI-compatible error body.                           |
-| `response.cancelled`           | `reason`                                           | Terminal cancellation notification when the adapter observes cancellation. |
+| Event type                     | Required fields                                            | Description                                                                |
+| ------------------------------ | ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `response.output_text.delta`   | `index`, `delta`                                           | Incremental text output.                                                   |
+| `response.tool_call.started`   | `type`, `index`, `item_id`, `call_id`, `name`              | Starts one tool call.                                                      |
+| `response.tool_call.delta`     | `type`, `index`, `item_id`, `call_id`, `arguments_delta`   | Appends argument text.                                                     |
+| `response.tool_call.completed` | `type`, `index`, `item_id`, `call_id`, `name`, `arguments` | Completes one tool call.                                                   |
+| `response.tool_call.error`     | `type`, `index`, `item_id`, `call_id`, `error`             | Terminates one tool call with an error.                                    |
+| `response.usage`               | `usage`                                                    | Usage summary.                                                             |
+| `response.completed`           | `body`                                                     | Final OpenAI-compatible response body when available.                      |
+| `response.error`               | `error`                                                    | Application-facing OpenAI-compatible error body.                           |
+| `response.cancelled`           | `reason`                                                   | Terminal cancellation notification when the adapter observes cancellation. |
 
 Example text delta:
 
