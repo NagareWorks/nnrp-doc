@@ -170,6 +170,10 @@ The operation validates session ownership and `operation_id` before writing. It 
 and exactly one terminal method may succeed. Operation-scoped reply methods are not exposed on
 `NnrpServerSession`.
 
+Receiving a terminal lifecycle event does not invalidate the owned operation before its terminal
+reply succeeds. The operation remains reply-capable until that reply or session shutdown; polling
+another event cannot change this lifetime.
+
 ## Runtime Control Methods
 
 | Method | Parameters | Returns | Description |

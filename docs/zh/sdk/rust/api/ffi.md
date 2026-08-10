@@ -353,6 +353,11 @@ handle store 中仍存在对应 operation 时，`operation` 保存该 live opera
 遵循普通 `payload_owner` 生命周期。Binding 必须从该 payload 解码全部八种 lifecycle state，禁止根据
 其他 event kind 推断 state，也禁止伪造 wire header。
 
+server operation handle 会保持有效，直到一个终态回复成功，或所属 session 被关闭。投递本地
+operation lifecycle event 不会释放该 handle：如果 cancel、abort 或 supersede 先于终态回复到达
+server，应用仍可用同一个 handle 发送终态 drop 证据。若终态回复先于 lifecycle 投递成功，则在该
+lifecycle event 被投影时释放对应 operation handle。poll 频率和 event batch 边界不得改变 handle 生命周期。
+
 Server-side operation handle 同时保存两个 wire identity。Handle 的数值只在本地有效，禁止用它替换
 partial、control、trace 或 drop metadata 中的 `FRAME_SUBMIT.operation_id`。
 

@@ -178,6 +178,10 @@ The same operation also exposes these async methods:
 All four methods validate operation identity. Exactly one terminal method may succeed, and
 `NativeRuntimeServerSession` has no parallel operation-reply methods.
 
+Receiving a terminal lifecycle event does not invalidate the operation before its terminal reply
+succeeds. It remains reply-capable until that reply or session shutdown, independently of later
+event polls.
+
 ## Packet Transport Diagnostics
 
 The following `ServerSession` helpers are a packet-level diagnostic and custom-carrier surface. They

@@ -140,6 +140,10 @@ All four methods return `Promise<void>`. The operation validates its session and
 only one terminal method may succeed. `NnrpServerSession` does not expose parallel operation-reply
 methods.
 
+Receiving a terminal lifecycle event does not invalidate the operation before its terminal reply
+succeeds. It remains reply-capable until that reply or session shutdown, independently of later
+`nextEvent()` calls.
+
 ## Preview4 Server Session Methods
 
 The session owns non-operation server output:

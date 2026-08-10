@@ -133,6 +133,9 @@ variant 持有不带 header 的 `NnrpOperationLifecycleEvent`。`receiveSubmit(o
 四个方法都返回 `Promise<void>`。operation 会校验所属 session 和 `operationId`，并且只允许一个终态方法成功。
 `NnrpServerSession` 不暴露任何并行的 operation 回复方法。
 
+收到终态 lifecycle event 不会在终态回复成功前使 operation 失效。operation 会保持可回复，直到
+终态回复成功或 session 关闭；后续 `nextEvent()` 调用不得改变这段生命周期。
+
 ## Preview4 Server Session 方法
 
 session 只持有与具体 operation 无关的服务端输出：

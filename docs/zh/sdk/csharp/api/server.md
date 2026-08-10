@@ -108,6 +108,9 @@ public ValueTask<NnrpServerOperation> ReceiveSubmitAsync(
 `NnrpNativeInvalidStateException`。所有方法都会校验 operation identity，session 不暴露并行的
 operation 回复方法。
 
+收到终态 lifecycle event 不会在终态回复成功前使 operation 失效。operation 会保持可回复，直到
+终态回复成功或 session 关闭，后续 event 读取不得改变这段生命周期。
+
 ## Server Runtime 方法
 
 每个方法都通过一次粗粒度 native 调用发送 typed Preview4 frame。
