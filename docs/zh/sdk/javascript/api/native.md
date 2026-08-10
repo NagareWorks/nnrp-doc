@@ -36,8 +36,20 @@ connection/listener 生命周期。Role binding 不得冒充 transport binding�
 | `submitNoWait`        | function                                                            |   否 | 粗粒度 no-wait submit path。                   |
 | `sendRuntimeFrame`    | function                                                            |   否 | 粗粒度 Preview4 控制/对象/缓存 frame 路径。     |
 | `patchSession`        | function                                                            |   否 | 粗粒度 session patch 路径。                    |
-| `awaitEvents`         | function                                                            |   否 | 粗粒度 batch event polling 路径。              |
+| `awaitEvents`         | `(request: NnrpNativeEventBatchRequest) => readonly NnrpNativeClientEventBatchItem[] \| Promise<readonly NnrpNativeClientEventBatchItem[]>` |   否 | 粗粒度、按 session 路由的 batch event polling。 |
 | `close`               | function                                                            |   否 | Binding cleanup hook。                         |
+
+`NnrpNativeClientEventBatchItem` 是以下封闭批次信封：
+
+| 字段        | 类型              | 必填 | 语义                                                        |
+| ----------- | ----------------- | ---: | ----------------------------------------------------------- |
+| `sessionId` | `number`          |   是 | 用于路由事件的已协商非零 `u32` session identity。            |
+| `event`     | `NnrpClientEvent` |   是 | 一个且仅一个 `runtime` 或 `lifecycle` client role event。    |
+
+当 `item.event.type === "runtime"` 时，`item.sessionId` 必须等于
+`item.event.event.header.sessionId`，不一致属于协议错误。当 `item.event.type === "lifecycle"` 时，
+事件没有 wire header，只能由 `item.sessionId` 路由。Binding 不得从当前等待事件的 consumer 猜测
+session，也不得伪造全零 header。
 
 Cancel 与 abort 是通过 `sendRuntimeFrame` 发送的协议帧，不是独立 FFI 方法。发布的 role package 不暴露
 package-owned 的 Deno 直连 loader 或 self-echo benchmark binding。生产调用必须经过已选择 transport

@@ -37,8 +37,21 @@ is missing.
 | `submitNoWait`        | function                                                            |       No | Coarse no-wait submit path.                      |
 | `sendRuntimeFrame`    | function                                                            |       No | Coarse Preview4 control/object/cache frame path. |
 | `patchSession`        | function                                                            |       No | Coarse session patch path.                       |
-| `awaitEvents`         | function                                                            |       No | Coarse batch event polling path.                 |
+| `awaitEvents`         | `(request: NnrpNativeEventBatchRequest) => readonly NnrpNativeClientEventBatchItem[] \| Promise<readonly NnrpNativeClientEventBatchItem[]>` |       No | Coarse, session-routed batch event polling path. |
 | `close`               | function                                                            |       No | Binding cleanup hook.                            |
+
+`NnrpNativeClientEventBatchItem` is the closed batch envelope below:
+
+| Field       | Type              | Required | Semantics                                                                 |
+| ----------- | ----------------- | -------: | ------------------------------------------------------------------------- |
+| `sessionId` | `number`          |      Yes | Negotiated, non-zero `u32` session identity used to route the event.      |
+| `event`     | `NnrpClientEvent` |      Yes | Exactly one `runtime` or `lifecycle` client-role event.                   |
+
+When `item.event.type === "runtime"`, `item.sessionId` must equal
+`item.event.event.header.sessionId`; a mismatch is a protocol error. When
+`item.event.type === "lifecycle"`, the event has no wire header and is routed only by
+`item.sessionId`. Bindings must not infer its session from the currently waiting consumer or
+manufacture a zero-filled header.
 
 Cancellation and abort are protocol frames sent through `sendRuntimeFrame`; they are not standalone
 FFI methods. Published role packages do not expose a package-owned direct Deno loader or a self-echo
