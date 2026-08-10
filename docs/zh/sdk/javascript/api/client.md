@@ -250,6 +250,13 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 
 这些 helper 与显式控制方法共用 control sequence allocator，不会创建旁路取消通道。
 
+已发出 `FRAME_SUBMIT` 后取消 `submit()`，该次等待必须在发起 `CANCEL` 后确定性地以
+[`NnrpTimeoutError`](./core#错误) 拒绝，其 `diagnostic.code` 为 `NNRP_SUBMIT_CANCELLED`。等待超时使用
+同一错误类型和 `NNRP_SUBMIT_TIMEOUT` 诊断码，并在发起 `CANCEL` 后拒绝；发送前的 `DEADLINE` 仍属于
+wire 流程。两种情况下，本地终态 lifecycle event 都继续由 `nextEvent()` 提供，禁止与同一个
+`submit()` 竞速并把它解析为成功返回的 `NnrpResult`。由对端独立触发的终态 lifecycle 仍可作为
+非成功 `NnrpResult` 证据完成 `submit()`。
+
 ## `ClientSession.nextEvent`
 
 读取下一条 client event。`NnrpClientEvent` 是闭合 tagged union，包括一个 runtime

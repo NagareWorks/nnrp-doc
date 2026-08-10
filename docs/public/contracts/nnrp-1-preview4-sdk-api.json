@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 14,
+  "contractVersion": 15,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -2607,6 +2607,13 @@
       "bootstrapOptionsType": "ClientBootstrapOptions",
       "sessionOptionsType": "ClientSessionOptions",
       "recoveryTicketType": "SessionRecoveryTicket"
+    },
+    "clientSubmitWait": {
+      "scopeRule": "These rules apply when an SDK exposes a cancellable or time-bounded submit-and-wait convenience.",
+      "preDispatchCancellationRule": "Cancellation before FRAME_SUBMIT dispatch fails the local wait and emits no submit or cancellation frame.",
+      "postDispatchCancellationRule": "Cancellation after FRAME_SUBMIT dispatch fails the local wait with the language-native cancellation error and sends CANCEL for the submitted operation.",
+      "timeoutRule": "A time-bounded submit wait sends DEADLINE before dispatch; expiry fails the local wait with the language-native timeout error and sends CANCEL for the submitted operation.",
+      "lifecycleRule": "The local lifecycle event produced by caller cancellation or wait expiry remains observable through the client event pump and must not race the same submit wait into a successful NnrpResult return. A terminal lifecycle initiated independently by the peer may complete the submit wait as NnrpResult evidence."
     },
     "server": {
       "listenerCardinality": "one-logical-server-with-many-provider-listeners",
