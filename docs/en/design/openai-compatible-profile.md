@@ -130,14 +130,17 @@ HTTP SSE chunks map to NNRP result push events. The stream is ordered per submit
 
 Mandatory Level 1 streaming event types:
 
-| Event type                   | Required fields      | Description                                                                |
-| ---------------------------- | -------------------- | -------------------------------------------------------------------------- |
-| `response.output_text.delta` | `index`, `delta`     | Incremental text output.                                                   |
-| `response.tool_call.delta`   | `index`, `tool_call` | Incremental tool-call data when the selected operation emits tool calls.   |
-| `response.usage`             | `usage`              | Usage summary.                                                             |
-| `response.completed`         | `body`               | Final OpenAI-compatible response body when available.                      |
-| `response.error`             | `error`              | Application-facing OpenAI-compatible error body.                           |
-| `response.cancelled`         | `reason`             | Terminal cancellation notification when the adapter observes cancellation. |
+| Event type                     | Required fields                                    | Description                                                                |
+| ------------------------------ | -------------------------------------------------- | -------------------------------------------------------------------------- |
+| `response.output_text.delta`   | `index`, `delta`                                   | Incremental text output.                                                   |
+| `response.tool_call.started`   | `index`, `item_id`, `call_id`, `name`              | Starts one tool call.                                                      |
+| `response.tool_call.delta`     | `index`, `item_id`, `call_id`, `arguments_delta`   | Appends argument text.                                                     |
+| `response.tool_call.completed` | `index`, `item_id`, `call_id`, `name`, `arguments` | Completes one tool call.                                                   |
+| `response.tool_call.error`     | `index`, `item_id`, `call_id`, `error`             | Terminates one tool call with an error.                                    |
+| `response.usage`               | `usage`                                            | Usage summary.                                                             |
+| `response.completed`           | `body`                                             | Final OpenAI-compatible response body when available.                      |
+| `response.error`               | `error`                                            | Application-facing OpenAI-compatible error body.                           |
+| `response.cancelled`           | `reason`                                           | Terminal cancellation notification when the adapter observes cancellation. |
 
 Example text delta:
 
@@ -245,15 +248,22 @@ client explicitly opts into a stricter adapter-specific schema.
 Tool calls are represented as structured JSON events. The profile supports incremental tool-call
 deltas because agent runtimes need to display and route partial tool arguments.
 
-Minimum event types:
+The normative field and ordering contract is
+[`openai-compatible-1.json`](/contracts/openai-compatible-1.json). `item_id` identifies the output
+item, while `call_id` is the stable identity used to correlate one tool invocation across all four
+event types. `index` is a non-negative position in the output sequence.
 
-1. `response.tool_call.started`
-2. `response.tool_call.delta`
-3. `response.tool_call.completed`
-4. `response.tool_call.error`
+`started` occurs exactly once before any other event for a `call_id`. Zero or more `delta` events
+append `arguments_delta` in order. Exactly one `completed` or `error` event terminates that tool
+call. Different calls may interleave, but order within one `call_id` is stable. A completed event
+contains the complete function `name` and concatenated JSON argument string; an error contains the
+same profile error shape used by `response.error`. `openai_chunk` is optional replay evidence and is
+never required to interpret the event.
 
-The profile defines the wire shape of tool-call events. It does not execute tools and does not
-define the security boundary for tool execution.
+All four events are non-terminal with respect to the containing NNRP operation and travel through
+ordered `PARTIAL_RESULT` frames. The operation itself still ends exactly once through its NNRP
+terminal outcome. The profile defines these event shapes but does not execute tools or define the
+security boundary for tool execution.
 
 ## 13. Capability Document
 

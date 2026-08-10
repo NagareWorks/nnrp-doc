@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 10,
+  "contractVersion": 11,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -2065,6 +2065,35 @@
       ],
       "successRule": "A successful result has terminal_state success and an event whose message type is result_push and whose metadata variant is result_push.",
       "nonSuccessRule": "Cancelled, dropped, and error results preserve the terminal protocol or lifecycle event that established the state; SDKs do not synthesize RESULT_PUSH metadata for them."
+    },
+    "ServerOperation": {
+      "description": "Application-facing ownership of one accepted FRAME_SUBMIT. It preserves the complete submit event and the native reply capability required to complete or drop that operation.",
+      "fields": [
+        { "name": "operation_id", "type": "u64", "required": true, "minimum": 1 },
+        { "name": "frame_id", "type": "u32", "required": true, "minimum": 1 },
+        { "name": "submit", "type": "RuntimeEvent", "required": true }
+      ],
+      "invariants": [
+        "submit.header.message_type is frame_submit",
+        "submit.metadata is the frame_submit metadata variant",
+        "operation_id equals submit.metadata.operation_id",
+        "frame_id equals submit.header.frame_id",
+        "the reply capability remains valid until exactly one terminal outcome is sent or the session closes"
+      ],
+      "terminalMethods": ["send_result", "send_result_drop"],
+      "streamingMethods": ["send_progress", "send_partial_result"]
+    },
+    "ServerEvent": {
+      "description": "Closed server receive union. Submit events carry ServerOperation ownership; all other wire events retain RuntimeEvent, and headerless local state retains OperationLifecycleEvent.",
+      "fields": [],
+      "variants": ["submit", "runtime", "lifecycle"],
+      "variantTypes": {
+        "submit": "ServerOperation",
+        "runtime": "RuntimeEvent",
+        "lifecycle": "OperationLifecycleEvent"
+      },
+      "representation": "tagged-union",
+      "invariant": "Exactly one variant is present. FRAME_SUBMIT is delivered only through submit; non-submit wire messages are delivered only through runtime; local lifecycle notifications are delivered only through lifecycle."
     }
   },
   "messageTypes": [
@@ -2494,6 +2523,8 @@
     "runtimeEvents": [
       "runtimeFrameHeader",
       "runtimeEvent",
+      "serverEvent",
+      "serverOperation",
       "runtimeMetadataNamespace",
       "terminalEvent",
       "result"
@@ -2563,6 +2594,14 @@
       "acceptOptionsType": "ServerAcceptOptions",
       "sessionPolicyType": "ServerSessionPolicy"
     },
+    "serverEventPump": {
+      "canonicalOperation": "server_session.next_event",
+      "submitConvenience": "server_session.receive_submit",
+      "orderingRule": "next_event delivers every server event in per-session wire order without filtering",
+      "submitRule": "receive_submit is a selective convenience that may skip non-submit events only by retaining them in the same session queue; it must never discard, decode-and-forget, or acknowledge them",
+      "ownershipRule": "a FRAME_SUBMIT event becomes one ServerOperation before it is exposed to the application, so consuming the canonical event pump never loses the reply capability",
+      "concurrencyRule": "one session has one serialized receive source; concurrent receive calls are rejected or serialized and never race the native event queue"
+    },
     "transportBoundary": {
       "applicationEndpointSchemes": ["nnrp", "nnrps"],
       "providerLocatorSchemes": ["tcp", "quic", "unix", "npipe", "ws", "wss"],
@@ -2605,6 +2644,28 @@
       "parameters": [],
       "returns": "SessionRecoveryTicket?",
       "async": false
+    },
+    "client_session.next_event": {
+      "parameters": [{ "name": "timeout", "type": "Duration?", "required": false }],
+      "returns": "RuntimeEvent|OperationLifecycleEvent",
+      "async": true
+    },
+    "server.accept": {
+      "parameters": [{ "name": "options", "type": "ServerAcceptOptions?", "required": false }],
+      "returns": "ServerSession",
+      "async": true
+    },
+    "server_session.next_event": {
+      "parameters": [{ "name": "timeout", "type": "Duration?", "required": false }],
+      "returns": "ServerEvent",
+      "async": true
+    },
+    "server_session.receive_submit": {
+      "parameters": [{ "name": "timeout", "type": "Duration?", "required": false }],
+      "returns": "ServerOperation",
+      "async": true,
+      "selective": true,
+      "retainsSkippedEvents": true
     }
   },
   "languageProjections": {
@@ -2618,6 +2679,8 @@
       ],
       "runtimeFrameHeader": "nnrp_runtime::RuntimeFrameHeader",
       "runtimeEvent": "nnrp_runtime::NnrpRuntimeEvent",
+      "serverEvent": "nnrp_runtime::NnrpServerEvent",
+      "serverOperation": "nnrp_runtime::NnrpServerOperation",
       "operationLifecycleEvent": "nnrp_runtime::OperationLifecycleEvent",
       "terminalEvent": "nnrp_runtime::NnrpTerminalEvent",
       "result": "nnrp_runtime::NnrpResult",
@@ -2666,6 +2729,8 @@
       ],
       "runtimeFrameHeader": "nnrp.runtime.RuntimeFrameHeader",
       "runtimeEvent": "nnrp.runtime.NativeRuntimeEvent",
+      "serverEvent": "nnrp.server.NativeServerEvent",
+      "serverOperation": "nnrp.NativeRuntimeServerOperation",
       "operationLifecycleEvent": "nnrp.runtime.OperationLifecycleEvent",
       "terminalEvent": "nnrp.runtime.NativeTerminalEvent",
       "result": "nnrp.NativeRuntimeResult",
@@ -2714,6 +2779,8 @@
       ],
       "runtimeFrameHeader": "@nnrp/core.NnrpRuntimeFrameHeader",
       "runtimeEvent": "@nnrp/core.NnrpRuntimeEvent",
+      "serverEvent": "@nnrp/native-server.NnrpServerEvent",
+      "serverOperation": "@nnrp/native-server.NnrpServerOperation",
       "operationLifecycleEvent": "@nnrp/core.NnrpOperationLifecycleEvent",
       "terminalEvent": "@nnrp/core.NnrpTerminalEvent",
       "result": "@nnrp/core.NnrpResult",
@@ -2765,6 +2832,8 @@
       ],
       "runtimeFrameHeader": "Nnrp.Runtime.RuntimeFrameHeader",
       "runtimeEvent": "Nnrp.Runtime.NnrpRuntimeEvent",
+      "serverEvent": "Nnrp.Server.NnrpServerEvent",
+      "serverOperation": "Nnrp.Server.NnrpServerOperation",
       "operationLifecycleEvent": "Nnrp.Runtime.NnrpOperationLifecycleEvent",
       "terminalEvent": "Nnrp.Runtime.NnrpTerminalEvent",
       "result": "Nnrp.Client.NnrpResult",
