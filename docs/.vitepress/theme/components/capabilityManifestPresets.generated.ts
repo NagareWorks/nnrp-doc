@@ -997,6 +997,12 @@ export const wireConformancePresets = [
           "frames": [
             "TRACE_CONTEXT",
             "RESULT_DROP_REASON"
+          ],
+          "allowed_frames": [
+            "REQUEST",
+            "CANCEL",
+            "TRACE_CONTEXT",
+            "RESULT_DROP_REASON"
           ]
         }
       },
@@ -1040,6 +1046,12 @@ export const wireConformancePresets = [
         "expect": {
           "terminal": "dropped",
           "frames": [
+            "RESULT_DROP_REASON"
+          ],
+          "allowed_frames": [
+            "REQUEST",
+            "PRIORITY_UPDATE",
+            "EXPIRE_AT",
             "RESULT_DROP_REASON"
           ]
         }
@@ -1091,6 +1103,12 @@ export const wireConformancePresets = [
         "expect": {
           "terminal": "success",
           "frames": [
+            "PROGRESS",
+            "CREDIT_UPDATE",
+            "PARTIAL_RESULT"
+          ],
+          "allowed_frames": [
+            "REQUEST",
             "PROGRESS",
             "CREDIT_UPDATE",
             "PARTIAL_RESULT"
@@ -1158,6 +1176,14 @@ export const wireConformancePresets = [
           "frames": [
             "CAPABILITY_NEGOTIATION",
             "CACHE_MISS"
+          ],
+          "allowed_frames": [
+            "REQUEST",
+            "CAPABILITY_NEGOTIATION",
+            "ROUTE_HINT",
+            "CACHE_REFERENCE",
+            "CACHE_MISS",
+            "RESULT_PUSH"
           ]
         }
       },
@@ -1201,6 +1227,12 @@ export const wireConformancePresets = [
         "expect": {
           "terminal": "cancelled",
           "frames": [
+            "TRACE_CONTEXT",
+            "RESULT_DROP_REASON"
+          ],
+          "allowed_frames": [
+            "REQUEST",
+            "CANCEL",
             "TRACE_CONTEXT",
             "RESULT_DROP_REASON"
           ]
@@ -1253,6 +1285,12 @@ export const wireConformancePresets = [
         "expect": {
           "terminal": "success",
           "frames": [
+            "PROGRESS",
+            "CREDIT_UPDATE",
+            "PARTIAL_RESULT"
+          ],
+          "allowed_frames": [
+            "REQUEST",
             "PROGRESS",
             "CREDIT_UPDATE",
             "PARTIAL_RESULT"

@@ -213,7 +213,7 @@ async function loadContract(): Promise<SdkApiContract> {
 Deno.test("Preview4 SDK contract freezes the required semantic types", async () => {
   const contract = await loadContract();
   assertEquals(contract.contract, "nnrp-1-preview4-sdk-api");
-  assertEquals(contract.contractVersion, 12);
+  assertEquals(contract.contractVersion, 13);
   assertEquals(contract.rules.languageProjectionMustBeLossless, true);
   assertEquals(contract.rules.adapterNormalizationDoesNotProveApiParity, true);
   assertEquals(contract.rules.missingWireFieldsMayNotBeDefaulted, true);
@@ -285,6 +285,7 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
       "TransportSelection",
       "TransportSelectionFailure",
       "OperationLifecycleEvent",
+      "ClientEvent",
       "TerminalEvent",
       "NnrpResult",
     ]
@@ -293,9 +294,10 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
   }
 });
 
-Deno.test("terminal result and local lifecycle contracts are exact", async () => {
+Deno.test("client, terminal, and local lifecycle contracts are exact", async () => {
   const contract = await loadContract();
   const lifecycle = requireContractType(contract, "OperationLifecycleEvent");
+  const clientEvent = requireContractType(contract, "ClientEvent");
   const terminalEvent = requireContractType(contract, "TerminalEvent");
   const result = requireContractType(contract, "NnrpResult");
 
@@ -306,6 +308,14 @@ Deno.test("terminal result and local lifecycle contracts are exact", async () =>
       { name: "state", type: "OperationState" },
     ],
   );
+  assertEquals(
+    clientEvent.variantTypes,
+    {
+      runtime: "RuntimeEvent",
+      lifecycle: "OperationLifecycleEvent",
+    },
+  );
+  assertEquals(clientEvent.variants, ["runtime", "lifecycle"]);
   assertEquals(
     requireRecord(
       lifecycle.terminalMapping,
@@ -699,7 +709,7 @@ Deno.test("connection handshake, multiplexing, and recovery are frozen as role b
   );
   assertEquals(
     contract.roleOperations["client_session.next_event"].returns,
-    "RuntimeEvent|OperationLifecycleEvent",
+    "ClientEvent",
   );
   assertEquals(contract.roleOperations["server.accept"].returns, "ServerSession");
   assertEquals(contract.roleOperations["server_session.next_event"].returns, "ServerEvent");
@@ -746,6 +756,7 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
     "cachePolicyOptions",
     "capabilityMetadata",
     "clientBootstrapOptions",
+    "clientEvent",
     "connectionLifecycle",
     "clientProviderRoute",
     "clientRoles",

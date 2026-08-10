@@ -88,11 +88,15 @@ reserved flag、零 id、空 token、截断和尾随字节。
 | `SubmitAsync(NnrpSubmitRequest, CancellationToken)` | `ValueTask<NnrpResult>` | 提交并等待匹配的终态结果。 |
 | `SubmitNoWaitAsync(NnrpSubmitRequest, CancellationToken)` | `ValueTask<ulong>` | 提交并返回非零 operation ID。 |
 | `NextResultAsync(CancellationToken)` | `ValueTask<NnrpResult>` | 跳过非结果事件并返回下一个终态结果。 |
-| `NextEventAsync(CancellationToken)` | `ValueTask<NnrpRuntimeEvent>` | 按当前 session 的 wire 顺序返回下一个事件。 |
+| `NextEventAsync(CancellationToken)` | `ValueTask<NnrpClientEvent>` | 按当前 session 顺序返回下一条 runtime 或 lifecycle 事件。 |
 
 `NnrpSubmitRequest` 包含非零 `OperationId`、独立 `FrameId`、payload/tensor、profile、schema、cache
 metadata 和 submit mode。角色 API 负责打包并执行一次粗粒度 native submit；调用方不构造 FFI
 buffer。
+
+`NnrpClientEvent.Kind` 为 `Runtime` 或 `Lifecycle`。它的
+`Match<TResult>(Func<NnrpRuntimeEvent, TResult>, Func<NnrpOperationLifecycleEvent, TResult>)` 方法要求
+同时提供两个 callback，并且只暴露一个 active value；lifecycle event 不会获得伪造的 wire header。
 
 ### `NnrpResult`
 

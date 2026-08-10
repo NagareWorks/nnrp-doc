@@ -197,6 +197,17 @@ connection。一个逻辑 server 持有已安装 provider 的 listener 集合并
 `nnrps://`；`tcp://`、`quic://`、 `unix://`、`npipe://`、`ws://` 与 `wss://` 都只是 provider 本地
 locator，不能替代应用端点。
 
+### 客户端事件泵
+
+每个 client session 都公开一个规范事件接收操作，并返回闭合的 `ClientEvent` 联合类型。`runtime`
+variant 持有完整 wire `RuntimeEvent`；`lifecycle` variant 持有一个不带 header 的本地
+`OperationLifecycleEvent`。两者恰好只有一个处于 active 状态。SDK 不得把 lifecycle variant 压平为
+伪造的 runtime frame，也不得公开 nullable 的并行字段。
+
+机器契约把该操作命名为 `client_session.next_event`。Rust 投影为 `await_event`，Python 投影为
+`next_event`，JavaScript 投影为 `nextEvent`，C# 投影为 `NextEventAsync`。只返回 result 的便利接口
+可以保留并跳过无关事件，但不得丢弃或重排它们。
+
 ### 服务端事件泵
 
 每个 server session 都只有一个规范的、不过滤事件的接收操作，返回闭合的 `ServerEvent` 联合类型：

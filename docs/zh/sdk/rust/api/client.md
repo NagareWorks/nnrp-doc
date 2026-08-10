@@ -192,33 +192,35 @@ builder 构造 `NnrpSubmitRequest`，再调用 `submit`。
 
 ## `NnrpClientSession::await_event`
 
-Preview4 应用优先使用这个方法。它能接收普通 result，也能接收 runtime-control、object/cache 和调度事件。
+Preview4 应用优先使用这个方法。它返回闭合的 client role-event 联合类型，将普通 wire event 与
+不带 header 的本地 operation lifecycle 通知保留为不同 variant。
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
-| 无 | - | - | - | 读取下一个 runtime packet。 |
+| 无 | - | - | - | 读取下一个 client role event。 |
 
 | 返回 | 错误 |
 |---|---|
-| `Result<NnrpRuntimeEvent, RuntimeError>` | Transport、解析、生命周期或 unexpected-message 错误。 |
+| `Result<NnrpClientRoleEvent, RuntimeError>` | Transport、解析、生命周期或 unexpected-message 错误。 |
 
 ```rust
 match session.await_event().await? {
-    NnrpRuntimeEvent {
+    NnrpClientRoleEvent::Runtime(NnrpRuntimeEvent {
         metadata: NnrpRuntimeEventMetadata::PartialResult(metadata),
         tail: NnrpRuntimeEventTail::Body(body),
         ..
-    } => handle_partial(metadata, body),
-    NnrpRuntimeEvent {
+    }) => handle_partial(metadata, body),
+    NnrpClientRoleEvent::Runtime(NnrpRuntimeEvent {
         metadata: NnrpRuntimeEventMetadata::Progress(metadata),
         tail: NnrpRuntimeEventTail::Body(body),
         ..
-    } => update_progress(metadata, body),
-    NnrpRuntimeEvent {
+    }) => update_progress(metadata, body),
+    NnrpClientRoleEvent::Runtime(NnrpRuntimeEvent {
         metadata: NnrpRuntimeEventMetadata::ResultDropReason(metadata),
         tail: NnrpRuntimeEventTail::Diagnostic(body),
         ..
-    } => record_drop(metadata, body),
+    }) => record_drop(metadata, body),
+    NnrpClientRoleEvent::Lifecycle(event) => record_lifecycle(event),
     _ => {}
 }
 ```

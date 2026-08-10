@@ -297,6 +297,7 @@ readiness。Readiness 与 probe observation 按 `(kind, providerId)` 匹配；�
 | `NnrpSubmitRequest`    | 非零 `operationId: bigint`、独立的 `frameId`、payload/tensors、profile、submit mode、cache key、descriptor 与 metadata。 |
 | `NnrpResult`           | 非零 operation id、规范 terminal state 与闭合的 runtime-or-lifecycle 终态证据。                                          |
 | `NnrpRuntimeEvent`     | 完整 wire header、typed metadata union 与 semantic tail。                                                                |
+| `NnrpClientEvent`      | 只包含一个 runtime 或 lifecycle event 的闭合客户端联合类型。                                                             |
 | `NnrpEventPollOptions` | 可选 `timeoutMillis`。                                                                                                   |
 
 ```ts
@@ -307,6 +308,10 @@ interface NnrpResult {
 }
 
 type NnrpTerminalEvent =
+  | { readonly type: "runtime"; readonly event: NnrpRuntimeEvent }
+  | { readonly type: "lifecycle"; readonly event: NnrpOperationLifecycleEvent };
+
+type NnrpClientEvent =
   | { readonly type: "runtime"; readonly event: NnrpRuntimeEvent }
   | { readonly type: "lifecycle"; readonly event: NnrpOperationLifecycleEvent };
 

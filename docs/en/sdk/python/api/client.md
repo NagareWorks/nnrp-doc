@@ -219,6 +219,7 @@ methods on `NativeRuntimeSession`, never as a connection-wide queue:
 
 | Method | Result |
 |---|---|
+| `next_event(timeout=None)` | `NativeClientEvent`, the closed `NativeRuntimeEvent | OperationLifecycleEvent` client union. |
 | `poll_event()` / `poll_events(max_events=None, event_kind=None)` | Raw owned `NativeRuntimeEvent` snapshots. |
 | `poll_credit_updates(max_events=None)` | Decoded credit and backpressure updates. |
 | `poll_result_hints(max_events=None)` | Decoded result hints. |
@@ -227,6 +228,8 @@ methods on `NativeRuntimeSession`, never as a connection-wide queue:
 | `dispatch_events(...)` and typed `dispatch_*` variants | Synchronous callback dispatch for the same session. |
 | `async_poll_event()` and typed `iter_*` variants | Async wrappers over the same session event source. |
 
+`NativeClientEvent` is the public type alias for the two closed variants. Callers discriminate the
+value by type; a headerless lifecycle notification never becomes a fabricated runtime frame.
 The event pump uses the session handle in one bounded native poll. It copies and releases native-owned
 buffers before returning. Applications with several sessions poll each session explicitly; events are
 never reassigned by a connection-level router.

@@ -137,11 +137,12 @@ public ValueTask<NnrpServerOperation> ReceiveSubmitAsync(
 参数和 tail 规则与[客户端 object/cache 方法](./client)使用同一套 typed
 metadata 契约。
 
-## 输入 Runtime Event
+## 输入 Server Event
 
-`NextEventAsync(CancellationToken)` 返回 `ValueTask<NnrpRuntimeEvent>`，并保持单个 session 的 wire
-顺序。事件覆盖取消、调度、能力、路由、trace、object、cache 和 recovery frame。应用 API 不接受
-raw control code。
+`NextEventAsync(CancellationToken)` 返回 `ValueTask<NnrpServerEvent>`，并保持单个 session 的事件顺序。
+`NnrpServerEvent.Kind` 为 `Submit`、`Runtime` 或 `Lifecycle`；其 `Match<TResult>(...)` 要求提供全部三个
+callback，并且只暴露一个 `NnrpServerOperation`、非 submit `NnrpRuntimeEvent` 或不带 header 的
+`NnrpOperationLifecycleEvent`。应用 API 不接受 raw control code。
 
 ## 关闭
 

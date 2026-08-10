@@ -126,6 +126,7 @@ export type WireConformanceStep = {
 export type WireConformanceExpectation = {
   terminal: "success" | "cancelled" | "dropped" | "error";
   frames?: string[];
+  allowed_frames?: string[];
   route?: WireHostRouteExpectation;
 };
 

@@ -220,6 +220,18 @@ accept many sessions, including several sessions multiplexed over one accepted c
 endpoints remain `nnrp://` or `nnrps://`; `tcp://`, `quic://`, `unix://`, `npipe://`, `ws://`, and
 `wss://` are provider-local locators and never replace the application endpoint.
 
+### Client event pump
+
+Every client session exposes one canonical event receive operation returning the closed `ClientEvent`
+union. Its `runtime` variant owns a complete wire `RuntimeEvent`; its `lifecycle` variant owns one
+headerless local `OperationLifecycleEvent`. Exactly one variant is active. SDKs must not flatten the
+lifecycle variant into a fabricated runtime frame or expose nullable parallel fields.
+
+The machine contract names this operation `client_session.next_event`. Rust projects it as
+`await_event`, Python as `next_event`, JavaScript as `nextEvent`, and C# as `NextEventAsync`.
+Result-only convenience methods may retain and skip unrelated events, but they must not discard or
+reorder them.
+
 ### Server event pump
 
 Every server session has one canonical unfiltered event receive operation. It returns the closed

@@ -311,6 +311,7 @@ distinguishable from observations whose state is `"failed"`.
 | `NnrpSubmitRequest`    | Non-zero `operationId: bigint`, independent `frameId`, payload/tensors, profile, submit mode, cache key, descriptor, and metadata. |
 | `NnrpResult`           | Non-zero operation id, canonical terminal state, and closed runtime-or-lifecycle evidence.                                         |
 | `NnrpRuntimeEvent`     | Complete wire header, typed metadata union, and semantic tail.                                                                     |
+| `NnrpClientEvent`      | Closed client union containing one runtime or lifecycle event.                                                                     |
 | `NnrpEventPollOptions` | Optional `timeoutMillis`.                                                                                                          |
 
 ```ts
@@ -321,6 +322,10 @@ interface NnrpResult {
 }
 
 type NnrpTerminalEvent =
+  | { readonly type: "runtime"; readonly event: NnrpRuntimeEvent }
+  | { readonly type: "lifecycle"; readonly event: NnrpOperationLifecycleEvent };
+
+type NnrpClientEvent =
   | { readonly type: "runtime"; readonly event: NnrpRuntimeEvent }
   | { readonly type: "lifecycle"; readonly event: NnrpOperationLifecycleEvent };
 

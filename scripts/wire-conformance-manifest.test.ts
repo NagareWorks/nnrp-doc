@@ -28,6 +28,19 @@ if (!preset) {
   throw new Error("nnrp-1-preview4 wire conformance preset was not generated");
 }
 
+for (const scenario of preset.scenarios) {
+  if (scenario.expect.allowed_frames !== undefined) {
+    if (scenario.expect.allowed_frames.length === 0) {
+      throw new Error(`${scenario.id} allowed_frames must not be empty`);
+    }
+    for (const frame of scenario.expect.frames ?? []) {
+      if (!scenario.expect.allowed_frames.includes(frame)) {
+        throw new Error(`${scenario.id} required frame ${frame} is not allowed`);
+      }
+    }
+  }
+}
+
 const transportSecurity = {
   server_name: "localhost",
   trusted_certificate_der_path: "certs/server.der",
