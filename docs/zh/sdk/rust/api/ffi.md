@@ -345,6 +345,14 @@ event payload 与发送侧一样使用完整 metadata-plus-body 表示，并由 
 submit 时创建 operation handle，应用使用该 handle 发送 partial、terminal、drop 与 trace 输出。
 Preview4 不再提供公开的 `nnrp_server_receive_submit` 注入调用。
 
+无 wire header 的 operation lifecycle evidence 使用冻结的 native carrier 投影。其语义 event-kind
+标识符为 `operation_lifecycle`，Rust 将它投影为数值编码 `14` 的
+`NnrpEventKind::OperationLifecycle`。`header.present` 必须为 `0`，payload 严格为一个字节，内容是规范
+`OperationState` 的 `u8` 值。`diagnostic.related_operation_id` 保留非零 operation identity；native
+handle store 中仍存在对应 operation 时，`operation` 保存该 live operation handle。这个单字节 payload
+遵循普通 `payload_owner` 生命周期。Binding 必须从该 payload 解码全部八种 lifecycle state，禁止根据
+其他 event kind 推断 state，也禁止伪造 wire header。
+
 Server-side operation handle 同时保存两个 wire identity。Handle 的数值只在本地有效，禁止用它替换
 partial、control、trace 或 drop metadata 中的 `FRAME_SUBMIT.operation_id`。
 

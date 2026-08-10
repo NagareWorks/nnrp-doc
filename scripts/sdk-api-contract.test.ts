@@ -26,6 +26,20 @@ interface ContractType {
   fields: ContractField[];
   invariants?: string[];
   terminalMapping?: Record<string, string>;
+  nativeEventProjection?: {
+    eventKind: string;
+    eventKindCode: number;
+    headerPresent: 0 | 1;
+    payloadBytes: number;
+    payloadLayout: Array<{
+      name: string;
+      type: string;
+      wireType: string;
+      offset: number;
+    }>;
+    operationIdentity: string;
+    ownership: string;
+  };
   forbiddenDuplicates?: string[];
   variants?: string[];
   variantTypes?: Record<string, string | null>;
@@ -199,7 +213,7 @@ async function loadContract(): Promise<SdkApiContract> {
 Deno.test("Preview4 SDK contract freezes the required semantic types", async () => {
   const contract = await loadContract();
   assertEquals(contract.contract, "nnrp-1-preview4-sdk-api");
-  assertEquals(contract.contractVersion, 11);
+  assertEquals(contract.contractVersion, 12);
   assertEquals(contract.rules.languageProjectionMustBeLossless, true);
   assertEquals(contract.rules.adapterNormalizationDoesNotProveApiParity, true);
   assertEquals(contract.rules.missingWireFieldsMayNotBeDefaulted, true);
@@ -304,6 +318,24 @@ Deno.test("terminal result and local lifecycle contracts are exact", async () =>
       failed: "error",
     },
   );
+  assertEquals(lifecycle.nativeEventProjection, {
+    eventKind: "operation_lifecycle",
+    eventKindCode: 14,
+    headerPresent: 0,
+    payloadBytes: 1,
+    payloadLayout: [
+      {
+        name: "state",
+        type: "OperationState",
+        wireType: "u8",
+        offset: 0,
+      },
+    ],
+    operationIdentity:
+      "diagnostic.related_operation_id and the operation handle, when the handle remains live",
+    ownership:
+      "the one-byte state payload follows the same payload_owner lifetime as wire-event payloads",
+  });
   assertEquals(
     requireStringArray(terminalEvent.variants, "TerminalEvent.variants"),
     ["runtime", "lifecycle"],
