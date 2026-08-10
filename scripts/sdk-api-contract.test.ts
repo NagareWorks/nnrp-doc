@@ -805,7 +805,12 @@ Deno.test("OpenAI-compatible tool-call lifecycle is fully frozen", async () => {
   }
   const ordering = requireRecord(contract.ordering, "ordering");
   assertEquals(ordering.scope, "call_id");
-  assertEquals(requireStringArray(ordering.rules, "ordering.rules").length, 4);
+  assertEquals(requireStringArray(ordering.rules, "ordering.rules"), [
+    "started occurs exactly once before delta, completed, or error",
+    "delta occurs zero or more times and arguments_delta concatenates in event order",
+    "exactly one of completed or error terminates a started call",
+    "events for different call_id values may interleave while preserving order within each call",
+  ]);
   const mapping = requireRecord(contract.nnrpMapping, "nnrpMapping");
   assertEquals(mapping.nonTerminalDelivery, "partial_result");
   assertEquals(mapping.terminalToolCallDelivery, "partial_result");
