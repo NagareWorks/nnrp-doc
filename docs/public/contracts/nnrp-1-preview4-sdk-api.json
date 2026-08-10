@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 12,
+  "contractVersion": 13,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -2056,6 +2056,17 @@
         "ownership": "the one-byte state payload follows the same payload_owner lifetime as wire-event payloads"
       }
     },
+    "ClientEvent": {
+      "description": "Closed client receive union. Wire events retain RuntimeEvent, and headerless local state retains OperationLifecycleEvent.",
+      "fields": [],
+      "variants": ["runtime", "lifecycle"],
+      "variantTypes": {
+        "runtime": "RuntimeEvent",
+        "lifecycle": "OperationLifecycleEvent"
+      },
+      "representation": "tagged-union",
+      "invariant": "Exactly one variant is present. SDKs must not flatten local lifecycle notifications into RuntimeEvent or expose nullable parallel fields."
+    },
     "TerminalEvent": {
       "description": "Closed terminal-evidence union. It preserves either a complete wire RuntimeEvent or a headerless local OperationLifecycleEvent without flattening or fabrication.",
       "fields": [],
@@ -2539,6 +2550,7 @@
     "runtimeEvents": [
       "runtimeFrameHeader",
       "runtimeEvent",
+      "clientEvent",
       "serverEvent",
       "serverOperation",
       "runtimeMetadataNamespace",
@@ -2663,7 +2675,7 @@
     },
     "client_session.next_event": {
       "parameters": [{ "name": "timeout", "type": "Duration?", "required": false }],
-      "returns": "RuntimeEvent|OperationLifecycleEvent",
+      "returns": "ClientEvent",
       "async": true
     },
     "server.accept": {
@@ -2695,6 +2707,7 @@
       ],
       "runtimeFrameHeader": "nnrp_runtime::RuntimeFrameHeader",
       "runtimeEvent": "nnrp_runtime::NnrpRuntimeEvent",
+      "clientEvent": "nnrp_runtime::NnrpClientRoleEvent",
       "serverEvent": "nnrp_runtime::NnrpServerEvent",
       "serverOperation": "nnrp_runtime::NnrpServerOperation",
       "operationLifecycleEvent": "nnrp_runtime::OperationLifecycleEvent",
@@ -2745,6 +2758,7 @@
       ],
       "runtimeFrameHeader": "nnrp.runtime.RuntimeFrameHeader",
       "runtimeEvent": "nnrp.runtime.NativeRuntimeEvent",
+      "clientEvent": "nnrp.runtime.NativeClientEvent",
       "serverEvent": "nnrp.server.NativeServerEvent",
       "serverOperation": "nnrp.NativeRuntimeServerOperation",
       "operationLifecycleEvent": "nnrp.runtime.OperationLifecycleEvent",
@@ -2795,6 +2809,7 @@
       ],
       "runtimeFrameHeader": "@nnrp/core.NnrpRuntimeFrameHeader",
       "runtimeEvent": "@nnrp/core.NnrpRuntimeEvent",
+      "clientEvent": "@nnrp/core.NnrpClientEvent",
       "serverEvent": "@nnrp/native-server.NnrpServerEvent",
       "serverOperation": "@nnrp/native-server.NnrpServerOperation",
       "operationLifecycleEvent": "@nnrp/core.NnrpOperationLifecycleEvent",
@@ -2848,6 +2863,7 @@
       ],
       "runtimeFrameHeader": "Nnrp.Runtime.RuntimeFrameHeader",
       "runtimeEvent": "Nnrp.Runtime.NnrpRuntimeEvent",
+      "clientEvent": "Nnrp.Runtime.NnrpClientEvent",
       "serverEvent": "Nnrp.Server.NnrpServerEvent",
       "serverOperation": "Nnrp.Server.NnrpServerOperation",
       "operationLifecycleEvent": "Nnrp.Runtime.NnrpOperationLifecycleEvent",

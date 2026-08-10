@@ -120,16 +120,26 @@ exposes these application-facing methods:
 [`NativeRuntimeFrameEvent`](./runtime#nativeruntimeframeevent). No application-facing server method
 accepts a raw `control_code`.
 
+### `NativeRuntimeServerSession.next_event`
+
+```python
+def next_event(self, *, timeout_ms: int = 0) -> NativeServerEvent | None: ...
+```
+
+Returns the canonical closed server union: `NativeRuntimeServerOperation` for submit ownership,
+`NativeRuntimeEvent` for non-submit wire traffic, or `OperationLifecycleEvent` for headerless local
+state. Exactly one variant is returned and events retain per-session order.
+
 ### `NativeRuntimeServerSession.poll_event`
 
 ```python
 def poll_event(self, *, timeout_ms: int = 0) -> NativeRuntimeEvent | None: ...
 ```
 
-Returns the next submit, control, runtime-object, cache, recovery, or close event in wire order, or
-`None` when the bounded wait completes without an event. This is the application-facing single-event
-receive contract. `poll_events(max_events=..., timeout_ms=...)` is the coarse native batch surface used
-by adapters, conformance, and throughput-sensitive dispatch loops; it does not change event order.
+Returns the next raw wire event in order, or `None` when the bounded wait completes without an event.
+`poll_events(max_events=..., timeout_ms=...)` is the coarse native batch surface used by adapters,
+conformance, and throughput-sensitive dispatch loops; it does not change event order. Applications
+that need submit ownership or local lifecycle notifications use `next_event()`.
 
 ### `NativeRuntimeServerSession.receive_submit`
 

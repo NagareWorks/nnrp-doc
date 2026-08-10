@@ -197,34 +197,35 @@ call; bindings must not construct or write the packet themselves.
 
 ## `NnrpClientSession::await_event`
 
-Use this method for Preview4 sessions. It can receive normal results plus runtime-control,
-object/cache, and scheduling events.
+Use this method for Preview4 sessions. It returns the closed client role-event union, preserving
+normal wire events and headerless local operation lifecycle notifications as separate variants.
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
-| None | - | - | - | Reads the next runtime packet. |
+| None | - | - | - | Reads the next client role event. |
 
 | Returns | Errors |
 |---|---|
-| `Result<NnrpRuntimeEvent, RuntimeError>` | Transport, parse, lifecycle, or unexpected-message errors. |
+| `Result<NnrpClientRoleEvent, RuntimeError>` | Transport, parse, lifecycle, or unexpected-message errors. |
 
 ```rust
 match session.await_event().await? {
-    NnrpRuntimeEvent {
+    NnrpClientRoleEvent::Runtime(NnrpRuntimeEvent {
         metadata: NnrpRuntimeEventMetadata::PartialResult(metadata),
         tail: NnrpRuntimeEventTail::Body(body),
         ..
-    } => handle_partial(metadata, body),
-    NnrpRuntimeEvent {
+    }) => handle_partial(metadata, body),
+    NnrpClientRoleEvent::Runtime(NnrpRuntimeEvent {
         metadata: NnrpRuntimeEventMetadata::Progress(metadata),
         tail: NnrpRuntimeEventTail::Body(body),
         ..
-    } => update_progress(metadata, body),
-    NnrpRuntimeEvent {
+    }) => update_progress(metadata, body),
+    NnrpClientRoleEvent::Runtime(NnrpRuntimeEvent {
         metadata: NnrpRuntimeEventMetadata::ResultDropReason(metadata),
         tail: NnrpRuntimeEventTail::Diagnostic(body),
         ..
-    } => record_drop(metadata, body),
+    }) => record_drop(metadata, body),
+    NnrpClientRoleEvent::Lifecycle(event) => record_lifecycle(event),
     _ => {}
 }
 ```

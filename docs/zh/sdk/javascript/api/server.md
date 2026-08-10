@@ -103,7 +103,7 @@ Policy 接收 [`NnrpSessionOpenMetadata`](./core#数据类型)，返回
 | `NnrpBackendRuntime.close()`           | 无                                                                | `Promise<void>`              | 关闭 accepted session、listener 与显式 FFI seam。       |
 | `NnrpServer.accept(options?)`          | [`options?: NnrpServerAcceptOptions`](#nnrpserveracceptoptions)   | `Promise<NnrpServerSession>` | 接受 owned carrier-listener set 的下一个 session。      |
 | `NnrpServer.close()`                   | 无                                                                | `Promise<void>`              | 关闭全部 owned carrier listener 与 accepted session。   |
-| `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>`  | 读取下一条有序 submit、control、object 或 cache event。 |
+| `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpServerEvent>`   | 读取下一条有序 submit、runtime 或 lifecycle event。     |
 | `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#数据类型)                           | `Promise<void>`              | 为当前 operation 发送唯一终态结果。                     |
 | `NnrpServerSession.close()`            | 无                                                                | `Promise<void>`              | 只关闭一次 accepted role session。                      |
 
@@ -116,8 +116,9 @@ record，保存每个已打开 listener 的实际 endpoint。Provider listener �
 
 ## Preview4 Server Session 方法
 
-`NnrpServerSession.receive(options?)` 返回与 client session 相同的 typed `NnrpRuntimeEvent`
-union，其中包括收到的控制帧、运行时对象帧与缓存帧。Server 使用以下方法发送增量状态：
+`NnrpServerSession.receive(options?)` 返回闭合的 `NnrpServerEvent` tagged union。`submit` variant
+持有 `NnrpServerOperation`，`runtime` variant 持有非 submit `NnrpRuntimeEvent`，`lifecycle`
+variant 持有不带 header 的 `NnrpOperationLifecycleEvent`。Server 使用以下方法发送增量状态：
 
 | 方法                                          | Message                                       | Metadata                                            | 可选 tail             |
 | --------------------------------------------- | --------------------------------------------- | --------------------------------------------------- | --------------------- |

@@ -139,11 +139,13 @@ The session sends typed Preview4 frames through one coarse native call per metho
 The method parameters and tail rules are the same typed metadata contracts documented for the
 [client object and cache methods](./client#client-object-and-cache-methods).
 
-## Incoming Runtime Events
+## Incoming Server Events
 
-`NextEventAsync(CancellationToken)` returns `ValueTask<NnrpRuntimeEvent>` and preserves wire order for
-one session. It includes cancellation, scheduling, capability, route, trace, object, cache, and
-recovery frames. No application-facing method accepts a raw control code.
+`NextEventAsync(CancellationToken)` returns `ValueTask<NnrpServerEvent>` and preserves order for one
+session. `NnrpServerEvent.Kind` is `Submit`, `Runtime`, or `Lifecycle`; its `Match<TResult>(...)`
+method requires all three callbacks and exposes exactly one `NnrpServerOperation`, non-submit
+`NnrpRuntimeEvent`, or headerless `NnrpOperationLifecycleEvent`. No application-facing method accepts
+a raw control code.
 
 ## Shutdown
 

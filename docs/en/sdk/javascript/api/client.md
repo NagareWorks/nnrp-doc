@@ -134,7 +134,7 @@ These methods have the same shape on `NnrpClient` and `NnrpBrowserClient`.
 
 | Method                                  | Parameters                                                                     | Returns                     | Description                                                  |
 | --------------------------------------- | ------------------------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------ |
-| `nextSessionEvent(sessionId, options?)` | `sessionId: number`, [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>` | Reads the next event for one negotiated session.             |
+| `nextSessionEvent(sessionId, options?)` | `sessionId: number`, [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpClientEvent>` | Reads the next event for one negotiated session.              |
 | `close()`                               | None                                                                           | `Promise<void>`             | Closes owned sessions, the role connection, and the runtime. |
 
 ## `ClientSession.submit`
@@ -230,7 +230,7 @@ cache lookup before each submit.
 
 ## Preview4 Runtime Events
 
-`nextEvent()` and `events()` extend `NnrpRuntimeEvent` with every Preview4 runtime-frame
+The runtime variant returned by `nextEvent()` and `events()` supports every Preview4 runtime-frame
 discriminant: `cancel`, `abort`, `priority-update`, `deadline`, `expire-at`, `supersede`,
 `budget-update`, `progress`, `partial-result`, `backpressure`, `credit-update`,
 `capability-negotiation`, `degrade-profile`, `route-hint`, `execution-hint`, `trace-context`,
@@ -257,15 +257,16 @@ invent an out-of-band cancellation channel.
 
 ## `ClientSession.nextEvent`
 
-Reads the next runtime event.
+Reads the next client event. `NnrpClientEvent` is a closed tagged union with a `runtime`
+`NnrpRuntimeEvent` variant and a `lifecycle` `NnrpOperationLifecycleEvent` variant.
 
 | Parameter | Type                                            | Required | Description            |
 | --------- | ----------------------------------------------- | -------: | ---------------------- |
 | `options` | [`NnrpEventPollOptions`](#nnrpeventpolloptions) |       No | Event polling options. |
 
-| Returns                     |
-| --------------------------- |
-| `Promise<NnrpRuntimeEvent>` |
+| Returns                    |
+| -------------------------- |
+| `Promise<NnrpClientEvent>` |
 
 ## Client Session Lifecycle And Results
 
@@ -276,7 +277,7 @@ Reads the next runtime event.
 | `nextResult(options?)` | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `Promise<NnrpResult>`                    | Skips non-result events and returns the next terminal result.                 |
 | `migrate(request)`     | [`request: NnrpSessionMigrationRequest`](./core#data-types)       | `Promise<void>`                          | Requests session migration; unsupported runtimes return a typed diagnostic.   |
 | `patch(request)`       | [`request: NnrpSessionPatchRequest`](./core#data-types)           | `Promise<NnrpSessionPatchResult>`        | Applies mutable session metadata, profile, cadence, quality, or credits.      |
-| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `AsyncIterable<NnrpRuntimeEvent>`        | Iterates events until the session closes or polling fails.                    |
+| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)         | `AsyncIterable<NnrpClientEvent>`         | Iterates events until the session closes or polling fails.                    |
 | `recoveryTicket()`     | None                                                              | `NnrpSessionRecoveryTicket \| undefined` | Returns the latest runtime-issued ticket snapshot when resume was negotiated. |
 | `close()`              | None                                                              | `Promise<void>`                          | Closes the role session and releases its in-flight state.                     |
 

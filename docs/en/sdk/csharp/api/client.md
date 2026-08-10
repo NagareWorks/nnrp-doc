@@ -90,11 +90,16 @@ magic or version, reserved flags, zero ids, empty tokens, truncation, and traili
 | `SubmitAsync(NnrpSubmitRequest, CancellationToken)` | `ValueTask<NnrpResult>` | Submits and waits for the matching terminal result. |
 | `SubmitNoWaitAsync(NnrpSubmitRequest, CancellationToken)` | `ValueTask<ulong>` | Submits and returns the non-zero operation ID. |
 | `NextResultAsync(CancellationToken)` | `ValueTask<NnrpResult>` | Skips non-result events and returns the next terminal result. |
-| `NextEventAsync(CancellationToken)` | `ValueTask<NnrpRuntimeEvent>` | Returns the next event in wire order for this session. |
+| `NextEventAsync(CancellationToken)` | `ValueTask<NnrpClientEvent>` | Returns the next runtime or lifecycle event in order for this session. |
 
 `NnrpSubmitRequest` carries a non-zero `OperationId`, independent `FrameId`, payload/tensor values,
 profile, schema and cache metadata, and submit mode. The role API owns packing and performs one coarse
 native submit call; callers never construct an FFI buffer.
+
+`NnrpClientEvent.Kind` is `Runtime` or `Lifecycle`. Its
+`Match<TResult>(Func<NnrpRuntimeEvent, TResult>, Func<NnrpOperationLifecycleEvent, TResult>)` method
+requires both callbacks and exposes exactly one active value; lifecycle events never receive a
+fabricated wire header.
 
 ### `NnrpResult`
 

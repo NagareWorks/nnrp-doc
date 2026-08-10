@@ -107,7 +107,7 @@ Selects a transport against a peer manifest.
 | `NnrpBackendRuntime.close()`           | None                                                              | `Promise<void>`              | Closes accepted sessions, listeners, and the explicit FFI seam. |
 | `NnrpServer.accept(options?)`          | [`options?: NnrpServerAcceptOptions`](#nnrpserveracceptoptions)   | `Promise<NnrpServerSession>` | Accepts the next session from the owned carrier-listener set.   |
 | `NnrpServer.close()`                   | None                                                              | `Promise<void>`              | Closes every owned carrier listener and accepted session.       |
-| `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>`  | Reads the next ordered submit, control, object, or cache event. |
+| `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpServerEvent>`   | Reads the next ordered submit, runtime, or lifecycle event.     |
 | `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#data-types)                         | `Promise<void>`              | Sends the one terminal result for the current operation.        |
 | `NnrpServerSession.close()`            | None                                                              | `Promise<void>`              | Closes the accepted role session exactly once.                  |
 
@@ -122,8 +122,9 @@ that accepted carrier.
 
 ## Preview4 Server Session Methods
 
-`NnrpServerSession.receive(options?)` returns the same typed `NnrpRuntimeEvent` union used by client
-sessions, including incoming control, runtime-object, and cache frames. The server sends incremental
+`NnrpServerSession.receive(options?)` returns a closed `NnrpServerEvent` tagged union. Its `submit`
+variant owns `NnrpServerOperation`, its `runtime` variant owns a non-submit `NnrpRuntimeEvent`, and
+its `lifecycle` variant owns a headerless `NnrpOperationLifecycleEvent`. The server sends incremental
 state with these methods:
 
 | Method                                        | Message                                    | Metadata                                                 | Optional tail         |

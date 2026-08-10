@@ -134,7 +134,7 @@ const session = await client.openSession({ profileId: 1 });
 
 | 方法                                    | 参数                                                                           | 返回值                      | 说明                                               |
 | --------------------------------------- | ------------------------------------------------------------------------------ | --------------------------- | -------------------------------------------------- |
-| `nextSessionEvent(sessionId, options?)` | `sessionId: number`、[`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpRuntimeEvent>` | 读取指定协商 session 的下一个 event。              |
+| `nextSessionEvent(sessionId, options?)` | `sessionId: number`、[`options?: NnrpEventPollOptions`](#nnrpeventpolloptions) | `Promise<NnrpClientEvent>` | 读取指定协商 session 的下一个 event。               |
 | `close()`                               | 无                                                                             | `Promise<void>`             | 关闭所拥有的 session、role connection 与 runtime。 |
 
 ## `ClientSession.submit`
@@ -227,7 +227,7 @@ Object patch 与 delta 方法要求 `metadataBody.byteLength` 等于 `metadata.m
 
 ## Preview4 Runtime Event
 
-`nextEvent()` 与 `events()` 为 `NnrpRuntimeEvent` 增加全部 Preview4 runtime-frame
+`nextEvent()` 与 `events()` 返回值中的 runtime variant 支持全部 Preview4 runtime-frame
 discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`、`supersede`、
 `budget-update`、`progress`、`partial-result`、`backpressure`、`credit-update`、
 `capability-negotiation`、`degrade-profile`、`route-hint`、`execution-hint`、`trace-context`、
@@ -252,15 +252,16 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 
 ## `ClientSession.nextEvent`
 
-读取下一条 runtime event。
+读取下一条 client event。`NnrpClientEvent` 是闭合 tagged union，包括一个 runtime
+`NnrpRuntimeEvent` variant 和一个 lifecycle `NnrpOperationLifecycleEvent` variant。
 
 | 参数      | 类型                                            | 必填 | 说明                 |
 | --------- | ----------------------------------------------- | ---: | -------------------- |
 | `options` | [`NnrpEventPollOptions`](#nnrpeventpolloptions) |   否 | Event polling 选项。 |
 
-| 返回                        |
-| --------------------------- |
-| `Promise<NnrpRuntimeEvent>` |
+| 返回                       |
+| -------------------------- |
+| `Promise<NnrpClientEvent>` |
 
 ## Client Session 生命周期与结果方法
 
@@ -271,7 +272,7 @@ discriminant：`cancel`、`abort`、`priority-update`、`deadline`、`expire-at`
 | `nextResult(options?)` | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `Promise<NnrpResult>`                    | 跳过非结果 event，返回下一个终态结果。                       |
 | `migrate(request)`     | [`request: NnrpSessionMigrationRequest`](./core#数据类型)        | `Promise<void>`                          | 请求 session 迁移；不支持的 runtime 返回 typed diagnostic。  |
 | `patch(request)`       | [`request: NnrpSessionPatchRequest`](./core#数据类型)            | `Promise<NnrpSessionPatchResult>`        | 修改 session metadata、profile、cadence、quality 或 credit。 |
-| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `AsyncIterable<NnrpRuntimeEvent>`        | 持续迭代 event，直到 session 关闭或 polling 失败。           |
+| `events(options?)`     | [`options?: NnrpEventPollOptions`](#nnrpeventpolloptions)        | `AsyncIterable<NnrpClientEvent>`         | 持续迭代 event，直到 session 关闭或 polling 失败。           |
 | `recoveryTicket()`     | 无                                                               | `NnrpSessionRecoveryTicket \| undefined` | Resume 协商成功时返回最新 runtime ticket snapshot。          |
 | `close()`              | 无                                                               | `Promise<void>`                          | 关闭 role session 并释放其 in-flight 状态。                  |
 

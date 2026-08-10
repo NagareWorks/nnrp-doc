@@ -209,6 +209,7 @@ Rust role event 归属于单个 session，因此 Python SDK 只在 `NativeRuntim
 
 | 方法 | 返回 |
 |---|---|
+| `next_event(timeout=None)` | `NativeClientEvent`，即闭合的 `NativeRuntimeEvent | OperationLifecycleEvent` 客户端联合类型。 |
 | `poll_event()` / `poll_events(max_events=None, event_kind=None)` | 持有自身 buffer 的原始 `NativeRuntimeEvent` 快照。 |
 | `poll_credit_updates(max_events=None)` | 已解码的 credit 与 backpressure 更新。 |
 | `poll_result_hints(max_events=None)` | 已解码的 result hint。 |
@@ -217,7 +218,8 @@ Rust role event 归属于单个 session，因此 Python SDK 只在 `NativeRuntim
 | `dispatch_events(...)` 与 typed `dispatch_*` 变体 | 同一 session 上的同步 callback 分发。 |
 | `async_poll_event()` 与 typed `iter_*` 变体 | 同一 session event source 的异步封装。 |
 
-事件泵使用 session handle 执行一次有界 native poll，并在返回前复制和释放 native-owned buffer。
+`NativeClientEvent` 是这两个闭合 variant 的公开类型别名。调用方按类型判别 active value；不带 header
+的 lifecycle 通知绝不转换成伪造的 runtime frame。事件泵使用 session handle 执行一次有界 native poll，并在返回前复制和释放 native-owned buffer。
 应用打开多个 session 时必须分别 poll；connection 层不会重新分配事件归属。
 
 ## `connect_client_control`

@@ -115,15 +115,26 @@ Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Se
 [`NativeRuntimeFrameEvent`](./runtime#nativeruntimeframeevent)。应用侧 server 方法不接收原始
 `control_code`。
 
+### `NativeRuntimeServerSession.next_event`
+
+```python
+def next_event(self, *, timeout_ms: int = 0) -> NativeServerEvent | None: ...
+```
+
+返回规范的闭合 server 联合类型：submit ownership 使用 `NativeRuntimeServerOperation`，非 submit
+wire traffic 使用 `NativeRuntimeEvent`，不带 header 的本地状态使用 `OperationLifecycleEvent`。
+每次恰好返回一个 variant，并保持 session 内事件顺序。
+
 ### `NativeRuntimeServerSession.poll_event`
 
 ```python
 def poll_event(self, *, timeout_ms: int = 0) -> NativeRuntimeEvent | None: ...
 ```
 
-按 wire 顺序返回下一条 submit、control、runtime-object、cache、recovery 或 close event；有界等待结束
-仍无事件时返回 `None`。这是面向应用的单事件接收契约。`poll_events(max_events=..., timeout_ms=...)`
-是 adapter、测试套件和吞吐敏感 dispatch loop 使用的粗粒度原生批量接口，不改变事件顺序。
+按 wire 顺序返回下一条原始 wire event；有界等待结束仍无事件时返回 `None`。
+`poll_events(max_events=..., timeout_ms=...)` 是 adapter、测试套件和吞吐敏感 dispatch loop 使用的
+粗粒度原生批量接口，不改变事件顺序。需要 submit ownership 或本地 lifecycle 通知的应用使用
+`next_event()`。
 
 ### `NativeRuntimeServerSession.receive_submit`
 
