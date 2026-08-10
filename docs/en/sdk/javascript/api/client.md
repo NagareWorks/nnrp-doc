@@ -255,6 +255,14 @@ After cancellation, `result-drop-reason` remains observable, while late `result`
 These helpers use the same control sequence allocator as explicit control methods; they do not
 invent an out-of-band cancellation channel.
 
+Cancellation of an already-dispatched `submit()` deterministically rejects that submit wait with
+[`NnrpTimeoutError`](./core#errors), whose `diagnostic.code` is `NNRP_SUBMIT_CANCELLED`, after
+initiating `CANCEL`. Expiry rejects it with the same error class and the `NNRP_SUBMIT_TIMEOUT`
+diagnostic code after initiating `CANCEL`; the pre-dispatch `DEADLINE` remains part of the wire flow.
+In both cases, the local terminal lifecycle event remains available from `nextEvent()` and must not
+race the same `submit()` into a resolved `NnrpResult`. A terminal lifecycle initiated independently
+by the peer may still resolve `submit()` as non-success `NnrpResult` evidence.
+
 ## `ClientSession.nextEvent`
 
 Reads the next client event. `NnrpClientEvent` is a closed tagged union with a `runtime`

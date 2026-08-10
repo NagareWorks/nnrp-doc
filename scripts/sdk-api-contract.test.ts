@@ -217,7 +217,7 @@ async function loadContract(): Promise<SdkApiContract> {
 Deno.test("Preview4 SDK contract freezes the required semantic types", async () => {
   const contract = await loadContract();
   assertEquals(contract.contract, "nnrp-1-preview4-sdk-api");
-  assertEquals(contract.contractVersion, 14);
+  assertEquals(contract.contractVersion, 15);
   assertEquals(contract.rules.languageProjectionMustBeLossless, true);
   assertEquals(contract.rules.adapterNormalizationDoesNotProveApiParity, true);
   assertEquals(contract.rules.missingWireFieldsMayNotBeDefaulted, true);
@@ -1037,6 +1037,33 @@ Deno.test("client and server role surfaces close every runtime message direction
       `${mapping.messageType} must have at least one receiving role`,
     );
   }
+});
+
+Deno.test("cancellable client submit waits have deterministic terminal semantics", async () => {
+  const contract = await loadContract();
+  const submitWait = requireRecord(
+    contract.roleSurfaces.clientSubmitWait,
+    "roleSurfaces.clientSubmitWait",
+  );
+  assert(
+    requireString(
+      submitWait.postDispatchCancellationRule,
+      "clientSubmitWait.postDispatchCancellationRule",
+    ).includes("sends CANCEL"),
+    "post-dispatch cancellation must send CANCEL",
+  );
+  assert(
+    requireString(submitWait.timeoutRule, "clientSubmitWait.timeoutRule").includes(
+      "sends DEADLINE before dispatch",
+    ),
+    "submit timeout must send DEADLINE before dispatch",
+  );
+  assert(
+    requireString(submitWait.lifecycleRule, "clientSubmitWait.lifecycleRule").includes(
+      "must not race the same submit wait",
+    ),
+    "local lifecycle must not race the submit wait",
+  );
 });
 
 Deno.test("application endpoints and provider packages keep their ownership boundaries", async () => {
