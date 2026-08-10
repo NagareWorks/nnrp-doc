@@ -197,6 +197,28 @@ connection。一个逻辑 server 持有已安装 provider 的 listener 集合并
 `nnrps://`；`tcp://`、`quic://`、 `unix://`、`npipe://`、`ws://` 与 `wss://` 都只是 provider 本地
 locator，不能替代应用端点。
 
+### 服务端事件泵
+
+每个 server session 都只有一个规范的、不过滤事件的接收操作，返回闭合的 `ServerEvent` 联合类型：
+
+| Variant     | 值                        | 含义                                                       |
+| ----------- | ------------------------- | ---------------------------------------------------------- |
+| `submit`    | `ServerOperation`         | 一个已接收的 `FRAME_SUBMIT` 及仍然有效的回复能力。         |
+| `runtime`   | `RuntimeEvent`            | 发给 server role 的任意非 submit wire event。              |
+| `lifecycle` | `OperationLifecycleEvent` | Native role carrier 产生的不带 header 的本地生命周期证据。 |
+
+`ServerOperation` 持有完整的 submit `RuntimeEvent`；它的 operation 与 frame 标识必须分别匹配 event
+metadata 和 header。应用消费规范事件泵时，不会把 submit 与发送 progress、partial result、 一个终态
+result 或一个终态 drop 所需的能力拆开。
+
+机器契约把这一语义操作命名为 `server_session.next_event`。Rust 投影为 `await_event`，Python 投影为
+`next_event`，JavaScript 投影为 `receive`，C# 投影为 `NextEventAsync`。这些只是同一操作的语言惯用
+命名，不代表不同语义。
+
+`server_session.receive_submit` 只是一种选择性便利接口。它在等待 submit 时如果观察到其他事件，
+必须把这些事件保留在同一个 session queue 中，供后续 `next_event` 交付；不得丢弃、解码后遗忘、
+提前确认或重新分类。一个 session 必须串行化所有接收调用，避免便利接口与规范事件泵竞争 native queue。
+
 ## Session 恢复票据
 
 所有 SDK 都通过同一个不透明 `SessionRecoveryTicket` value 提供恢复能力。可恢复 session 被接受后，

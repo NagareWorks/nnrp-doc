@@ -118,14 +118,17 @@ HTTP SSE chunk 映射为 NNRP result push event。流式事件在单个 submitte
 
 Level 1 必需 streaming event type：
 
-| Event type                   | 必需字段             | 说明                                                       |
-| ---------------------------- | -------------------- | ---------------------------------------------------------- |
-| `response.output_text.delta` | `index`、`delta`     | 增量文本输出。                                             |
-| `response.tool_call.delta`   | `index`、`tool_call` | 当所选 operation 产生 tool call 时，表示增量工具调用数据。 |
-| `response.usage`             | `usage`              | Usage summary。                                            |
-| `response.completed`         | `body`               | 存在最终 OpenAI 兼容响应 body 时发送。                     |
-| `response.error`             | `error`              | 面向应用的 OpenAI 兼容 error body。                        |
-| `response.cancelled`         | `reason`             | Adapter 观测到取消时发送的终止取消通知。                   |
+| Event type                     | 必需字段                                           | 说明                                     |
+| ------------------------------ | -------------------------------------------------- | ---------------------------------------- |
+| `response.output_text.delta`   | `index`、`delta`                                   | 增量文本输出。                           |
+| `response.tool_call.started`   | `index`、`item_id`、`call_id`、`name`              | 开始一个工具调用。                       |
+| `response.tool_call.delta`     | `index`、`item_id`、`call_id`、`arguments_delta`   | 追加参数文本。                           |
+| `response.tool_call.completed` | `index`、`item_id`、`call_id`、`name`、`arguments` | 完成一个工具调用。                       |
+| `response.tool_call.error`     | `index`、`item_id`、`call_id`、`error`             | 以错误终止一个工具调用。                 |
+| `response.usage`               | `usage`                                            | Usage summary。                          |
+| `response.completed`           | `body`                                             | 存在最终 OpenAI 兼容响应 body 时发送。   |
+| `response.error`               | `error`                                            | 面向应用的 OpenAI 兼容 error body。      |
+| `response.cancelled`           | `reason`                                           | Adapter 观测到取消时发送的终止取消通知。 |
 
 Text delta 示例：
 
@@ -228,14 +231,19 @@ Diagnostics 支持扩展。除非 client 显式选择更严格的 adapter-specif
 Tool call 表达为结构化 JSON event。Profile 支持增量 tool-call delta，因为 agent runtime
 需要展示和路由部分生成中的工具参数。
 
-最小事件类型：
+规范字段与顺序契约位于 [`openai-compatible-1.json`](/contracts/openai-compatible-1.json)。`item_id`
+标识 output item， `call_id` 则是在四类事件之间关联同一次工具调用的稳定身份；`index` 是 output
+sequence 中的非负位置。
 
-1. `response.tool_call.started`
-2. `response.tool_call.delta`
-3. `response.tool_call.completed`
-4. `response.tool_call.error`
+同一 `call_id` 必须先且只出现一次 `started`。之后可以出现零个或多个 `delta`，其 `arguments_delta`
+按事件顺序拼接。每个工具调用必须且只能由一个 `completed` 或 `error` 终止。 不同 `call_id`
+的事件可以交错，但同一调用内部顺序保持稳定。`completed` 携带完整函数 `name` 与 拼接后的 JSON
+参数字符串；`error` 使用与 `response.error` 相同的 profile error shape。 `openai_chunk` 只作为可选
+replay 证据，消费者不得依赖它解释事件。
 
-Profile 定义 tool-call event 的 wire shape，但不执行工具，也不定义工具执行的安全边界。
+这四类事件对于包含它们的 NNRP operation 都是非终态，通过有序 `PARTIAL_RESULT` 帧传输；operation
+本身仍然只能通过 NNRP 终态结果结束一次。Profile 只定义这些事件形态，不执行工具，也不定义工具执行的
+安全边界。
 
 ## 13. Capability Document
 

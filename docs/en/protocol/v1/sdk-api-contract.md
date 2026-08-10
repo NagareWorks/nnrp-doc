@@ -220,6 +220,31 @@ accept many sessions, including several sessions multiplexed over one accepted c
 endpoints remain `nnrp://` or `nnrps://`; `tcp://`, `quic://`, `unix://`, `npipe://`, `ws://`, and
 `wss://` are provider-local locators and never replace the application endpoint.
 
+### Server event pump
+
+Every server session has one canonical unfiltered event receive operation. It returns the closed
+`ServerEvent` union:
+
+| Variant     | Value                     | Meaning                                                         |
+| ----------- | ------------------------- | --------------------------------------------------------------- |
+| `submit`    | `ServerOperation`         | One accepted `FRAME_SUBMIT` plus its live reply capability.     |
+| `runtime`   | `RuntimeEvent`            | Any non-submit wire event addressed to the server role.         |
+| `lifecycle` | `OperationLifecycleEvent` | Headerless local lifecycle evidence from a native role carrier. |
+
+`ServerOperation` owns the complete submit `RuntimeEvent`; its operation and frame identities must
+match the event metadata and header. Consuming the canonical event pump therefore never separates a
+submit from the capability required to emit progress, partial results, one terminal result, or one
+terminal drop.
+
+The semantic operation is named `server_session.next_event` in the machine contract. Rust projects
+it as `await_event`, Python as `next_event`, JavaScript as `receive`, and C# as `NextEventAsync`.
+These names are idiomatic projections of one operation, not different behavior.
+
+`server_session.receive_submit` is only a selective convenience. If it observes non-submit events
+while waiting, it must retain them in the same session queue for later `next_event` delivery. It may
+not discard, decode-and-forget, acknowledge, or reclassify those events. A session serializes all
+receive calls so the convenience path and canonical event pump cannot race the native queue.
+
 ## Session Recovery Ticket
 
 Resume is exposed through one opaque `SessionRecoveryTicket` value in every SDK. The runtime issues

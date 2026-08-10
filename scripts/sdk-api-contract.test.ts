@@ -2,6 +2,10 @@ const contractPath = new URL(
   "../docs/public/contracts/nnrp-1-preview4-sdk-api.json",
   import.meta.url,
 );
+const openAiProfileContractPath = new URL(
+  "../docs/public/contracts/openai-compatible-1.json",
+  import.meta.url,
+);
 
 interface ContractField {
   name: string;
@@ -98,7 +102,13 @@ interface SdkApiContract {
   roleSurfaces: Record<string, unknown>;
   roleOperations: Record<
     string,
-    { parameters: ContractField[]; returns: string; async: boolean }
+    {
+      parameters: ContractField[];
+      returns: string;
+      async: boolean;
+      selective?: boolean;
+      retainsSkippedEvents?: boolean;
+    }
   >;
   languageProjections: Record<string, Record<string, string | string[]>>;
 }
@@ -189,7 +199,7 @@ async function loadContract(): Promise<SdkApiContract> {
 Deno.test("Preview4 SDK contract freezes the required semantic types", async () => {
   const contract = await loadContract();
   assertEquals(contract.contract, "nnrp-1-preview4-sdk-api");
-  assertEquals(contract.contractVersion, 10);
+  assertEquals(contract.contractVersion, 11);
   assertEquals(contract.rules.languageProjectionMustBeLossless, true);
   assertEquals(contract.rules.adapterNormalizationDoesNotProveApiParity, true);
   assertEquals(contract.rules.missingWireFieldsMayNotBeDefaulted, true);
@@ -655,6 +665,31 @@ Deno.test("connection handshake, multiplexing, and recovery are frozen as role b
     contract.roleOperations["client_session.recovery_ticket"].returns,
     "SessionRecoveryTicket?",
   );
+  assertEquals(
+    contract.roleOperations["client_session.next_event"].returns,
+    "RuntimeEvent|OperationLifecycleEvent",
+  );
+  assertEquals(contract.roleOperations["server.accept"].returns, "ServerSession");
+  assertEquals(contract.roleOperations["server_session.next_event"].returns, "ServerEvent");
+  assertEquals(contract.roleOperations["server_session.receive_submit"], {
+    parameters: [{ name: "timeout", type: "Duration?", required: false }],
+    returns: "ServerOperation",
+    async: true,
+    selective: true,
+    retainsSkippedEvents: true,
+  });
+
+  const serverEvent = requireContractType(contract, "ServerEvent");
+  assertEquals(serverEvent.variants, ["submit", "runtime", "lifecycle"]);
+  assertEquals(serverEvent.variantTypes, {
+    submit: "ServerOperation",
+    runtime: "RuntimeEvent",
+    lifecycle: "OperationLifecycleEvent",
+  });
+  assertEquals(
+    requireContractType(contract, "ServerOperation").fields.map((field) => field.name),
+    ["operation_id", "frame_id", "submit"],
+  );
 });
 
 Deno.test("schema registry contract freezes inherited NNRP/1 host semantics", async () => {
@@ -695,6 +730,8 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
     "schemaRegistry",
     "serverAcceptOptions",
     "serverBootstrapOptions",
+    "serverEvent",
+    "serverOperation",
     "serverProviderRoute",
     "serverRoles",
     "serverSessionOptions",
@@ -739,6 +776,39 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
       }
     }
   }
+});
+
+Deno.test("OpenAI-compatible tool-call lifecycle is fully frozen", async () => {
+  const contract = requireRecord(
+    JSON.parse(await Deno.readTextFile(openAiProfileContractPath)),
+    "openai-compatible/1",
+  );
+  assertEquals(contract.contract, "openai-compatible/1");
+  assertEquals(contract.contractVersion, 1);
+  const events = requireRecord(contract.toolCallEvents, "toolCallEvents");
+  assertEquals(Object.keys(events), [
+    "response.tool_call.started",
+    "response.tool_call.delta",
+    "response.tool_call.completed",
+    "response.tool_call.error",
+  ]);
+  const expectedRequired: Record<string, string[]> = {
+    "response.tool_call.started": ["type", "index", "item_id", "call_id", "name"],
+    "response.tool_call.delta": ["type", "index", "item_id", "call_id", "arguments_delta"],
+    "response.tool_call.completed": ["type", "index", "item_id", "call_id", "name", "arguments"],
+    "response.tool_call.error": ["type", "index", "item_id", "call_id", "error"],
+  };
+  for (const [eventType, required] of Object.entries(expectedRequired)) {
+    const event = requireRecord(events[eventType], eventType);
+    assertEquals(event.required, required);
+    assertEquals(event.optional, ["openai_chunk"]);
+  }
+  const ordering = requireRecord(contract.ordering, "ordering");
+  assertEquals(ordering.scope, "call_id");
+  assertEquals(requireStringArray(ordering.rules, "ordering.rules").length, 4);
+  const mapping = requireRecord(contract.nnrpMapping, "nnrpMapping");
+  assertEquals(mapping.nonTerminalDelivery, "partial_result");
+  assertEquals(mapping.terminalToolCallDelivery, "partial_result");
 });
 
 Deno.test("API domains cover every language projection without an unowned surface", async () => {

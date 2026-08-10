@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "contract": "openai-compatible/1",
+  "contractVersion": 1,
+  "toolCallEvents": {
+    "response.tool_call.started": {
+      "required": ["type", "index", "item_id", "call_id", "name"],
+      "optional": ["openai_chunk"],
+      "fields": {
+        "type": { "const": "response.tool_call.started" },
+        "index": { "type": "integer", "minimum": 0 },
+        "item_id": { "type": "string", "minLength": 1 },
+        "call_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "openai_chunk": { "type": "object" }
+      }
+    },
+    "response.tool_call.delta": {
+      "required": ["type", "index", "item_id", "call_id", "arguments_delta"],
+      "optional": ["openai_chunk"],
+      "fields": {
+        "type": { "const": "response.tool_call.delta" },
+        "index": { "type": "integer", "minimum": 0 },
+        "item_id": { "type": "string", "minLength": 1 },
+        "call_id": { "type": "string", "minLength": 1 },
+        "arguments_delta": { "type": "string" },
+        "openai_chunk": { "type": "object" }
+      }
+    },
+    "response.tool_call.completed": {
+      "required": ["type", "index", "item_id", "call_id", "name", "arguments"],
+      "optional": ["openai_chunk"],
+      "fields": {
+        "type": { "const": "response.tool_call.completed" },
+        "index": { "type": "integer", "minimum": 0 },
+        "item_id": { "type": "string", "minLength": 1 },
+        "call_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "arguments": { "type": "string" },
+        "openai_chunk": { "type": "object" }
+      }
+    },
+    "response.tool_call.error": {
+      "required": ["type", "index", "item_id", "call_id", "error"],
+      "optional": ["openai_chunk"],
+      "fields": {
+        "type": { "const": "response.tool_call.error" },
+        "index": { "type": "integer", "minimum": 0 },
+        "item_id": { "type": "string", "minLength": 1 },
+        "call_id": { "type": "string", "minLength": 1 },
+        "error": {
+          "type": "object",
+          "required": ["type", "code", "message"],
+          "fields": {
+            "type": { "type": "string", "minLength": 1 },
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string", "minLength": 1 }
+          }
+        },
+        "openai_chunk": { "type": "object" }
+      }
+    }
+  },
+  "ordering": {
+    "scope": "call_id",
+    "rules": [
+      "started occurs exactly once before delta, completed, or error",
+      "delta occurs zero or more times and arguments_delta concatenates in event order",
+      "exactly one of completed or error terminates a started call",
+      "events for different call_id values may interleave while preserving order within each call"
+    ]
+  },
+  "nnrpMapping": {
+    "nonTerminalDelivery": "partial_result",
+    "terminalToolCallDelivery": "partial_result",
+    "operationTerminalDelivery": ["result_push", "result_drop", "error"]
+  }
+}
