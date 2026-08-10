@@ -34,7 +34,7 @@ await using var client = await NnrpClient.ConnectAsync(
     },
     cancellationToken);
 
-await using var session = client.OpenSession(new NnrpClientSessionOptions());
+await using var session = await client.OpenSessionAsync(new NnrpClientSessionOptions());
 var result = await session.SubmitAsync(request, cancellationToken);
 ```
 

@@ -103,8 +103,8 @@ Policy 接收 [`NnrpSessionOpenMetadata`](./core#数据类型)，返回
 | `NnrpBackendRuntime.close()`           | 无                                                                | `Promise<void>`              | 关闭 accepted session、listener 与显式 FFI seam。       |
 | `NnrpServer.accept(options?)`          | [`options?: NnrpServerAcceptOptions`](#nnrpserveracceptoptions)   | `Promise<NnrpServerSession>` | 接受 owned carrier-listener set 的下一个 session。      |
 | `NnrpServer.close()`                   | 无                                                                | `Promise<void>`              | 关闭全部 owned carrier listener 与 accepted session。   |
-| `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpServerEvent>`   | 读取下一条有序 submit、runtime 或 lifecycle event。     |
-| `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#数据类型)                           | `Promise<void>`              | 为当前 operation 发送唯一终态结果。                     |
+| `NnrpServerSession.nextEvent(options?)` | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpServerEvent>` | 读取下一条有序 submit、runtime 或 lifecycle event。 |
+| `NnrpServerSession.receiveSubmit(options?)` | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpServerOperation>` | 选择下一条 submit，并保留跳过的事件。 |
 | `NnrpServerSession.close()`            | 无                                                                | `Promise<void>`              | 只关闭一次 accepted role session。                      |
 
 `NnrpServerSession.activeTransport` 是实际接受 carrier 的 listener 对应的
@@ -114,23 +114,37 @@ Policy 接收 [`NnrpSessionOpenMetadata`](./core#数据类型)，返回
 record，保存每个已打开 listener 的实际 endpoint。Provider listener 的致命失败会让逻辑 server
 失败并关闭其余 listener set；被拒绝的 peer handshake 只影响该 accepted carrier。
 
+## Server Event 与 Operation 回复
+
+`NnrpServerSession.nextEvent(options?)` 返回闭合的 `NnrpServerEvent` tagged union。`submit` variant
+持有 `NnrpServerOperation`，`runtime` variant 持有非 submit `NnrpRuntimeEvent`，`lifecycle`
+variant 持有不带 header 的 `NnrpOperationLifecycleEvent`。`receiveSubmit(options?)` 是选择性接口，
+但会为后续 event-pump 读取保留所有跳过的事件。
+
+返回的 operation 持有所有 operation-scoped 回复：
+
+| 方法 | Message | Metadata | 可选 tail |
+| --- | --- | --- | --- |
+| `sendResult(metadata, body?)` | `ResultPush` | `NnrpResultPushMetadata` | result body |
+| `sendResultDrop(metadata, diagnostic?)` | `ResultDropReason` | `ResultDropReasonMetadata` | diagnostic bytes |
+| `sendProgress(metadata, body?)` | `Progress` | [`ProgressMetadata`](./runtime#运行时控制-metadata) | progress body |
+| `sendPartialResult(metadata, body?)` | `PartialResult` | `PartialResultMetadata` | inline partial result |
+
+四个方法都返回 `Promise<void>`。operation 会校验所属 session 和 `operationId`，并且只允许一个终态方法成功。
+`NnrpServerSession` 不暴露任何并行的 operation 回复方法。
+
 ## Preview4 Server Session 方法
 
-`NnrpServerSession.receive(options?)` 返回闭合的 `NnrpServerEvent` tagged union。`submit` variant
-持有 `NnrpServerOperation`，`runtime` variant 持有非 submit `NnrpRuntimeEvent`，`lifecycle`
-variant 持有不带 header 的 `NnrpOperationLifecycleEvent`。Server 使用以下方法发送增量状态：
+session 只持有与具体 operation 无关的服务端输出：
 
 | 方法                                          | Message                                       | Metadata                                            | 可选 tail             |
 | --------------------------------------------- | --------------------------------------------- | --------------------------------------------------- | --------------------- |
-| `sendProgress(metadata, body?)`               | `Progress`                                    | [`ProgressMetadata`](./runtime#运行时控制-metadata) | progress body         |
-| `sendPartialResult(metadata, body?)`          | `PartialResult`                               | `PartialResultMetadata`                             | inline partial result |
 | `sendBackpressure(metadata)`                  | `Backpressure`                                | `PressureMetadata`                                  | 无                    |
 | `sendCreditUpdate(metadata)`                  | `CreditUpdate`                                | `PressureMetadata`                                  | 无                    |
-| `sendResultDropReason(metadata, diagnostic?)` | `ResultDropReason`                            | `ResultDropReasonMetadata`                          | diagnostic bytes      |
 | `sendTraceContext(metadata, body?)`           | `TraceContext`                                | `TraceContextMetadata`                              | trace attributes      |
 | `sendRecoverableError(metadata, diagnostic?)` | `ErrorRecoverable`                            | `RecoverableErrorMetadata`                          | diagnostic bytes      |
 | `sendRetryAfter(metadata, diagnostic?)`       | `RetryAfter`                                  | `RetryAfterMetadata`                                | diagnostic bytes      |
-| `sendControl(messageType, metadata, tail?)`   | 任意允许 server 发送的 Preview4 control frame | 匹配的 runtime metadata 类型                        | 声明的 tail           |
+| `sendControl(messageType, metadata, tail?)`   | 任意允许 server 发送且不属于具体 operation 的 Preview4 control frame | 匹配的 runtime metadata 类型 | 声明的 tail |
 
 所有方法返回 `Promise<void>`。Metadata/body 长度不匹配时必须在 frame 到达 carrier Provider 前失败。
 
@@ -149,7 +163,7 @@ variant 持有不带 header 的 `NnrpOperationLifecycleEvent`。Server 使用以
 
 Object patch 与 delta 方法要求 `metadataBody.byteLength` 等于 `metadata.metadataBytes`，且
 `delta.byteLength` 等于 `metadata.deltaBytes`。Wire tail 依次拼接 metadata body 与 delta bytes。
-最终 `sendResult(result)` 与 partial-result、object-delta frame 保持独立。
+Operation 回复与 object-delta frame 保持独立。
 
 ## 边界规则
 

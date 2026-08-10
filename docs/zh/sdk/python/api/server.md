@@ -29,7 +29,8 @@ from nnrp.server import (
 1. 用 `nnrp://` 或 `nnrps://` 应用 endpoint 调用 [`listen_native_server`](#listen-native-server)。
 2. 调用 `NativeServer.accept()`，由 Rust 接受 carrier 并完成 NNRP 握手。
 3. 从返回的 `NativeRuntimeServerSession` 接收 submit/control/object/cache event。
-4. 通过该 session 发送 progress、partial、terminal、drop 与 trace 输出。
+4. 通过收到的 operation 发送 progress、partial、terminal 与 drop；通过 session 发送 trace
+   和其他 session-scoped 输出。
 5. 关闭 session 与 server context。
 
 Packet transport helper 只用于诊断和自定义 carrier：
@@ -101,10 +102,7 @@ Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Se
 
 | 方法 | 消息 |
 |---|---|
-| `send_progress(metadata, body=b"")` | `PROGRESS` |
-| `send_partial_result(metadata, body=b"")` | `PARTIAL_RESULT` |
 | `send_backpressure(metadata)`, `send_credit_update(metadata)` | pressure 消息 |
-| `send_result_drop_reason(metadata, diagnostic=b"")` | `RESULT_DROP_REASON` |
 | `send_trace_context(metadata, body=b"")` | `TRACE_CONTEXT` |
 | `send_recoverable_error(metadata, diagnostic=b"")`, `send_retry_after(...)` | recovery 消息 |
 | `declare_object`, `reference_object`, `release_object` | object lifecycle 消息 |
@@ -118,7 +116,7 @@ Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Se
 ### `NativeRuntimeServerSession.next_event`
 
 ```python
-def next_event(self, *, timeout_ms: int = 0) -> NativeServerEvent | None: ...
+async def next_event(self, timeout: float | None = None) -> NativeServerEvent: ...
 ```
 
 返回规范的闭合 server 联合类型：submit ownership 使用 `NativeRuntimeServerOperation`，非 submit
@@ -128,7 +126,7 @@ wire traffic 使用 `NativeRuntimeEvent`，不带 header 的本地状态使用 `
 ### `NativeRuntimeServerSession.poll_event`
 
 ```python
-def poll_event(self, *, timeout_ms: int = 0) -> NativeRuntimeEvent | None: ...
+def poll_event(self, *, timeout_ms: int = 0) -> NativeServerEvent | None: ...
 ```
 
 按 wire 顺序返回下一条原始 wire event；有界等待结束仍无事件时返回 `None`。
@@ -139,12 +137,7 @@ def poll_event(self, *, timeout_ms: int = 0) -> NativeRuntimeEvent | None: ...
 ### `NativeRuntimeServerSession.receive_submit`
 
 ```python
-def receive_submit(
-    self,
-    *,
-    timeout_ms: int = 0,
-    max_events: int = 1,
-) -> NativeRuntimeServerOperation: ...
+async def receive_submit(self, timeout: float | None = None) -> NativeRuntimeServerOperation: ...
 ```
 
 返回的 operation 直接提供 wire identity 和已解码请求，不向应用暴露 FFI buffer：
@@ -153,13 +146,12 @@ def receive_submit(
 |---|---|---|
 | `operation_id` | `int` | 来自 `FRAME_SUBMIT` 的非零 wire operation identity。 |
 | `frame_id` | `int` | 来自 packet header 的 wire frame identity。 |
-| `metadata` | `FrameSubmitMetadata` | 已解码的 submit metadata。 |
-| `body` | `bytes` | 固定 metadata 前缀之后、由 Python 持有的应用 body。 |
+| `submit` | `NativeRuntimeEvent` | 完整持有的 `FRAME_SUBMIT` 事件，包括 metadata 与 body。 |
 
 ### `NativeRuntimeServerOperation.send_result`
 
 ```python
-def send_result(
+async def send_result(
     self,
     metadata: ResultPushMetadata,
     body: bytes = b"",
@@ -168,6 +160,23 @@ def send_result(
 
 SDK 校验并拼装 `ResultPushMetadata` 与 `body`，随后只执行一次粗粒度 native 调用。调用方
 不需要预先序列化 metadata，也不接触 FFI 形态的 result payload。
+
+同一个 operation 还暴露以下 async 方法：
+
+| 方法 | 消息 | Tail |
+|---|---|---|
+| `send_result_drop(metadata, diagnostic=b"")` | `RESULT_DROP_REASON` | diagnostic bytes |
+| `send_progress(metadata, body=b"")` | `PROGRESS` | progress body |
+| `send_partial_result(metadata, body=b"")` | `PARTIAL_RESULT` | partial body |
+
+四个方法都会校验 operation identity。只允许一个终态方法成功，且
+`NativeRuntimeServerSession` 不提供任何并行的 operation 回复方法。
+
+## 数据包传输诊断接口
+
+以下 `ServerSession` helper 属于数据包级诊断与自定义 carrier 接口。它们不实现冻结的跨语言
+runtime role API，也不封装 Rust runtime operation handle；生产 role host 不得用它们替代
+`NativeRuntimeServerSession`。
 
 ## `accept_server_session`
 

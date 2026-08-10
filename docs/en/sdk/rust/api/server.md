@@ -9,8 +9,8 @@ results, progress, flow-control feedback, object/cache events, and close acknowl
 2. Register the transport providers compiled into this deployment.
 3. Listen with [`NnrpServer::listen`](#nnrpserver-listen); Auto/Prefer opens every eligible route atomically.
 4. Accept a session with [`NnrpServer::accept`](#nnrpserver-accept).
-5. Receive work with [`receive_submit`](#nnrpserversession-receive-submit).
-6. Send output with [`send_result`](#nnrpserversession-send-result), `send_partial_result`, or `send_progress`.
+5. Receive work with [`receive_submit`](#nnrpserversession-receive-submit) or dispatch [`await_event`](#nnrpserversession-await-event).
+6. Send output through the returned [`NnrpServerOperation`](#nnrpserveroperation-replies).
 7. Receive runtime-control frames with [`receive_runtime_control`](#runtime-control-methods).
 8. Close the session explicitly.
 
@@ -132,21 +132,20 @@ internally, but they must project those batches back into this ordered single-ev
 
 | Returns | Errors |
 |---|---|
-| `Result<NnrpSubmit, RuntimeError>` | Transport, parse, lifecycle, or unexpected-message errors. |
+| `Result<NnrpServerOperation, RuntimeError>` | Transport, parse, lifecycle, or unexpected-message errors. |
 
 ```rust
-let submit = session.receive_submit().await?;
+let operation = session.receive_submit().await?;
 ```
 
 `receive_submit` is a narrow convenience for hosts that only admit submit traffic at that point in
 their state machine. Hosts that permit interleaved control, object, cache, and close frames use
 `await_event` and dispatch the returned `NnrpServerEvent`.
 
-## `NnrpServerSession::send_result`
+## `NnrpServerOperation` Replies
 
 | Parameter | Type | Required | Values / Range | Description |
 |---|---|---:|---|---|
-| `frame_id` | `u32` | Yes | Submitted frame id | Correlates the result. |
 | `metadata` | [`ResultPushMetadata`](./core#resultpushmetadata) | Yes | Valid result metadata | Result status and timing metadata. |
 | `body` | `Vec<u8>` | Yes | May be empty | Serialized result body. |
 
@@ -155,19 +154,21 @@ their state machine. Hosts that permit interleaved control, object, cache, and c
 | `Result<(), RuntimeError>` | Lifecycle, serialization, or transport errors. |
 
 ```rust
-session
-    .send_result(submit.frame_id, ResultPushMetadata::default(), output)
+operation
+    .send_result(&mut session, ResultPushMetadata::default(), output)
     .await?;
 ```
 
-## Streaming Result Methods
-
 | Method | Parameters | Returns | Description |
 |---|---|---|---|
-| `send_partial_result` | frame id, metadata, body | `Result<(), RuntimeError>` | Sends incremental result bytes. |
-| `send_progress` | metadata, body | `Result<(), RuntimeError>` | Sends progress or status updates. |
-| `send_result_drop_reason` | frame id, metadata, body | `Result<(), RuntimeError>` | Sends a structured drop reason. |
-| `send_result_drop_reason_with_diagnostics` | frame id, metadata, diagnostics | `Result<(), RuntimeError>` | Sends a drop reason with diagnostic context. |
+| `send_result` | session, metadata, body | `Result<(), RuntimeError>` | Sends the operation's sole terminal result. |
+| `send_result_drop` | session, metadata, diagnostic | `Result<(), RuntimeError>` | Sends the operation's terminal drop reason. |
+| `send_progress` | session, metadata, body | `Result<(), RuntimeError>` | Sends non-terminal progress for this operation. |
+| `send_partial_result` | session, metadata, body | `Result<(), RuntimeError>` | Sends incremental result bytes for this operation. |
+
+The operation validates session ownership and `operation_id` before writing. It cannot be cloned,
+and exactly one terminal method may succeed. Operation-scoped reply methods are not exposed on
+`NnrpServerSession`.
 
 ## Runtime Control Methods
 
@@ -213,16 +214,16 @@ session
 | `resume_window_ms` | `u32` | `120000` | Resume window. |
 | `application_policy` | `Arc<dyn NnrpServerPolicy>` | Allow-all | Application validation policy. |
 
-## `NnrpSubmit`
+## `NnrpServerOperation`
 
 | Field | Type | Description |
 |---|---|---|
 | `frame_id` | `u32` | Submitted frame id. |
-| `metadata` | [`FrameSubmitMetadata`](./core#framesubmitmetadata) | Submit metadata. |
-| `body` | `Vec<u8>` | Submit body bytes. |
+| `operation_id` | `u64` | Non-zero operation identity from submit metadata. |
+| `submit` | `NnrpRuntimeEvent` | Complete owned `FRAME_SUBMIT` event, including metadata and body. |
 
 ::: warning
-`receive_submit` is intentionally narrow. If submit, cancel, progress, and close can interleave in
-your application, build a loop that dispatches runtime packets into the appropriate receive/send
-methods instead of assuming a single request/result sequence.
+`receive_submit` is intentionally selective. If submit, control, object, cache, lifecycle, and close
+events can interleave, use `await_event`; `receive_submit` retains skipped events in the same session
+queue and never discards them.
 :::

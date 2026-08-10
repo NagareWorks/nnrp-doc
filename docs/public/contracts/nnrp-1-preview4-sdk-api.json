@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 13,
+  "contractVersion": 14,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -2587,6 +2587,7 @@
       "serverSessionOptions",
       "serverAcceptOptions",
       "serverSessionPolicy",
+      "roleMethods",
       "sessionRecoveryTicket",
       "sessionRecoveryTicketEncode",
       "sessionRecoveryTicketDecode"
@@ -2694,6 +2695,42 @@
       "async": true,
       "selective": true,
       "retainsSkippedEvents": true
+    },
+    "server_operation.send_result": {
+      "parameters": [
+        { "name": "metadata", "type": "ResultPushMetadata", "required": true },
+        { "name": "body", "type": "bytes", "required": false, "default": "empty" }
+      ],
+      "returns": "void",
+      "async": true,
+      "terminal": true
+    },
+    "server_operation.send_result_drop": {
+      "parameters": [
+        { "name": "metadata", "type": "ResultDropReasonMetadata", "required": true },
+        { "name": "diagnostic", "type": "bytes", "required": false, "default": "empty" }
+      ],
+      "returns": "void",
+      "async": true,
+      "terminal": true
+    },
+    "server_operation.send_progress": {
+      "parameters": [
+        { "name": "metadata", "type": "ProgressMetadata", "required": true },
+        { "name": "body", "type": "bytes", "required": false, "default": "empty" }
+      ],
+      "returns": "void",
+      "async": true,
+      "terminal": false
+    },
+    "server_operation.send_partial_result": {
+      "parameters": [
+        { "name": "metadata", "type": "PartialResultMetadata", "required": true },
+        { "name": "body", "type": "bytes", "required": false, "default": "empty" }
+      ],
+      "returns": "void",
+      "async": true,
+      "terminal": false
     }
   },
   "languageProjections": {
@@ -2710,6 +2747,19 @@
       "clientEvent": "nnrp_runtime::NnrpClientRoleEvent",
       "serverEvent": "nnrp_runtime::NnrpServerEvent",
       "serverOperation": "nnrp_runtime::NnrpServerOperation",
+      "roleMethods": {
+        "client.open_session": "open_session",
+        "client.resume_session": "resume_session",
+        "client_session.recovery_ticket": "recovery_ticket",
+        "client_session.next_event": "await_event",
+        "server.accept": "accept",
+        "server_session.next_event": "await_event",
+        "server_session.receive_submit": "receive_submit",
+        "server_operation.send_result": "send_result",
+        "server_operation.send_result_drop": "send_result_drop",
+        "server_operation.send_progress": "send_progress",
+        "server_operation.send_partial_result": "send_partial_result"
+      },
       "operationLifecycleEvent": "nnrp_runtime::OperationLifecycleEvent",
       "terminalEvent": "nnrp_runtime::NnrpTerminalEvent",
       "result": "nnrp_runtime::NnrpResult",
@@ -2761,6 +2811,19 @@
       "clientEvent": "nnrp.runtime.NativeClientEvent",
       "serverEvent": "nnrp.server.NativeServerEvent",
       "serverOperation": "nnrp.NativeRuntimeServerOperation",
+      "roleMethods": {
+        "client.open_session": "open_session",
+        "client.resume_session": "resume_session",
+        "client_session.recovery_ticket": "recovery_ticket",
+        "client_session.next_event": "next_event",
+        "server.accept": "accept",
+        "server_session.next_event": "next_event",
+        "server_session.receive_submit": "receive_submit",
+        "server_operation.send_result": "send_result",
+        "server_operation.send_result_drop": "send_result_drop",
+        "server_operation.send_progress": "send_progress",
+        "server_operation.send_partial_result": "send_partial_result"
+      },
       "operationLifecycleEvent": "nnrp.runtime.OperationLifecycleEvent",
       "terminalEvent": "nnrp.runtime.NativeTerminalEvent",
       "result": "nnrp.NativeRuntimeResult",
@@ -2812,6 +2875,19 @@
       "clientEvent": "@nnrp/core.NnrpClientEvent",
       "serverEvent": "@nnrp/native-server.NnrpServerEvent",
       "serverOperation": "@nnrp/native-server.NnrpServerOperation",
+      "roleMethods": {
+        "client.open_session": "openSession",
+        "client.resume_session": "resumeSession",
+        "client_session.recovery_ticket": "recoveryTicket",
+        "client_session.next_event": "nextEvent",
+        "server.accept": "accept",
+        "server_session.next_event": "nextEvent",
+        "server_session.receive_submit": "receiveSubmit",
+        "server_operation.send_result": "sendResult",
+        "server_operation.send_result_drop": "sendResultDrop",
+        "server_operation.send_progress": "sendProgress",
+        "server_operation.send_partial_result": "sendPartialResult"
+      },
       "operationLifecycleEvent": "@nnrp/core.NnrpOperationLifecycleEvent",
       "terminalEvent": "@nnrp/core.NnrpTerminalEvent",
       "result": "@nnrp/core.NnrpResult",
@@ -2866,6 +2942,19 @@
       "clientEvent": "Nnrp.Runtime.NnrpClientEvent",
       "serverEvent": "Nnrp.Server.NnrpServerEvent",
       "serverOperation": "Nnrp.Server.NnrpServerOperation",
+      "roleMethods": {
+        "client.open_session": "OpenSessionAsync",
+        "client.resume_session": "ResumeSessionAsync",
+        "client_session.recovery_ticket": "GetRecoveryTicket",
+        "client_session.next_event": "NextEventAsync",
+        "server.accept": "AcceptAsync",
+        "server_session.next_event": "NextEventAsync",
+        "server_session.receive_submit": "ReceiveSubmitAsync",
+        "server_operation.send_result": "SendResultAsync",
+        "server_operation.send_result_drop": "SendResultDropAsync",
+        "server_operation.send_progress": "SendProgressAsync",
+        "server_operation.send_partial_result": "SendPartialResultAsync"
+      },
       "operationLifecycleEvent": "Nnrp.Runtime.NnrpOperationLifecycleEvent",
       "terminalEvent": "Nnrp.Runtime.NnrpTerminalEvent",
       "result": "Nnrp.Client.NnrpResult",
