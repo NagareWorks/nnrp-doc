@@ -8,8 +8,8 @@
 2. 注册本次部署编译进来的 transport provider。
 3. 使用 [`NnrpServer::listen`](#nnrpserver-listen) 监听；Auto/Prefer 原子打开全部 eligible route。
 4. 使用 [`NnrpServer::accept`](#nnrpserver-accept) 接收 session。
-5. 使用 [`receive_submit`](#nnrpserversession-receive-submit) 接收任务。
-6. 使用 [`send_result`](#nnrpserversession-send-result)、`send_partial_result` 或 `send_progress` 发送输出。
+5. 使用 [`receive_submit`](#nnrpserversession-receive-submit) 接收任务，或分派 [`await_event`](#nnrpserversession-await-event)。
+6. 通过返回的 [`NnrpServerOperation`](#nnrpserveroperation-回复) 发送输出。
 7. 使用 [`receive_runtime_control`](#runtime-control-methods) 接收运行时控制帧。
 8. 显式关闭 session。
 
@@ -132,20 +132,19 @@ pub async fn await_event(&mut self) -> Result<NnrpServerEvent, RuntimeError>
 
 | 返回 | 错误 |
 |---|---|
-| `Result<NnrpSubmit, RuntimeError>` | Transport、解析、生命周期或 unexpected-message 错误。 |
+| `Result<NnrpServerOperation, RuntimeError>` | Transport、解析、生命周期或 unexpected-message 错误。 |
 
 ```rust
-let submit = session.receive_submit().await?;
+let operation = session.receive_submit().await?;
 ```
 
 `receive_submit` 是仅在当前状态只允许 submit 流量时使用的窄化便利接口。允许 control、object、cache
 和 close frame 交错的 host 应调用 `await_event`，并分派返回的 `NnrpServerEvent`。
 
-## `NnrpServerSession::send_result`
+## `NnrpServerOperation` 回复
 
 | 参数 | 类型 | 必填 | 取值范围 | 说明 |
 |---|---|---:|---|---|
-| `frame_id` | `u32` | 是 | 已提交 frame id | 关联 result。 |
 | `metadata` | [`ResultPushMetadata`](./core#resultpushmetadata) | 是 | 有效 result metadata | Result status 与 timing metadata。 |
 | `body` | `Vec<u8>` | 是 | 可为空 | 序列化 result body。 |
 
@@ -154,19 +153,20 @@ let submit = session.receive_submit().await?;
 | `Result<(), RuntimeError>` | 生命周期、序列化或 transport 错误。 |
 
 ```rust
-session
-    .send_result(submit.frame_id, ResultPushMetadata::default(), output)
+operation
+    .send_result(&mut session, ResultPushMetadata::default(), output)
     .await?;
 ```
 
-## Streaming Result Methods
-
 | 方法 | 参数 | 返回 | 说明 |
 |---|---|---|---|
-| `send_partial_result` | frame id, metadata, body | `Result<(), RuntimeError>` | 发送增量 result bytes。 |
-| `send_progress` | metadata, body | `Result<(), RuntimeError>` | 发送进度或状态更新。 |
-| `send_result_drop_reason` | frame id, metadata, body | `Result<(), RuntimeError>` | 发送结构化 drop reason。 |
-| `send_result_drop_reason_with_diagnostics` | frame id, metadata, diagnostics | `Result<(), RuntimeError>` | 发送带诊断上下文的 drop reason。 |
+| `send_result` | session、metadata、body | `Result<(), RuntimeError>` | 发送该 operation 唯一的终态结果。 |
+| `send_result_drop` | session、metadata、diagnostic | `Result<(), RuntimeError>` | 发送该 operation 的终态丢弃原因。 |
+| `send_progress` | session、metadata、body | `Result<(), RuntimeError>` | 发送该 operation 的非终态进度。 |
+| `send_partial_result` | session、metadata、body | `Result<(), RuntimeError>` | 发送该 operation 的增量结果字节。 |
+
+operation 会在写出前校验 session ownership 和 `operation_id`。它不可克隆，并且只允许一个终态方法成功。
+`NnrpServerSession` 不暴露任何绕过 operation ownership 的回复方法。
 
 ## Runtime Control Methods
 
@@ -212,14 +212,15 @@ session
 | `resume_window_ms` | `u32` | `120000` | Resume window。 |
 | `application_policy` | `Arc<dyn NnrpServerPolicy>` | Allow-all | 应用层校验策略。 |
 
-## `NnrpSubmit`
+## `NnrpServerOperation`
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `frame_id` | `u32` | Submitted frame id。 |
-| `metadata` | [`FrameSubmitMetadata`](./core#framesubmitmetadata) | Submit metadata。 |
-| `body` | `Vec<u8>` | Submit body bytes。 |
+| `operation_id` | `u64` | Submit metadata 中的非零 operation identity。 |
+| `submit` | `NnrpRuntimeEvent` | 完整持有的 `FRAME_SUBMIT` 事件，包括 metadata 和 body。 |
 
 ::: warning
-`receive_submit` 是窄接口。如果 submit、cancel、progress 和 close 会交错出现，应建立 runtime packet dispatch loop，而不是假设单一 request/result 顺序。
+`receive_submit` 是选择性接口。如果 submit、control、object、cache、lifecycle 和 close 会交错出现，
+应使用 `await_event`；`receive_submit` 会把跳过的事件保留在同一个 session queue 中，绝不会丢弃。
 :::

@@ -33,10 +33,12 @@ TCP and QUIC may derive their host and port from `Endpoint`. IPC and WebSocket r
 matching `unix://`, `npipe://`, `ws://`, or `wss://` locator. Auto/Prefer retains unresolved routes
 in candidate diagnostics and probes every viable route; Force fails without fallback.
 
-## `NnrpClient.OpenSession`
+## `NnrpClient.OpenSessionAsync`
 
 ```csharp
-public NnrpClientSession OpenSession(NnrpClientSessionOptions? options = null);
+public ValueTask<NnrpClientSession> OpenSessionAsync(
+    NnrpClientSessionOptions? options = null,
+    CancellationToken cancellationToken = default);
 ```
 
 `NnrpClientSessionOptions` contains only transport-neutral protocol intent. Native handles and
@@ -63,9 +65,10 @@ hello before the first session opens.
 ## Session Recovery
 
 ```csharp
-public NnrpClientSession ResumeSession(
+public ValueTask<NnrpClientSession> ResumeSessionAsync(
     NnrpSessionRecoveryTicket ticket,
-    NnrpClientSessionOptions? options = null);
+    NnrpClientSessionOptions? options = null,
+    CancellationToken cancellationToken = default);
 ```
 
 `NnrpClientSession.GetRecoveryTicket()` returns the current runtime-issued

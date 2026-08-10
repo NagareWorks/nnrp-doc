@@ -32,10 +32,12 @@ TCP 与 QUIC 可以从 `Endpoint` 派生 host 和 port。IPC 与 WebSocket route
 `unix://`、`npipe://`、`ws://` 或 `wss://` locator。Auto/Prefer 在 candidate 诊断中保留无法解析的
 route，并 probe 全部可用 route；Force 失败且不回退。
 
-## `NnrpClient.OpenSession`
+## `NnrpClient.OpenSessionAsync`
 
 ```csharp
-public NnrpClientSession OpenSession(NnrpClientSessionOptions? options = null);
+public ValueTask<NnrpClientSession> OpenSessionAsync(
+    NnrpClientSessionOptions? options = null,
+    CancellationToken cancellationToken = default);
 ```
 
 `NnrpClientSessionOptions` 只包含 transport-neutral 协议意图。Native handle 和 generation
@@ -61,9 +63,10 @@ Runtime 负责派生 wire flags、extension 长度和 client session tag。新�
 ## Session 恢复
 
 ```csharp
-public NnrpClientSession ResumeSession(
+public ValueTask<NnrpClientSession> ResumeSessionAsync(
     NnrpSessionRecoveryTicket ticket,
-    NnrpClientSessionOptions? options = null);
+    NnrpClientSessionOptions? options = null,
+    CancellationToken cancellationToken = default);
 ```
 
 `NnrpClientSession.GetRecoveryTicket()` 返回当前 runtime 签发的

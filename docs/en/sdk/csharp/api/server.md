@@ -103,9 +103,12 @@ The returned operation exposes owned application values, not FFI buffers:
 |---|---|---|
 | `SendResultAsync(ResultPushMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ResultPush` | Sends the terminal success/error payload for this operation. |
 | `SendResultDropAsync(ResultDropReasonMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ResultDropReason` | Sends typed terminal drop evidence. |
+| `SendProgressAsync(ProgressMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `Progress` | Sends non-terminal progress for this operation. |
+| `SendPartialResultAsync(PartialResultMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `PartialResult` | Sends an incremental result for this operation. |
 
 An operation accepts exactly one terminal send. Sending after terminal state or after session close
-throws `NnrpNativeInvalidStateException`.
+throws `NnrpNativeInvalidStateException`. Every method validates operation identity, and the session
+does not expose parallel operation-reply methods.
 
 ## Server Runtime Methods
 
@@ -113,15 +116,12 @@ The session sends typed Preview4 frames through one coarse native call per metho
 
 | Method | Message | Tail |
 |---|---|---|
-| `SendProgressAsync(ProgressMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `Progress` | Progress body |
-| `SendPartialResultAsync(PartialResultMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `PartialResult` | Partial body |
 | `SendBackpressureAsync(PressureMetadata, CancellationToken)` | `Backpressure` | None |
 | `SendCreditUpdateAsync(PressureMetadata, CancellationToken)` | `CreditUpdate` | None |
-| `SendResultDropReasonAsync(ResultDropReasonMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ResultDropReason` | Diagnostic bytes |
 | `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `TraceContext` | Trace attributes |
 | `SendRecoverableErrorAsync(RecoverableErrorMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ErrorRecoverable` | Diagnostic bytes |
 | `SendRetryAfterAsync(RetryAfterMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `RetryAfter` | Diagnostic bytes |
-| `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | Any server-sendable runtime control | Declared tail |
+| `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | Any non-operation server-sendable runtime control | Declared tail |
 
 ## Server Object And Cache Methods
 

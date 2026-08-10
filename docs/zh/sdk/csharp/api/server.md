@@ -101,9 +101,12 @@ public ValueTask<NnrpServerOperation> ReceiveSubmitAsync(
 |---|---|---|
 | `SendResultAsync(ResultPushMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ResultPush` | 发送该 operation 的终态成功/错误 payload。 |
 | `SendResultDropAsync(ResultDropReasonMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ResultDropReason` | 发送 typed 终态丢弃证据。 |
+| `SendProgressAsync(ProgressMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `Progress` | 发送该 operation 的非终态进度。 |
+| `SendPartialResultAsync(PartialResultMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `PartialResult` | 发送该 operation 的增量结果。 |
 
 一个 operation 只能发送一次终态。终态后或 session 关闭后再次发送会抛出
-`NnrpNativeInvalidStateException`。
+`NnrpNativeInvalidStateException`。所有方法都会校验 operation identity，session 不暴露并行的
+operation 回复方法。
 
 ## Server Runtime 方法
 
@@ -111,15 +114,12 @@ public ValueTask<NnrpServerOperation> ReceiveSubmitAsync(
 
 | 方法 | 消息 | Tail |
 |---|---|---|
-| `SendProgressAsync(ProgressMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `Progress` | progress body |
-| `SendPartialResultAsync(PartialResultMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `PartialResult` | partial body |
 | `SendBackpressureAsync(PressureMetadata, CancellationToken)` | `Backpressure` | 无 |
 | `SendCreditUpdateAsync(PressureMetadata, CancellationToken)` | `CreditUpdate` | 无 |
-| `SendResultDropReasonAsync(ResultDropReasonMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ResultDropReason` | 诊断字节 |
 | `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `TraceContext` | trace attribute |
 | `SendRecoverableErrorAsync(RecoverableErrorMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ErrorRecoverable` | 诊断字节 |
 | `SendRetryAfterAsync(RetryAfterMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `RetryAfter` | 诊断字节 |
-| `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | 任意 server 可发送 runtime control | 声明的 tail |
+| `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | 任意 server 可发送且不属于具体 operation 的 runtime control | 声明的 tail |
 
 ## Server Object 与 Cache 方法
 

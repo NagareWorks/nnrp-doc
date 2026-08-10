@@ -93,13 +93,13 @@ let server = NnrpServer::listen(
 ).await?;
 
 let mut session = server.accept().await?;
-let submit = session.receive_submit().await?;
+let operation = session.receive_submit().await?;
 
-session
+operation
     .send_result(
-        submit.frame_id,
+        &mut session,
         ResultPushMetadata::default(),
-        submit.body,
+        operation.body().to_vec(),
     )
     .await?;
 session.close().await?;

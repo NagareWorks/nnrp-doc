@@ -30,7 +30,8 @@ Production hosts use the Rust-owned role path:
 1. Call [`listen_native_server`](#listen-native-server) with an `nnrp://` or `nnrps://` application endpoint.
 2. Call `NativeServer.accept()`; Rust accepts the carrier and completes the NNRP handshake.
 3. Receive submit/control/object/cache events from the accepted `NativeRuntimeServerSession`.
-4. Send progress, partial, terminal, drop, and trace output through that session.
+4. Send progress, partial, terminal, and drop output through the received operation; send trace and
+   other session-scoped output through the session.
 5. Close the session and server context.
 
 Packet transport helpers are reserved for diagnostics and custom carriers:
@@ -106,10 +107,7 @@ exposes these application-facing methods:
 
 | Method | Message |
 |---|---|
-| `send_progress(metadata, body=b"")` | `PROGRESS` |
-| `send_partial_result(metadata, body=b"")` | `PARTIAL_RESULT` |
 | `send_backpressure(metadata)`, `send_credit_update(metadata)` | pressure messages |
-| `send_result_drop_reason(metadata, diagnostic=b"")` | `RESULT_DROP_REASON` |
 | `send_trace_context(metadata, body=b"")` | `TRACE_CONTEXT` |
 | `send_recoverable_error(metadata, diagnostic=b"")`, `send_retry_after(...)` | recovery messages |
 | `declare_object`, `reference_object`, `release_object` | object lifecycle messages |
@@ -123,7 +121,7 @@ accepts a raw `control_code`.
 ### `NativeRuntimeServerSession.next_event`
 
 ```python
-def next_event(self, *, timeout_ms: int = 0) -> NativeServerEvent | None: ...
+async def next_event(self, timeout: float | None = None) -> NativeServerEvent: ...
 ```
 
 Returns the canonical closed server union: `NativeRuntimeServerOperation` for submit ownership,
@@ -133,7 +131,7 @@ state. Exactly one variant is returned and events retain per-session order.
 ### `NativeRuntimeServerSession.poll_event`
 
 ```python
-def poll_event(self, *, timeout_ms: int = 0) -> NativeRuntimeEvent | None: ...
+def poll_event(self, *, timeout_ms: int = 0) -> NativeServerEvent | None: ...
 ```
 
 Returns the next raw wire event in order, or `None` when the bounded wait completes without an event.
@@ -144,12 +142,7 @@ that need submit ownership or local lifecycle notifications use `next_event()`.
 ### `NativeRuntimeServerSession.receive_submit`
 
 ```python
-def receive_submit(
-    self,
-    *,
-    timeout_ms: int = 0,
-    max_events: int = 1,
-) -> NativeRuntimeServerOperation: ...
+async def receive_submit(self, timeout: float | None = None) -> NativeRuntimeServerOperation: ...
 ```
 
 The returned operation exposes the wire identities and decoded request without exposing an FFI
@@ -159,13 +152,12 @@ buffer:
 |---|---|---|
 | `operation_id` | `int` | Non-zero wire operation identity from `FRAME_SUBMIT`. |
 | `frame_id` | `int` | Wire frame identity from the packet header. |
-| `metadata` | `FrameSubmitMetadata` | Decoded submit metadata. |
-| `body` | `bytes` | Owned application body after the fixed metadata prefix. |
+| `submit` | `NativeRuntimeEvent` | Complete owned `FRAME_SUBMIT` event, including metadata and body. |
 
 ### `NativeRuntimeServerOperation.send_result`
 
 ```python
-def send_result(
+async def send_result(
     self,
     metadata: ResultPushMetadata,
     body: bytes = b"",
@@ -174,6 +166,23 @@ def send_result(
 
 The SDK validates and packs `ResultPushMetadata` together with `body`, then performs one coarse
 native call. Callers never prepend serialized metadata or pass an FFI-shaped result payload.
+
+The same operation also exposes these async methods:
+
+| Method | Message | Tail |
+|---|---|---|
+| `send_result_drop(metadata, diagnostic=b"")` | `RESULT_DROP_REASON` | diagnostic bytes |
+| `send_progress(metadata, body=b"")` | `PROGRESS` | progress body |
+| `send_partial_result(metadata, body=b"")` | `PARTIAL_RESULT` | partial body |
+
+All four methods validate operation identity. Exactly one terminal method may succeed, and
+`NativeRuntimeServerSession` has no parallel operation-reply methods.
+
+## Packet Transport Diagnostics
+
+The following `ServerSession` helpers are a packet-level diagnostic and custom-carrier surface. They
+do not implement the frozen cross-language runtime role API, do not wrap Rust runtime operation
+handles, and must not be substituted for `NativeRuntimeServerSession` in production role hosts.
 
 ## `accept_server_session`
 

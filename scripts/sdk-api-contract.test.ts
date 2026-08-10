@@ -120,11 +120,15 @@ interface SdkApiContract {
       parameters: ContractField[];
       returns: string;
       async: boolean;
+      terminal?: boolean;
       selective?: boolean;
       retainsSkippedEvents?: boolean;
     }
   >;
-  languageProjections: Record<string, Record<string, string | string[]>>;
+  languageProjections: Record<
+    string,
+    Record<string, string | string[] | Record<string, string>>
+  >;
 }
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -213,7 +217,7 @@ async function loadContract(): Promise<SdkApiContract> {
 Deno.test("Preview4 SDK contract freezes the required semantic types", async () => {
   const contract = await loadContract();
   assertEquals(contract.contract, "nnrp-1-preview4-sdk-api");
-  assertEquals(contract.contractVersion, 13);
+  assertEquals(contract.contractVersion, 14);
   assertEquals(contract.rules.languageProjectionMustBeLossless, true);
   assertEquals(contract.rules.adapterNormalizationDoesNotProveApiParity, true);
   assertEquals(contract.rules.missingWireFieldsMayNotBeDefaulted, true);
@@ -768,6 +772,7 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
     "operationLifecycleEvent",
     "providerEndpoint",
     "result",
+    "roleMethods",
     "runtimeMetadataNamespace",
     "schemaDescriptor",
     "schemaRegistry",
@@ -815,9 +820,123 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
           assert(item.length > 0, `${language}.${projectionName} has an empty target`);
         }
       } else {
-        assert(target.length > 0, `${language}.${projectionName} has an empty target`);
+        if (typeof target === "string") {
+          assert(target.length > 0, `${language}.${projectionName} has an empty target`);
+        } else {
+          assert(
+            Object.keys(target).length > 0,
+            `${language}.${projectionName} has no method projections`,
+          );
+          for (const [operation, method] of Object.entries(target)) {
+            assert(
+              contract.roleOperations[operation] !== undefined,
+              `${language}.${projectionName}.${operation} has no frozen role operation`,
+            );
+            assert(method.length > 0, `${language}.${projectionName}.${operation} is empty`);
+          }
+        }
       }
     }
+  }
+});
+
+Deno.test("server operation ownership and language method names are fully frozen", async () => {
+  const contract = await loadContract();
+  const expectedMethods: Record<string, Record<string, string>> = {
+    rust: {
+      "client.open_session": "open_session",
+      "client.resume_session": "resume_session",
+      "client_session.recovery_ticket": "recovery_ticket",
+      "client_session.next_event": "await_event",
+      "server.accept": "accept",
+      "server_session.next_event": "await_event",
+      "server_session.receive_submit": "receive_submit",
+      "server_operation.send_result": "send_result",
+      "server_operation.send_result_drop": "send_result_drop",
+      "server_operation.send_progress": "send_progress",
+      "server_operation.send_partial_result": "send_partial_result",
+    },
+    python: {
+      "client.open_session": "open_session",
+      "client.resume_session": "resume_session",
+      "client_session.recovery_ticket": "recovery_ticket",
+      "client_session.next_event": "next_event",
+      "server.accept": "accept",
+      "server_session.next_event": "next_event",
+      "server_session.receive_submit": "receive_submit",
+      "server_operation.send_result": "send_result",
+      "server_operation.send_result_drop": "send_result_drop",
+      "server_operation.send_progress": "send_progress",
+      "server_operation.send_partial_result": "send_partial_result",
+    },
+    javascript: {
+      "client.open_session": "openSession",
+      "client.resume_session": "resumeSession",
+      "client_session.recovery_ticket": "recoveryTicket",
+      "client_session.next_event": "nextEvent",
+      "server.accept": "accept",
+      "server_session.next_event": "nextEvent",
+      "server_session.receive_submit": "receiveSubmit",
+      "server_operation.send_result": "sendResult",
+      "server_operation.send_result_drop": "sendResultDrop",
+      "server_operation.send_progress": "sendProgress",
+      "server_operation.send_partial_result": "sendPartialResult",
+    },
+    csharp: {
+      "client.open_session": "OpenSessionAsync",
+      "client.resume_session": "ResumeSessionAsync",
+      "client_session.recovery_ticket": "GetRecoveryTicket",
+      "client_session.next_event": "NextEventAsync",
+      "server.accept": "AcceptAsync",
+      "server_session.next_event": "NextEventAsync",
+      "server_session.receive_submit": "ReceiveSubmitAsync",
+      "server_operation.send_result": "SendResultAsync",
+      "server_operation.send_result_drop": "SendResultDropAsync",
+      "server_operation.send_progress": "SendProgressAsync",
+      "server_operation.send_partial_result": "SendPartialResultAsync",
+    },
+  };
+
+  for (const [language, methods] of Object.entries(expectedMethods)) {
+    assertEquals(
+      contract.languageProjections[language].roleMethods,
+      methods,
+      `${language} role methods drifted`,
+    );
+  }
+
+  const operationMethods = {
+    "server_operation.send_result": {
+      parameters: ["metadata:ResultPushMetadata:true", "body:bytes:false"],
+      terminal: true,
+    },
+    "server_operation.send_result_drop": {
+      parameters: ["metadata:ResultDropReasonMetadata:true", "diagnostic:bytes:false"],
+      terminal: true,
+    },
+    "server_operation.send_progress": {
+      parameters: ["metadata:ProgressMetadata:true", "body:bytes:false"],
+      terminal: false,
+    },
+    "server_operation.send_partial_result": {
+      parameters: ["metadata:PartialResultMetadata:true", "body:bytes:false"],
+      terminal: false,
+    },
+  };
+
+  for (const [name, expected] of Object.entries(operationMethods)) {
+    const operation = contract.roleOperations[name];
+    assert(operation !== undefined, `${name} is not frozen`);
+    assertEquals(
+      operation.parameters.map((parameter) =>
+        `${parameter.name}:${parameter.type}:${parameter.required}`
+      ),
+      expected.parameters,
+      `${name} parameters drifted`,
+    );
+    assertEquals(operation.returns, "void", `${name} return type drifted`);
+    assertEquals(operation.async, true, `${name} must remain async`);
+    assertEquals(operation.terminal, expected.terminal, `${name} terminal semantics drifted`);
   }
 });
 

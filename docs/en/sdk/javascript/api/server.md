@@ -107,8 +107,8 @@ Selects a transport against a peer manifest.
 | `NnrpBackendRuntime.close()`           | None                                                              | `Promise<void>`              | Closes accepted sessions, listeners, and the explicit FFI seam. |
 | `NnrpServer.accept(options?)`          | [`options?: NnrpServerAcceptOptions`](#nnrpserveracceptoptions)   | `Promise<NnrpServerSession>` | Accepts the next session from the owned carrier-listener set.   |
 | `NnrpServer.close()`                   | None                                                              | `Promise<void>`              | Closes every owned carrier listener and accepted session.       |
-| `NnrpServerSession.receive(options?)`  | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpServerEvent>`   | Reads the next ordered submit, runtime, or lifecycle event.     |
-| `NnrpServerSession.sendResult(result)` | [`result: NnrpResult`](./core#data-types)                         | `Promise<void>`              | Sends the one terminal result for the current operation.        |
+| `NnrpServerSession.nextEvent(options?)` | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpServerEvent>`   | Reads the next ordered submit, runtime, or lifecycle event.     |
+| `NnrpServerSession.receiveSubmit(options?)` | [`options?: NnrpEventPollOptions`](./client#nnrpeventpolloptions) | `Promise<NnrpServerOperation>` | Selects the next submit while retaining skipped events.       |
 | `NnrpServerSession.close()`            | None                                                              | `Promise<void>`              | Closes the accepted role session exactly once.                  |
 
 `NnrpServerSession.activeTransport` is the `NnrpTransportKind` of the listener that accepted the
@@ -120,24 +120,38 @@ containing the actual endpoint of every opened listener. A terminal provider-lis
 the logical server and closes the remaining listener set; a rejected peer handshake affects only
 that accepted carrier.
 
+## Server Events And Operation Replies
+
+`NnrpServerSession.nextEvent(options?)` returns a closed `NnrpServerEvent` tagged union. Its `submit`
+variant owns `NnrpServerOperation`, its `runtime` variant owns a non-submit `NnrpRuntimeEvent`, and
+its `lifecycle` variant owns a headerless `NnrpOperationLifecycleEvent`. `receiveSubmit(options?)`
+is selective but retains every skipped event for the next event-pump read.
+
+The returned operation owns every operation-scoped reply:
+
+| Method | Message | Metadata | Optional tail |
+| --- | --- | --- | --- |
+| `sendResult(metadata, body?)` | `ResultPush` | `NnrpResultPushMetadata` | result body |
+| `sendResultDrop(metadata, diagnostic?)` | `ResultDropReason` | `ResultDropReasonMetadata` | diagnostic bytes |
+| `sendProgress(metadata, body?)` | `Progress` | [`ProgressMetadata`](./runtime#runtime-control-metadata) | progress body |
+| `sendPartialResult(metadata, body?)` | `PartialResult` | `PartialResultMetadata` | inline partial result |
+
+All four methods return `Promise<void>`. The operation validates its session and `operationId`, and
+only one terminal method may succeed. `NnrpServerSession` does not expose parallel operation-reply
+methods.
+
 ## Preview4 Server Session Methods
 
-`NnrpServerSession.receive(options?)` returns a closed `NnrpServerEvent` tagged union. Its `submit`
-variant owns `NnrpServerOperation`, its `runtime` variant owns a non-submit `NnrpRuntimeEvent`, and
-its `lifecycle` variant owns a headerless `NnrpOperationLifecycleEvent`. The server sends incremental
-state with these methods:
+The session owns non-operation server output:
 
 | Method                                        | Message                                    | Metadata                                                 | Optional tail         |
 | --------------------------------------------- | ------------------------------------------ | -------------------------------------------------------- | --------------------- |
-| `sendProgress(metadata, body?)`               | `Progress`                                 | [`ProgressMetadata`](./runtime#runtime-control-metadata) | progress body         |
-| `sendPartialResult(metadata, body?)`          | `PartialResult`                            | `PartialResultMetadata`                                  | inline partial result |
 | `sendBackpressure(metadata)`                  | `Backpressure`                             | `PressureMetadata`                                       | none                  |
 | `sendCreditUpdate(metadata)`                  | `CreditUpdate`                             | `PressureMetadata`                                       | none                  |
-| `sendResultDropReason(metadata, diagnostic?)` | `ResultDropReason`                         | `ResultDropReasonMetadata`                               | diagnostic bytes      |
 | `sendTraceContext(metadata, body?)`           | `TraceContext`                             | `TraceContextMetadata`                                   | trace attributes      |
 | `sendRecoverableError(metadata, diagnostic?)` | `ErrorRecoverable`                         | `RecoverableErrorMetadata`                               | diagnostic bytes      |
 | `sendRetryAfter(metadata, diagnostic?)`       | `RetryAfter`                               | `RetryAfterMetadata`                                     | diagnostic bytes      |
-| `sendControl(messageType, metadata, tail?)`   | Any server-sendable Preview4 control frame | Matching runtime metadata type                           | declared tail         |
+| `sendControl(messageType, metadata, tail?)`   | Any non-operation server-sendable Preview4 control frame | Matching runtime metadata type              | declared tail         |
 
 All methods return `Promise<void>`. Metadata/body length mismatches fail before the frame reaches
 the carrier provider.
@@ -157,8 +171,7 @@ the carrier provider.
 
 For object patch and delta methods, `metadataBody.byteLength` must equal `metadata.metadataBytes`
 and `delta.byteLength` must equal `metadata.deltaBytes`. The wire tail is the metadata body followed
-by the delta bytes. The final `sendResult(result)` remains separate from partial-result and
-object-delta frames.
+by the delta bytes. Operation replies remain separate from object-delta frames.
 
 ## Boundary Rules
 
