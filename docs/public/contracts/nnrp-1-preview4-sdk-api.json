@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "contract": "nnrp-1-preview4-sdk-api",
-  "contractVersion": 11,
+  "contractVersion": 12,
   "protocol": {
     "alpn": "nnrp/1",
     "versionMajor": 1,
@@ -2038,6 +2038,22 @@
         "cancelled": "cancelled",
         "superseded": "dropped",
         "failed": "error"
+      },
+      "nativeEventProjection": {
+        "eventKind": "operation_lifecycle",
+        "eventKindCode": 14,
+        "headerPresent": 0,
+        "payloadBytes": 1,
+        "payloadLayout": [
+          {
+            "name": "state",
+            "type": "OperationState",
+            "wireType": "u8",
+            "offset": 0
+          }
+        ],
+        "operationIdentity": "diagnostic.related_operation_id and the operation handle, when the handle remains live",
+        "ownership": "the one-byte state payload follows the same payload_owner lifetime as wire-event payloads"
       }
     },
     "TerminalEvent": {

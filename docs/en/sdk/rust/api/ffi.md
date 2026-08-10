@@ -365,6 +365,15 @@ Event payloads use the same complete metadata-plus-body representation as sends 
 uses those handles for partial, terminal, drop, and trace output. There is no public
 `nnrp_server_receive_submit` injection call in Preview4.
 
+Headerless operation lifecycle evidence uses the frozen native carrier projection. Its semantic
+event-kind identifier is `operation_lifecycle`, projected by Rust as `NnrpEventKind::OperationLifecycle`
+with numeric code `14`. `header.present` is `0`, and the payload is exactly one byte containing the
+canonical `OperationState` `u8` value. `diagnostic.related_operation_id` preserves the non-zero
+operation identity; `operation` contains the matching live operation handle when one remains in the
+native handle store. The one-byte payload follows the normal `payload_owner` lifetime. Bindings must
+decode all eight lifecycle states from this payload and must not infer state from another event kind
+or fabricate a wire header.
+
 The server-side operation handle stores both wire identities. Its numeric handle id is local and
 MUST NOT replace `FRAME_SUBMIT.operation_id` in partial, control, trace, or drop metadata.
 
