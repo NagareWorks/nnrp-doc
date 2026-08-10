@@ -110,6 +110,10 @@ An operation accepts exactly one terminal send. Sending after terminal state or 
 throws `NnrpNativeInvalidStateException`. Every method validates operation identity, and the session
 does not expose parallel operation-reply methods.
 
+Receiving a terminal lifecycle event does not invalidate the operation before its terminal reply
+succeeds. It remains reply-capable until that reply or session shutdown, independently of later
+event reads.
+
 ## Server Runtime Methods
 
 The session sends typed Preview4 frames through one coarse native call per method.

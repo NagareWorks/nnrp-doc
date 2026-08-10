@@ -172,6 +172,9 @@ SDK 校验并拼装 `ResultPushMetadata` 与 `body`，随后只执行一次粗�
 四个方法都会校验 operation identity。只允许一个终态方法成功，且
 `NativeRuntimeServerSession` 不提供任何并行的 operation 回复方法。
 
+收到终态 lifecycle event 不会在终态回复成功前使 operation 失效。operation 会保持可回复，直到
+终态回复成功或 session 关闭，后续 event poll 不得改变这段生命周期。
+
 ## 数据包传输诊断接口
 
 以下 `ServerSession` helper 属于数据包级诊断与自定义 carrier 接口。它们不实现冻结的跨语言

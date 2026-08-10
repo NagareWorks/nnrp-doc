@@ -168,6 +168,9 @@ operation
 operation 会在写出前校验 session ownership 和 `operation_id`。它不可克隆，并且只允许一个终态方法成功。
 `NnrpServerSession` 不暴露任何绕过 operation ownership 的回复方法。
 
+收到终态 lifecycle event 不会在终态回复成功前使已持有的 operation 失效。operation 会保持可回复，
+直到终态回复成功或 session 关闭；继续 poll 其他 event 不得改变这段生命周期。
+
 ## Runtime Control Methods
 
 | 方法 | 参数 | 返回 | 说明 |

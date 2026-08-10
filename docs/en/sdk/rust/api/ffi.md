@@ -374,6 +374,13 @@ native handle store. The one-byte payload follows the normal `payload_owner` lif
 decode all eight lifecycle states from this payload and must not infer state from another event kind
 or fabricate a wire header.
 
+A server operation handle remains valid until one terminal reply succeeds or its owning session is
+closed. Delivering a local operation-lifecycle event does not release that handle: if cancellation,
+abort, or supersession reaches the server before its terminal reply, the application can still use
+the same handle to send terminal drop evidence. If a terminal reply succeeds before lifecycle
+delivery, that operation handle is released when the lifecycle event is projected. Poll frequency
+and event-batch boundaries never change handle lifetime.
+
 The server-side operation handle stores both wire identities. Its numeric handle id is local and
 MUST NOT replace `FRAME_SUBMIT.operation_id` in partial, control, trace, or drop metadata.
 
