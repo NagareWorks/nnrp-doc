@@ -60,6 +60,35 @@ The `tile_index_bytes` field occupies bytes `32..35`. Bytes `36..39` are reserve
 overlap the tile-index length. `operation_id` occupies bytes `40..47` and is part of every valid
 Preview4 `FRAME_SUBMIT`.
 
+## Body-Region Length Rules
+
+The current NNRP/1 body prelude keeps the inherited 32-byte field layout but applies the current
+descriptor sizes:
+
+1. `object_reference_bytes` MUST be an integer multiple of the 24-byte object-reference block.
+2. `typed_payload_descriptor_bytes` MUST be an integer multiple of the current 24-byte typed
+   payload descriptor. For `FRAME_SUBMIT` and `RESULT_PUSH`, it MUST equal
+   `payload_frame_count * 24`.
+3. `extension_descriptor_bytes` MUST be an integer multiple of the 16-byte extension descriptor.
+
+The Preview2 16-byte typed-payload descriptor is a historical layout and is not accepted by the
+current Preview4 wire format.
+
+## `RESULT_PUSH` Result Class and Reuse
+
+`RESULT_PUSH.result_class` describes the primary delivery class, while `result_flags` contains
+composable properties. A partial result may therefore reuse an earlier frame, subject to these
+rules:
+
+1. `result_class=stale_reuse` or `result_flags.stale` requires a non-zero `reused_frame_id`.
+2. `reused_frame_id` MUST be zero when stale semantics are not declared.
+3. For tensor payloads, `result_class=partial` or `result_flags.partial` requires a non-zero
+   `dropped_tile_count`, and `covered_tile_count + dropped_tile_count` MUST equal `tile_count`.
+   Non-tensor payloads keep all tensor coverage fields zero and express partial ranges through their
+   typed-payload descriptor and profile-specific metadata.
+4. Partial and stale semantics may be combined. The combined form uses `result_class=partial`, sets
+   both the `partial | stale` flags, and carries a non-zero `reused_frame_id`.
+
 ## Runtime Correlation
 
 1. A client allocates both identities before encoding the submit.

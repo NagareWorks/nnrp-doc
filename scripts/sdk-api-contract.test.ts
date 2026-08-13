@@ -98,6 +98,7 @@ interface WireLayout {
   size: number;
   fields: WireLayoutField[];
   canonicalHex?: string;
+  validation?: Record<string, unknown>;
 }
 
 interface SdkApiContract {
@@ -492,6 +493,37 @@ Deno.test("current fixed wire layouts are closed, contiguous, and byte-sized", a
       );
     }
   }
+});
+
+Deno.test("current body-region and result validation rules stay frozen", async () => {
+  const contract = await loadContract();
+  const bodyValidation = requireRecord(
+    requireWireLayout(contract, "BodyRegionPrelude").validation,
+    "BodyRegionPrelude.validation",
+  );
+  assertEquals(bodyValidation, {
+    objectReferenceBlockBytesMultiple: 24,
+    typedPayloadDescriptorBytesMultiple: 24,
+    extensionDescriptorBytesMultiple: 16,
+    typedPayloadDescriptorCountRule:
+      "typed_payload_descriptor_bytes equals payload_frame_count * 24 for FRAME_SUBMIT and RESULT_PUSH",
+  });
+
+  const resultPush = requireRecord(
+    contract.types.ResultPushMetadata,
+    "ResultPushMetadata",
+  );
+  assertEquals(resultPush.resultFlagBits, { stale: 1, fallback: 2, partial: 4 });
+  assertEquals(resultPush.validation, {
+    staleReuseRule:
+      "(result_class is stale_reuse or result_flags contains stale) if and only if reused_frame_id is non-zero",
+    tensorPartialRule:
+      "(result_class is partial or result_flags contains partial) requires dropped_tile_count greater than zero for tensor payloads",
+    tensorCoverageRule:
+      "covered_tile_count plus dropped_tile_count equals tile_count for tensor payloads",
+    nonTensorCoverageRule:
+      "section_count, tile_count, tile_base_id, tile_index_bytes, covered_tile_count, and dropped_tile_count are zero when payload_kind_bitmap contains no tensor payload",
+  });
 });
 
 Deno.test("current data-plane layouts reject the superseded Preview2 widths", async () => {
