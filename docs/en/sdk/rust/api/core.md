@@ -16,6 +16,19 @@ nnrp-core = "1.0.0-preview.4.17"
 `nnrp-core` does not open sockets or spawn async tasks. It defines and validates the protocol model
 that `nnrp-runtime`, transport providers, FFI bindings, WASM helpers, and conformance suites reuse.
 
+## Baseline Metadata Codecs
+
+The frozen baseline metadata types used by Preview 4 role APIs and public Conformance cases expose
+the same Rust codec shape: `Type::to_bytes()` encodes the exact-width value and `Type::parse()`
+decodes and validates it. This includes `ClientHelloMetadata`, `SessionPatchAckMetadata`,
+`FlowUpdateMetadata`, `ResultHintMetadata`, `FrameSubmitMetadata`, `ResultPushMetadata`,
+`CachePutMetadata`, `CacheAckMetadata`, `CacheInvalidateMetadata`, `TransportProbeMetadata`,
+`TransportProbeAckMetadata`, and `ObjectReferenceBlock`.
+
+Parsing rejects incorrect widths, non-zero reserved fields, invalid enum values, and invalid flag
+combinations. Conformance and downstream bindings reuse these codecs instead of maintaining a
+second wire implementation.
+
 ## Main Type Families
 
 | Family | Examples | Used by |

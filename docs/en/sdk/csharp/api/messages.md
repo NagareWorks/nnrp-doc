@@ -33,6 +33,13 @@ has a body and no metadata. Metadata types expose `ToArray()` and
 fields. Message parsing validates the header type, fixed metadata length, body-region lengths, and
 trailing data before returning a value.
 
+This `ToArray()` / `TryParse(...)` contract is frozen for the complete Preview 4 baseline set:
+`ClientHelloMetadata`, `SessionPatchAckMetadata`, `FlowUpdateMetadata`, `ResultHintMetadata`,
+`FrameSubmitMetadata`, `ResultPushMetadata`, `CachePutMetadata`, `CacheAckMetadata`,
+`CacheInvalidateMetadata`, `TransportProbeMetadata`, `TransportProbeAckMetadata`, and
+`ObjectReferenceBlock`. The public Conformance target calls these codecs instead of carrying an
+independent parser.
+
 ## Connection Handshake
 
 ### `ClientHelloMessage`

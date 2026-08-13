@@ -14,15 +14,47 @@ hidden implementation.
 ```ts
 import {
   decodeCacheInvalidateMetadata,
+  decodeFlowUpdateMetadata,
+  decodeFrameSubmitMetadata,
+  decodeResultHintMetadata,
   decodeRuntimeControlMetadata,
   decodeRuntimeObjectMetadata,
   encodeCacheInvalidateMetadata,
+  encodeFlowUpdateMetadata,
+  encodeFrameSubmitMetadata,
+  encodeResultHintMetadata,
   encodeRuntimeControlMetadata,
   encodeRuntimeObjectMetadata,
   encodeRuntimeObjectMetadataSegments,
   NnrpMessageType,
 } from "@nnrp/core";
 ```
+
+## Baseline Metadata Codecs
+
+`@nnrp/core` exposes exact-width codecs for every frozen NNRP/1 baseline metadata type used by the
+Preview 4 role API and public Conformance suite. Each encoder accepts the named metadata type and
+returns `Uint8Array`; each decoder accepts `Uint8Array` and returns that same metadata type.
+Decoders reject incorrect widths, non-zero reserved fields, invalid enum values, and invalid flag
+combinations.
+
+| Metadata type               | Encoder                           | Decoder                           |
+| --------------------------- | --------------------------------- | --------------------------------- |
+| `ClientHelloMetadata`       | `encodeClientHelloMetadata`       | `decodeClientHelloMetadata`       |
+| `SessionPatchAckMetadata`   | `encodeSessionPatchAckMetadata`   | `decodeSessionPatchAckMetadata`   |
+| `NnrpFlowUpdateMetadata`    | `encodeFlowUpdateMetadata`        | `decodeFlowUpdateMetadata`        |
+| `NnrpResultHintMetadata`    | `encodeResultHintMetadata`        | `decodeResultHintMetadata`        |
+| `NnrpFrameSubmitMetadata`   | `encodeFrameSubmitMetadata`       | `decodeFrameSubmitMetadata`       |
+| `NnrpResultPushMetadata`    | `encodeResultPushMetadata`        | `decodeResultPushMetadata`        |
+| `CachePutMetadata`          | `encodeCachePutMetadata`          | `decodeCachePutMetadata`          |
+| `CacheAckMetadata`          | `encodeCacheAckMetadata`          | `decodeCacheAckMetadata`          |
+| `CacheInvalidateMetadata`   | `encodeCacheInvalidateMetadata`   | `decodeCacheInvalidateMetadata`   |
+| `TransportProbeMetadata`    | `encodeTransportProbeMetadata`    | `decodeTransportProbeMetadata`    |
+| `TransportProbeAckMetadata` | `encodeTransportProbeAckMetadata` | `decodeTransportProbeAckMetadata` |
+| `NnrpObjectReferenceBlock`  | `encodeObjectReferenceBlock`      | `decodeObjectReferenceBlock`      |
+
+The packet-level Conformance cases compose these metadata codecs with the common-header framing
+owned by the native or WASM runtime. They do not define a second JavaScript wire implementation.
 
 ## `encodeRuntimeControlMetadata`
 

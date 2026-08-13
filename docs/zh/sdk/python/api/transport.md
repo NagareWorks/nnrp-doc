@@ -45,22 +45,30 @@ from nnrp.adapters import (
 
 ## Native Transport Provider
 
-Preview4 native artifact 按 transport 粒度发布。安装包里只有某个 provider 时，选择逻辑直接使用它；安装多个 provider 时，`auto` / `probe` 策略再做选择。
+Preview4 native artifact 按 transport 粒度发布。只有一个 provider 保持 eligible 时直接选择；仍有多个
+eligible provider 时，由 `TransportPolicy` 与完整 probe evidence 共同决定。
 
 ```python
 from nnrp import (
     NativeTransportCandidateReadiness,
+    NativeTransportSelectionOptions,
+    TransportId,
+    TransportPolicy,
     discover_native_transport_providers,
     select_native_transport_provider,
 )
 
 providers = discover_native_transport_providers()
 selection = select_native_transport_provider(
-    "auto",
-    candidate_readiness=[
-        NativeTransportCandidateReadiness.ready(provider)
-        for provider in providers
-    ],
+    NativeTransportSelectionOptions(
+        peer_supported_transports=(TransportId.TCP,),
+        policy=TransportPolicy.AUTO,
+        requested_max_frame_bytes=None,
+        candidate_readiness=tuple(
+            NativeTransportCandidateReadiness.ready(provider) for provider in providers
+        ),
+        probe_observations=(),
+    )
 )
 
 print([provider.name for provider in providers])
@@ -70,7 +78,7 @@ print(selection.selected_transport_name, selection.diagnostic)
 | API | 说明 |
 |---|---|
 | `discover_native_transport_providers(root=None, native_platform=None)` | 扫描当前 platform wheel 中的 provider artifacts。 |
-| `select_native_transport_provider(...)` | 使用显式 readiness 与 probe observation 选择；返回 `NativeTransportSelection`，或抛出携带完整 candidates 的 `NativeTransportSelectionError`。 |
+| `select_native_transport_provider(options, *, root=None, native_platform=None)` | 使用一个 `NativeTransportSelectionOptions` 中的精确 evidence 选择；返回 `NativeTransportSelection`，或抛出携带完整 candidates 的 `NativeTransportSelectionError`。 |
 | `resolve_native_transport_provider(name, root=None, native_platform=None)` | 返回指定 `NativeTransportProvider`。 |
 | `diagnose_nnrp_endpoint_support(endpoint, ...)` | 诊断应用侧 `nnrp://` / `nnrps://` endpoint。 |
 | `diagnose_native_transport_endpoint_support(endpoint, ...)` | 诊断 provider-local endpoint。 |
@@ -95,6 +103,7 @@ print(selection.selected_transport_name, selection.diagnostic)
 | `NativeTransportProbeState` | `NOT_RUN`、`SUCCEEDED`、`FAILED`、`MISSING` |
 | `NativeTransportProbeMetrics` | `sample_count`、`success_count`、`median_throughput_bytes_per_sec`、`median_rtt_us` |
 | `NativeTransportProbeObservation` | `transport_id`、`provider_id`、`state`、`metrics`、`diagnostic`；state 只能是 `SUCCEEDED` 或 `FAILED` |
+| `NativeTransportSelectionOptions` | `peer_supported_transports`、`policy`、可选 `requested_max_frame_bytes`、`candidate_readiness`、`probe_observations` |
 | `NativeTransportRejectionReason` | `POLICY_DISALLOWED`、`LOCAL_UNAVAILABLE`、`PEER_UNSUPPORTED`、`LIMIT_EXCEEDED`、`ROUTE_UNRESOLVED`、`SECURITY_UNSATISFIED`、`PROBE_MISSING`、`PROBE_FAILED` |
 | `NativeTransportCandidateDiagnostic` | `transport_name`、`provider`、`local_available`、`peer_supported`、`within_limits`、`probe_state`、`probe`、`selection_rank`、`rejection_reason`、`diagnostic` |
 | `NativeTransportSelection` | `selected_provider`、有序 `candidates`、`policy`、`diagnostic` |
@@ -103,10 +112,12 @@ print(selection.selected_transport_name, selection.diagnostic)
 Python 通过上述类型化模型公开 cost 与 limitations，必须校验官方 Rust artifact 里的冻结 provider 对象，
 并使用公共确定性 comparator。
 
-`select_native_transport_provider` 接收 `candidate_readiness` 与可选 `probe_observations`。Evidence 按
+`select_native_transport_provider` 只接收一个 `NativeTransportSelectionOptions`。Evidence 按
 `(transport_id, provider_id)` 匹配；重复、无法匹配或不完整的 readiness 都会被拒绝。缺少 probe observation
 表示 `MISSING`，失败 observation 不得退化成缺少 metrics。原始 `NativeTransportProbeSample` 继续供 probe 与
 conformance 代码使用，并在进入 selection 前聚合。
+当仍有多个 eligible candidate 时，每个 candidate 都必须有显式成功或失败 probe observation；selector
+不得自行虚构 probe evidence。
 
 Discovery 必须拒绝重复 transport ID 与重复 provider metadata ID，不能依赖目录顺序静默选择其中一个。
 

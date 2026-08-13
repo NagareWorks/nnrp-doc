@@ -41,7 +41,7 @@ Preview4 wheels use transport-scoped native artifacts. Entrypoints such as `load
 | API | Description |
 |---|---|
 | `discover_native_transport_providers()` | Scans transport-scoped native artifacts installed with the current package. |
-| `select_native_transport_provider(policy_or_name)` | Selects from installed providers by `auto`, `probe`, or explicit name. |
+| `select_native_transport_provider(options)` | Selects from installed providers using one frozen `NativeTransportSelectionOptions` value. |
 | `resolve_native_transport_provider(name)` | Resolves one provider and raises a native artifact error when unavailable. |
 | `diagnose_nnrp_endpoint_support(endpoint)` | Diagnoses application-facing `nnrp://` / `nnrps://` endpoint support. |
 | `diagnose_native_transport_endpoint_support(endpoint)` | Diagnoses provider-local endpoints such as `unix://`, `npipe://`, `ws://`, and `wss://`. |

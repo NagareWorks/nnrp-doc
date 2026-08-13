@@ -101,13 +101,31 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-如果安装包包含多个 transport artifact，可以让 SDK 发现并选择 provider：
+SDK 可以发现 provider，并根据冻结的 transport evidence 执行显式选择：
 
 ```python
-from nnrp import discover_native_transport_providers, select_native_transport_provider
+from nnrp import (
+    NativeTransportCandidateReadiness,
+    NativeTransportSelectionOptions,
+    TransportId,
+    TransportPolicy,
+    discover_native_transport_providers,
+    select_native_transport_provider,
+)
 
-print([provider.name for provider in discover_native_transport_providers()])
-print(select_native_transport_provider("auto").selected_transport_name)
+providers = discover_native_transport_providers()
+selection = select_native_transport_provider(
+    NativeTransportSelectionOptions(
+        peer_supported_transports=(TransportId.TCP,),
+        policy=TransportPolicy.AUTO,
+        requested_max_frame_bytes=None,
+        candidate_readiness=tuple(
+            NativeTransportCandidateReadiness.ready(provider) for provider in providers
+        ),
+        probe_observations=(),
+    )
+)
+print(selection.selected_transport_name)
 ```
 
 生产 runtime 统一使用已打包的 ABI 4 `ctypes` binding；已退役的 compiled CFFI side runtime
