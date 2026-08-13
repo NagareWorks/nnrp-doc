@@ -57,6 +57,31 @@ Preview4 将 fixed metadata 冻结为 72 字节：
 `tile_index_bytes` 固定占用 `32..35`；`36..39` 是 reserved，不得与 tile-index 长度重叠。
 `operation_id` 固定占用 `40..47`，每个合法的 Preview4 `FRAME_SUBMIT` 都必须携带它。
 
+## Body Region 长度规则
+
+当前 NNRP/1 body prelude 继承 32 字节字段布局，但使用当前 descriptor 尺寸：
+
+1. `object_reference_bytes` 必须是 24 字节 object-reference block 的整数倍。
+2. `typed_payload_descriptor_bytes` 必须是当前 24 字节 typed payload descriptor 的整数倍；
+   对 `FRAME_SUBMIT` 与 `RESULT_PUSH`，它必须等于 `payload_frame_count * 24`。
+3. `extension_descriptor_bytes` 必须是 16 字节 extension descriptor 的整数倍。
+
+Preview2 的 16 字节 typed-payload descriptor 仅是历史布局，当前 Preview4 wire format 不接受它。
+
+## `RESULT_PUSH` 结果类别与复用
+
+`RESULT_PUSH.result_class` 描述本次交付的主体类别，`result_flags` 描述可以叠加的属性。因此 partial
+结果可以同时复用旧 frame，但必须同时满足以下约束：
+
+1. `result_class=stale_reuse` 或设置 `result_flags.stale` 时，`reused_frame_id` 必须非零。
+2. 未声明 stale 语义时，`reused_frame_id` 必须为零。
+3. 对 tensor payload，`result_class=partial` 或设置 `result_flags.partial` 时，
+   `dropped_tile_count` 必须非零，且 `covered_tile_count + dropped_tile_count == tile_count`。
+   非 tensor payload 必须清零 tensor coverage 字段，并通过 typed-payload descriptor 与 profile-specific
+   metadata 表达 partial 范围。
+4. Partial 与 stale 可以组合；组合结果使用 `result_class=partial`、同时设置 `partial | stale`
+   flags，并携带非零 `reused_frame_id`。
+
 ## 运行时关联
 
 1. Client 在编码 submit 前分配两个标识。

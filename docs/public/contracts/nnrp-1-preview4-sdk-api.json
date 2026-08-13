@@ -20,7 +20,13 @@
         { "name": "extension_payload_bytes", "type": "u32", "offset": 20 },
         { "name": "body_flags", "type": "u32", "offset": 24, "constant": 0 },
         { "name": "reserved", "type": "u32", "offset": 28, "constant": 0 }
-      ]
+      ],
+      "validation": {
+        "objectReferenceBlockBytesMultiple": 24,
+        "typedPayloadDescriptorBytesMultiple": 24,
+        "extensionDescriptorBytesMultiple": 16,
+        "typedPayloadDescriptorCountRule": "typed_payload_descriptor_bytes equals payload_frame_count * 24 for FRAME_SUBMIT and RESULT_PUSH"
+      }
     },
     "InlineObjectBlockHeader": {
       "size": 16,
@@ -1096,7 +1102,14 @@
         },
         { "name": "payload_frame_count", "type": "u16", "required": true }
       ],
-      "terminalStateRule": "RESULT_PUSH is a successful terminal result. Cancellation, drop, and error terminal states are determined by their protocol messages and operation lifecycle, never by status_code."
+      "terminalStateRule": "RESULT_PUSH is a successful terminal result. Cancellation, drop, and error terminal states are determined by their protocol messages and operation lifecycle, never by status_code.",
+      "resultFlagBits": { "stale": 1, "fallback": 2, "partial": 4 },
+      "validation": {
+        "staleReuseRule": "(result_class is stale_reuse or result_flags contains stale) if and only if reused_frame_id is non-zero",
+        "tensorPartialRule": "(result_class is partial or result_flags contains partial) requires dropped_tile_count greater than zero for tensor payloads",
+        "tensorCoverageRule": "covered_tile_count plus dropped_tile_count equals tile_count for tensor payloads",
+        "nonTensorCoverageRule": "section_count, tile_count, tile_base_id, tile_index_bytes, covered_tile_count, and dropped_tile_count are zero when payload_kind_bitmap contains no tensor payload"
+      }
     },
     "ResultHintMetadata": {
       "fields": [
