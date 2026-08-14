@@ -71,7 +71,7 @@ selection = select_native_transport_provider(
     )
 )
 
-print([provider.name for provider in providers])
+print([(provider.name, provider.transport_name) for provider in providers])
 print(selection.selected_transport_name, selection.diagnostic)
 ```
 
@@ -89,9 +89,8 @@ print(selection.selected_transport_name, selection.diagnostic)
 | Application endpoint | `nnrp://runtime.example/session/default`, `nnrps://runtime.example/session/default` | Preferred for users and config files. |
 | Provider-local endpoint | `unix:///tmp/nnrp.sock`, `npipe://./pipe/nnrp`, `ws://host/nnrp`, `wss://host/nnrp` | Diagnostics, conformance fixtures, or explicit provider overrides. |
 
-`NativeTransportProvider` reports artifact path, manifest path, transport slots, enabled features, platform tag, and
-the exact metadata below. It is not a configuration switch; each provider is backed by the Rust artifact that owns the
-actual transport behavior.
+`NativeTransportProvider` is the frozen provider descriptor. Its `library_path` identifies the provider-owned Rust
+artifact when one is loaded; it is not a configuration switch, and the package still owns the actual transport behavior.
 
 | Python type | Frozen fields |
 |---|---|
@@ -99,24 +98,30 @@ actual transport behavior.
 | `NativeTransportProviderLimits` | `max_frame_bytes: int` |
 | `NativeTransportProviderLimitation` | `REQUIRES_UDP`, `REQUIRES_TCP`, `LOCAL_HOST_ONLY`, `NATIVE_HOST_ONLY`, `BROWSER_HOST_ONLY`, `UNIX_DOMAIN_SOCKET`, `WINDOWS_NAMED_PIPE` |
 | `NativeTransportProviderMetadata` | `id`, `cost`, `preference_rank`, `limits`, `limitations` |
-| `NativeTransportProvider` | `name`, `artifact_path`, `manifest_path`, `transport_slots`, `enabled_features`, `package`, `transport_scope`, `platform_tag`, `metadata` |
+| `NativeTransportProviderKind` | `PURE_RUST`, `NATIVE_DYNAMIC`, `WASM` |
+| `NativeTransportProvider` | `name`, `version`, `transport_id`, `kind`, `available`, optional `library_path`, `metadata`, optional `diagnostic` |
 | `NativeTransportCandidateReadiness` | `transport_id`, `provider_id`, `route_resolved`, `security_satisfied`, `diagnostic` |
 | `NativeTransportProbeState` | `NOT_RUN`, `SUCCEEDED`, `FAILED`, `MISSING` |
 | `NativeTransportProbeMetrics` | `sample_count`, `success_count`, `median_throughput_bytes_per_sec`, `median_rtt_us` |
 | `NativeTransportProbeObservation` | `transport_id`, `provider_id`, `state`, `metrics`, `diagnostic`; state is `SUCCEEDED` or `FAILED` |
 | `NativeTransportSelectionOptions` | `peer_supported_transports`, `policy`, optional `requested_max_frame_bytes`, `candidate_readiness`, `probe_observations` |
 | `NativeTransportRejectionReason` | `POLICY_DISALLOWED`, `LOCAL_UNAVAILABLE`, `PEER_UNSUPPORTED`, `LIMIT_EXCEEDED`, `ROUTE_UNRESOLVED`, `SECURITY_UNSATISFIED`, `PROBE_MISSING`, `PROBE_FAILED` |
-| `NativeTransportCandidateDiagnostic` | `transport_name`, `provider`, `local_available`, `peer_supported`, `within_limits`, `probe_state`, `probe`, `selection_rank`, `rejection_reason`, `diagnostic` |
+| `NativeTransportCandidateDiagnostic` | `transport_id`, `provider`, `local_available`, `peer_supported`, `within_limits`, `probe_state`, `probe`, `selection_rank`, `rejection_reason`, `diagnostic` |
 | `NativeTransportSelection` | `selected_provider`, ordered `candidates`, `policy`, `diagnostic` |
-| `NativeTransportSelectionError` | `code`, optional `policy`, complete ordered `candidates` for valid selection failures, and `diagnostic`; `INVALID_EVIDENCE` is raised before selection |
+| `NativeTransportSelectionError` | `code`, optional `policy`, optional `transport_id`, complete ordered `candidates`, and `diagnostic`; forced failures identify their transport and `INVALID_EVIDENCE` is raised before selection |
 
 Python exposes cost and limitations through the typed models above, validates the frozen provider object from the
 official Rust artifact, and follows the common deterministic comparator.
+
+`NativeTransportProvider.name` is the provider-owned package or display name. `transport_id` is the canonical carrier
+identity, and `transport_name` is its derived Python spelling; routing and selection never infer a carrier from `name`.
 
 `select_native_transport_provider` accepts exactly one `NativeTransportSelectionOptions`. Evidence is matched
 by `(transport_id, provider_id)` and duplicate, unmatched, or incomplete readiness is rejected. The absence of a probe
 observation means `MISSING`; a failed observation remains distinct from missing metrics. Raw
 `NativeTransportProbeSample` values remain available to probe/conformance code and are summarized before selection.
+Peer-supported transports have set semantics, so duplicates and order do not affect selection. A requested maximum
+frame size of `0` is valid and remains distinct from `None`.
 When more than one candidate remains eligible, every candidate needs an explicit successful or failed probe observation;
 the selector never invents probe evidence.
 

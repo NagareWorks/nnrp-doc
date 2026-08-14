@@ -106,24 +106,20 @@ Rust SDK 是冻结选路契约的一等实现，不只是其他语言的产物�
 | `TransportSelectionError` | `InvalidEvidence { diagnostic }`、`ForcedTransportUnavailable { transport_id, candidates }` 或 `NoViableTransport { candidates }` |
 | `TransportProviderRegistryError` | transport ID 重复或 provider ID 重复；先注册的 provider 保持不变 |
 
+`TransportProviderDescriptor.name` 是 provider 自有的 package 名或展示名。Registry lookup、readiness、
+selection、route lookup 与 reporting 使用 `transport_id`，不得从 `name` 推导 carrier 身份。
+
 选择入口冻结为：
 
 ```rust
 pub fn select_transport(
     providers: &[TransportProviderDescriptor],
-    remote: &RemoteTransportSupport,
-    policy: TransportPolicy,
-    requested_max_frame_bytes: Option<u64>,
-    readiness: &[TransportCandidateReadiness],
+    options: &TransportSelectionOptions,
 ) -> Result<TransportSelection, TransportSelectionError>;
 
 pub fn select_transport_with_probe(
     providers: &[TransportProviderDescriptor],
-    remote: &RemoteTransportSupport,
-    policy: TransportPolicy,
-    requested_max_frame_bytes: Option<u64>,
-    readiness: &[TransportCandidateReadiness],
-    observations: &[TransportProbeObservation],
+    options: &TransportSelectionOptions,
 ) -> Result<TransportSelection, TransportSelectionError>;
 
 pub fn summarize_provider_probe(
@@ -133,10 +129,10 @@ pub fn summarize_provider_probe(
 ```
 
 `TransportProviderRegistry::register` 必须拒绝重复 transport ID 和 provider ID。
-`TransportProviderRegistry::select` 在 `&self` 之后采用与 `select_transport` 相同的参数，并且只有在筛选后仅剩
-一个可用 provider 时成功。`TransportProviderRegistry::select_with_probe` 在 `&self` 之后采用与
-`select_transport_with_probe` 相同的参数。多个可用 provider 没有匹配 observation 时统一报告 `ProbeMissing`，不得通过
+`TransportProviderRegistry::select` 与 `select_with_probe` 分别接收和对应自由函数相同的
+`&TransportSelectionOptions`，并遵守相同的冻结 evidence 规则。多个可用 provider 没有匹配 observation 时统一报告 `ProbeMissing`，不得通过
 实现私有的捷径排序。
+`peer_supported_transports` 按集合解释；`requested_max_frame_bytes = Some(0)` 是合法请求值，不代表未提供限制。
 
 Readiness、observation 与原始 sample 都按 `(transport_id, provider_id)` 匹配。`ProbeSample` 继续作为
 `summarize_provider_probe` 的原始输入；selection 消费经过校验的聚合 observation，因此 provider probe 失败

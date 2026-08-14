@@ -296,6 +296,10 @@ invalid input. A role-level selection supplies one readiness record for every re
 record is not permission to assume a route exists. Lower-level diagnostic/conformance APIs may construct an explicit
 ready record when route and security checks are outside their scope.
 
+`peer_supported_transports` has set semantics: duplicates and input order have no effect on eligibility or ordering.
+`requested_max_frame_bytes = 0` is a valid requested size. Implementations must not reject it or reinterpret it as an
+absent limit.
+
 Invalid evidence is rejected before candidate selection with the language's typed transport-selection contract error.
 Because selection has not run, that contract error does not fabricate candidate diagnostics. The complete-candidate-list
 requirement applies to valid evidence that reaches selection but leaves no selectable provider.
@@ -311,6 +315,10 @@ A raw probe sample belongs to `provider.id`, not a package display name. It is s
 median, sort successful per-sample values ascending; use the middle value for an odd count and
 `lower + floor((upper - lower) / 2)` for an even count. Implementations must not aggregate bytes and elapsed time before
 computing the throughput median.
+
+`TransportProviderDescriptor.name` is owned by the provider and may be a package name or display name. It is not a
+protocol carrier identifier. Discovery, readiness, probing, selection, route lookup, and active-carrier reporting must
+use `transport_id`; implementations must not derive transport identity from `name`.
 
 The rejection registry is exact: `policy-disallowed`, `local-unavailable`, `peer-unsupported`,
 `limit-exceeded`, `route-unresolved`, `security-unsatisfied`, `probe-missing`, and `probe-failed`. Public SDK APIs must not expose a language-specific opaque

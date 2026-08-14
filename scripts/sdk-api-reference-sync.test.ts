@@ -155,6 +155,26 @@ const references: ReferenceExpectation[] = [
     ],
   },
   {
+    path: "docs/en/sdk/javascript/api/runtime.md",
+    required: [
+      "`FlowUpdateMetadata`",
+      "`ResultHintMetadata`",
+      "`FrameSubmitMetadata`",
+      "`ResultPushMetadata`",
+      "`ObjectReferenceBlock`",
+    ],
+  },
+  {
+    path: "docs/zh/sdk/javascript/api/runtime.md",
+    required: [
+      "`FlowUpdateMetadata`",
+      "`ResultHintMetadata`",
+      "`FrameSubmitMetadata`",
+      "`ResultPushMetadata`",
+      "`ObjectReferenceBlock`",
+    ],
+  },
+  {
     path: "docs/en/sdk/javascript/api/client.md",
     required: ["Promise<NnrpClientEvent>", "AsyncIterable<NnrpClientEvent>"],
   },
@@ -413,6 +433,46 @@ Deno.test("language SDK references reject superseded result and lifecycle narrat
     for (const fragment of forbidden) {
       if (source.includes(fragment)) {
         throw new Error(`${path} still contains superseded SDK API fragment: ${fragment}`);
+      }
+    }
+  }
+});
+
+Deno.test("JavaScript baseline codec tables use canonical contract type names", async () => {
+  const references = [
+    {
+      path: "docs/en/sdk/javascript/api/runtime.md",
+      heading: "## Baseline Metadata Codecs",
+    },
+    {
+      path: "docs/zh/sdk/javascript/api/runtime.md",
+      heading: "## 基线 Metadata Codec",
+    },
+  ];
+  const prefixedNames = [
+    "`NnrpFlowUpdateMetadata`",
+    "`NnrpResultHintMetadata`",
+    "`NnrpFrameSubmitMetadata`",
+    "`NnrpResultPushMetadata`",
+    "`NnrpObjectReferenceBlock`",
+  ];
+
+  for (const { path, heading } of references) {
+    const source = await Deno.readTextFile(new URL(path, root));
+    const sectionStart = source.indexOf(heading);
+    if (sectionStart < 0) {
+      throw new Error(`${path} is missing the baseline codec section: ${heading}`);
+    }
+    const sectionEnd = source.indexOf("\n## ", sectionStart + 3);
+    if (sectionEnd <= sectionStart) {
+      throw new Error(`${path} baseline codec section has no terminating heading`);
+    }
+    const codecSection = source.slice(sectionStart, sectionEnd);
+    for (const prefixedName of prefixedNames) {
+      if (codecSection.includes(prefixedName)) {
+        throw new Error(
+          `${path} uses SDK-prefixed type name in the canonical codec table: ${prefixedName}`,
+        );
       }
     }
   }

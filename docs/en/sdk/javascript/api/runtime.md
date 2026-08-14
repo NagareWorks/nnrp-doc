@@ -42,16 +42,16 @@ combinations.
 | --------------------------- | --------------------------------- | --------------------------------- |
 | `ClientHelloMetadata`       | `encodeClientHelloMetadata`       | `decodeClientHelloMetadata`       |
 | `SessionPatchAckMetadata`   | `encodeSessionPatchAckMetadata`   | `decodeSessionPatchAckMetadata`   |
-| `NnrpFlowUpdateMetadata`    | `encodeFlowUpdateMetadata`        | `decodeFlowUpdateMetadata`        |
-| `NnrpResultHintMetadata`    | `encodeResultHintMetadata`        | `decodeResultHintMetadata`        |
-| `NnrpFrameSubmitMetadata`   | `encodeFrameSubmitMetadata`       | `decodeFrameSubmitMetadata`       |
-| `NnrpResultPushMetadata`    | `encodeResultPushMetadata`        | `decodeResultPushMetadata`        |
+| `FlowUpdateMetadata`        | `encodeFlowUpdateMetadata`        | `decodeFlowUpdateMetadata`        |
+| `ResultHintMetadata`        | `encodeResultHintMetadata`        | `decodeResultHintMetadata`        |
+| `FrameSubmitMetadata`       | `encodeFrameSubmitMetadata`       | `decodeFrameSubmitMetadata`       |
+| `ResultPushMetadata`        | `encodeResultPushMetadata`        | `decodeResultPushMetadata`        |
 | `CachePutMetadata`          | `encodeCachePutMetadata`          | `decodeCachePutMetadata`          |
 | `CacheAckMetadata`          | `encodeCacheAckMetadata`          | `decodeCacheAckMetadata`          |
 | `CacheInvalidateMetadata`   | `encodeCacheInvalidateMetadata`   | `decodeCacheInvalidateMetadata`   |
 | `TransportProbeMetadata`    | `encodeTransportProbeMetadata`    | `decodeTransportProbeMetadata`    |
 | `TransportProbeAckMetadata` | `encodeTransportProbeAckMetadata` | `decodeTransportProbeAckMetadata` |
-| `NnrpObjectReferenceBlock`  | `encodeObjectReferenceBlock`      | `decodeObjectReferenceBlock`      |
+| `ObjectReferenceBlock`      | `encodeObjectReferenceBlock`      | `decodeObjectReferenceBlock`      |
 
 The packet-level Conformance cases compose these metadata codecs with the common-header framing
 owned by the native or WASM runtime. They do not define a second JavaScript wire implementation.

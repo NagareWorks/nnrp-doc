@@ -94,24 +94,20 @@ types from `nnrp-transport-provider`:
 | `TransportSelectionError` | `InvalidEvidence { diagnostic }`, `ForcedTransportUnavailable { transport_id, candidates }`, or `NoViableTransport { candidates }` |
 | `TransportProviderRegistryError` | Duplicate transport ID or duplicate provider ID; the previously registered provider remains unchanged |
 
+`TransportProviderDescriptor.name` is the provider-owned package or display name. Registry lookup, readiness,
+selection, route lookup, and reporting use `transport_id` and never infer carrier identity from `name`.
+
 The selection entry points are frozen as:
 
 ```rust
 pub fn select_transport(
     providers: &[TransportProviderDescriptor],
-    remote: &RemoteTransportSupport,
-    policy: TransportPolicy,
-    requested_max_frame_bytes: Option<u64>,
-    readiness: &[TransportCandidateReadiness],
+    options: &TransportSelectionOptions,
 ) -> Result<TransportSelection, TransportSelectionError>;
 
 pub fn select_transport_with_probe(
     providers: &[TransportProviderDescriptor],
-    remote: &RemoteTransportSupport,
-    policy: TransportPolicy,
-    requested_max_frame_bytes: Option<u64>,
-    readiness: &[TransportCandidateReadiness],
-    observations: &[TransportProbeObservation],
+    options: &TransportSelectionOptions,
 ) -> Result<TransportSelection, TransportSelectionError>;
 
 pub fn summarize_provider_probe(
@@ -121,10 +117,12 @@ pub fn summarize_provider_probe(
 ```
 
 `TransportProviderRegistry::register` rejects duplicate transport IDs and provider IDs. `TransportProviderRegistry::select`
-has the same arguments as `select_transport` after `&self` and succeeds only when filtering leaves one eligible provider.
-`TransportProviderRegistry::select_with_probe` has the same arguments as `select_transport_with_probe` after `&self`.
+and `select_with_probe` each accept the same `&TransportSelectionOptions` as the corresponding free function and succeed
+only under the same frozen evidence rules.
 Multiple eligible providers without matching observations are reported as
 `ProbeMissing`; they are never ordered by an implementation-private shortcut.
+`peer_supported_transports` has set semantics, and `requested_max_frame_bytes = Some(0)` is a valid request rather
+than an absent limit.
 
 Readiness, observations, and raw samples are matched by `(transport_id, provider_id)`. `ProbeSample` remains the
 raw-input model for `summarize_provider_probe`; selection consumes validated aggregate observations so a provider probe

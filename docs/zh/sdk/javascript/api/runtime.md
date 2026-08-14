@@ -38,16 +38,16 @@ flag 组合。
 | --------------------------- | --------------------------------- | --------------------------------- |
 | `ClientHelloMetadata`       | `encodeClientHelloMetadata`       | `decodeClientHelloMetadata`       |
 | `SessionPatchAckMetadata`   | `encodeSessionPatchAckMetadata`   | `decodeSessionPatchAckMetadata`   |
-| `NnrpFlowUpdateMetadata`    | `encodeFlowUpdateMetadata`        | `decodeFlowUpdateMetadata`        |
-| `NnrpResultHintMetadata`    | `encodeResultHintMetadata`        | `decodeResultHintMetadata`        |
-| `NnrpFrameSubmitMetadata`   | `encodeFrameSubmitMetadata`       | `decodeFrameSubmitMetadata`       |
-| `NnrpResultPushMetadata`    | `encodeResultPushMetadata`        | `decodeResultPushMetadata`        |
+| `FlowUpdateMetadata`        | `encodeFlowUpdateMetadata`        | `decodeFlowUpdateMetadata`        |
+| `ResultHintMetadata`        | `encodeResultHintMetadata`        | `decodeResultHintMetadata`        |
+| `FrameSubmitMetadata`       | `encodeFrameSubmitMetadata`       | `decodeFrameSubmitMetadata`       |
+| `ResultPushMetadata`        | `encodeResultPushMetadata`        | `decodeResultPushMetadata`        |
 | `CachePutMetadata`          | `encodeCachePutMetadata`          | `decodeCachePutMetadata`          |
 | `CacheAckMetadata`          | `encodeCacheAckMetadata`          | `decodeCacheAckMetadata`          |
 | `CacheInvalidateMetadata`   | `encodeCacheInvalidateMetadata`   | `decodeCacheInvalidateMetadata`   |
 | `TransportProbeMetadata`    | `encodeTransportProbeMetadata`    | `decodeTransportProbeMetadata`    |
 | `TransportProbeAckMetadata` | `encodeTransportProbeAckMetadata` | `decodeTransportProbeAckMetadata` |
-| `NnrpObjectReferenceBlock`  | `encodeObjectReferenceBlock`      | `decodeObjectReferenceBlock`      |
+| `ObjectReferenceBlock`      | `encodeObjectReferenceBlock`      | `decodeObjectReferenceBlock`      |
 
 Packet 级一致性测试把这些 metadata codec 与 native/WASM runtime 拥有的 common-header framing
 组合起来，不会定义第二套 JavaScript wire 实现。

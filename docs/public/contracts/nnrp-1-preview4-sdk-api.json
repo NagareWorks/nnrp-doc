@@ -1562,6 +1562,7 @@
       ]
     },
     "TransportProviderDescriptor": {
+      "nameSemantics": "provider-owned package or display name; protocol transport identity is transport_id and selection must not derive it from name",
       "fields": [
         { "name": "name", "type": "string", "required": true },
         { "name": "version", "type": "string", "required": true },
@@ -1644,6 +1645,8 @@
       ]
     },
     "TransportSelectionOptions": {
+      "peerSupportedTransportsSemantics": "set; duplicates have no effect and input order is not semantically significant",
+      "requestedMaxFrameBytesZeroRule": "zero is a valid requested size and must not be rejected or treated as absent",
       "fields": [
         { "name": "peer_supported_transports", "type": "TransportId[]", "required": true },
         { "name": "policy", "type": "TransportPolicy", "required": true },

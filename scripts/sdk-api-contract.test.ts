@@ -24,6 +24,10 @@ interface ContractMethod {
 
 interface ContractType {
   fields: ContractField[];
+  nameSemantics?: string;
+  stateConstraint?: string[];
+  peerSupportedTransportsSemantics?: string;
+  requestedMaxFrameBytesZeroRule?: string;
   invariants?: string[];
   terminalMapping?: Record<string, string>;
   nativeEventProjection?: {
@@ -152,7 +156,7 @@ function requireRecord(value: unknown, label: string): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-function assertProjectionValue(value: ProjectionValue, label: string): void {
+function assertProjectionValue(value: unknown, label: string): void {
   if (typeof value === "string") {
     assert(value.length > 0, `${label} is empty`);
     return;
@@ -162,8 +166,9 @@ function assertProjectionValue(value: ProjectionValue, label: string): void {
     value.forEach((item, index) => assertProjectionValue(item, `${label}[${index}]`));
     return;
   }
-  assert(Object.keys(value).length > 0, `${label} has no nested projections`);
-  for (const [key, nested] of Object.entries(value)) {
+  const projection = requireRecord(value, label);
+  assert(Object.keys(projection).length > 0, `${label} has no nested projections`);
+  for (const [key, nested] of Object.entries(projection)) {
     assertProjectionValue(nested, `${label}.${key}`);
   }
 }
@@ -343,6 +348,26 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
   ) {
     assert(contract.types[typeName] !== undefined, `${typeName} must be frozen`);
   }
+  assertEquals(
+    contract.types.TransportProviderDescriptor.nameSemantics,
+    "provider-owned package or display name; protocol transport identity is transport_id and selection must not derive it from name",
+    "TransportProviderDescriptor name semantics drifted",
+  );
+  assertEquals(
+    contract.types.TransportProbeObservation.stateConstraint,
+    ["succeeded", "failed"],
+    "TransportProbeObservation state constraint drifted",
+  );
+  assertEquals(
+    contract.types.TransportSelectionOptions.peerSupportedTransportsSemantics,
+    "set; duplicates have no effect and input order is not semantically significant",
+    "TransportSelectionOptions peer transport semantics drifted",
+  );
+  assertEquals(
+    contract.types.TransportSelectionOptions.requestedMaxFrameBytesZeroRule,
+    "zero is a valid requested size and must not be rejected or treated as absent",
+    "TransportSelectionOptions zero frame-size rule drifted",
+  );
 });
 
 Deno.test("client, terminal, and local lifecycle contracts are exact", async () => {

@@ -122,10 +122,16 @@ function assertJsonEquals(actual: unknown, expected: unknown, message: string): 
 }
 
 async function readSchema(name: string): Promise<Record<string, unknown>> {
-  const localUrl = new URL(`../nnrp-conformance/schemas/${name}`, repoRoot);
+  const configuredConformanceRoot = Deno.env.get("NNRP_CONFORMANCE_REPO")?.trim();
+  const localUrl: string | URL = configuredConformanceRoot
+    ? `${configuredConformanceRoot}/schemas/${name}`
+    : new URL(`../nnrp-conformance/schemas/${name}`, repoRoot);
   try {
     return JSON.parse(await Deno.readTextFile(localUrl)) as Record<string, unknown>;
   } catch (error) {
+    if (configuredConformanceRoot) {
+      throw error;
+    }
     if (!(error instanceof Deno.errors.NotFound)) {
       throw error;
     }

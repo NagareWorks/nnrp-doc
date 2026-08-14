@@ -111,7 +111,10 @@ buffer。
 | `NnrpTransportRejectionReason` | `PolicyDisallowed`、`LocalUnavailable`、`PeerUnsupported`、`LimitExceeded`、`RouteUnresolved`、`SecurityUnsatisfied`、`ProbeMissing`、`ProbeFailed` |
 | `NnrpTransportCandidate` | `TransportId: TransportId`、`Provider: NnrpTransportProviderMetadata`、`LocalAvailable: bool`、`PeerSupported: bool`、`WithinLimits: bool`、`ProbeState: NnrpTransportProbeState`、`Probe: NnrpTransportProbeMetrics?`、`SelectionRank: uint?`、`RejectionReason: NnrpTransportRejectionReason?`、`Diagnostic: string?` |
 | `NnrpTransportSelection` | `SelectedProvider: NnrpTransportProviderDescriptor`、有序 `Candidates: IReadOnlyList<NnrpTransportCandidate>`、`Policy: TransportPolicy`、`Diagnostic: string?` |
-| `NnrpTransportSelectionException` | `Code: NnrpTransportSelectionErrorCode`、`Policy: TransportPolicy?`、`Candidates: IReadOnlyList<NnrpTransportCandidate>`、`Diagnostic: string?`；`InvalidEvidence` 在 selection 前发生 |
+| `NnrpTransportSelectionException` | `Code: NnrpTransportSelectionErrorCode`、`Policy: TransportPolicy?`、`TransportId: TransportId?`、`Candidates: IReadOnlyList<NnrpTransportCandidate>`、`Diagnostic: string`；强制策略失败会标明 transport，`InvalidEvidence` 在 selection 前发生 |
+
+`NnrpTransportProviderDescriptor.Name` 是 provider 自有的 package 名或展示名。Registry lookup、readiness、
+selection、route lookup 与 reporting 使用 `TransportId`，不得从 `Name` 推导 carrier 身份。
 
 `NnrpTransportSelectionOptions` 冻结 registry selection 的输入：
 
@@ -122,6 +125,9 @@ buffer。
 | `RequestedMaxFrameBytes` | `ulong?` | 否 | 对照 `Provider.Limits.MaxFrameBytes` 校验的 workload limit。 |
 | `CandidateReadiness` | `IReadOnlyCollection<NnrpTransportCandidateReadiness>` | 是 | 每个已注册 provider 的 route/security evidence。 |
 | `ProbeObservations` | `IReadOnlyCollection<NnrpTransportProbeObservation>?` | 否 | 按 transport 与 provider identity 匹配的成功/失败 evidence。 |
+
+`PeerSupportedTransports` 按集合解释，重复项和枚举顺序不影响选择；`RequestedMaxFrameBytes = 0` 是合法值，
+并且与 `null` 含义不同。
 
 Metadata 必须与 Rust artifact manifest 一致。C# 使用
 [Transport Strategy and Probing](/zh/protocol/v1/transport-strategy) 冻结的 comparator，不创造
