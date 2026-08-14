@@ -124,6 +124,7 @@ selection = select_native_transport_provider(
         candidate_readiness=tuple(
             NativeTransportCandidateReadiness.ready(provider) for provider in providers
         ),
+        # Supply one succeeded/failed observation per eligible provider when multiple remain.
         probe_observations=(),
     )
 )

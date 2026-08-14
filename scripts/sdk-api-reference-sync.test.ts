@@ -463,10 +463,8 @@ Deno.test("JavaScript baseline codec tables use canonical contract type names", 
     if (sectionStart < 0) {
       throw new Error(`${path} is missing the baseline codec section: ${heading}`);
     }
-    const sectionEnd = source.indexOf("\n## ", sectionStart + 3);
-    if (sectionEnd <= sectionStart) {
-      throw new Error(`${path} baseline codec section has no terminating heading`);
-    }
+    const nextHeading = source.indexOf("\n## ", sectionStart + heading.length);
+    const sectionEnd = nextHeading < 0 ? source.length : nextHeading;
     const codecSection = source.slice(sectionStart, sectionEnd);
     for (const prefixedName of prefixedNames) {
       if (codecSection.includes(prefixedName)) {

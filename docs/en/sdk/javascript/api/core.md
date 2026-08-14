@@ -200,7 +200,7 @@ Validates event polling options.
 | `NnrpTransportProviderLimits`      | Frozen provider `maxFrameBytes`.                                                                                                                                          |
 | `NnrpTransportProviderLimitation`  | Union of the seven registered limitation strings.                                                                                                                         |
 | `NnrpTransportProviderMetadata`    | Provider id, cost, preference rank, limits, and registered limitations.                                                                                                   |
-| `NnrpTransportProviderObservation` | Provider kind, metadata, local availability, and optional diagnostic.                                                                                                     |
+| `NnrpTransportProviderDescriptor`  | Provider name/version, transport identity, implementation kind, availability, metadata, and optional native library path or diagnostic.                                   |
 | `NnrpTransportCandidateReadiness`  | Provider identity, route/security readiness, and optional diagnostic.                                                                                                     |
 | `NnrpTransportProbeState`          | `"not-run" \| "succeeded" \| "failed" \| "missing"`.                                                                                                                      |
 | `NnrpTransportProbeMetrics`        | Sample/success counts, median throughput, and median RTT.                                                                                                                 |
@@ -261,12 +261,6 @@ interface NnrpTransportProviderDescriptor {
   readonly metadata: NnrpTransportProviderMetadata;
   readonly diagnostic?: string;
 }
-interface NnrpTransportProviderObservation {
-  readonly kind: NnrpTransportKind;
-  readonly metadata: NnrpTransportProviderMetadata;
-  readonly localAvailable: boolean;
-  readonly diagnostic?: NnrpDiagnostic;
-}
 interface NnrpTransportCandidateReadiness {
   readonly transportId: NnrpTransportKind;
   readonly providerId: string;
@@ -320,7 +314,7 @@ lookup, and reporting use `transportId` as the canonical carrier identity and ne
 `peerSupportedTransports` has set semantics, so duplicates and array order do not affect selection.
 `requestedMaxFrameBytes: 0n` is valid and remains distinct from an omitted property.
 
-Provider observations must contain unique transport kinds and unique provider ids. Readiness is
+Provider descriptors must have unique `(transportId, provider.metadata.id)` identities. Readiness is
 required for every provider. Readiness and probe observations are matched by `(transportId, providerId)`;
 duplicate or unmatched evidence is a contract error. Missing probe observations remain
 distinguishable from observations whose state is `"failed"`.

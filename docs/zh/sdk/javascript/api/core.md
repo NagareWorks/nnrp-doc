@@ -187,7 +187,7 @@ bytes 都必须拒绝。
 | `NnrpTransportProviderLimits`      | 冻结的 provider `maxFrameBytes`。                                                                                                             |
 | `NnrpTransportProviderLimitation`  | 七个已注册 limitation 字符串的 union。                                                                                                        |
 | `NnrpTransportProviderMetadata`    | Provider id、cost、preference rank、limits 与已注册 limitations。                                                                             |
-| `NnrpTransportProviderObservation` | Provider kind、元数据、本地可用性与可选诊断。                                                                                                 |
+| `NnrpTransportProviderDescriptor`  | Provider 名称/版本、transport identity、实现类型、可用性、元数据，以及可选的 native library path 或诊断。                                               |
 | `NnrpTransportCandidateReadiness`  | Provider identity、route/security readiness 与可选 diagnostic。                                                                               |
 | `NnrpTransportProbeState`          | `"not-run" \| "succeeded" \| "failed" \| "missing"`。                                                                                         |
 | `NnrpTransportProbeMetrics`        | 样本/成功数、吞吐中位数与 RTT 中位数。                                                                                                        |
@@ -248,12 +248,6 @@ interface NnrpTransportProviderDescriptor {
   readonly metadata: NnrpTransportProviderMetadata;
   readonly diagnostic?: string;
 }
-interface NnrpTransportProviderObservation {
-  readonly kind: NnrpTransportKind;
-  readonly metadata: NnrpTransportProviderMetadata;
-  readonly localAvailable: boolean;
-  readonly diagnostic?: NnrpDiagnostic;
-}
 interface NnrpTransportCandidateReadiness {
   readonly transportId: NnrpTransportKind;
   readonly providerId: string;
@@ -307,7 +301,7 @@ lookup 与 reporting 使用 `transportId` 作为规范 carrier 身份，不得�
 `peerSupportedTransports` 按集合解释，重复项和数组顺序不影响选择；`requestedMaxFrameBytes: 0n` 是合法值，
 并且与省略该属性含义不同。
 
-Provider observations 的 transport kind 与 provider id 都必须唯一。每个 provider 都必须有
+Provider descriptor 的 `(transportId, provider.metadata.id)` identity 必须唯一。每个 provider 都必须有
 readiness。Readiness 与 probe observation 按 `(transportId, providerId)` 匹配；重复或无法匹配的 evidence
 属于契约错误。缺少 probe observation 与 state 为 `"failed"` 的 observation 必须保持可区分。
 

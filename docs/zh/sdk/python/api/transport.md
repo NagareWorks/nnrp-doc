@@ -67,6 +67,7 @@ selection = select_native_transport_provider(
         candidate_readiness=tuple(
             NativeTransportCandidateReadiness.ready(provider) for provider in providers
         ),
+        # 剩余多个 eligible provider 时，必须为每个 provider 提供 succeeded/failed observation。
         probe_observations=(),
     )
 )

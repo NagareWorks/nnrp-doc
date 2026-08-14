@@ -31,7 +31,7 @@ import {
 
 `@nnrp/core` 为 Preview 4 角色 API 和公开一致性测试套件使用的每一种已冻结 NNRP/1 基线 metadata
 类型提供精确宽度 codec。每个 encoder 接受对应 metadata 类型并返回 `Uint8Array`；每个 decoder 接受
-`Uint8Array` 并返回同一种 metadata 类型。Decoder 必须拒绝错误长度、非零保留字段、 非法枚举值和非法
+`Uint8Array` 并返回同一种 metadata 类型。Decoder 必须拒绝错误长度、非零保留字段、非法枚举值和非法
 flag 组合。
 
 | Metadata 类型               | Encoder                           | Decoder                           |
