@@ -40,7 +40,7 @@ Preview4 wheel 使用 transport-scoped native artifact。`load_native_runtime(..
 | API | 说明 |
 |---|---|
 | `discover_native_transport_providers()` | 扫描当前安装包内的 transport-scoped native artifacts。 |
-| `select_native_transport_provider(policy_or_name)` | 在已安装 provider 中按 `auto`、`probe` 或显式名称选择。 |
+| `select_native_transport_provider(options)` | 使用一个冻结的 `NativeTransportSelectionOptions` 对象在已安装 provider 中选择。 |
 | `resolve_native_transport_provider(name)` | 解析指定 provider；不存在时抛出 native artifact 错误。 |
 | `diagnose_nnrp_endpoint_support(endpoint)` | 诊断应用侧 `nnrp://` / `nnrps://` endpoint 是否能映射到已安装 provider。 |
 | `diagnose_native_transport_endpoint_support(endpoint)` | 诊断 provider-local endpoint，例如 `unix://`、`npipe://`、`ws://`、`wss://`。 |

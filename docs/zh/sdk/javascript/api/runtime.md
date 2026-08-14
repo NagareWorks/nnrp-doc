@@ -11,15 +11,46 @@ helper；后端包通过角色包和传输包接入 native
 ```ts
 import {
   decodeCacheInvalidateMetadata,
+  decodeFlowUpdateMetadata,
+  decodeFrameSubmitMetadata,
+  decodeResultHintMetadata,
   decodeRuntimeControlMetadata,
   decodeRuntimeObjectMetadata,
   encodeCacheInvalidateMetadata,
+  encodeFlowUpdateMetadata,
+  encodeFrameSubmitMetadata,
+  encodeResultHintMetadata,
   encodeRuntimeControlMetadata,
   encodeRuntimeObjectMetadata,
   encodeRuntimeObjectMetadataSegments,
   NnrpMessageType,
 } from "@nnrp/core";
 ```
+
+## 基线 Metadata Codec
+
+`@nnrp/core` 为 Preview 4 角色 API 和公开一致性测试套件使用的每一种已冻结 NNRP/1 基线 metadata
+类型提供精确宽度 codec。每个 encoder 接受对应 metadata 类型并返回 `Uint8Array`；每个 decoder 接受
+`Uint8Array` 并返回同一种 metadata 类型。Decoder 必须拒绝错误长度、非零保留字段、非法枚举值和非法
+flag 组合。
+
+| Metadata 类型               | Encoder                           | Decoder                           |
+| --------------------------- | --------------------------------- | --------------------------------- |
+| `ClientHelloMetadata`       | `encodeClientHelloMetadata`       | `decodeClientHelloMetadata`       |
+| `SessionPatchAckMetadata`   | `encodeSessionPatchAckMetadata`   | `decodeSessionPatchAckMetadata`   |
+| `FlowUpdateMetadata`        | `encodeFlowUpdateMetadata`        | `decodeFlowUpdateMetadata`        |
+| `ResultHintMetadata`        | `encodeResultHintMetadata`        | `decodeResultHintMetadata`        |
+| `FrameSubmitMetadata`       | `encodeFrameSubmitMetadata`       | `decodeFrameSubmitMetadata`       |
+| `ResultPushMetadata`        | `encodeResultPushMetadata`        | `decodeResultPushMetadata`        |
+| `CachePutMetadata`          | `encodeCachePutMetadata`          | `decodeCachePutMetadata`          |
+| `CacheAckMetadata`          | `encodeCacheAckMetadata`          | `decodeCacheAckMetadata`          |
+| `CacheInvalidateMetadata`   | `encodeCacheInvalidateMetadata`   | `decodeCacheInvalidateMetadata`   |
+| `TransportProbeMetadata`    | `encodeTransportProbeMetadata`    | `decodeTransportProbeMetadata`    |
+| `TransportProbeAckMetadata` | `encodeTransportProbeAckMetadata` | `decodeTransportProbeAckMetadata` |
+| `ObjectReferenceBlock`      | `encodeObjectReferenceBlock`      | `decodeObjectReferenceBlock`      |
+
+Packet 级一致性测试把这些 metadata codec 与 native/WASM runtime 拥有的 common-header framing
+组合起来，不会定义第二套 JavaScript wire 实现。
 
 ## `encodeRuntimeControlMetadata`
 

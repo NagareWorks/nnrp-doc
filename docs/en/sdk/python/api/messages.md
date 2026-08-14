@@ -31,6 +31,13 @@ from nnrp.core import (
 ## Control Message Metadata
 
 All control message metadata classes implement `.pack() -> bytes` and `@classmethod .unpack(data: bytes) -> Self`.
+The same codec contract applies to the frozen data-plane and object-reference baseline types:
+`FrameSubmitMetadata`, `ResultPushMetadata`, and `ObjectReferenceBlock`. Together with
+`ClientHelloMetadata`, `SessionPatchAckMetadata`, `FlowUpdateMetadata`, `ResultHintMetadata`,
+`CachePutMetadata`, `CacheAckMetadata`, `CacheInvalidateMetadata`, `TransportProbeMetadata`, and
+`TransportProbeAckMetadata`, this is the exact baseline set exercised by the public Preview 4
+Conformance suite. These classes reject malformed widths, reserved fields, enums, and flags rather
+than accepting a second permissive wire representation.
 
 ### `ClientHelloMetadata`
 

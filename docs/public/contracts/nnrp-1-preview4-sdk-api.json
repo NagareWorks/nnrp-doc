@@ -1562,6 +1562,7 @@
       ]
     },
     "TransportProviderDescriptor": {
+      "nameSemantics": "provider-owned package or display name; protocol transport identity is transport_id and selection must not derive it from name",
       "fields": [
         { "name": "name", "type": "string", "required": true },
         { "name": "version", "type": "string", "required": true },
@@ -1644,6 +1645,8 @@
       ]
     },
     "TransportSelectionOptions": {
+      "peerSupportedTransportsSemantics": "set; duplicates have no effect and input order is not semantically significant",
+      "requestedMaxFrameBytesZeroRule": "zero is a valid requested size and must not be rejected or treated as absent",
       "fields": [
         { "name": "peer_supported_transports", "type": "TransportId[]", "required": true },
         { "name": "policy", "type": "TransportPolicy", "required": true },
@@ -2567,6 +2570,7 @@
       "serverEvent",
       "serverOperation",
       "runtimeMetadataNamespace",
+      "baselineMetadataCodecs",
       "terminalEvent",
       "result"
     ],
@@ -2786,6 +2790,32 @@
       "clientRoles": ["nnrp_runtime::NnrpClient", "nnrp_runtime::NnrpClientSession"],
       "serverRoles": ["nnrp_runtime::NnrpServer", "nnrp_runtime::NnrpServerSession"],
       "runtimeMetadataNamespace": "nnrp_core",
+      "baselineMetadataCodecs": {
+        "ClientHelloMetadata": ["ClientHelloMetadata::to_bytes", "ClientHelloMetadata::parse"],
+        "SessionPatchAckMetadata": [
+          "SessionPatchAckMetadata::to_bytes",
+          "SessionPatchAckMetadata::parse"
+        ],
+        "FlowUpdateMetadata": ["FlowUpdateMetadata::to_bytes", "FlowUpdateMetadata::parse"],
+        "ResultHintMetadata": ["ResultHintMetadata::to_bytes", "ResultHintMetadata::parse"],
+        "FrameSubmitMetadata": ["FrameSubmitMetadata::to_bytes", "FrameSubmitMetadata::parse"],
+        "ResultPushMetadata": ["ResultPushMetadata::to_bytes", "ResultPushMetadata::parse"],
+        "CachePutMetadata": ["CachePutMetadata::to_bytes", "CachePutMetadata::parse"],
+        "CacheAckMetadata": ["CacheAckMetadata::to_bytes", "CacheAckMetadata::parse"],
+        "CacheInvalidateMetadata": [
+          "CacheInvalidateMetadata::to_bytes",
+          "CacheInvalidateMetadata::parse"
+        ],
+        "TransportProbeMetadata": [
+          "TransportProbeMetadata::to_bytes",
+          "TransportProbeMetadata::parse"
+        ],
+        "TransportProbeAckMetadata": [
+          "TransportProbeAckMetadata::to_bytes",
+          "TransportProbeAckMetadata::parse"
+        ],
+        "ObjectReferenceBlock": ["ObjectReferenceBlock::to_bytes", "ObjectReferenceBlock::parse"]
+      },
       "capabilityMetadata": "nnrp_core::CapabilityMetadata",
       "connectionLifecycle": "nnrp_core::ConnectionLifecycle",
       "sessionLifecycle": "nnrp_core::SessionLifecycle",
@@ -2850,6 +2880,29 @@
       "clientRoles": ["nnrp.client.NativeClientConnection", "nnrp.NativeRuntimeSession"],
       "serverRoles": ["nnrp.server.NativeServer", "nnrp.NativeRuntimeServerSession"],
       "runtimeMetadataNamespace": "nnrp.runtime",
+      "baselineMetadataCodecs": {
+        "ClientHelloMetadata": ["ClientHelloMetadata.pack", "ClientHelloMetadata.unpack"],
+        "SessionPatchAckMetadata": [
+          "SessionPatchAckMetadata.pack",
+          "SessionPatchAckMetadata.unpack"
+        ],
+        "FlowUpdateMetadata": ["FlowUpdateMetadata.pack", "FlowUpdateMetadata.unpack"],
+        "ResultHintMetadata": ["ResultHintMetadata.pack", "ResultHintMetadata.unpack"],
+        "FrameSubmitMetadata": ["FrameSubmitMetadata.pack", "FrameSubmitMetadata.unpack"],
+        "ResultPushMetadata": ["ResultPushMetadata.pack", "ResultPushMetadata.unpack"],
+        "CachePutMetadata": ["CachePutMetadata.pack", "CachePutMetadata.unpack"],
+        "CacheAckMetadata": ["CacheAckMetadata.pack", "CacheAckMetadata.unpack"],
+        "CacheInvalidateMetadata": [
+          "CacheInvalidateMetadata.pack",
+          "CacheInvalidateMetadata.unpack"
+        ],
+        "TransportProbeMetadata": ["TransportProbeMetadata.pack", "TransportProbeMetadata.unpack"],
+        "TransportProbeAckMetadata": [
+          "TransportProbeAckMetadata.pack",
+          "TransportProbeAckMetadata.unpack"
+        ],
+        "ObjectReferenceBlock": ["ObjectReferenceBlock.pack", "ObjectReferenceBlock.unpack"]
+      },
       "capabilityMetadata": "nnrp.runtime.CapabilityMetadata",
       "connectionLifecycle": "nnrp.lifecycle.ConnectionLifecycleSnapshot",
       "sessionLifecycle": "nnrp.lifecycle.SessionLifecycleSnapshot",
@@ -2917,6 +2970,29 @@
       ],
       "serverRoles": ["@nnrp/native-server.NnrpServerSession"],
       "runtimeMetadataNamespace": "@nnrp/core",
+      "baselineMetadataCodecs": {
+        "ClientHelloMetadata": ["encodeClientHelloMetadata", "decodeClientHelloMetadata"],
+        "SessionPatchAckMetadata": [
+          "encodeSessionPatchAckMetadata",
+          "decodeSessionPatchAckMetadata"
+        ],
+        "FlowUpdateMetadata": ["encodeFlowUpdateMetadata", "decodeFlowUpdateMetadata"],
+        "ResultHintMetadata": ["encodeResultHintMetadata", "decodeResultHintMetadata"],
+        "FrameSubmitMetadata": ["encodeFrameSubmitMetadata", "decodeFrameSubmitMetadata"],
+        "ResultPushMetadata": ["encodeResultPushMetadata", "decodeResultPushMetadata"],
+        "CachePutMetadata": ["encodeCachePutMetadata", "decodeCachePutMetadata"],
+        "CacheAckMetadata": ["encodeCacheAckMetadata", "decodeCacheAckMetadata"],
+        "CacheInvalidateMetadata": [
+          "encodeCacheInvalidateMetadata",
+          "decodeCacheInvalidateMetadata"
+        ],
+        "TransportProbeMetadata": ["encodeTransportProbeMetadata", "decodeTransportProbeMetadata"],
+        "TransportProbeAckMetadata": [
+          "encodeTransportProbeAckMetadata",
+          "decodeTransportProbeAckMetadata"
+        ],
+        "ObjectReferenceBlock": ["encodeObjectReferenceBlock", "decodeObjectReferenceBlock"]
+      },
       "capabilityMetadata": "@nnrp/core.CapabilityMetadata",
       "connectionLifecycle": "@nnrp/core.NnrpConnectionLifecycle",
       "sessionLifecycle": "@nnrp/core.NnrpSessionLifecycle",
@@ -2981,6 +3057,32 @@
       "clientRoles": ["Nnrp.Client.NnrpClient", "Nnrp.Client.NnrpClientSession"],
       "serverRoles": ["Nnrp.Server.NnrpServer", "Nnrp.Server.NnrpServerSession"],
       "runtimeMetadataNamespace": "Nnrp.Runtime",
+      "baselineMetadataCodecs": {
+        "ClientHelloMetadata": ["ClientHelloMetadata.ToArray", "ClientHelloMetadata.TryParse"],
+        "SessionPatchAckMetadata": [
+          "SessionPatchAckMetadata.ToArray",
+          "SessionPatchAckMetadata.TryParse"
+        ],
+        "FlowUpdateMetadata": ["FlowUpdateMetadata.ToArray", "FlowUpdateMetadata.TryParse"],
+        "ResultHintMetadata": ["ResultHintMetadata.ToArray", "ResultHintMetadata.TryParse"],
+        "FrameSubmitMetadata": ["FrameSubmitMetadata.ToArray", "FrameSubmitMetadata.TryParse"],
+        "ResultPushMetadata": ["ResultPushMetadata.ToArray", "ResultPushMetadata.TryParse"],
+        "CachePutMetadata": ["CachePutMetadata.ToArray", "CachePutMetadata.TryParse"],
+        "CacheAckMetadata": ["CacheAckMetadata.ToArray", "CacheAckMetadata.TryParse"],
+        "CacheInvalidateMetadata": [
+          "CacheInvalidateMetadata.ToArray",
+          "CacheInvalidateMetadata.TryParse"
+        ],
+        "TransportProbeMetadata": [
+          "TransportProbeMetadata.ToArray",
+          "TransportProbeMetadata.TryParse"
+        ],
+        "TransportProbeAckMetadata": [
+          "TransportProbeAckMetadata.ToArray",
+          "TransportProbeAckMetadata.TryParse"
+        ],
+        "ObjectReferenceBlock": ["ObjectReferenceBlock.ToArray", "ObjectReferenceBlock.TryParse"]
+      },
       "capabilityMetadata": "Nnrp.Runtime.CapabilityMetadata",
       "connectionLifecycle": "Nnrp.Core.NnrpConnectionLifecycle",
       "sessionLifecycle": "Nnrp.Core.NnrpSessionLifecycle",

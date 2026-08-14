@@ -33,6 +33,14 @@ from nnrp.core import (
 )
 ```
 
+所有控制消息 metadata 类都实现 `.pack() -> bytes` 和
+`@classmethod .unpack(data: bytes) -> Self`。同一 codec 契约也覆盖已冻结的数据面与对象引用基线
+类型：`FrameSubmitMetadata`、`ResultPushMetadata` 和 `ObjectReferenceBlock`。它们与
+`ClientHelloMetadata`、`SessionPatchAckMetadata`、`FlowUpdateMetadata`、
+`ResultHintMetadata`、`CachePutMetadata`、`CacheAckMetadata`、`CacheInvalidateMetadata`、
+`TransportProbeMetadata` 和 `TransportProbeAckMetadata` 共同构成 Preview 4 公开一致性测试的
+精确基线集合。解析会拒绝错误长度、保留字段、枚举和 flag，不接受第二套宽松线路表示。
+
 ---
 
 ## 控制消息元数据

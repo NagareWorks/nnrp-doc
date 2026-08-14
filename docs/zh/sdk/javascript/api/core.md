@@ -48,13 +48,13 @@
 
 ## `selectTransport`
 
-从冻结 transport comparator 排出的 candidates 中选择 rank `0`。没有 candidate 可选时抛出
-`NnrpTransportSelectionError`，其 `selection` 保留完整有序 candidate 列表。
+使用冻结 transport comparator 构造、筛选并排序 provider candidates，再选择 rank `0`。没有 provider
+可选时抛出 `NnrpTransportSelectionError`，其 `candidates` 保留完整有序诊断列表。
 
-| 参数         | 类型                                | 必填 | 说明                                                |
-| ------------ | ----------------------------------- | ---: | --------------------------------------------------- |
-| `candidates` | `readonly NnrpTransportCandidate[]` |   是 | 候选 transport。                                    |
-| `policy`     | `NnrpTransportPolicy`               |   否 | `auto`、一种 `prefer-*` 策略或一种 `force-*` 策略。 |
+| 参数        | 类型                                         | 必填 | 说明                                              |
+| ----------- | -------------------------------------------- | ---: | ------------------------------------------------- |
+| `providers` | `readonly NnrpTransportProviderDescriptor[]` |   是 | 已安装的 provider descriptors。                   |
+| `options`   | `NnrpTransportSelectionOptions`              |   是 | Peer 支持、策略、限制、readiness 与 probe 数据。 |
 
 | 返回                     |
 | ------------------------ |
@@ -62,11 +62,12 @@
 
 ## `createTransportCandidates`
 
-根据本地和 peer manifest 创建 transport candidates。
+根据 provider descriptors 与冻结 selection evidence 创建 candidates，但不执行最终选择。
 
-| 参数      | 类型                            | 必填 | 说明                                                                                    |
-| --------- | ------------------------------- | ---: | --------------------------------------------------------------------------------------- |
-| `options` | `NnrpTransportCandidateOptions` |   是 | 本地/peer manifest、provider 元数据、请求 frame limit、readiness 与 probe observation。 |
+| 参数        | 类型                                         | 必填 | 说明                                              |
+| ----------- | -------------------------------------------- | ---: | ------------------------------------------------- |
+| `providers` | `readonly NnrpTransportProviderDescriptor[]` |   是 | 已安装的 provider descriptors。                   |
+| `options`   | `NnrpTransportSelectionOptions`              |   是 | Peer 支持、策略、限制、readiness 与 probe 数据。 |
 
 | 返回                                |
 | ----------------------------------- |
@@ -186,7 +187,7 @@ bytes 都必须拒绝。
 | `NnrpTransportProviderLimits`      | 冻结的 provider `maxFrameBytes`。                                                                                                             |
 | `NnrpTransportProviderLimitation`  | 七个已注册 limitation 字符串的 union。                                                                                                        |
 | `NnrpTransportProviderMetadata`    | Provider id、cost、preference rank、limits 与已注册 limitations。                                                                             |
-| `NnrpTransportProviderObservation` | Provider kind、元数据、本地可用性与可选诊断。                                                                                                 |
+| `NnrpTransportProviderDescriptor`  | Provider 名称/版本、transport identity、实现类型、可用性、元数据，以及可选的 native library path 或诊断。                                               |
 | `NnrpTransportCandidateReadiness`  | Provider identity、route/security readiness 与可选 diagnostic。                                                                               |
 | `NnrpTransportProbeState`          | `"not-run" \| "succeeded" \| "failed" \| "missing"`。                                                                                         |
 | `NnrpTransportProbeMetrics`        | 样本/成功数、吞吐中位数与 RTT 中位数。                                                                                                        |
@@ -194,11 +195,11 @@ bytes 都必须拒绝。
 | `NnrpTransportRejectionReason`     | 八个已注册 rejection 字符串的 union。                                                                                                         |
 | `NnrpTransportCandidate`           | Provider 元数据、可用性、peer/limit eligibility、probe 状态/指标、selection rank、拒绝原因与诊断。                                            |
 | `NnrpTransportSelectionSummary`    | 被选中的 transport 和 rejected candidates。                                                                                                   |
-| `NnrpTransportSelectionError`      | 携带 `code`、diagnostic 与可选 `selection` 的类型化错误；`INVALID_EVIDENCE` 在 selection 前发生，有效 selection 失败保留全部有序 candidates。 |
+| `NnrpTransportSelectionError`      | 携带 `code`、字符串 diagnostic、可选 `policy` / `transportId` 与有序 `candidates` 的类型化错误；强制策略失败会标明 transport。 |
 
 `NnrpTransportCandidate` 使用[传输策略与探测](/zh/protocol/v1/transport-strategy)规范字段的
 camelCase 形式：
-`kind`、`provider`、`localAvailable`、`peerSupported`、`withinLimits`、`probeState`、可选
+`transportId`、`provider`、`localAvailable`、`peerSupported`、`withinLimits`、`probeState`、可选
 `probe`、可选 `selectionRank`、可选 `rejectionReason` 和可选 `diagnostic`。公共类型不含不透明
 `score` 字段。
 
@@ -236,18 +237,23 @@ interface NnrpTransportProviderMetadata {
   readonly limits: NnrpTransportProviderLimits;
   readonly limitations: readonly NnrpTransportProviderLimitation[];
 }
-interface NnrpTransportProviderObservation {
-  readonly kind: NnrpTransportKind;
+type NnrpTransportProviderKind = "pure-rust" | "native-dynamic" | "wasm";
+interface NnrpTransportProviderDescriptor {
+  readonly name: string;
+  readonly version: string;
+  readonly transportId: NnrpTransportKind;
+  readonly kind: NnrpTransportProviderKind;
+  readonly available: boolean;
+  readonly libraryPath?: string;
   readonly metadata: NnrpTransportProviderMetadata;
-  readonly localAvailable: boolean;
-  readonly diagnostic?: NnrpDiagnostic;
+  readonly diagnostic?: string;
 }
 interface NnrpTransportCandidateReadiness {
-  readonly kind: NnrpTransportKind;
+  readonly transportId: NnrpTransportKind;
   readonly providerId: string;
   readonly routeResolved: boolean;
   readonly securitySatisfied: boolean;
-  readonly diagnostic?: NnrpDiagnostic;
+  readonly diagnostic?: string;
 }
 interface NnrpTransportProbeMetrics {
   readonly sampleCount: number;
@@ -256,14 +262,14 @@ interface NnrpTransportProbeMetrics {
   readonly medianRttMicroseconds: bigint;
 }
 interface NnrpTransportProbeObservation {
-  readonly kind: NnrpTransportKind;
+  readonly transportId: NnrpTransportKind;
   readonly providerId: string;
   readonly state: "succeeded" | "failed";
   readonly metrics?: NnrpTransportProbeMetrics;
-  readonly diagnostic?: NnrpDiagnostic;
+  readonly diagnostic?: string;
 }
 interface NnrpTransportCandidate {
-  readonly kind: NnrpTransportKind;
+  readonly transportId: NnrpTransportKind;
   readonly provider: NnrpTransportProviderMetadata;
   readonly localAvailable: boolean;
   readonly peerSupported: boolean;
@@ -272,20 +278,31 @@ interface NnrpTransportCandidate {
   readonly probe?: NnrpTransportProbeMetrics;
   readonly selectionRank?: number;
   readonly rejectionReason?: NnrpTransportRejectionReason;
-  readonly diagnostic?: NnrpDiagnostic;
+  readonly diagnostic?: string;
 }
-interface NnrpTransportCandidateOptions {
-  readonly local: NnrpCapabilityManifest;
-  readonly peer: NnrpCapabilityManifest;
-  readonly providers: readonly NnrpTransportProviderObservation[];
+interface NnrpTransportSelectionOptions {
+  readonly peerSupportedTransports: readonly NnrpTransportKind[];
+  readonly policy: NnrpTransportPolicy;
   readonly requestedMaxFrameBytes?: bigint;
   readonly candidateReadiness: readonly NnrpTransportCandidateReadiness[];
-  readonly probeObservations?: readonly NnrpTransportProbeObservation[];
+  readonly probeObservations: readonly NnrpTransportProbeObservation[];
+}
+interface NnrpTransportSelection {
+  readonly selectedProvider: NnrpTransportProviderDescriptor;
+  readonly candidates: readonly NnrpTransportCandidate[];
+  readonly policy: NnrpTransportPolicy;
+  readonly diagnostic?: string;
 }
 ```
 
-Provider observations 的 transport kind 与 provider id 都必须唯一。每个 provider 都必须有
-readiness。Readiness 与 probe observation 按 `(kind, providerId)` 匹配；重复或无法匹配的 evidence
+`NnrpTransportProviderDescriptor.name` 是 provider 自有的 package 名或展示名。Selection、readiness、route
+lookup 与 reporting 使用 `transportId` 作为规范 carrier 身份，不得从 `name` 推导。
+
+`peerSupportedTransports` 按集合解释，重复项和数组顺序不影响选择；`requestedMaxFrameBytes: 0n` 是合法值，
+并且与省略该属性含义不同。
+
+Provider descriptor 的 `(transportId, provider.metadata.id)` identity 必须唯一。每个 provider 都必须有
+readiness。Readiness 与 probe observation 按 `(transportId, providerId)` 匹配；重复或无法匹配的 evidence
 属于契约错误。缺少 probe observation 与 state 为 `"failed"` 的 observation 必须保持可区分。
 
 ### Submit、Result 与 Event

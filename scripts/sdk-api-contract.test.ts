@@ -24,6 +24,10 @@ interface ContractMethod {
 
 interface ContractType {
   fields: ContractField[];
+  nameSemantics?: string;
+  stateConstraint?: string[];
+  peerSupportedTransportsSemantics?: string;
+  requestedMaxFrameBytesZeroRule?: string;
   invariants?: string[];
   terminalMapping?: Record<string, string>;
   nativeEventProjection?: {
@@ -126,11 +130,10 @@ interface SdkApiContract {
       retainsSkippedEvents?: boolean;
     }
   >;
-  languageProjections: Record<
-    string,
-    Record<string, string | string[] | Record<string, string>>
-  >;
+  languageProjections: Record<string, Record<string, ProjectionValue>>;
 }
+
+type ProjectionValue = string | ProjectionValue[] | { [key: string]: ProjectionValue };
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -151,6 +154,54 @@ function requireRecord(value: unknown, label: string): Record<string, unknown> {
     `${label} must be an object`,
   );
   return value as Record<string, unknown>;
+}
+
+function assertProjectionValue(value: unknown, label: string): void {
+  if (typeof value === "string") {
+    assert(value.length > 0, `${label} is empty`);
+    return;
+  }
+  if (Array.isArray(value)) {
+    assert(value.length > 0, `${label} has no targets`);
+    value.forEach((item, index) => assertProjectionValue(item, `${label}[${index}]`));
+    return;
+  }
+  const projection = requireRecord(value, label);
+  assert(Object.keys(projection).length > 0, `${label} has no nested projections`);
+  for (const [key, nested] of Object.entries(projection)) {
+    assertProjectionValue(nested, `${label}.${key}`);
+  }
+}
+
+const BASELINE_METADATA_TYPES = [
+  "CacheAckMetadata",
+  "CacheInvalidateMetadata",
+  "CachePutMetadata",
+  "ClientHelloMetadata",
+  "FlowUpdateMetadata",
+  "FrameSubmitMetadata",
+  "ObjectReferenceBlock",
+  "ResultHintMetadata",
+  "ResultPushMetadata",
+  "SessionPatchAckMetadata",
+  "TransportProbeAckMetadata",
+  "TransportProbeMetadata",
+] as const;
+
+function baselineCodecMap(encodeSuffix: string, decodeSuffix: string): Record<string, string[]> {
+  return Object.fromEntries(
+    BASELINE_METADATA_TYPES.map((metadataType) => [
+      metadataType,
+      [`${metadataType}${encodeSuffix}`, `${metadataType}${decodeSuffix}`],
+    ]),
+  );
+}
+
+function normalizeProjectionRecord(value: Record<string, unknown> | undefined): unknown {
+  assert(value !== undefined, "expected projection record is missing");
+  return Object.fromEntries(
+    Object.entries(value).sort(([left], [right]) => left.localeCompare(right)),
+  );
 }
 
 function requireString(value: unknown, label: string): string {
@@ -297,6 +348,26 @@ Deno.test("Preview4 SDK contract freezes the required semantic types", async () 
   ) {
     assert(contract.types[typeName] !== undefined, `${typeName} must be frozen`);
   }
+  assertEquals(
+    contract.types.TransportProviderDescriptor.nameSemantics,
+    "provider-owned package or display name; protocol transport identity is transport_id and selection must not derive it from name",
+    "TransportProviderDescriptor name semantics drifted",
+  );
+  assertEquals(
+    contract.types.TransportProbeObservation.stateConstraint,
+    ["succeeded", "failed"],
+    "TransportProbeObservation state constraint drifted",
+  );
+  assertEquals(
+    contract.types.TransportSelectionOptions.peerSupportedTransportsSemantics,
+    "set; duplicates have no effect and input order is not semantically significant",
+    "TransportSelectionOptions peer transport semantics drifted",
+  );
+  assertEquals(
+    contract.types.TransportSelectionOptions.requestedMaxFrameBytesZeroRule,
+    "zero is a valid requested size and must not be rejected or treated as absent",
+    "TransportSelectionOptions zero frame-size rule drifted",
+  );
 });
 
 Deno.test("client, terminal, and local lifecycle contracts are exact", async () => {
@@ -786,6 +857,7 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
   const contract = await loadContract();
   const requiredProjections = [
     "applicationEndpoint",
+    "baselineMetadataCodecs",
     "cacheLease",
     "cacheLeaseResult",
     "cacheObjectId",
@@ -846,29 +918,48 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
       `${language} projection is incomplete`,
     );
     for (const [projectionName, target] of Object.entries(projection)) {
-      if (Array.isArray(target)) {
-        assert(target.length > 0, `${language}.${projectionName} has no targets`);
-        for (const item of target) {
-          assert(item.length > 0, `${language}.${projectionName} has an empty target`);
-        }
-      } else {
-        if (typeof target === "string") {
-          assert(target.length > 0, `${language}.${projectionName} has an empty target`);
-        } else {
-          assert(
-            Object.keys(target).length > 0,
-            `${language}.${projectionName} has no method projections`,
-          );
-          for (const [operation, method] of Object.entries(target)) {
-            assert(
-              contract.roleOperations[operation] !== undefined,
-              `${language}.${projectionName}.${operation} has no frozen role operation`,
-            );
-            assert(method.length > 0, `${language}.${projectionName}.${operation} is empty`);
-          }
-        }
-      }
+      assertProjectionValue(target, `${language}.${projectionName}`);
     }
+  }
+
+  const expectedCodecs: Record<string, Record<string, string[]>> = {
+    rust: baselineCodecMap("::to_bytes", "::parse"),
+    python: baselineCodecMap(".pack", ".unpack"),
+    javascript: {
+      CacheAckMetadata: ["encodeCacheAckMetadata", "decodeCacheAckMetadata"],
+      CacheInvalidateMetadata: [
+        "encodeCacheInvalidateMetadata",
+        "decodeCacheInvalidateMetadata",
+      ],
+      CachePutMetadata: ["encodeCachePutMetadata", "decodeCachePutMetadata"],
+      ClientHelloMetadata: ["encodeClientHelloMetadata", "decodeClientHelloMetadata"],
+      FlowUpdateMetadata: ["encodeFlowUpdateMetadata", "decodeFlowUpdateMetadata"],
+      FrameSubmitMetadata: ["encodeFrameSubmitMetadata", "decodeFrameSubmitMetadata"],
+      ObjectReferenceBlock: ["encodeObjectReferenceBlock", "decodeObjectReferenceBlock"],
+      ResultHintMetadata: ["encodeResultHintMetadata", "decodeResultHintMetadata"],
+      ResultPushMetadata: ["encodeResultPushMetadata", "decodeResultPushMetadata"],
+      SessionPatchAckMetadata: [
+        "encodeSessionPatchAckMetadata",
+        "decodeSessionPatchAckMetadata",
+      ],
+      TransportProbeAckMetadata: [
+        "encodeTransportProbeAckMetadata",
+        "decodeTransportProbeAckMetadata",
+      ],
+      TransportProbeMetadata: ["encodeTransportProbeMetadata", "decodeTransportProbeMetadata"],
+    },
+    csharp: baselineCodecMap(".ToArray", ".TryParse"),
+  };
+  for (const [language, projection] of Object.entries(contract.languageProjections)) {
+    const codecs = requireRecord(
+      projection.baselineMetadataCodecs,
+      `${language}.baselineMetadataCodecs`,
+    );
+    assertEquals(
+      normalizeProjectionRecord(codecs),
+      normalizeProjectionRecord(expectedCodecs[language]),
+      `${language} baseline metadata codec projection drifted`,
+    );
   }
 });
 

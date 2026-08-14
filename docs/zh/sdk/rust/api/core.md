@@ -13,6 +13,18 @@ nnrp-core = "1.0.0-preview.4.17"
 
 `nnrp-core` 不打开 socket，也不启动 async task。它定义并校验协议模型，供 `nnrp-runtime`、transport provider、FFI binding、WASM helper 和 conformance suite 复用。
 
+## 基线 Metadata Codec
+
+Preview 4 角色 API 和公开一致性测试使用的已冻结基线 metadata 类型具有统一 Rust codec
+形态：`Type::to_bytes()` 编码精确宽度值，`Type::parse()` 解码并校验。该集合包括
+`ClientHelloMetadata`、`SessionPatchAckMetadata`、`FlowUpdateMetadata`、
+`ResultHintMetadata`、`FrameSubmitMetadata`、`ResultPushMetadata`、`CachePutMetadata`、
+`CacheAckMetadata`、`CacheInvalidateMetadata`、`TransportProbeMetadata`、
+`TransportProbeAckMetadata` 和 `ObjectReferenceBlock`。
+
+解析会拒绝错误长度、非零保留字段、非法枚举值和非法 flag 组合。一致性测试与下游 binding
+复用这些 codec，不维护第二套线路实现。
+
 ## 主要类型族
 
 | 类型族 | 示例 | 使用方 |

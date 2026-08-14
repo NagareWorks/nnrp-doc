@@ -115,7 +115,10 @@ buffer to applications.
 | `NnrpTransportRejectionReason` | `PolicyDisallowed`, `LocalUnavailable`, `PeerUnsupported`, `LimitExceeded`, `RouteUnresolved`, `SecurityUnsatisfied`, `ProbeMissing`, `ProbeFailed` |
 | `NnrpTransportCandidate` | `TransportId: TransportId`, `Provider: NnrpTransportProviderMetadata`, `LocalAvailable: bool`, `PeerSupported: bool`, `WithinLimits: bool`, `ProbeState: NnrpTransportProbeState`, `Probe: NnrpTransportProbeMetrics?`, `SelectionRank: uint?`, `RejectionReason: NnrpTransportRejectionReason?`, `Diagnostic: string?` |
 | `NnrpTransportSelection` | `SelectedProvider: NnrpTransportProviderDescriptor`, ordered `Candidates: IReadOnlyList<NnrpTransportCandidate>`, `Policy: TransportPolicy`, `Diagnostic: string?` |
-| `NnrpTransportSelectionException` | `Code: NnrpTransportSelectionErrorCode`, `Policy: TransportPolicy?`, `Candidates: IReadOnlyList<NnrpTransportCandidate>`, `Diagnostic: string?`; `InvalidEvidence` occurs before selection |
+| `NnrpTransportSelectionException` | `Code: NnrpTransportSelectionErrorCode`, `Policy: TransportPolicy?`, `TransportId: TransportId?`, `Candidates: IReadOnlyList<NnrpTransportCandidate>`, `Diagnostic: string`; forced failures identify their transport and `InvalidEvidence` occurs before selection |
+
+`NnrpTransportProviderDescriptor.Name` is the provider-owned package or display name. Registry lookup, readiness,
+selection, route lookup, and reporting use `TransportId` and never infer carrier identity from `Name`.
 
 `NnrpTransportSelectionOptions` freezes the inputs to registry selection:
 
@@ -126,6 +129,9 @@ buffer to applications.
 | `RequestedMaxFrameBytes` | `ulong?` | No | Workload limit checked against `Provider.Limits.MaxFrameBytes`. |
 | `CandidateReadiness` | `IReadOnlyCollection<NnrpTransportCandidateReadiness>` | Yes | Route/security evidence for every registered provider. |
 | `ProbeObservations` | `IReadOnlyCollection<NnrpTransportProbeObservation>?` | No | Succeeded/failed evidence keyed by transport and provider identity. |
+
+`PeerSupportedTransports` has set semantics, so duplicates and enumeration order do not affect selection.
+`RequestedMaxFrameBytes = 0` is valid and remains distinct from `null`.
 
 Metadata is validated against the Rust artifact manifest. C# uses the comparator frozen in
 [Transport Strategy and Probing](/en/protocol/v1/transport-strategy) and does not invent a weighted

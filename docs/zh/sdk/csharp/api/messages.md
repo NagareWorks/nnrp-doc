@@ -31,6 +31,13 @@ public static bool TryParse(
 metadata。Metadata 类型提供 `ToArray()` 和 `TryParse(ReadOnlySpan<byte>, ...)`。严格解析重载会
 拒绝保留值和非零保留字段；消息解析还会验证消息类型、定长 metadata、body 分区长度和尾随数据。
 
+完整 Preview 4 基线集合均冻结为这组 `ToArray()` / `TryParse(...)` 契约：
+`ClientHelloMetadata`、`SessionPatchAckMetadata`、`FlowUpdateMetadata`、
+`ResultHintMetadata`、`FrameSubmitMetadata`、`ResultPushMetadata`、`CachePutMetadata`、
+`CacheAckMetadata`、`CacheInvalidateMetadata`、`TransportProbeMetadata`、
+`TransportProbeAckMetadata` 和 `ObjectReferenceBlock`。公开一致性测试 target 直接调用这些
+codec，不携带独立 parser。
+
 ## 连接握手
 
 ### `ClientHelloMessage`

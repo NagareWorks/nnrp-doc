@@ -283,6 +283,9 @@ Evidence 按 `(transport_id, provider_id)` 匹配。重复或无法匹配的 rea
 角色级选择必须为每个已注册 provider 提供一条 readiness；缺失 readiness 不代表可以假定 route 存在。低层
 诊断或 conformance API 在 route/security 检查不属于自身职责时，可以显式构造 ready record。
 
+`peer_supported_transports` 按集合解释：重复项和输入顺序都不得影响资格判断或排序。
+`requested_max_frame_bytes = 0` 是合法请求值；实现不得拒绝它，也不得把它重新解释为“未提供限制”。
+
 无效 evidence 必须在 candidate selection 开始前通过该语言类型化的 transport-selection 契约错误拒绝。
 由于 selection 尚未运行，这类契约错误不得伪造 candidate diagnostic。完整 candidate 列表要求适用于
 evidence 有效、已经进入 selection、但最终没有 provider 可选的失败。
@@ -296,6 +299,10 @@ evidence 有效、已经进入 selection、但最终没有 provider 可选的失
 `floor(saturating_add(bytes_sent, bytes_received) * 1_000_000 / elapsed_us)`，并饱和到 `u64`。计算任一 median
 时，必须将成功 sample 的逐样本值升序排列；奇数个取中间值，偶数个取
 `lower + floor((upper - lower) / 2)`。实现不得先聚合 bytes 与 elapsed time 再计算吞吐 median。
+
+`TransportProviderDescriptor.name` 由 provider 自己拥有，可以是 package 名或展示名，但不是协议 carrier
+标识。Discovery、readiness、probe、selection、route lookup 与 active-carrier reporting 必须使用
+`transport_id`；实现不得从 `name` 推导 transport 身份。
 
 rejection 注册表精确固定为：`policy-disallowed`、`local-unavailable`、`peer-unsupported`、
 `limit-exceeded`、`route-unresolved`、`security-unsatisfied`、`probe-missing`、`probe-failed`。SDK 公共 API 不得暴露各语言私有的不透明 `score`；
