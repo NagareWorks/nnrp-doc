@@ -439,8 +439,92 @@ export const capabilityVersionPresets = [
     "recommendedPath": "conformance/nnrp-1-preview4.capabilities.json",
     "capabilities": [
       {
-        "token": "payload.typed",
+        "token": "handshake.basic",
         "layers": "L0",
+        "categories": [
+          "mandatory"
+        ],
+        "description": {
+          "zh": "Round-trip the canonical CLIENT_HELLO metadata used by the current NNRP/1 handshake.",
+          "en": "Round-trip the canonical CLIENT_HELLO metadata used by the current NNRP/1 handshake."
+        }
+      },
+      {
+        "token": "session.resume",
+        "layers": "L0",
+        "categories": [
+          "mandatory"
+        ],
+        "description": {
+          "zh": "Round-trip the canonical SESSION_PATCH_ACK metadata without changing session recovery semantics.",
+          "en": "Round-trip the canonical SESSION_PATCH_ACK metadata without changing session recovery semantics."
+        },
+        "combination": {
+          "zh": "Also selected with session.open_close.",
+          "en": "Also selected with session.open_close."
+        }
+      },
+      {
+        "token": "session.open_close",
+        "layers": "L0 / L3",
+        "categories": [
+          "mandatory",
+          "optional"
+        ],
+        "description": {
+          "zh": "Derived from 3 cases. Round-trip the canonical SESSION_PATCH_ACK metadata without changing session recovery semantics. Run a real TCP session smoke test through the current NNRP/1 runtime. Run a real QUIC session smoke test through the current NNRP/1 runtime.",
+          "en": "Derived from 3 cases. Round-trip the canonical SESSION_PATCH_ACK metadata without changing session recovery semantics. Run a real TCP session smoke test through the current NNRP/1 runtime. Run a real QUIC session smoke test through the current NNRP/1 runtime."
+        },
+        "combination": {
+          "zh": "Appears in multiple combined selections: session.resume; transport.tcp; transport.quic.",
+          "en": "Appears in multiple combined selections: session.resume; transport.tcp; transport.quic."
+        }
+      },
+      {
+        "token": "flow_update",
+        "layers": "L0 / L1",
+        "categories": [
+          "mandatory"
+        ],
+        "description": {
+          "zh": "Derived from 4 cases. Round-trip the canonical FLOW_UPDATE packet and preserve scoped credit and retry metadata. Round-trip the canonical RESULT_HINT packet and preserve its budget and congestion fields. Validate FLOW_UPDATE routing, credit, retry-after, and flag semantics. Validate RESULT_HINT metadata and reject unknown reason codes.",
+          "en": "Derived from 4 cases. Round-trip the canonical FLOW_UPDATE packet and preserve scoped credit and retry metadata. Round-trip the canonical RESULT_HINT packet and preserve its budget and congestion fields. Validate FLOW_UPDATE routing, credit, retry-after, and flag semantics. Validate RESULT_HINT metadata and reject unknown reason codes."
+        }
+      },
+      {
+        "token": "frame_submit.tensor.inline",
+        "layers": "L0 / L1",
+        "categories": [
+          "mandatory"
+        ],
+        "description": {
+          "zh": "Derived from 2 cases. Round-trip the canonical FRAME_SUBMIT metadata used by the current NNRP/1 submit path. Parse and emit FRAME_SUBMIT with typed payload and object-reference bookkeeping intact.",
+          "en": "Derived from 2 cases. Round-trip the canonical FRAME_SUBMIT metadata used by the current NNRP/1 submit path. Parse and emit FRAME_SUBMIT with typed payload and object-reference bookkeeping intact."
+        },
+        "combination": {
+          "zh": "Also selected with payload.typed.",
+          "en": "Also selected with payload.typed."
+        }
+      },
+      {
+        "token": "result_push.basic",
+        "layers": "L0 / L1",
+        "categories": [
+          "mandatory",
+          "optional"
+        ],
+        "description": {
+          "zh": "Derived from 3 cases. Round-trip the canonical RESULT_PUSH metadata, including status, result class, flags, and payload bookkeeping. Parse and emit RESULT_PUSH while preserving status, result class, flags, and typed-payload metadata. Resolve RESULT_PUSH object references or surface a protocol-shaped cache miss.",
+          "en": "Derived from 3 cases. Round-trip the canonical RESULT_PUSH metadata, including status, result class, flags, and payload bookkeeping. Parse and emit RESULT_PUSH while preserving status, result class, flags, and typed-payload metadata. Resolve RESULT_PUSH object references or surface a protocol-shaped cache miss."
+        },
+        "combination": {
+          "zh": "Also selected with cache.lifecycle.",
+          "en": "Also selected with cache.lifecycle."
+        }
+      },
+      {
+        "token": "payload.typed",
+        "layers": "L0 / L1",
         "categories": [
           "mandatory"
         ],
@@ -451,6 +535,51 @@ export const capabilityVersionPresets = [
         "combination": {
           "zh": "通常与 frame_submit.tensor.inline 同时声明。",
           "en": "Usually claimed with frame_submit.tensor.inline."
+        }
+      },
+      {
+        "token": "cache.lifecycle",
+        "layers": "L0 / L1",
+        "categories": [
+          "optional"
+        ],
+        "description": {
+          "zh": "Derived from 3 cases. Round-trip the canonical cache-backed object-reference block. Round-trip CACHE_PUT, CACHE_ACK, and CACHE_INVALIDATE metadata as one public cache lifecycle. Resolve RESULT_PUSH object references or surface a protocol-shaped cache miss.",
+          "en": "Derived from 3 cases. Round-trip the canonical cache-backed object-reference block. Round-trip CACHE_PUT, CACHE_ACK, and CACHE_INVALIDATE metadata as one public cache lifecycle. Resolve RESULT_PUSH object references or surface a protocol-shaped cache miss."
+        },
+        "combination": {
+          "zh": "Also selected with result_push.basic.",
+          "en": "Also selected with result_push.basic."
+        }
+      },
+      {
+        "token": "transport.tcp",
+        "layers": "L1 / L3",
+        "categories": [
+          "optional"
+        ],
+        "description": {
+          "zh": "Derived from 3 cases. Round-trip TRANSPORT_PROBE and TRANSPORT_PROBE_ACK metadata. Select the ready transport from real probe observations and preserve deterministic fallback. Run a real TCP session smoke test through the current NNRP/1 runtime.",
+          "en": "Derived from 3 cases. Round-trip TRANSPORT_PROBE and TRANSPORT_PROBE_ACK metadata. Select the ready transport from real probe observations and preserve deterministic fallback. Run a real TCP session smoke test through the current NNRP/1 runtime."
+        },
+        "combination": {
+          "zh": "Appears in multiple combined selections: transport.quic; session.open_close.",
+          "en": "Appears in multiple combined selections: transport.quic; session.open_close."
+        }
+      },
+      {
+        "token": "transport.quic",
+        "layers": "L1 / L3",
+        "categories": [
+          "optional"
+        ],
+        "description": {
+          "zh": "Derived from 3 cases. Round-trip TRANSPORT_PROBE and TRANSPORT_PROBE_ACK metadata. Select the ready transport from real probe observations and preserve deterministic fallback. Run a real QUIC session smoke test through the current NNRP/1 runtime.",
+          "en": "Derived from 3 cases. Round-trip TRANSPORT_PROBE and TRANSPORT_PROBE_ACK metadata. Select the ready transport from real probe observations and preserve deterministic fallback. Run a real QUIC session smoke test through the current NNRP/1 runtime."
+        },
+        "combination": {
+          "zh": "Appears in multiple combined selections: transport.tcp; session.open_close.",
+          "en": "Appears in multiple combined selections: transport.tcp; session.open_close."
         }
       },
       {
@@ -869,8 +998,8 @@ export const wireConformancePresets = [
       "en": "nnrp-1-preview4 Wire-level Conformance"
     },
     "note": {
-      "zh": "从线路级测试场景声明派生，覆盖 18 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
-      "en": "Derived from wire-level conformance scenario manifests. Covers 18 protocol scenarios where the runner directly acts as client, server, or proxy."
+      "zh": "从线路级测试场景声明派生，覆盖 19 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
+      "en": "Derived from wire-level conformance scenario manifests. Covers 19 protocol scenarios where the runner directly acts as client, server, or proxy."
     },
     "recommendedPath": "conformance/nnrp-1-preview4.wire-target.json",
     "modes": [
@@ -998,11 +1127,63 @@ export const wireConformancePresets = [
             "TRACE_CONTEXT",
             "RESULT_DROP_REASON"
           ],
+          "result_drop_reason_code": 3,
           "allowed_frames": [
             "REQUEST",
             "CANCEL",
             "TRACE_CONTEXT",
             "RESULT_DROP_REASON"
+          ]
+        }
+      },
+      {
+        "id": "wire.control.deadline-before-submit.client",
+        "mode": "suite_as_client",
+        "status": "experimental",
+        "feature": "control.deadline_expire",
+        "requiredCapabilities": [
+          "control.deadline_expire"
+        ],
+        "description": "Runner sends DEADLINE before FRAME_SUBMIT with the same operation and frame identity, then verifies the target applies the reservation without an SDK adapter.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "Runner sends DEADLINE before FRAME_SUBMIT with the same operation and frame identity, then verifies the target applies the reservation without an SDK adapter."
+        },
+        "steps": [
+          {
+            "action": "send",
+            "frame": "DEADLINE",
+            "payload": {
+              "operation_id": "op-deadline-before-submit-1",
+              "frame_id": 1,
+              "unix_ms": 4000000000000
+            }
+          },
+          {
+            "action": "send",
+            "frame": "REQUEST",
+            "payload": {
+              "operation_id": "op-deadline-before-submit-1",
+              "frame_id": 1
+            }
+          },
+          {
+            "action": "receive",
+            "frame": "RESULT_PUSH",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "frames": [
+            "DEADLINE",
+            "REQUEST",
+            "RESULT_PUSH"
+          ],
+          "allowed_frames": [
+            "DEADLINE",
+            "REQUEST",
+            "RESULT_PUSH"
           ]
         }
       },
@@ -1048,6 +1229,7 @@ export const wireConformancePresets = [
           "frames": [
             "RESULT_DROP_REASON"
           ],
+          "result_drop_reason_code": 2,
           "allowed_frames": [
             "REQUEST",
             "PRIORITY_UPDATE",
@@ -1230,6 +1412,7 @@ export const wireConformancePresets = [
             "TRACE_CONTEXT",
             "RESULT_DROP_REASON"
           ],
+          "result_drop_reason_code": 3,
           "allowed_frames": [
             "REQUEST",
             "CANCEL",

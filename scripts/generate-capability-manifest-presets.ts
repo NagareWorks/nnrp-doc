@@ -122,9 +122,11 @@ const jsonOutputFile = join(
 );
 const siblingConformanceRoot = normalize(join(repoRoot, "..", "nnrp-conformance"));
 const configuredConformanceRoot = Deno.env.get("NNRP_CONFORMANCE_REPO")?.trim();
-const conformanceGithubRepo = Deno.env.get("NNRP_CONFORMANCE_GITHUB_REPO")?.trim() ||
+const configuredConformanceGithubRepo = Deno.env.get("NNRP_CONFORMANCE_GITHUB_REPO")?.trim();
+const configuredConformanceGithubRef = Deno.env.get("NNRP_CONFORMANCE_GITHUB_REF")?.trim();
+const conformanceGithubRepo = configuredConformanceGithubRepo ||
   "NagareWorks/nnrp-conformance";
-const conformanceGithubRef = Deno.env.get("NNRP_CONFORMANCE_GITHUB_REF")?.trim() || "main";
+const conformanceGithubRef = configuredConformanceGithubRef || "main";
 const conformanceGithubToken = Deno.env.get("NNRP_CONFORMANCE_GITHUB_TOKEN")?.trim() ||
   Deno.env.get("GITHUB_TOKEN")?.trim();
 
@@ -218,7 +220,9 @@ async function fetchGitHubJsonFile<T>(path: string): Promise<T> {
 
 async function createConformanceSource(): Promise<ConformanceSource> {
   const localConformanceRoot = configuredConformanceRoot ||
-    ((await pathExists(join(siblingConformanceRoot, "protocol")))
+    ((!configuredConformanceGithubRepo &&
+        !configuredConformanceGithubRef &&
+        await pathExists(join(siblingConformanceRoot, "protocol")))
       ? siblingConformanceRoot
       : undefined);
 

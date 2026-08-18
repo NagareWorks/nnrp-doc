@@ -44,15 +44,23 @@ flowchart LR
 
 The first support band is:
 
-| Field                       | Value                                               |
-| --------------------------- | --------------------------------------------------- |
-| Declared vLLM range         | `vllm>=0.18.0,<0.23`                                |
-| First lower-bound CI target | `0.18.1`                                            |
-| Current-line CI target      | Latest stable vLLM supported by the adapter release |
-| Profile baseline            | `openai-compatible/1` Level 1                       |
+| Field                        | Value                         |
+| ---------------------------- | ----------------------------- |
+| Declared vLLM range          | `vllm>=0.18.0,<0.27`          |
+| Legacy compatibility anchor  | `0.18.1`                      |
+| Transition anchor            | `0.22.1`                      |
+| Current compatibility anchor | `0.26.0`                      |
+| Profile baseline             | `openai-compatible/1` Level 1 |
 
-`0.18.0` remains in the declared range because it starts the selected support band. `0.18.1` is the
-preferred lower-bound CI target because it is the first patch in that band.
+The declared dependency range is an installation band, not a blanket support claim for every vLLM
+minor release inside it. Runtime integration selects a named compatibility binding only for the
+`0.18.x`, `0.22.x`, or `0.26.x` family after both the installed version and required serving-object
+features pass validation. Other minor lines fail at startup with a diagnostic that names the
+detected version, missing feature when applicable, and the tested anchors.
+
+`0.18.0` remains installable because it starts the selected band. `0.18.1`, `0.22.1`, and `0.26.0`
+are the exact GPU smoke anchors; later patches in those minor families remain subject to the same
+runtime feature probe.
 
 ## 3. Implementation Slice
 
