@@ -146,7 +146,7 @@ wire `NnrpRuntimeEvent` 分开投影。
 | `DegradeProfileAsync(CapabilityMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `DegradeProfile` | capability entry |
 | `SendRouteHintAsync(RouteHintMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `RouteHint` | typed hint body |
 | `SendExecutionHintAsync(RouteHintMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ExecutionHint` | typed hint body |
-| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `TraceContext` | trace attribute |
+| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, ulong?, CancellationToken)` | `TraceContext` | trace attribute；null operation 表示 session scope |
 | `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | 任意 client 可发送 runtime control | 声明的 tail |
 
 `SendControlAsync` 是 typed escape hatch；metadata 具体类型与 `MessageType` 不匹配时必须拒绝。

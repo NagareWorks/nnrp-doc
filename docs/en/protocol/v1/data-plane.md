@@ -100,3 +100,6 @@ rules:
 5. `RESULT_PUSH` and `RESULT_DROP` retain `header.frame_id` correlation.
 6. A terminal result releases lifecycle state only after the corresponding terminal event has
    been delivered or durably recorded.
+7. `TRACE_CONTEXT` is the exception whose fixed metadata does not repeat `operation_id`.
+   `header.frame_id=0` is session-scoped; a non-zero value MUST equal the active operation's
+   recorded submit frame id and is resolved back to the preserved operation pair.

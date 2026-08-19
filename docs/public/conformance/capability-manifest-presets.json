@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-18T12:06:00.777Z",
-  "source": "NagareWorks/nnrp-conformance@0167a48d0af7520358575c6bcf9833c053efc403",
+  "generated_at": "2026-08-19T08:29:54.686Z",
+  "source": "NagareWorks/nnrp-conformance@4f1632d9deb924ce8d90d4f7212dc2310d936320",
   "presets": [
     {
       "version": "nnrp-1-preview2",
@@ -1130,6 +1130,15 @@
               "CANCEL",
               "TRACE_CONTEXT",
               "RESULT_DROP_REASON"
+            ],
+            "frame_payload_invariants": [
+              {
+                "frame": "TRACE_CONTEXT",
+                "direction": "received",
+                "fields": {
+                  "frame_id": 1
+                }
+              }
             ]
           }
         },
@@ -1415,6 +1424,15 @@
               "CANCEL",
               "TRACE_CONTEXT",
               "RESULT_DROP_REASON"
+            ],
+            "frame_payload_invariants": [
+              {
+                "frame": "TRACE_CONTEXT",
+                "direction": "received",
+                "fields": {
+                  "frame_id": 1
+                }
+              }
             ]
           }
         },

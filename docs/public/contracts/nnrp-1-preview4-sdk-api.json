@@ -2632,6 +2632,18 @@
       "timeoutRule": "A time-bounded submit wait sends DEADLINE before dispatch; expiry fails the local wait with the language-native timeout error and sends CANCEL for the submitted operation.",
       "lifecycleRule": "The local lifecycle event produced by caller cancellation or wait expiry remains observable through the client event pump and must not race the same submit wait into a successful NnrpResult return. A terminal lifecycle initiated independently by the peer may complete the submit wait as NnrpResult evidence."
     },
+    "traceContextCorrelation": {
+      "sessionFrameId": 0,
+      "operationFrameRule": "A non-zero TRACE_CONTEXT frame_id is the FRAME_SUBMIT frame_id of an active operation and must be rejected when unknown or mismatched.",
+      "metadataOperationId": "forbidden",
+      "headerTraceIdRule": "A non-zero common-header trace_id equals TraceContextMetadata.trace_id.",
+      "sendMethodShapes": {
+        "rust": "send_trace_context(frame_id, metadata, body)",
+        "python": "send_trace_context(metadata, body=b\"\", *, operation_id=None)",
+        "javascript": "sendTraceContext(metadata, body?, operationId?)",
+        "csharp": "SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, ulong?, CancellationToken)"
+      }
+    },
     "server": {
       "listenerCardinality": "one-logical-server-with-many-provider-listeners",
       "sessionCardinality": "many-per-server",

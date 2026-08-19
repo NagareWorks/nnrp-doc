@@ -147,6 +147,19 @@ Used by `TRACE_CONTEXT`.
 | `26`   | `flags`          | `u16` | Yes      | See flag masks in the value registries.                        |
 | `28`   | `body_bytes`     | `u32` | No       | Optional trace attribute body length.                          |
 
+`TRACE_CONTEXT` has two frozen correlation scopes:
+
+- `header.frame_id == 0` updates session-scoped trace context.
+- A non-zero `header.frame_id` updates the operation bound to that submitted frame. The frame id
+  MUST name an active operation and MUST equal the `FRAME_SUBMIT` frame id recorded for that
+  operation.
+
+The metadata intentionally does not repeat `operation_id`. A role-level SDK accepts an optional
+operation identity and resolves it through the active `operation_id` / `frame_id` pair before
+encoding the common header. It MUST NOT allocate an unrelated frame id for `TRACE_CONTEXT`.
+Receivers MUST reject a non-zero unknown or mismatched frame id. When the common-header `trace_id`
+is non-zero, it MUST equal `TraceContextMetadata.trace_id`.
+
 ## Result Drop Metadata
 
 Used by `RESULT_DROP_REASON`.

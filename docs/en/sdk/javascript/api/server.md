@@ -152,7 +152,7 @@ The session owns non-operation server output:
 | --------------------------------------------- | ------------------------------------------ | -------------------------------------------------------- | --------------------- |
 | `sendBackpressure(metadata)`                  | `Backpressure`                             | `PressureMetadata`                                       | none                  |
 | `sendCreditUpdate(metadata)`                  | `CreditUpdate`                             | `PressureMetadata`                                       | none                  |
-| `sendTraceContext(metadata, body?)`           | `TraceContext`                             | `TraceContextMetadata`                                   | trace attributes      |
+| `sendTraceContext(metadata, body?, operationId?)` | `TraceContext`                         | `TraceContextMetadata`                                   | trace attributes; omitted operation is session scope |
 | `sendRecoverableError(metadata, diagnostic?)` | `ErrorRecoverable`                         | `RecoverableErrorMetadata`                               | diagnostic bytes      |
 | `sendRetryAfter(metadata, diagnostic?)`       | `RetryAfter`                               | `RetryAfterMetadata`                                     | diagnostic bytes      |
 | `sendControl(messageType, metadata, tail?)`   | Any non-operation server-sendable Preview4 control frame | Matching runtime metadata type              | declared tail         |

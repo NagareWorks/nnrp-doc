@@ -103,7 +103,7 @@ Native server host 与 client 使用同一个角色中立 runtime-frame ABI。Se
 | 方法 | 消息 |
 |---|---|
 | `send_backpressure(metadata)`, `send_credit_update(metadata)` | pressure 消息 |
-| `send_trace_context(metadata, body=b"")` | `TRACE_CONTEXT` |
+| `send_trace_context(metadata, body=b"", *, operation_id=None)` | `TRACE_CONTEXT`；`None` 为 session scope，否则解析 active operation frame |
 | `send_recoverable_error(metadata, diagnostic=b"")`, `send_retry_after(...)` | recovery 消息 |
 | `declare_object`, `reference_object`, `release_object` | object lifecycle 消息 |
 | `patch_object`, `send_object_delta` | object update 消息 |

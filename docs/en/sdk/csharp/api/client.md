@@ -151,7 +151,7 @@ native session.
 | `DegradeProfileAsync(CapabilityMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `DegradeProfile` | Capability entries |
 | `SendRouteHintAsync(RouteHintMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `RouteHint` | Typed hint body |
 | `SendExecutionHintAsync(RouteHintMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ExecutionHint` | Typed hint body |
-| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `TraceContext` | Trace attributes |
+| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, ulong?, CancellationToken)` | `TraceContext` | Trace attributes; null operation is session scope |
 | `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | Any client-sendable runtime control | Declared tail |
 
 `SendControlAsync` is a typed escape hatch. It rejects metadata whose concrete type does not match

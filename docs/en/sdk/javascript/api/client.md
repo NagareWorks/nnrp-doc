@@ -204,7 +204,7 @@ named NNRP message and submits it through the active runtime in one coarse runti
 | `degradeProfile(metadata, body?)`           | `DegradeProfile`                           | `CapabilityMetadata`           | capability entries |
 | `sendRouteHint(metadata, body?)`            | `RouteHint`                                | `RouteHintMetadata`            | typed hint body    |
 | `sendExecutionHint(metadata, body?)`        | `ExecutionHint`                            | `RouteHintMetadata`            | typed hint body    |
-| `sendTraceContext(metadata, body?)`         | `TraceContext`                             | `TraceContextMetadata`         | trace attributes   |
+| `sendTraceContext(metadata, body?, operationId?)` | `TraceContext`                       | `TraceContextMetadata`         | trace attributes; omitted operation is session scope |
 | `sendControl(messageType, metadata, tail?)` | Any client-sendable Preview4 control frame | Matching runtime metadata type | declared tail      |
 
 `sendControl` is the typed escape hatch for `ErrorRecoverable`, `RetryAfter`, and extension-safe

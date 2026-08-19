@@ -144,7 +144,7 @@ session 只持有与具体 operation 无关的服务端输出：
 | --------------------------------------------- | --------------------------------------------- | --------------------------------------------------- | --------------------- |
 | `sendBackpressure(metadata)`                  | `Backpressure`                                | `PressureMetadata`                                  | 无                    |
 | `sendCreditUpdate(metadata)`                  | `CreditUpdate`                                | `PressureMetadata`                                  | 无                    |
-| `sendTraceContext(metadata, body?)`           | `TraceContext`                                | `TraceContextMetadata`                              | trace attributes      |
+| `sendTraceContext(metadata, body?, operationId?)` | `TraceContext`                            | `TraceContextMetadata`                              | trace attributes；省略 operation 表示 session scope |
 | `sendRecoverableError(metadata, diagnostic?)` | `ErrorRecoverable`                            | `RecoverableErrorMetadata`                          | diagnostic bytes      |
 | `sendRetryAfter(metadata, diagnostic?)`       | `RetryAfter`                                  | `RetryAfterMetadata`                                | diagnostic bytes      |
 | `sendControl(messageType, metadata, tail?)`   | 任意允许 server 发送且不属于具体 operation 的 Preview4 control frame | 匹配的 runtime metadata 类型 | 声明的 tail |

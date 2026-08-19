@@ -1189,6 +1189,38 @@ Deno.test("cancellable client submit waits have deterministic terminal semantics
   );
 });
 
+Deno.test("trace context correlation is frozen across all language projections", async () => {
+  const contract = await loadContract();
+  const correlation = requireRecord(
+    contract.roleSurfaces.traceContextCorrelation,
+    "roleSurfaces.traceContextCorrelation",
+  );
+  const methodShapes = requireRecord(
+    correlation.sendMethodShapes,
+    "roleSurfaces.traceContextCorrelation.sendMethodShapes",
+  );
+
+  assertEquals(correlation.sessionFrameId, 0);
+  assertEquals(correlation.metadataOperationId, "forbidden");
+  assert(
+    requireString(correlation.operationFrameRule, "traceContextCorrelation.operationFrameRule")
+      .includes("FRAME_SUBMIT frame_id"),
+    "operation-scoped trace context must reuse the active FRAME_SUBMIT frame id",
+  );
+  assert(
+    requireString(correlation.headerTraceIdRule, "traceContextCorrelation.headerTraceIdRule")
+      .includes("TraceContextMetadata.trace_id"),
+    "common-header and metadata trace ids must remain correlated",
+  );
+  assertEquals(methodShapes, {
+    rust: "send_trace_context(frame_id, metadata, body)",
+    python: 'send_trace_context(metadata, body=b"", *, operation_id=None)',
+    javascript: "sendTraceContext(metadata, body?, operationId?)",
+    csharp:
+      "SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, ulong?, CancellationToken)",
+  });
+});
+
 Deno.test("application endpoints and provider packages keep their ownership boundaries", async () => {
   const contract = await loadContract();
   const transportBoundary = requireRecord(

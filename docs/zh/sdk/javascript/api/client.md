@@ -202,7 +202,7 @@ Native 与 browser session 使用同一套控制面。每个方法都编码对�
 | `degradeProfile(metadata, body?)`           | `DegradeProfile`                              | `CapabilityMetadata`         | capability entries |
 | `sendRouteHint(metadata, body?)`            | `RouteHint`                                   | `RouteHintMetadata`          | typed hint body    |
 | `sendExecutionHint(metadata, body?)`        | `ExecutionHint`                               | `RouteHintMetadata`          | typed hint body    |
-| `sendTraceContext(metadata, body?)`         | `TraceContext`                                | `TraceContextMetadata`       | trace attributes   |
+| `sendTraceContext(metadata, body?, operationId?)` | `TraceContext`                          | `TraceContextMetadata`       | trace attributes；省略 operation 表示 session scope |
 | `sendControl(messageType, metadata, tail?)` | 任意允许 client 发送的 Preview4 control frame | 匹配的 runtime metadata 类型 | 声明的 tail        |
 
 `sendControl` 是 `ErrorRecoverable`、`RetryAfter` 与扩展安全控制路由的 typed escape hatch。

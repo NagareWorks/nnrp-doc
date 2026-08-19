@@ -91,3 +91,6 @@ Preview2 的 16 字节 typed-payload descriptor 仅是历史布局，当前 Prev
    frame 标识；接收端必须拒绝未知 operation 或不匹配的标识对。
 5. `RESULT_PUSH` 与 `RESULT_DROP` 继续使用 `header.frame_id` 关联。
 6. 只有对应 terminal event 已交付或持久记录后，才释放 operation 生命周期状态。
+7. `TRACE_CONTEXT` 是固定 metadata 不重复携带 `operation_id` 的例外。
+   `header.frame_id=0` 表示 session scope；非零值必须等于 active operation 记录的 submit
+   frame ID，并通过保留的 operation 配对解析回对应 operation。

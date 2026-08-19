@@ -147,6 +147,17 @@ metadata。多取值字段统一使用[运行时控制取值注册表](./value-r
 | `26`   | `flags`          | `u16` | 是   | 见取值注册表里的 flag masks。    |
 | `28`   | `body_bytes`     | `u32` | 否   | 可选 trace attribute body 长度。 |
 
+`TRACE_CONTEXT` 冻结为两种关联作用域：
+
+- `header.frame_id == 0` 表示更新 session 级 trace context。
+- 非零 `header.frame_id` 表示更新与该 submit frame 绑定的 operation。该 frame ID 必须指向
+  active operation，并且必须等于该 operation 记录的 `FRAME_SUBMIT` frame ID。
+
+Metadata 不重复携带 `operation_id`。Role 级 SDK 接受可选 operation identity，在编码公共头
+之前通过 active `operation_id` / `frame_id` 配对完成解析。SDK 不得为 `TRACE_CONTEXT` 分配
+无关的新 frame ID。接收方必须拒绝非零但未知或配对不一致的 frame ID。公共头
+`trace_id` 非零时，必须等于 `TraceContextMetadata.trace_id`。
+
 ## Result Drop Metadata
 
 用于 `RESULT_DROP_REASON`。

@@ -140,6 +140,9 @@ Preview4 adds compact control-plane events used by scheduling, cancellation, pro
 results, backpressure, capability negotiation, route hints, cache references, and trace context. The
 wire definitions are documented under [Runtime Control Profiles](/en/profiles/runtime-control/).
 Rust exposes them through client events, server send/receive helpers, and core metadata types.
+`send_trace_context(frame_id, metadata, body)` uses `frame_id=0` for session scope or the active
+operation's recorded submit frame id for operation scope. Passing an unrelated non-zero frame id is
+invalid.
 
 ## Artifact Naming
 

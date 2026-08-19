@@ -200,7 +200,7 @@ surface. Applications use these methods instead of constructing frames with the 
 | `supersede(metadata, diagnostic=b"")`, `update_budget(metadata)` | `SUPERSEDE`, `BUDGET_UPDATE` |
 | `negotiate_capabilities(metadata, body=b"")`, `degrade_profile(...)` | capability messages |
 | `send_route_hint(metadata, body=b"")`, `send_execution_hint(...)` | routing messages |
-| `send_trace_context(metadata, body=b"")` | `TRACE_CONTEXT` |
+| `send_trace_context(metadata, body=b"", *, operation_id=None)` | `TRACE_CONTEXT`; `None` is session scope, otherwise resolves the active operation frame |
 | `declare_object(metadata, body=b"")`, `reference_object(...)` | `OBJECT_DECLARE`, `OBJECT_REF` |
 | `release_object(metadata, diagnostic=b"")` | `OBJECT_RELEASE` |
 | `patch_object(metadata, delta, metadata_body=b"")` | `OBJECT_PATCH` |

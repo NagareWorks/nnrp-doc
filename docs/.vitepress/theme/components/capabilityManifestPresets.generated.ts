@@ -1133,6 +1133,15 @@ export const wireConformancePresets = [
             "CANCEL",
             "TRACE_CONTEXT",
             "RESULT_DROP_REASON"
+          ],
+          "frame_payload_invariants": [
+            {
+              "frame": "TRACE_CONTEXT",
+              "direction": "received",
+              "fields": {
+                "frame_id": 1
+              }
+            }
           ]
         }
       },
@@ -1418,6 +1427,15 @@ export const wireConformancePresets = [
             "CANCEL",
             "TRACE_CONTEXT",
             "RESULT_DROP_REASON"
+          ],
+          "frame_payload_invariants": [
+            {
+              "frame": "TRACE_CONTEXT",
+              "direction": "received",
+              "fields": {
+                "frame_id": 1
+              }
+            }
           ]
         }
       },

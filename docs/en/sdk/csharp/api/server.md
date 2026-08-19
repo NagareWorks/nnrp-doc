@@ -122,7 +122,7 @@ The session sends typed Preview4 frames through one coarse native call per metho
 |---|---|---|
 | `SendBackpressureAsync(PressureMetadata, CancellationToken)` | `Backpressure` | None |
 | `SendCreditUpdateAsync(PressureMetadata, CancellationToken)` | `CreditUpdate` | None |
-| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `TraceContext` | Trace attributes |
+| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, ulong?, CancellationToken)` | `TraceContext` | Trace attributes; null operation is session scope |
 | `SendRecoverableErrorAsync(RecoverableErrorMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ErrorRecoverable` | Diagnostic bytes |
 | `SendRetryAfterAsync(RetryAfterMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `RetryAfter` | Diagnostic bytes |
 | `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | Any non-operation server-sendable runtime control | Declared tail |

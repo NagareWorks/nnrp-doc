@@ -72,6 +72,9 @@ Preview4 增加了紧凑控制面事件，用于 scheduling、cancel、progress�
 capability negotiation、route hint、cache reference 和 trace context。Wire 定义见
 [运行时控制 Profiles](/zh/profiles/runtime-control/)。Rust 侧通过 client event、server send/receive helper
 和 core metadata 类型暴露这些能力。
+`send_trace_context(frame_id, metadata, body)` 使用 `frame_id=0` 表示 session scope，或使用
+active operation 记录的 submit frame ID 表示 operation scope。传入无关的非零 frame ID
+属于无效调用。
 
 ## Artifact 命名
 

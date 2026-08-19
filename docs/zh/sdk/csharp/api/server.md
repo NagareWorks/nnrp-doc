@@ -119,7 +119,7 @@ operation 回复方法。
 |---|---|---|
 | `SendBackpressureAsync(PressureMetadata, CancellationToken)` | `Backpressure` | 无 |
 | `SendCreditUpdateAsync(PressureMetadata, CancellationToken)` | `CreditUpdate` | 无 |
-| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `TraceContext` | trace attribute |
+| `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, ulong?, CancellationToken)` | `TraceContext` | trace attribute；null operation 表示 session scope |
 | `SendRecoverableErrorAsync(RecoverableErrorMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ErrorRecoverable` | 诊断字节 |
 | `SendRetryAfterAsync(RetryAfterMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `RetryAfter` | 诊断字节 |
 | `SendControlAsync(MessageType, IRuntimeControlMetadata, ReadOnlyMemory<byte>, CancellationToken)` | 任意 server 可发送且不属于具体 operation 的 runtime control | 声明的 tail |
