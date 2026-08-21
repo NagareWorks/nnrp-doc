@@ -115,16 +115,42 @@ The `body` object preserves familiar fields such as `model`, `messages`, `input`
 `top_p`, `max_tokens`, `tools`, `tool_choice`, `metadata`, and `stream` when the target operation
 supports them.
 
+### 6.1 Preview4 Wire Mapping
+
+The request envelope has one canonical Preview4 data-plane representation. A conforming client
+MUST submit exactly one typed payload frame in `FRAME_SUBMIT` with the following descriptor:
+
+| Descriptor field   | Required value              |
+| ------------------ | --------------------------- |
+| `payload_kind`     | `STRUCTURED_EVENT` (`0x10`) |
+| `profile_id`       | `0`                         |
+| `schema_id`        | `0`                         |
+| `schema_version`   | `0`                         |
+| `stream_semantics` | `SNAPSHOT` (`1`)            |
+| Payload encoding   | UTF-8 JSON                  |
+
+`FRAME_SUBMIT.payload_kind_bitmap` MUST be `0x10`, `payload_frame_count` MUST be `1`, and the body
+MUST contain exactly one matching 24-byte typed payload descriptor and one payload region. The
+decoded JSON document MUST be the request envelope defined above and MUST carry
+`"schema_version": "openai-compatible/1"`.
+
+`profile_id=0`, `schema_id=0`, and `schema_version=0` intentionally use the NNRP unbound-schema
+descriptor. Profile identity and application schema version are carried by the JSON envelope; an
+implementation MUST NOT allocate a private registry id for this mapping. Additional typed frames,
+another payload kind, non-snapshot stream semantics, a non-zero profile or schema binding, invalid
+UTF-8, invalid JSON, or a mismatched envelope schema version make the submit invalid.
+
 ## 7. Streaming Response Mapping
 
-HTTP SSE chunks map to NNRP result push events. The stream is ordered per submitted frame.
+OpenAI-compatible streaming chunks map to NNRP partial-result events. The stream is ordered per
+submitted frame.
 
 | Stream phase         | NNRP delivery                                                                            |
 | -------------------- | ---------------------------------------------------------------------------------------- |
-| First token or delta | `ResultPush` with a JSON event payload                                                   |
-| Intermediate delta   | Additional `ResultPush` messages                                                         |
-| Tool call delta      | `ResultPush` with a tool-call event object                                               |
-| Usage summary        | Final or near-final `ResultPush` event                                                   |
+| First token or delta | `PARTIAL_RESULT` with a JSON event payload                                              |
+| Intermediate delta   | Additional `PARTIAL_RESULT` messages                                                    |
+| Tool call delta      | `PARTIAL_RESULT` with a tool-call event object                                          |
+| Usage summary        | Final or near-final `PARTIAL_RESULT` event                                              |
 | Completion           | Terminal submit outcome plus a `response.completed` event when a final body is available |
 | Failure              | NNRP error plus profile error object where available                                     |
 
@@ -156,6 +182,14 @@ Adapters may include the original OpenAI-compatible streaming chunk in `openai_c
 that need exact downstream replay. Consumers must not require `openai_chunk` for normal profile
 operation.
 
+### 7.1 Partial-Result Wire Mapping
+
+Each streaming profile event is carried by one `PARTIAL_RESULT` body as one raw UTF-8 JSON event
+object. `PARTIAL_RESULT` does not wrap that event in a data-plane body prelude or typed payload
+descriptor. One frame carries one event; implementations MUST NOT concatenate multiple JSON events
+or insert SSE delimiters into the body. Invalid UTF-8, invalid JSON, or an event shape outside this
+profile is a profile stream error.
+
 ## 8. Non-Streaming Response Mapping
 
 A non-streaming request returns one logical result payload. The result payload preserves the
@@ -185,6 +219,20 @@ OpenAI-compatible response shape for the selected operation:
 
 The NNRP submit outcome owns transport-level success or failure. The profile response body owns
 application-level content such as generated text, choices, response items, usage, and finish reason.
+
+### 8.1 Terminal Wire Mapping
+
+When `RESULT_PUSH` carries a terminal profile document, it uses exactly one typed payload frame with
+the same descriptor and UTF-8 JSON encoding frozen in Section 6.1. This applies to terminal profile
+documents such as `response.completed`, `response.error`, and `response.cancelled`; it does not
+replace NNRP protocol-level cancellation, drop, or error messages.
+
+An empty successful terminal result MAY carry zero payload frames. In that form,
+`payload_kind_bitmap`, `payload_frame_count`, `typed_payload_descriptor_bytes`, and
+`typed_payload_frame_bytes` MUST all be zero. If a terminal profile body is present, those fields
+MUST instead describe exactly one `STRUCTURED_EVENT` frame and the encoded body regions MUST match
+them. Metadata that claims a typed payload while carrying raw JSON, or a body whose descriptor and
+metadata disagree, is invalid.
 
 ## 9. Cancellation and Timeouts
 

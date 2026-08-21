@@ -1099,6 +1099,44 @@ Deno.test("OpenAI-compatible tool-call lifecycle is fully frozen", async () => {
   const mapping = requireRecord(contract.nnrpMapping, "nnrpMapping");
   assertEquals(mapping.nonTerminalDelivery, "partial_result");
   assertEquals(mapping.terminalToolCallDelivery, "partial_result");
+  assertEquals(mapping.operationTerminalDelivery, ["result_push", "result_drop", "error"]);
+
+  const wireMapping = requireRecord(contract.wireMapping, "wireMapping");
+  assertEquals(requireRecord(wireMapping.request, "wireMapping.request"), {
+    messageType: "frame_submit",
+    payloadFrameCount: 1,
+    payloadKind: "structured_event",
+    payloadKindValue: 16,
+    payloadKindBitmap: 16,
+    profileId: 0,
+    schemaId: 0,
+    schemaVersion: 0,
+    streamSemantics: "snapshot",
+    streamSemanticsValue: 1,
+    payloadEncoding: "utf-8-json",
+    envelopeSchemaVersion: "openai-compatible/1",
+    extraFramesAllowed: false,
+  });
+  assertEquals(requireRecord(wireMapping.partialResult, "wireMapping.partialResult"), {
+    messageType: "partial_result",
+    bodyEncoding: "utf-8-json-event",
+    bodyFraming: "raw",
+    eventsPerFrame: 1,
+    typedPayloadEnvelope: false,
+    sseDelimitersAllowed: false,
+  });
+  assertEquals(requireRecord(wireMapping.terminalResult, "wireMapping.terminalResult"), {
+    messageType: "result_push",
+    profileBodyMapping: "request",
+    terminalProfileEvents: [
+      "response.completed",
+      "response.error",
+      "response.cancelled",
+    ],
+    emptySuccessPayloadFrameCount: 0,
+    metadataMustMatchBody: true,
+    replacesNativeTerminalState: false,
+  });
 });
 
 Deno.test("API domains cover every language projection without an unowned surface", async () => {

@@ -74,5 +74,42 @@
     "nonTerminalDelivery": "partial_result",
     "terminalToolCallDelivery": "partial_result",
     "operationTerminalDelivery": ["result_push", "result_drop", "error"]
+  },
+  "wireMapping": {
+    "request": {
+      "messageType": "frame_submit",
+      "payloadFrameCount": 1,
+      "payloadKind": "structured_event",
+      "payloadKindValue": 16,
+      "payloadKindBitmap": 16,
+      "profileId": 0,
+      "schemaId": 0,
+      "schemaVersion": 0,
+      "streamSemantics": "snapshot",
+      "streamSemanticsValue": 1,
+      "payloadEncoding": "utf-8-json",
+      "envelopeSchemaVersion": "openai-compatible/1",
+      "extraFramesAllowed": false
+    },
+    "partialResult": {
+      "messageType": "partial_result",
+      "bodyEncoding": "utf-8-json-event",
+      "bodyFraming": "raw",
+      "eventsPerFrame": 1,
+      "typedPayloadEnvelope": false,
+      "sseDelimitersAllowed": false
+    },
+    "terminalResult": {
+      "messageType": "result_push",
+      "profileBodyMapping": "request",
+      "terminalProfileEvents": [
+        "response.completed",
+        "response.error",
+        "response.cancelled"
+      ],
+      "emptySuccessPayloadFrameCount": 0,
+      "metadataMustMatchBody": true,
+      "replacesNativeTerminalState": false
+    }
   }
 }

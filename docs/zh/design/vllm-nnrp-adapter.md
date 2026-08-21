@@ -117,7 +117,8 @@ path。
 
 ## 6. 请求流程
 
-1. NNRP client 提交一个携带 `openai-compatible/1` request envelope 的 frame。
+1. NNRP client 使用 Profile 冻结的 Preview4 typed-payload wire 映射提交
+   `openai-compatible/1` request envelope。
 2. NNRP server binding 校验 envelope，并打开 adapter operation context。
 3. Profile adapter 根据 capability document 检查 operation support。
 4. vLLM backend wrapper 调用所选 vLLM serving method。
@@ -136,16 +137,16 @@ sequenceDiagram
   participant A as Profile adapter
   participant B as vLLM backend
 
-  C->>R: FRAME_SUBMIT(openai-compatible/1 envelope)
+  C->>R: FRAME_SUBMIT(STRUCTURED_EVENT snapshot)
   R->>A: validate envelope and open operation
   A->>B: create_chat_completion(body)
   loop streaming chunks
     B-->>A: OpenAI-compatible chunk
     A-->>R: Profile event
-    R-->>C: RESULT_PUSH(event)
+    R-->>C: PARTIAL_RESULT(raw JSON event)
   end
   A-->>R: terminal outcome
-  R-->>C: completion/cancel/error
+  R-->>C: typed terminal profile body or native terminal state
 ```
 
 ## 7. Streaming Event 映射

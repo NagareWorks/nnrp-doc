@@ -103,16 +103,41 @@ Profile 使用语义化 operation name，而不是 HTTP path。例如 `/v1/chat/
 `model`、`messages`、`input`、`temperature`、`top_p`、`max_tokens`、`tools`、`tool_choice`、`metadata`
 和 `stream`。
 
+### 6.1 Preview4 Wire 映射
+
+Request envelope 在 Preview4 数据面上只有一种规范表达。符合规范的 client 必须在
+`FRAME_SUBMIT` 中提交且仅提交一个 typed payload frame，其 descriptor 固定如下：
+
+| Descriptor 字段    | 必需值                      |
+| ------------------ | --------------------------- |
+| `payload_kind`     | `STRUCTURED_EVENT` (`0x10`) |
+| `profile_id`       | `0`                         |
+| `schema_id`        | `0`                         |
+| `schema_version`   | `0`                         |
+| `stream_semantics` | `SNAPSHOT` (`1`)            |
+| Payload 编码       | UTF-8 JSON                  |
+
+`FRAME_SUBMIT.payload_kind_bitmap` 必须为 `0x10`，`payload_frame_count` 必须为 `1`；body
+必须包含且仅包含一个匹配的 24-byte typed payload descriptor 和一个 payload region。解码后的
+JSON document 必须是上一节定义的 request envelope，并携带
+`"schema_version": "openai-compatible/1"`。
+
+`profile_id=0`、`schema_id=0` 和 `schema_version=0` 明确表示 NNRP 的 unbound-schema
+descriptor。Profile identity 与应用 schema version 由 JSON envelope 承载；实现不得为该映射分配私有
+registry id。额外 typed frame、其他 payload kind、非 snapshot stream semantics、非零 profile/schema
+binding、无效 UTF-8、无效 JSON 或不匹配的 envelope schema version 都必须使 submit 失败。
+
 ## 7. 流式响应映射
 
-HTTP SSE chunk 映射为 NNRP result push event。流式事件在单个 submitted frame 内保持有序。
+OpenAI 兼容 streaming chunk 映射为 NNRP partial-result event。流式事件在单个 submitted frame
+内保持有序。
 
 | 流程阶段            | NNRP 交付方式                                                                   |
 | ------------------- | ------------------------------------------------------------------------------- |
-| 首个 token 或 delta | 携带 JSON event payload 的 `ResultPush`                                         |
-| 中间 delta          | 后续 `ResultPush`                                                               |
-| Tool call delta     | 携带 tool-call event object 的 `ResultPush`                                     |
-| Usage summary       | 终止前或最终 `ResultPush` event                                                 |
+| 首个 token 或 delta | 携带 JSON event payload 的 `PARTIAL_RESULT`                                     |
+| 中间 delta          | 后续 `PARTIAL_RESULT`                                                           |
+| Tool call delta     | 携带 tool-call event object 的 `PARTIAL_RESULT`                                 |
+| Usage summary       | 终止前或最终 `PARTIAL_RESULT` event                                             |
 | Completion          | Terminal submit outcome；如果存在最终 body，同时发送 `response.completed` event |
 | Failure             | NNRP error，加可用的 profile error object                                       |
 
@@ -143,6 +168,13 @@ Text delta 示例：
 Adapter 可以在 `openai_chunk` 中附带原始 OpenAI 兼容 streaming chunk，方便需要精确下游重放的
 client。普通 Profile 消费者不得依赖 `openai_chunk`。
 
+### 7.1 Partial Result Wire 映射
+
+每个 streaming profile event 由一个 `PARTIAL_RESULT` body 承载，body 是一个原始 UTF-8 JSON event
+object。`PARTIAL_RESULT` 不得在 event 外再包 data-plane body prelude 或 typed payload descriptor。
+每个 frame 只承载一个 event；实现不得拼接多个 JSON event，也不得向 body 插入 SSE delimiter。无效
+UTF-8、无效 JSON 或不属于本 Profile 的 event shape 都是 profile stream error。
+
 ## 8. 非流式响应映射
 
 非流式请求返回一个逻辑 result payload。result payload 保留所选 operation 的 OpenAI 兼容响应形态：
@@ -171,6 +203,19 @@ client。普通 Profile 消费者不得依赖 `openai_chunk`。
 
 NNRP submit outcome 负责传输层成功或失败。Profile response body
 负责应用层内容，例如生成文本、choices、response items、usage 和 finish reason。
+
+### 8.1 Terminal Wire 映射
+
+当 `RESULT_PUSH` 携带 terminal profile document 时，它必须使用与 6.1 节完全相同的 descriptor 和
+UTF-8 JSON 编码，并且只携带一个 typed payload frame。该规则适用于
+`response.completed`、`response.error` 和 `response.cancelled` 等 terminal profile document；它不替代
+NNRP 协议级 cancel、drop 或 error message。
+
+空的成功 terminal result 可以携带零个 payload frame。此时 `payload_kind_bitmap`、
+`payload_frame_count`、`typed_payload_descriptor_bytes` 和 `typed_payload_frame_bytes` 必须全部为零。
+如果存在 terminal profile body，这些字段必须改为准确描述一个 `STRUCTURED_EVENT` frame，并与编码后的
+body region 完全一致。Metadata 声称存在 typed payload 却直接携带 raw JSON，或 descriptor、metadata 与
+body 不一致，都属于无效结果。
 
 ## 9. 取消与超时
 

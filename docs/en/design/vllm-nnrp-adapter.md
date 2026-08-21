@@ -128,7 +128,8 @@ mutation is not acceptable for the release path.
 
 ## 6. Request Flow
 
-1. An NNRP client submits a frame carrying an `openai-compatible/1` request envelope.
+1. An NNRP client submits the `openai-compatible/1` request envelope using the profile's canonical
+   Preview4 typed-payload wire mapping.
 2. The NNRP server binding validates the envelope and opens an adapter operation context.
 3. The profile adapter checks operation support against the capability document.
 4. The vLLM backend wrapper calls the selected vLLM serving method.
@@ -147,16 +148,16 @@ sequenceDiagram
   participant A as Profile adapter
   participant B as vLLM backend
 
-  C->>R: FRAME_SUBMIT(openai-compatible/1 envelope)
+  C->>R: FRAME_SUBMIT(STRUCTURED_EVENT snapshot)
   R->>A: validate envelope and open operation
   A->>B: create_chat_completion(body)
   loop streaming chunks
     B-->>A: OpenAI-compatible chunk
     A-->>R: Profile event
-    R-->>C: RESULT_PUSH(event)
+    R-->>C: PARTIAL_RESULT(raw JSON event)
   end
   A-->>R: terminal outcome
-  R-->>C: completion/cancel/error
+  R-->>C: typed terminal profile body or native terminal state
 ```
 
 ## 7. Streaming Event Mapping
