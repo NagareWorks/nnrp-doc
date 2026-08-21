@@ -122,7 +122,8 @@
         "control.route_execution_hint",
         "control.trace_context",
         "host.routes",
-        "object.lifecycle"
+        "object.lifecycle",
+        "profile.openai-compatible.level1.wire"
       ],
       "limits": {
         "max_frame_bytes": 16777216,

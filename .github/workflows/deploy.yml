@@ -107,7 +107,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NNRP_CONFORMANCE_GITHUB_REPO: ${{ vars.NNRP_CONFORMANCE_GITHUB_REPO || 'NagareWorks/nnrp-conformance' }}
-      NNRP_CONFORMANCE_GITHUB_REF: ${{ vars.NNRP_CONFORMANCE_GITHUB_REF || '4f1632d9deb924ce8d90d4f7212dc2310d936320' }}
+      NNRP_CONFORMANCE_GITHUB_REF: ${{ vars.NNRP_CONFORMANCE_GITHUB_REF || '6a95f241ae4e5b616cd4e9f55c5033f49a1ab6b1' }}
+      NNRP_CONFORMANCE_GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5

@@ -174,7 +174,7 @@ baseline，以及定义测试面的声明式 recipe manifest。
   "profile": "openai-compatible",
   "schema_version": "openai-compatible/1",
   "level": 1,
-  "protocol_baselines": ["nnrp-1-preview3"],
+  "protocol_baselines": ["nnrp-1-preview3", "nnrp-1-preview4"],
   "recipe_manifests": [
     "recipes/chat-streaming-text.json",
     "recipes/chat-non-streaming.json"
@@ -248,7 +248,7 @@ plan。Plan 内包含 `coverage_matrix`，方便 CI 展示每个 recipe 为什�
 
 ```bash
 nnrp-conformance-runner api-profile-plan \
-  --protocol protocol/nnrp-1-preview3/manifest.json \
+  --protocol protocol/nnrp-1-preview4/manifest.json \
   --profile profiles/openai-compatible/1/manifest.json \
   --capabilities conformance/openai-compatible-1.api-capabilities.json \
   --output artifacts/api-profile-plan.json

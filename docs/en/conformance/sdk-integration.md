@@ -226,7 +226,7 @@ cargo run \
   -p nnrp-conformance-runner \
   -- \
   api-profile-plan \
-  --protocol <path-to-nnrp-conformance>/protocol/nnrp-1-preview3/manifest.json \
+  --protocol <path-to-nnrp-conformance>/protocol/nnrp-1-preview4/manifest.json \
   --profile <path-to-nnrp-conformance>/profiles/openai-compatible/1/manifest.json \
   --capabilities conformance/openai-compatible-1.api-capabilities.json \
   --output /tmp/api-profile-plan.json

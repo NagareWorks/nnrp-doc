@@ -851,12 +851,13 @@ export const apiProfilePresets = [
       "en": "openai-compatible Level 1"
     },
     "note": {
-      "zh": "从 OpenAI NNRP API Profile 的声明式 recipe 派生，覆盖 8 个用例，适用于 nnrp-1-preview3。",
-      "en": "Derived from OpenAI NNRP API profile recipes. Covers 8 declarative cases for nnrp-1-preview3."
+      "zh": "从 OpenAI NNRP API Profile 的声明式 recipe 派生，覆盖 8 个用例，适用于 nnrp-1-preview3, nnrp-1-preview4。",
+      "en": "Derived from OpenAI NNRP API profile recipes. Covers 8 declarative cases for nnrp-1-preview3, nnrp-1-preview4."
     },
     "recommendedPath": "conformance/openai-compatible-1.api-capabilities.json",
     "protocolBaselines": [
-      "nnrp-1-preview3"
+      "nnrp-1-preview3",
+      "nnrp-1-preview4"
     ],
     "operations": [
       {
@@ -998,8 +999,8 @@ export const wireConformancePresets = [
       "en": "nnrp-1-preview4 Wire-level Conformance"
     },
     "note": {
-      "zh": "从线路级测试场景声明派生，覆盖 19 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
-      "en": "Derived from wire-level conformance scenario manifests. Covers 19 protocol scenarios where the runner directly acts as client, server, or proxy."
+      "zh": "从线路级测试场景声明派生，覆盖 20 个由测试套件直接扮演客户端、服务端或代理的协议级场景。",
+      "en": "Derived from wire-level conformance scenario manifests. Covers 20 protocol scenarios where the runner directly acts as client, server, or proxy."
     },
     "recommendedPath": "conformance/nnrp-1-preview4.wire-target.json",
     "modes": [
@@ -1085,6 +1086,95 @@ export const wireConformancePresets = [
     ],
     "scenarios": [
       {
+        "id": "wire.profile.openai-compatible.level1",
+        "mode": "suite_as_client",
+        "status": "mandatory",
+        "feature": "profile.openai-compatible.level1.wire",
+        "requiredCapabilities": [
+          "profile.openai-compatible.level1.wire"
+        ],
+        "description": "Runner sends the frozen OpenAI-compatible typed request directly, then validates raw partial-result JSON and a typed terminal result over a live endpoint.",
+        "summary": {
+          "zh": "线路级测试场景会直接交换 NNRP 帧，并校验终态、关键帧和观测证据。",
+          "en": "Runner sends the frozen OpenAI-compatible typed request directly, then validates raw partial-result JSON and a typed terminal result over a live endpoint."
+        },
+        "steps": [
+          {
+            "action": "send",
+            "frame": "REQUEST"
+          },
+          {
+            "action": "receive",
+            "frame": "PARTIAL_RESULT",
+            "timeout_ms": 1000
+          },
+          {
+            "action": "receive",
+            "frame": "RESULT_PUSH",
+            "timeout_ms": 1000
+          }
+        ],
+        "expect": {
+          "terminal": "success",
+          "frames": [
+            "REQUEST",
+            "PARTIAL_RESULT",
+            "RESULT_PUSH"
+          ],
+          "allowed_frames": [
+            "REQUEST",
+            "PARTIAL_RESULT",
+            "RESULT_PUSH"
+          ],
+          "frame_payload_invariants": [
+            {
+              "frame": "REQUEST",
+              "direction": "sent",
+              "fields": {
+                "payload_frame_count": 1,
+                "payload_kind": "structured_event",
+                "payload_kind_bitmap": 16,
+                "profile_id": 0,
+                "schema_id": 0,
+                "schema_version": 0,
+                "stream_semantics": "snapshot",
+                "stream_semantics_value": 1,
+                "payload_encoding": "utf-8-json",
+                "envelope_schema_version": "openai-compatible/1"
+              }
+            },
+            {
+              "frame": "PARTIAL_RESULT",
+              "direction": "received",
+              "fields": {
+                "body_encoding": "utf-8-json-event",
+                "body_framing": "raw",
+                "events_per_frame": 1,
+                "typed_payload_envelope": false,
+                "sse_delimiters_allowed": false,
+                "event_type": "response.output_text.delta"
+              }
+            },
+            {
+              "frame": "RESULT_PUSH",
+              "direction": "received",
+              "fields": {
+                "payload_frame_count": 1,
+                "payload_kind": "structured_event",
+                "payload_kind_bitmap": 16,
+                "profile_id": 0,
+                "schema_id": 0,
+                "schema_version": 0,
+                "stream_semantics": "snapshot",
+                "stream_semantics_value": 1,
+                "payload_encoding": "utf-8-json",
+                "event_type": "response.completed"
+              }
+            }
+          ]
+        }
+      },
+      {
         "id": "wire.control.cancel-abort.client",
         "mode": "suite_as_client",
         "status": "experimental",
@@ -1139,7 +1229,7 @@ export const wireConformancePresets = [
               "frame": "TRACE_CONTEXT",
               "direction": "received",
               "fields": {
-                "frame_id": 1
+                "frame_id": 0
               }
             }
           ]
@@ -1433,7 +1523,7 @@ export const wireConformancePresets = [
               "frame": "TRACE_CONTEXT",
               "direction": "received",
               "fields": {
-                "frame_id": 1
+                "frame_id": 0
               }
             }
           ]
