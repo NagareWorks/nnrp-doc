@@ -169,7 +169,7 @@ sets a `reserved` field to a non-zero value.
 | Control Request Metadata  | `flags` | `0x03`       | bit `0`: cooperative allowed; bit `1`: hard abort allowed.           |
 | Scheduling Metadata       | `flags` | `0x00000003` | bit `0`: discard stale work; bit `1`: emit drop reason.              |
 | Supersede Metadata        | `flags` | `0x0001`     | bit `0`: abort old operation immediately.                            |
-| Budget Metadata           | `flags` | `0x00000003` | bit `0`: replace; bit `1`: increment.                                |
+| Budget Metadata           | `flags` | `0x00000003` | bit `0`: replace; bit `1`: increment; exactly one must be set.       |
 | Partial Result Metadata   | `flags` | `0x00000003` | bit `0`: final partial; bit `1`: object ref present.                 |
 | Pressure Metadata         | `flags` | `0x00000003` | bit `0`: applies to connection; bit `1`: applies to operation.       |
 | Capability Metadata       | `flags` | `0x00000003` | bit `0`: hard requirement; bit `1`: downgrade allowed.               |

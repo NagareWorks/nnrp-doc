@@ -167,7 +167,7 @@ next:
 | Control Request Metadata  | `flags` | `0x03`       | bit `0`：允许协作取消；bit `1`：允许硬中断。                |
 | Scheduling Metadata       | `flags` | `0x00000003` | bit `0`：丢弃过期任务；bit `1`：发出 drop reason。          |
 | Supersede Metadata        | `flags` | `0x0001`     | bit `0`：立即 abort 旧 operation。                          |
-| Budget Metadata           | `flags` | `0x00000003` | bit `0`：替换；bit `1`：增量。                              |
+| Budget Metadata           | `flags` | `0x00000003` | bit `0`：替换；bit `1`：增量；必须且只能设置一个。           |
 | Partial Result Metadata   | `flags` | `0x00000003` | bit `0`：最后一个 partial；bit `1`：存在 object ref。       |
 | Pressure Metadata         | `flags` | `0x00000003` | bit `0`：作用于连接；bit `1`：作用于 operation。            |
 | Capability Metadata       | `flags` | `0x00000003` | bit `0`：硬性要求；bit `1`：允许降级。                      |

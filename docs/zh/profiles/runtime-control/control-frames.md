@@ -65,6 +65,29 @@ metadata。多取值字段统一使用[运行时控制取值注册表](./value-r
 | `32`   | `token_budget`           | `u32` | 否   | token 预算。                                 |
 | `36`   | `flags`                  | `u32` | 是   | 见取值注册表里的 flag masks。                |
 
+`BUDGET_UPDATE` 携带的是可执行的剩余消耗硬上限，不是调度建议。接收方把更新应用到自己为目标
+operation 执行的工作。`operation_id` 为 `0` 时更新会话默认值，只影响此后进入 admission 的
+operation；已经进入 admission 的 operation 只有在使用其非零 operation id 定向更新时才会变化。
+
+更新遵循以下规范语义：
+
+1. `replace` 与 `increment` flag 必须且只能设置一个。两者同时设置或均未设置都属于语义错误，
+   即使固定 metadata 布局在结构上仍然可以解码。
+2. 数值字段为零表示该预算维度保持不变。`replace` 模式下，每个非零字段替换剩余上限；
+   `increment` 模式下，每个非零字段增加剩余上限，溢出属于错误。
+3. `compute_budget_units` 使用通过 `CAPABILITY_NEGOTIATION` 接受的 cost model。接收方没有具体
+   cost model 时不得声明支持 compute budget。
+4. `memory_budget_bytes` 限制更新后该 operation 新增持有的活跃内存；
+   `bandwidth_budget_bytes` 限制更新后接收方向发送方输出的 NNRP payload 字节；
+   `token_budget` 使用当前 profile 的 token unit。对 `openai-compatible/1`，它限制更新被接受后
+   生成的 output token 数。
+5. 每个非零预算都是硬上限。接收方必须停止、丢弃，或在上限内完成。只有提交请求的预算策略
+   允许对应降级，并且兼容的 `DEGRADE_PROFILE` 已被接受时，接收方才可以降级；降级不能放宽
+   当前预算上限。
+6. 超出上限必须产生终态 `RESULT_DROP_REASON`，其中
+   `drop_reason_code=budget_exceeded`；如果 profile 要求先发送 profile 终态事件，则该事件之后
+   仍必须留下同一个可观测终态原因。
+
 ## Progress Metadata
 
 用于 `PROGRESS`。

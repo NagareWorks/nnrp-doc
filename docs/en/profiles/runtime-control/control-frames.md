@@ -65,6 +65,31 @@ Used by `BUDGET_UPDATE`.
 | `32`   | `token_budget`           | `u32` | No       | Token budget when applicable.                     |
 | `36`   | `flags`                  | `u32` | Yes      | See flag masks in the value registries.           |
 
+`BUDGET_UPDATE` carries enforceable remaining-consumption ceilings, not advisory scheduling
+hints. The receiver applies the update to its work for the identified operation. An
+`operation_id` of `0` updates the session default for operations admitted after the update;
+already-admitted operations change only when targeted by their non-zero operation id.
+
+The update has the following normative semantics:
+
+1. Exactly one of the `replace` and `increment` flag bits must be set. Setting both or neither is
+   a semantic error even though the fixed metadata layout remains structurally decodable.
+2. A zero numeric field leaves that budget dimension unchanged. Under `replace`, each non-zero
+   field replaces the remaining ceiling. Under `increment`, each non-zero field increases the
+   remaining ceiling; overflow is an error.
+3. `compute_budget_units` uses the cost model accepted through `CAPABILITY_NEGOTIATION`. A receiver
+   must not advertise compute-budget support without a concrete cost model.
+4. `memory_budget_bytes` limits additional live memory owned for the operation after the update.
+   `bandwidth_budget_bytes` limits NNRP payload bytes emitted by the receiver for the operation
+   after the update. `token_budget` uses the active profile's token unit; for
+   `openai-compatible/1`, it limits generated output tokens after the update is accepted.
+5. Every non-zero budget is a hard ceiling. The receiver must stop, drop, or complete within the
+   ceiling. It may degrade only when the submitted budget policy permits that degradation and a
+   compatible `DEGRADE_PROFILE` has been accepted. Degradation never relaxes the active ceiling.
+6. Exceeding a ceiling must produce a terminal `RESULT_DROP_REASON` with
+   `drop_reason_code=budget_exceeded`, or a profile terminal event followed by the same observable
+   terminal reason when the profile requires one.
+
 ## Progress Metadata
 
 Used by `PROGRESS`.
