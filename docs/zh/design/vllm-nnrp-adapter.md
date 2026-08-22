@@ -203,6 +203,34 @@ Metrics export 规则：
 5. 一致性测试可以验证 diagnostic shape，但 metrics 属于 release diagnostics 和 benchmark
    material，不是正确性 gate。
 
+### 8.1 Trace 传播边界
+
+`TRACE_CONTEXT` 始终属于 NNRP runtime metadata；adapter 不得把它复制进 OpenAI request body。
+Adapter 在 operation observation 中记录完整的固定 metadata，但对 attribute body 只记录字节数。
+不透明 trace attributes 不得进入日志，也不得被转换成 HTTP headers。
+
+当选中的 vLLM engine-direct binding 接受 W3C trace headers 时，adapter 把符合条件的 NNRP
+trace context 转换为唯一的 `traceparent` 值：
+
+```text
+00-0000000000000000{trace_id:016x}-{span_id:016x}-{trace_flags:02x}
+```
+
+转换规则冻结如下：
+
+1. `trace_id` 和 `span_id` 都必须非零；否则 context 仍进入观测记录，但不传播给 vLLM。
+2. 64 位 NNRP `trace_id` 零扩展到 128 位 W3C trace id 的低 64 位。
+3. NNRP `span_id` 作为 vLLM 创建的子 span 的 W3C parent id。
+4. NNRP flags 的 bit `0` 映射为 W3C sampled flag bit `0`；NNRP error flag bit `1` 只保留在
+   observation metadata 中，不改变 W3C trace flags。
+5. `parent_span_id`、`stage_code` 和不透明 attribute body 继续作为 NNRP observation metadata。
+   Adapter 不根据它们合成 `tracestate`。
+
+Session-scoped context 是它到达后新 admission operation 的默认值。Operation-scoped context 只有在
+backend dispatch 前、且关联 active submit frame 时才替换默认值。Backend dispatch 后到达的 context
+仍更新 operation observation，但 adapter 不得修改已在执行的 vLLM request trace headers。不接受
+`trace_headers` 的 binding 保留相同 observation 行为，不接收合成 request 字段，也不得回退到 HTTP。
+
 ## 9. Cancellation 与 Diagnostics
 
 Cancellation 从 NNRP frame cancellation 映射到 active vLLM request path。如果 vLLM 无法立刻

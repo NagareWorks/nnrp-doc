@@ -217,6 +217,38 @@ Metrics export rules:
 5. Conformance may validate diagnostic shape, but metrics are release diagnostics and benchmark
    material rather than correctness gates.
 
+### 8.1 Trace Propagation Boundary
+
+`TRACE_CONTEXT` remains NNRP runtime metadata; the adapter MUST NOT copy it into the OpenAI request
+body. The adapter records the complete fixed metadata in its operation observation, but records only
+the attribute-body byte count. Opaque trace attributes are not logged and are not converted into
+HTTP headers.
+
+When a selected vLLM engine-direct binding accepts W3C trace headers, the adapter translates an
+eligible NNRP trace context into exactly one `traceparent` value:
+
+```text
+00-0000000000000000{trace_id:016x}-{span_id:016x}-{trace_flags:02x}
+```
+
+The translation rules are frozen as follows:
+
+1. `trace_id` and `span_id` MUST both be non-zero. Otherwise the context remains observable but is
+   not forwarded to vLLM.
+2. The 64-bit NNRP `trace_id` is zero-extended into the low 64 bits of the 128-bit W3C trace id.
+3. The NNRP `span_id` becomes the W3C parent id for the child span created by vLLM.
+4. NNRP flag bit `0` maps to W3C sampled flag bit `0`; NNRP error flag bit `1` remains observation
+   metadata and does not alter W3C trace flags.
+5. `parent_span_id`, `stage_code`, and the opaque attribute body remain NNRP observation metadata.
+   The adapter does not synthesize `tracestate` from them.
+
+A session-scoped context is the default for operations admitted after that context is received. An
+operation-scoped context replaces the default only when it is received for the active submit frame
+before backend dispatch. A context received after backend dispatch still updates the operation
+observation, but the adapter MUST NOT mutate an in-flight vLLM request's trace headers. Bindings that
+do not accept `trace_headers` retain the same observation behavior and receive no synthetic request
+field or fallback HTTP request.
+
 ## 9. Cancellation And Diagnostics
 
 Cancellation maps from NNRP frame cancellation into the active vLLM request path. If vLLM cannot
