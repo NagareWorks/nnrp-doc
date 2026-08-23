@@ -143,6 +143,28 @@ operation；已经进入 admission 的 operation 只有在使用其非零 operat
 | `24`   | `body_bytes`       | `u32` | 是   | Capability entry body 长度。       |
 | `28`   | `flags`            | `u32` | 是   | 见取值注册表里的 flag masks。      |
 
+capability body 使用紧凑二进制序列，不是 JSON，也不包含外层 array 或 object envelope。每个 entry
+采用以下布局：
+
+| Offset | 字段          | 类型            | 含义                                             |
+| ------ | ------------- | --------------- | ------------------------------------------------ |
+| `0`    | `token_bytes` | `u16`           | capability token 的字节长度，必须非零。          |
+| `2`    | `token`       | ASCII byte span | 已注册 capability token 的规范拼写。             |
+
+entry 连续紧密排列，不带 padding，并遵循以下规范规则：
+
+1. `capability_count` 必须等于 entry 数量，`body_bytes` 必须等于所有 entry 的精确总字节数。count
+   为零时 body 必须为空；count 非零时 body 必须非空。
+2. token 使用当前 capability registry 中的规范小写 ASCII 拼写。未知、格式错误、空 token 或
+   private token 必须拒绝，除非双方另行协商的 extension registry 明确允许。
+3. 每个 token 只能出现一次，并按无符号字节升序排列。重复或非规范顺序属于语义错误。
+4. `profile_id`、`cost_model_id`、`preference_rank`、`limit_bytes`、`limit_units` 和 `flags`
+   组成一个应用于 body 内全部 token 的 offer。不同 cost 或 limit 必须使用不同的
+   `CAPABILITY_NEGOTIATION` 帧。
+5. 接收方使用相同编码返回自己接受的子集。接受集合为空时使用 `capability_count=0` 和
+   `body_bytes=0`；如果硬性要求没有任何 token 被接受，还必须产生 typed capability-mismatch
+   error。
+
 ## Route Hint Metadata
 
 用于 `ROUTE_HINT` 和 `EXECUTION_HINT`。

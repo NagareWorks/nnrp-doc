@@ -145,6 +145,30 @@ Used by `CAPABILITY_NEGOTIATION` and `DEGRADE_PROFILE`.
 | `24`   | `body_bytes`       | `u32` | Yes      | Capability entry body length.                |
 | `28`   | `flags`            | `u32` | Yes      | See flag masks in the value registries.      |
 
+The capability body is a compact binary sequence. It is not JSON and does not contain an outer
+array or object envelope. Each entry has this layout:
+
+| Offset | Field         | Type            | Meaning                                                |
+| ------ | ------------- | --------------- | ------------------------------------------------------ |
+| `0`    | `token_bytes` | `u16`           | Capability token byte length; must be non-zero.        |
+| `2`    | `token`       | ASCII byte span | Canonical registered capability token.                 |
+
+Entries are packed back to back without padding. The following rules are normative:
+
+1. `capability_count` equals the number of packed entries and `body_bytes` equals their exact total
+   byte length. A zero count requires an empty body; a non-zero count requires a non-empty body.
+2. Tokens use the canonical lowercase ASCII spelling from the active capability registry. Unknown,
+   malformed, empty, or private tokens are rejected unless a separately negotiated extension
+   registry explicitly permits them.
+3. Tokens appear once each, sorted by ascending unsigned byte order. Duplicate or non-canonical
+   ordering is a semantic error.
+4. `profile_id`, `cost_model_id`, `preference_rank`, `limit_bytes`, `limit_units`, and `flags` form
+   one offer that applies to every token in the body. Different costs or limits require separate
+   `CAPABILITY_NEGOTIATION` frames.
+5. A receiver answers with the same encoding and only the subset it accepts. An empty accepted set
+   uses `capability_count=0` and `body_bytes=0`; a hard requirement with no accepted token must also
+   produce a typed capability-mismatch error.
+
 ## Route Hint Metadata
 
 Used by `ROUTE_HINT` and `EXECUTION_HINT`.
