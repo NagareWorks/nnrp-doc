@@ -2605,6 +2605,7 @@
       "serverAcceptOptions",
       "serverSessionPolicy",
       "roleMethods",
+      "serverCapabilityMethods",
       "sessionRecoveryTicket",
       "sessionRecoveryTicketEncode",
       "sessionRecoveryTicketDecode"
@@ -2796,6 +2797,10 @@
         "server_operation.send_progress": "send_progress",
         "server_operation.send_partial_result": "send_partial_result"
       },
+      "serverCapabilityMethods": {
+        "negotiate_capabilities": "send_capability",
+        "degrade_profile": "send_capability"
+      },
       "operationLifecycleEvent": "nnrp_runtime::OperationLifecycleEvent",
       "terminalEvent": "nnrp_runtime::NnrpTerminalEvent",
       "result": "nnrp_runtime::NnrpResult",
@@ -2886,6 +2891,10 @@
         "server_operation.send_progress": "send_progress",
         "server_operation.send_partial_result": "send_partial_result"
       },
+      "serverCapabilityMethods": {
+        "negotiate_capabilities": "negotiate_capabilities",
+        "degrade_profile": "degrade_profile"
+      },
       "operationLifecycleEvent": "nnrp.runtime.OperationLifecycleEvent",
       "terminalEvent": "nnrp.runtime.NativeTerminalEvent",
       "result": "nnrp.NativeRuntimeResult",
@@ -2972,6 +2981,10 @@
         "server_operation.send_result_drop": "sendResultDrop",
         "server_operation.send_progress": "sendProgress",
         "server_operation.send_partial_result": "sendPartialResult"
+      },
+      "serverCapabilityMethods": {
+        "negotiate_capabilities": "negotiateCapabilities",
+        "degrade_profile": "degradeProfile"
       },
       "operationLifecycleEvent": "@nnrp/core.NnrpOperationLifecycleEvent",
       "terminalEvent": "@nnrp/core.NnrpTerminalEvent",
@@ -3062,6 +3075,10 @@
         "server_operation.send_result_drop": "SendResultDropAsync",
         "server_operation.send_progress": "SendProgressAsync",
         "server_operation.send_partial_result": "SendPartialResultAsync"
+      },
+      "serverCapabilityMethods": {
+        "negotiate_capabilities": "NegotiateCapabilitiesAsync",
+        "degrade_profile": "DegradeProfileAsync"
       },
       "operationLifecycleEvent": "Nnrp.Runtime.NnrpOperationLifecycleEvent",
       "terminalEvent": "Nnrp.Runtime.NnrpTerminalEvent",

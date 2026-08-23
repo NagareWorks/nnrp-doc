@@ -877,6 +877,7 @@ Deno.test("every maintained SDK projects every canonical role type", async () =>
     "providerEndpoint",
     "result",
     "roleMethods",
+    "serverCapabilityMethods",
     "runtimeMetadataNamespace",
     "schemaDescriptor",
     "schemaRegistry",
@@ -1025,6 +1026,32 @@ Deno.test("server operation ownership and language method names are fully frozen
       contract.languageProjections[language].roleMethods,
       methods,
       `${language} role methods drifted`,
+    );
+  }
+
+  const expectedServerCapabilityMethods: Record<string, Record<string, string>> = {
+    rust: {
+      negotiate_capabilities: "send_capability",
+      degrade_profile: "send_capability",
+    },
+    python: {
+      negotiate_capabilities: "negotiate_capabilities",
+      degrade_profile: "degrade_profile",
+    },
+    javascript: {
+      negotiate_capabilities: "negotiateCapabilities",
+      degrade_profile: "degradeProfile",
+    },
+    csharp: {
+      negotiate_capabilities: "NegotiateCapabilitiesAsync",
+      degrade_profile: "DegradeProfileAsync",
+    },
+  };
+  for (const [language, methods] of Object.entries(expectedServerCapabilityMethods)) {
+    assertEquals(
+      contract.languageProjections[language].serverCapabilityMethods,
+      methods,
+      `${language} server capability methods drifted`,
     );
   }
 
