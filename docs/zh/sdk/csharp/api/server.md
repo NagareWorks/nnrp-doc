@@ -119,6 +119,8 @@ operation 回复方法。
 |---|---|---|
 | `SendBackpressureAsync(PressureMetadata, CancellationToken)` | `Backpressure` | 无 |
 | `SendCreditUpdateAsync(PressureMetadata, CancellationToken)` | `CreditUpdate` | 无 |
+| `NegotiateCapabilitiesAsync(CapabilityMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `CapabilityNegotiation` | capability entry |
+| `DegradeProfileAsync(CapabilityMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `DegradeProfile` | capability entry |
 | `SendTraceContextAsync(TraceContextMetadata, ReadOnlyMemory<byte>, ulong?, CancellationToken)` | `TraceContext` | trace attribute；null operation 表示 session scope |
 | `SendRecoverableErrorAsync(RecoverableErrorMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `ErrorRecoverable` | 诊断字节 |
 | `SendRetryAfterAsync(RetryAfterMetadata, ReadOnlyMemory<byte>, CancellationToken)` | `RetryAfter` | 诊断字节 |

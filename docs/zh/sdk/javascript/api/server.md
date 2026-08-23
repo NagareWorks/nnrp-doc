@@ -144,6 +144,8 @@ session 只持有与具体 operation 无关的服务端输出：
 | --------------------------------------------- | --------------------------------------------- | --------------------------------------------------- | --------------------- |
 | `sendBackpressure(metadata)`                  | `Backpressure`                                | `PressureMetadata`                                  | 无                    |
 | `sendCreditUpdate(metadata)`                  | `CreditUpdate`                                | `PressureMetadata`                                  | 无                    |
+| `negotiateCapabilities(metadata, body?)`      | `CapabilityNegotiation`                       | `CapabilityMetadata`                                | capability entry      |
+| `degradeProfile(metadata, body?)`             | `DegradeProfile`                              | `CapabilityMetadata`                                | capability entry      |
 | `sendTraceContext(metadata, body?, operationId?)` | `TraceContext`                            | `TraceContextMetadata`                              | trace attributes；省略 operation 表示 session scope |
 | `sendRecoverableError(metadata, diagnostic?)` | `ErrorRecoverable`                            | `RecoverableErrorMetadata`                          | diagnostic bytes      |
 | `sendRetryAfter(metadata, diagnostic?)`       | `RetryAfter`                                  | `RetryAfterMetadata`                                | diagnostic bytes      |

@@ -152,6 +152,8 @@ The session owns non-operation server output:
 | --------------------------------------------- | ------------------------------------------ | -------------------------------------------------------- | --------------------- |
 | `sendBackpressure(metadata)`                  | `Backpressure`                             | `PressureMetadata`                                       | none                  |
 | `sendCreditUpdate(metadata)`                  | `CreditUpdate`                             | `PressureMetadata`                                       | none                  |
+| `negotiateCapabilities(metadata, body?)`      | `CapabilityNegotiation`                    | `CapabilityMetadata`                                     | capability entries    |
+| `degradeProfile(metadata, body?)`             | `DegradeProfile`                           | `CapabilityMetadata`                                     | capability entries    |
 | `sendTraceContext(metadata, body?, operationId?)` | `TraceContext`                         | `TraceContextMetadata`                                   | trace attributes; omitted operation is session scope |
 | `sendRecoverableError(metadata, diagnostic?)` | `ErrorRecoverable`                         | `RecoverableErrorMetadata`                               | diagnostic bytes      |
 | `sendRetryAfter(metadata, diagnostic?)`       | `RetryAfter`                               | `RetryAfterMetadata`                                     | diagnostic bytes      |

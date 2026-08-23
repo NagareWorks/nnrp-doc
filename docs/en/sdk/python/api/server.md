@@ -108,6 +108,7 @@ exposes these application-facing methods:
 | Method | Message |
 |---|---|
 | `send_backpressure(metadata)`, `send_credit_update(metadata)` | pressure messages |
+| `negotiate_capabilities(metadata, body=b"")`, `degrade_profile(...)` | capability messages |
 | `send_trace_context(metadata, body=b"", *, operation_id=None)` | `TRACE_CONTEXT`; `None` is session scope, otherwise resolves the active operation frame |
 | `send_recoverable_error(metadata, diagnostic=b"")`, `send_retry_after(...)` | recovery messages |
 | `declare_object`, `reference_object`, `release_object` | object lifecycle messages |
